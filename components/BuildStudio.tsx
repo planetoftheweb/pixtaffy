@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import {
   X, Plus, Trash2, Play, Pause, Repeat, ArrowUp, ArrowDown,
   Film, Eye, Pencil, Loader2, Sparkles, Maximize, Minimize,
-  ChevronLeft, ChevronRight, Square, PenTool, Brush,
+  ChevronLeft, ChevronRight, Square, PenTool, Brush, Eraser, Ruler,
+  type LucideIcon,
 } from 'lucide-react';
 import type {
   Generation, GenerationVersion, ImageBuild, BuildStep, BuildPoint,
@@ -15,7 +16,7 @@ import {
   renderFrame, totalDurationMs, stepStartTimes, stepStopTimes,
   effectiveDurationMs, prepareStepLayers, defaultBuild,
 } from '../services/buildAnimator';
-import { loadBuild, saveBuild } from '../services/buildStore';
+import { loadBuildSync, loadRemoteBuild, saveLocalBuild, saveBuild } from '../services/buildStore';
 
 type BuildTool = 'freeform' | 'rectangle' | 'brush';
 
@@ -23,6 +24,10 @@ interface BuildStudioProps {
   generation: Generation;
   version: GenerationVersion;
   onClose: () => void;
+  /** Signed-in user id, if any — enables Firestore-backed sync so a build
+   * survives beyond this browser's localStorage (cleared storage, a
+   * different device, etc). Guests get local-only persistence. */
+  userId?: string;
 }
 
 const MAX_RENDER_W = 1600; // cap on-screen canvas resolution for smooth playback
@@ -154,13 +159,38 @@ const ZOOMFROM_OPTIONS = [
   { value: 'center', label: 'From center' },
 ];
 
-export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, onClose }) => {
+/** A single icon button for the floating Photoshop-style tool bar, with a
+ * hover tooltip below (the bar itself docks to the top of the canvas). */
+const ToolBarButton: React.FC<{
+  icon: LucideIcon;
+  active?: boolean;
+  onClick: () => void;
+  label: string;
+  activeClassName?: string;
+}> = ({ icon: Icon, active, onClick, label, activeClassName }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={label}
+    aria-pressed={active}
+    className={`group/tb relative w-8 h-8 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
+      active ? activeClassName || 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+    }`}
+  >
+    <Icon size={16} />
+    <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tb:opacity-100 transition-opacity z-30">
+      {label}
+    </span>
+  </button>
+);
+
+export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, onClose, userId }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imgDims, setImgDims] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [build, setBuild] = useState<ImageBuild>(
-    () => loadBuild(generation.id, version.id) || defaultBuild()
+    () => loadBuildSync(generation.id, version.id) || defaultBuild()
   );
   const [mode, setMode] = useState<'edit' | 'play'>('edit');
   const [playing, setPlaying] = useState(false);
@@ -182,7 +212,10 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   const [tool, setTool] = useState<BuildTool>('freeform');
   const [op, setOp] = useState<'add' | 'sub'>('add');
   const [brushRadius, setBrushRadius] = useState(0.03); // fraction of min image side
-  const [straightLine, setStraightLine] = useState(false);
+  const [straightLine, setStraightLine] = useState(true);
+  const [altHeld, setAltHeld] = useState(false); // for render-time hints only; gestures read e.altKey directly
+  const isCurveGestureRef = useRef(false); // true while the current freeform drag is a curvy (non-vertex-click) trace
+  const freshShapeRef = useRef(false); // true if that curvy drag started a brand-new shape (vs. continuing one)
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stopIndex, setStopIndex] = useState(0);
   const timeMsRef = useRef(0);
@@ -221,10 +254,42 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
     };
   }, [generation.id, version.id]);
 
-  // --- Persist the build (debounced-ish: on every change) -----------------
+  // --- Recover a build from Firestore on a fresh browser/device ------------
+  // Only checks Firestore when the LOCAL cache came up empty on mount (a
+  // different device/browser, or local storage having been cleared) — if
+  // local already had something, we trust it and skip the network round-trip.
+  //
+  // `hasHydrated` gates the PERSIST effect below: without it, that effect's
+  // first fire (with the still-empty initial `build`) can race ahead of this
+  // async fetch and win, overwriting a perfectly good remote copy with an
+  // empty one. Persistence only starts once we know for certain whether
+  // there's a remote copy to adopt.
+  const [hasHydrated, setHasHydrated] = useState(() => build.steps.length > 0 || !userId);
   useEffect(() => {
-    saveBuild(generation.id, version.id, build);
-  }, [build, generation.id, version.id]);
+    if (hasHydrated) return;
+    let cancelled = false;
+    loadRemoteBuild(userId!, generation.id, version.id)
+      .then((remote) => {
+        if (cancelled || !remote || remote.steps.length === 0) return;
+        saveLocalBuild(generation.id, version.id, remote); // warm the local cache
+        setBuild(remote);
+      })
+      .catch((err) => console.warn('[BuildStudio] Failed to check for a cloud-saved build:', err))
+      .finally(() => { if (!cancelled) setHasHydrated(true); });
+    return () => { cancelled = true; };
+    // Deliberately mount-only: this instance's local/hydration snapshot was
+    // taken once at mount; re-running on every `build`/`hasHydrated` change
+    // would just refetch pointlessly (or reintroduce the race above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generation.id, version.id, userId]);
+
+  // --- Persist the build (debounced-ish: on every change) -----------------
+  // Gated on `hasHydrated` so we never write the still-empty initial state
+  // over a real remote copy before the recovery check above has resolved.
+  useEffect(() => {
+    if (!hasHydrated) return;
+    saveBuild(userId, generation.id, version.id, build);
+  }, [build, generation.id, version.id, userId, hasHydrated]);
 
   // --- Fit the stage to the available area --------------------------------
   useLayoutEffect(() => {
@@ -363,9 +428,17 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
     if (pts.length < 1) return;
     addShape({ kind: 'brush', op, points: pts, radius: brushRadius });
   };
-  const cancelDraft = () => { setDraft(null); setRectDrag(null); setHoverPt(null); };
+  const cancelDraft = () => {
+    setDraft(null);
+    setRectDrag(null);
+    setHoverPt(null);
+    isCurveGestureRef.current = false;
+  };
 
-  const usesStraightLine = tool === 'freeform' && straightLine;
+  // Render-time hint of what a click would do right now (straight vertex vs.
+  // curvy trace) — actual gesture decisions always read the live e.altKey
+  // instead of this, since that can't go stale mid-drag.
+  const usesStraightLine = tool === 'freeform' && straightLine !== altHeld;
 
   const onStagePointerDown = (e: React.PointerEvent) => {
     if (mode !== 'edit') return;
@@ -375,14 +448,27 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       setRectDrag({ x0: p.x, y0: p.y, x1: p.x, y1: p.y });
       return;
     }
-    if (usesStraightLine) {
-      // Click to place vertices; double-click / Enter closes the shape.
+    if (tool === 'brush') {
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      setDraft([p]);
+      return;
+    }
+    // Freeform: Option/Alt held INVERTS the current straight/curvy mode for
+    // just this one click-or-drag — hold it mid-polygon to trace a smooth
+    // "tough spot", or hold it from the very first click to get the classic
+    // single-drag freeform lasso even when straight lines is the default.
+    const wantStraight = straightLine !== e.altKey;
+    if (wantStraight) {
+      isCurveGestureRef.current = false;
+      // Click to place a vertex; double-click / Enter closes the shape.
       setDraft((pts) => (pts ? [...pts, p] : [p]));
       return;
     }
-    // Freehand lasso or brush: drag to draw.
+    isCurveGestureRef.current = true;
+    freshShapeRef.current = !draft || draft.length === 0;
+    setHoverPt(null);
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    setDraft([p]);
+    setDraft((pts) => (pts ? [...pts, p] : [p]));
   };
   const onStagePointerMove = (e: React.PointerEvent) => {
     const p = normFromEvent(e);
@@ -391,18 +477,27 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       setRectDrag((d) => (d ? { ...d, x1: p.x, y1: p.y } : d));
       return;
     }
-    if (usesStraightLine) {
-      if (draft) setHoverPt(p); // rubber-band preview to the cursor
+    if (tool === 'brush') {
+      if (!draft) return;
+      setDraft((pts) => {
+        if (!pts) return pts;
+        const last = pts[pts.length - 1];
+        if (Math.hypot(p.x - last.x, p.y - last.y) < 0.004) return pts;
+        return [...pts, p];
+      });
       return;
     }
-    if (!draft) return;
-    const threshold = tool === 'brush' ? 0.004 : 0.008;
-    setDraft((pts) => {
-      if (!pts) return pts;
-      const last = pts[pts.length - 1];
-      if (Math.hypot(p.x - last.x, p.y - last.y) < threshold) return pts;
-      return [...pts, p];
-    });
+    // Freeform.
+    if (isCurveGestureRef.current) {
+      setDraft((pts) => {
+        if (!pts) return pts;
+        const last = pts[pts.length - 1];
+        if (Math.hypot(p.x - last.x, p.y - last.y) < 0.008) return pts;
+        return [...pts, p];
+      });
+      return;
+    }
+    if (draft) setHoverPt(p); // rubber-band preview to the cursor while placing vertices
   };
   const onStagePointerUp = () => {
     if (tool === 'rectangle') {
@@ -414,15 +509,32 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       finishPoly([{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }]);
       return;
     }
-    if (usesStraightLine) return; // vertices commit on down; finish via dbl-click/Enter
-    if (!draft) return;
-    const pts = draft;
-    setDraft(null);
-    if (tool === 'brush') finishBrush(pts);
-    else finishPoly(pts);
+    if (tool === 'brush') {
+      if (!draft) return;
+      const pts = draft;
+      setDraft(null);
+      finishBrush(pts);
+      return;
+    }
+    // Freeform.
+    if (isCurveGestureRef.current) {
+      isCurveGestureRef.current = false;
+      if (freshShapeRef.current) {
+        // Started fresh as a curvy drag (classic single-shot lasso) — finish now.
+        if (!draft) return;
+        const pts = draft;
+        setDraft(null);
+        finishPoly(pts);
+      }
+      // Otherwise this was just a curvy segment mid-polygon: stop tracing but
+      // leave the shape open — more clicks/drags can follow, closed via
+      // double-click or Enter.
+      return;
+    }
+    // Straight-vertex mode: vertices commit on pointerdown; nothing to do here.
   };
   const onStageDoubleClick = () => {
-    if (usesStraightLine && draft) {
+    if (tool === 'freeform' && draft) {
       const pts = draft;
       setDraft(null);
       setHoverPt(null);
@@ -445,7 +557,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         if (e.key === '[') { e.preventDefault(); setBrushRadius((r) => Math.max(0.005, r - 0.006)); }
         else if (e.key === ']') { e.preventDefault(); setBrushRadius((r) => Math.min(0.25, r + 0.006)); }
         else if ((e.key === 'l' || e.key === 'L') && tool === 'freeform') { e.preventDefault(); setStraightLine((s) => !s); }
-        else if (e.key === 'Enter' && usesStraightLine && draft) { e.preventDefault(); onStageDoubleClick(); }
+        else if (e.key === 'Enter' && tool === 'freeform' && draft) { e.preventDefault(); onStageDoubleClick(); }
         return;
       }
       // Play mode.
@@ -464,7 +576,24 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
     };
     window.addEventListener('keydown', onKey, { capture: true });
     return () => window.removeEventListener('keydown', onKey, { capture: true });
-  }, [onClose, cleanMode, mode, build.autoPlay, stops.length, tool, straightLine, draft, rectDrag, usesStraightLine]);
+  }, [onClose, cleanMode, mode, build.autoPlay, stops.length, tool, straightLine, draft, rectDrag]);
+
+  // Track Option/Alt purely for render-time hints (cursor/hint text) — the
+  // actual gesture logic above reads the live PointerEvent.altKey instead,
+  // since that can't desync from focus loss the way a keydown/keyup pair can.
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => { if (e.key === 'Alt') setAltHeld(true); };
+    const onUp = (e: KeyboardEvent) => { if (e.key === 'Alt') setAltHeld(false); };
+    const onBlur = () => setAltHeld(false);
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
 
   // --- Step list mutations ------------------------------------------------
   const updateStep = (id: string, patch: Partial<BuildStep>) =>
@@ -601,11 +730,17 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                       onPointerUp={onStagePointerUp}
                       onDoubleClick={onStageDoubleClick}
                     >
+                      {/* Existing shapes are display-only here — never intercept
+                          pointer events. Otherwise starting a new draw on top
+                          of (or even just near, once filled) an existing shape
+                          would select that old step instead of drawing a new
+                          one. Selecting an item happens via its numbered badge
+                          (below) or the sidebar list instead. */}
                       {build.steps.map((s) => {
                         const sel = s.id === selectedStepId;
                         const strokeCls = sel ? 'stroke-brand-teal' : 'stroke-brand-red';
                         return (
-                          <g key={s.id} onPointerDown={(e) => { e.stopPropagation(); setSelectedStepId(s.id); }}>
+                          <g key={s.id} className="pointer-events-none">
                             {s.shapes.map((sh, si) => {
                               const sub = sh.op === 'sub';
                               const common = {
@@ -669,19 +804,59 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                         />
                       )}
                     </svg>
+                    {/* Floating Photoshop-style tool + options bar, docked to
+                        the top of the canvas. Renders after the svg so it
+                        paints on top and its own clicks never fall through to
+                        the drawing layer underneath. */}
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-0.5 px-1.5 py-1.5 rounded-xl bg-[#161b22]/95 border border-white/10 shadow-xl backdrop-blur-sm">
+                      <ToolBarButton icon={PenTool} active={tool === 'freeform'} onClick={() => setTool('freeform')} label="Freeform selection" />
+                      <ToolBarButton icon={Square} active={tool === 'rectangle'} onClick={() => setTool('rectangle')} label="Rectangle selection" />
+                      <ToolBarButton icon={Brush} active={tool === 'brush'} onClick={() => setTool('brush')} label="Brush selection" />
+
+                      <div className="w-px h-6 bg-white/10 mx-1" />
+
+                      <ToolBarButton icon={Plus} active={op === 'add'} onClick={() => setOp('add')} label={selectedStepId ? 'Add to selected item' : 'Add — starts a new item'} activeClassName="bg-brand-teal text-white" />
+                      <ToolBarButton icon={Eraser} active={op === 'sub'} onClick={() => setOp('sub')} label="Erase from selected item" activeClassName="bg-brand-red text-white" />
+
+                      {tool === 'freeform' && (
+                        <>
+                          <div className="w-px h-6 bg-white/10 mx-1" />
+                          <ToolBarButton icon={Ruler} active={straightLine} onClick={() => setStraightLine((s) => !s)} label="Straight lines (L) · hold Alt/Option to draw freehand" />
+                        </>
+                      )}
+
+                      {tool === 'brush' && (
+                        <>
+                          <div className="w-px h-6 bg-white/10 mx-1" />
+                          <div className="flex items-center gap-1.5 pl-1 pr-2">
+                            <Brush size={13} className="text-slate-400 shrink-0" />
+                            <input
+                              type="range" min={0.005} max={0.25} step={0.005}
+                              value={brushRadius}
+                              onChange={(e) => setBrushRadius(Number(e.target.value))}
+                              title={`Brush size: ${Math.round(brushRadius * 100)}% ( [ / ] )`}
+                              className="w-16 accent-brand-teal"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
                     {/* Step number badges at each region's centroid. */}
                     {build.steps.map((s, i) => {
                       const addPts = s.shapes.filter((sh) => sh.op === 'add').flatMap((sh) => sh.points);
                       const c = addPts.length ? centroidOf(addPts) : { x: 0.5, y: 0.5 };
                       const sel = s.id === selectedStepId;
                       return (
-                        <span
+                        <button
                           key={s.id}
-                          className={`absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center pointer-events-none ${sel ? 'bg-brand-teal' : 'bg-brand-red'}`}
+                          type="button"
+                          onClick={() => setSelectedStepId((cur) => (cur === s.id ? null : s.id))}
+                          title={sel ? 'Selected — click to deselect' : 'Select this item to add/erase shapes'}
+                          className={`absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center ring-2 ring-transparent hover:ring-white/60 ${sel ? 'bg-brand-teal' : 'bg-brand-red'}`}
                           style={{ left: `${c.x * 100}%`, top: `${c.y * 100}%` }}
                         >
                           {i + 1}
-                        </span>
+                        </button>
                       );
                     })}
                     {build.steps.length === 0 && !draft && !rectDrag && (
@@ -693,8 +868,8 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                             : tool === 'brush'
                               ? 'Paint over your first item'
                               : usesStraightLine
-                                ? 'Click to place corners; double-click to close'
-                                : 'Draw a shape around your first item'}
+                                ? 'Click to place corners (double-click to close) — hold Alt/Option to draw freehand'
+                                : 'Drag to draw freehand — hold Alt/Option for straight corners'}
                         </span>
                       </div>
                     )}
@@ -789,42 +964,6 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         {/* Sidebar (edit mode) */}
         {mode === 'edit' && !cleanMode && (
           <div className="w-72 shrink-0 border-l border-[#30363d] flex flex-col">
-            <div className="p-3 border-b border-[#30363d]">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Selection tool</h3>
-              <div className="inline-flex rounded-lg border border-[#30363d] overflow-hidden w-full mb-2">
-                <button onClick={() => setTool('freeform')} className={`flex-1 inline-flex items-center justify-center gap-1 px-1.5 py-1.5 text-xs font-semibold ${tool === 'freeform' ? 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-[#21262d]'}`}>
-                  <PenTool size={13} /> Freeform
-                </button>
-                <button onClick={() => setTool('rectangle')} className={`flex-1 inline-flex items-center justify-center gap-1 px-1.5 py-1.5 text-xs font-semibold ${tool === 'rectangle' ? 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-[#21262d]'}`}>
-                  <Square size={13} /> Rect
-                </button>
-                <button onClick={() => setTool('brush')} className={`flex-1 inline-flex items-center justify-center gap-1 px-1.5 py-1.5 text-xs font-semibold ${tool === 'brush' ? 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-[#21262d]'}`}>
-                  <Brush size={13} /> Brush
-                </button>
-              </div>
-              {/* Add / erase from the selected shape */}
-              <div className="flex items-center gap-2 mb-2">
-                <div className="inline-flex rounded-lg border border-[#30363d] overflow-hidden">
-                  <button onClick={() => setOp('add')} className={`px-2.5 py-1 text-xs font-semibold ${op === 'add' ? 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-[#21262d]'}`}>Add</button>
-                  <button onClick={() => setOp('sub')} className={`px-2.5 py-1 text-xs font-semibold ${op === 'sub' ? 'bg-brand-red text-white' : 'text-slate-300 hover:bg-[#21262d]'}`}>Erase</button>
-                </div>
-                <span className="text-[11px] text-slate-500">
-                  {selectedStepId ? 'to the selected item' : 'starts a new item'}
-                </span>
-              </div>
-              {tool === 'brush' && (
-                <label className="block text-xs text-slate-400 mb-1">
-                  Brush size: {Math.round(brushRadius * 100)}%  <span className="text-slate-600">( [ / ] )</span>
-                  <input type="range" min={0.005} max={0.25} step={0.005} value={brushRadius} onChange={(e) => setBrushRadius(Number(e.target.value))} className="w-full accent-brand-teal" />
-                </label>
-              )}
-              {tool === 'freeform' && (
-                <label className="flex items-center gap-2 text-xs text-slate-300">
-                  <input type="checkbox" checked={straightLine} onChange={(e) => setStraightLine(e.target.checked)} className="accent-brand-teal" />
-                  Straight lines <span className="text-slate-600">(press L)</span>
-                </label>
-              )}
-            </div>
             <div className="p-3 border-b border-[#30363d]">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Reveal settings</h3>
               <div className="space-y-2">

@@ -977,6 +977,12 @@ const App: React.FC = () => {
     if (!isStudioRoute) return;
     const onWheel = (e: WheelEvent) => {
       if (window.scrollY > 8) return; // only act at the very top
+      // Don't collapse the toolbar when the wheel is over the toolbar itself or
+      // one of its open dropdown panels — the user is scrolling a menu, not the
+      // page. Without this, scrolling a long dropdown hides the toolbar and
+      // closes the menu.
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('[data-toolbar-region]')) return;
       if (isToolbarCollapsed && e.deltaY < 0) {
         toolbarUserPinnedRef.current = 'expanded';
         toolbarAutoUndockEnabledRef.current = true;
@@ -3956,6 +3962,7 @@ const App: React.FC = () => {
             generation={buildStudioTarget.generation}
             version={buildStudioTarget.version}
             onClose={() => setBuildStudioTarget(null)}
+            userId={user?.id}
           />
         </Suspense>
       )}

@@ -84,6 +84,15 @@ service cloud.firestore {
         allow update: if isOwner(uid) || isAdmin();
         allow delete: if isOwner(uid) || isAdmin();
       }
+
+      // Build Studio reveal animations, keyed by `${generationId}|${versionId}`
+      // (see services/buildStore.ts) — owner-private; admins override.
+      match /builds/{buildId} {
+        allow read:   if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid) || isAdmin();
+        allow update: if isOwner(uid) || isAdmin();
+        allow delete: if isOwner(uid) || isAdmin();
+      }
     }
 
     // ---- Collection-group rule for admin usage-stats dashboard ----------

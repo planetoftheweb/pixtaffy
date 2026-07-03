@@ -1877,6 +1877,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             : 'p-4 bg-white/95 dark:bg-[#0d1117]/95 backdrop-blur-md border-b border-gray-200 dark:border-[#30363d]'
         }`}
         ref={containerRef}
+        data-toolbar-region
       >
         <div className={`max-w-[96rem] mx-auto flex flex-col ${isOptionsCollapsed ? 'gap-0' : 'gap-4'}`}>
 

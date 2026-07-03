@@ -1,9 +1,21 @@
-// Local persistence for image "builds" (reveal animations). Stored in
-// localStorage keyed by generationId|versionId so a build survives reloads and
-// can be re-edited. Local-only by design for v1 (no Firestore schema churn);
-// the payload is tiny JSON (a handful of normalized rects + settings).
+// Local + cloud persistence for image "builds" (reveal animations).
+//
+// Local: localStorage, keyed by `${generationId}|${versionId}` (same scheme as
+// the IndexedDB image cache — see buildImageCacheKey in services/imageCache.ts).
+// Always written first and synchronously, so an edit is never lost to a slow
+// or blocked network — mirrors the VPN-safety "cache before upload" invariant
+// documented in CLAUDE.md for images.
+//
+// Cloud (signed-in users only): Firestore at `users/{uid}/builds/{buildId}`,
+// where `buildId` is that SAME `${generationId}|${versionId}` key. Using the
+// app's own stable generation/version ids — rather than Firestore's own
+// internal document id for the parent history entry — means a build doesn't
+// depend on how/where the generation itself is stored, and matches the
+// identity scheme already used elsewhere in this codebase.
 
-import type { ImageBuild, BuildStep, BuildPoint, BuildShape } from '../types';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db } from './firebase';
+import type { ImageBuild } from '../types';
 import { defaultBuild } from './buildAnimator';
 
 const STORAGE_KEY = 'brandoit.builds.v1';
@@ -16,7 +28,7 @@ const keyFor = (generationId: string, versionId: string): string =>
 
 type BuildMap = Record<string, ImageBuild>;
 
-const readAll = (): BuildMap => {
+const readAllLocal = (): BuildMap => {
   if (!isBrowser()) return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -28,21 +40,22 @@ const readAll = (): BuildMap => {
   }
 };
 
-const writeAll = (map: BuildMap): void => {
+const writeAllLocal = (map: BuildMap): void => {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch (err) {
-    // Quota or serialization failure — non-fatal; the build just won't persist.
-    console.warn('[buildStore] failed to persist build:', err);
+    // Quota or serialization failure — non-fatal; the build just won't persist
+    // locally. If the user is signed in, the Firestore write (called
+    // separately by `saveBuild`) still has a chance to succeed.
+    console.warn('[buildStore] failed to persist build locally:', err);
   }
 };
 
-const isPoint = (p: unknown): p is BuildPoint =>
-  !!p && typeof (p as BuildPoint).x === 'number' && typeof (p as BuildPoint).y === 'number';
+const isPoint = (p: unknown): p is { x: number; y: number } =>
+  !!p && typeof (p as { x?: unknown }).x === 'number' && typeof (p as { y?: unknown }).y === 'number';
 
-/** Coerce a stored step into a polygon step (converting legacy rect steps). */
-const normalizeShape = (raw: unknown): BuildShape | null => {
+const normalizeShape = (raw: unknown): ImageBuild['steps'][number]['shapes'][number] | null => {
   if (!raw || typeof raw !== 'object') return null;
   const s = raw as { kind?: unknown; op?: unknown; points?: unknown; radius?: unknown };
   const op: 'add' | 'sub' = s.op === 'sub' ? 'sub' : 'add';
@@ -52,12 +65,11 @@ const normalizeShape = (raw: unknown): BuildShape | null => {
     const radius = typeof s.radius === 'number' && s.radius > 0 ? s.radius : 0.03;
     return { kind: 'brush', op, points, radius };
   }
-  // Default to polygon.
   if (points.length < 3) return null;
   return { kind: 'poly', op, points };
 };
 
-const normalizeStep = (raw: unknown): BuildStep | null => {
+const normalizeStep = (raw: unknown): ImageBuild['steps'][number] | null => {
   if (!raw || typeof raw !== 'object') return null;
   const s = raw as {
     id?: unknown;
@@ -69,13 +81,13 @@ const normalizeStep = (raw: unknown): BuildStep | null => {
   };
   const id = typeof s.id === 'string' ? s.id : null;
   if (!id) return null;
-  const extra: Pick<BuildStep, 'durationMs' | 'zoomFrom'> = {};
+  const extra: Pick<ImageBuild['steps'][number], 'durationMs' | 'zoomFrom'> = {};
   if (typeof s.durationMs === 'number') extra.durationMs = s.durationMs;
   if (s.zoomFrom === 'smart' || s.zoomFrom === 'center') extra.zoomFrom = s.zoomFrom;
 
   // Current format: shapes[].
   if (Array.isArray(s.shapes)) {
-    const shapes = s.shapes.map(normalizeShape).filter((x): x is BuildShape => x !== null);
+    const shapes = s.shapes.map(normalizeShape).filter((x): x is ImageBuild['steps'][number]['shapes'][number] => x !== null);
     if (shapes.length) return { id, shapes, ...extra };
     return null;
   }
@@ -107,7 +119,7 @@ const normalize = (value: unknown): ImageBuild => {
   if (!value || typeof value !== 'object') return base;
   const v = value as Partial<ImageBuild>;
   const steps = Array.isArray(v.steps)
-    ? v.steps.map(normalizeStep).filter((s): s is BuildStep => s !== null)
+    ? v.steps.map(normalizeStep).filter((s): s is ImageBuild['steps'][number] => s !== null)
     : [];
   return {
     ...base,
@@ -116,27 +128,109 @@ const normalize = (value: unknown): ImageBuild => {
   } as ImageBuild;
 };
 
-export const loadBuild = (generationId: string, versionId: string): ImageBuild | null => {
-  const all = readAll();
+// --- Local (synchronous) ---------------------------------------------------
+
+export const loadLocalBuild = (generationId: string, versionId: string): ImageBuild | null => {
+  const all = readAllLocal();
   const found = all[keyFor(generationId, versionId)];
   return found ? normalize(found) : null;
 };
 
+export const saveLocalBuild = (generationId: string, versionId: string, build: ImageBuild): void => {
+  const all = readAllLocal();
+  all[keyFor(generationId, versionId)] = build;
+  writeAllLocal(all);
+};
+
+export const deleteLocalBuild = (generationId: string, versionId: string): void => {
+  const all = readAllLocal();
+  delete all[keyFor(generationId, versionId)];
+  writeAllLocal(all);
+};
+
+// --- Cloud (Firestore, signed-in users only) --------------------------------
+
+const buildDocRef = (userId: string, generationId: string, versionId: string) =>
+  doc(db, 'users', userId, 'builds', keyFor(generationId, versionId));
+
+export const loadRemoteBuild = async (
+  userId: string,
+  generationId: string,
+  versionId: string
+): Promise<ImageBuild | null> => {
+  try {
+    const snap = await getDoc(buildDocRef(userId, generationId, versionId));
+    if (!snap.exists()) return null;
+    return normalize(snap.data());
+  } catch (err) {
+    console.warn('[buildStore] Failed to load build from Firestore:', err);
+    return null;
+  }
+};
+
+export const saveRemoteBuild = async (
+  userId: string,
+  generationId: string,
+  versionId: string,
+  build: ImageBuild
+): Promise<void> => {
+  await setDoc(buildDocRef(userId, generationId, versionId), {
+    ...build,
+    updatedAt: Date.now(),
+  });
+};
+
+export const deleteRemoteBuild = async (
+  userId: string,
+  generationId: string,
+  versionId: string
+): Promise<void> => {
+  await deleteDoc(buildDocRef(userId, generationId, versionId));
+};
+
+// --- Combined public API -----------------------------------------------------
+
+/**
+ * Synchronous, local-only load — for the initial paint (no network wait,
+ * works offline and for guests). `BuildStudio` also fires an async
+ * `loadRemoteBuild` check afterward (only when this returns null) to recover
+ * a build saved from a different browser/device, or after local storage was
+ * cleared.
+ */
+export const loadBuildSync = loadLocalBuild;
+
+/**
+ * Save: the local cache is written synchronously FIRST (so the edit survives
+ * even if the network is down or blocked), then — for signed-in users —
+ * mirrored to Firestore in the background. Fire-and-forget by design; a
+ * failed remote write is logged but doesn't block or roll back the local one.
+ */
 export const saveBuild = (
+  userId: string | null | undefined,
   generationId: string,
   versionId: string,
   build: ImageBuild
 ): void => {
-  const all = readAll();
-  all[keyFor(generationId, versionId)] = build;
-  writeAll(all);
+  saveLocalBuild(generationId, versionId, build);
+  if (userId) {
+    void saveRemoteBuild(userId, generationId, versionId, build).catch((err) => {
+      console.warn('[buildStore] Failed to save build to Firestore (kept locally):', err);
+    });
+  }
 };
 
-export const deleteBuild = (generationId: string, versionId: string): void => {
-  const all = readAll();
-  delete all[keyFor(generationId, versionId)];
-  writeAll(all);
+export const deleteBuild = (
+  userId: string | null | undefined,
+  generationId: string,
+  versionId: string
+): void => {
+  deleteLocalBuild(generationId, versionId);
+  if (userId) {
+    void deleteRemoteBuild(userId, generationId, versionId).catch((err) => {
+      console.warn('[buildStore] Failed to delete build from Firestore:', err);
+    });
+  }
 };
 
 export const hasBuild = (generationId: string, versionId: string): boolean =>
-  !!readAll()[keyFor(generationId, versionId)];
+  !!loadLocalBuild(generationId, versionId);
