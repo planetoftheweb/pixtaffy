@@ -810,6 +810,7 @@ const App: React.FC = () => {
           ? MODEL_NAME_BY_ID[preset.selectedModel] || preset.selectedModel
           : undefined,
         quality: preset.openaiImageQuality,
+        instructions: preset.customInstructions,
       };
     },
     [brandColors, visualStyles, graphicTypes, aspectRatios]
@@ -1249,6 +1250,8 @@ const App: React.FC = () => {
     const modelAspectRatios = getAspectRatiosForModel(selectedModel, context.aspectRatios);
     const aspectLabel = modelAspectRatios.find(a => a.value === currentConfig.aspectRatio)?.label || currentConfig.aspectRatio;
 
+    const instructions = currentConfig.customInstructions?.trim() || '';
+
     const expanded = [
       `Generate a ${typeLabel}`,
       aspectLabel ? `at ${aspectLabel} aspect ratio` : '',
@@ -1263,7 +1266,8 @@ const App: React.FC = () => {
       `Type: ${typeLabel}`,
       styleLabel ? `Style: ${styleLabel}${styleDesc}` : '',
       colorsLabel ? `Colors: ${colorsLabel}` : '',
-      aspectLabel ? `Size: ${aspectLabel}` : ''
+      aspectLabel ? `Size: ${aspectLabel}` : '',
+      instructions ? `Additional art direction: ${instructions}` : ''
     ].filter(Boolean).join('\n');
   };
 
@@ -2825,8 +2829,9 @@ const App: React.FC = () => {
   // A preset captures a snapshot of the most-tweaked toolbar fields so users
   // can recall a frequently-used combination in one click. Persisted on the
   // user document under preferences.presets via presetService.
-  const handleSavePreset = async (name: string) => {
+  const handleSavePreset = async (name: string, customInstructions?: string) => {
     if (!user) throw new Error('Sign in to save presets.');
+    const instructions = (customInstructions ?? config.customInstructions)?.trim();
     const snapshot: Omit<ToolbarPreset, 'id' | 'name' | 'createdAt'> = {
       graphicTypeId: config.graphicTypeId || undefined,
       visualStyleId: config.visualStyleId || undefined,
@@ -2834,10 +2839,16 @@ const App: React.FC = () => {
       aspectRatio: config.aspectRatio || undefined,
       svgMode: config.svgMode,
       selectedModel,
-      openaiImageQuality: user.preferences.settings?.openaiImageQuality
+      openaiImageQuality: user.preferences.settings?.openaiImageQuality,
+      customInstructions: instructions || undefined
     };
     const { presets } = await presetService.savePreset(user, name, snapshot);
     setUser(prev => prev ? { ...prev, preferences: { ...prev.preferences, presets } } : prev);
+    // The instructions the user just typed become the active art direction —
+    // saving a preset shouldn't require re-applying it to take effect.
+    if (instructions !== (config.customInstructions?.trim() || undefined)) {
+      setConfig(prev => ({ ...prev, customInstructions: instructions || undefined }));
+    }
   };
 
   const handleApplyPreset = (preset: ToolbarPreset) => {
@@ -2855,6 +2866,11 @@ const App: React.FC = () => {
         next.aspectRatio = getSafeAspectRatioForModel(targetModel, preset.aspectRatio, aspectRatios);
       }
       if (preset.svgMode) next.svgMode = preset.svgMode;
+      if (preset.customInstructions?.trim()) {
+        // Free-text art direction rides along with the preset. Visible (and
+        // clearable) in the Presets menu so it never steers silently.
+        next.customInstructions = preset.customInstructions.trim();
+      }
       return next;
     });
 
@@ -2867,6 +2883,20 @@ const App: React.FC = () => {
 
     if (preset.openaiImageQuality && user) {
       handleOpenAIQualityChange(preset.openaiImageQuality);
+    }
+  };
+
+  // Edit a preset's art direction in place (⋯ menu). If the preset's old
+  // instructions are the currently ACTIVE ones, swap the active copy too so
+  // the next generation uses the edit without re-applying the preset.
+  const handleEditPresetInstructions = async (presetId: string, instructions: string) => {
+    if (!user) throw new Error('Sign in to edit presets.');
+    const prev = user.preferences.presets?.find(p => p.id === presetId)?.customInstructions?.trim();
+    const value = instructions.trim() || undefined;
+    const presets = await presetService.updatePreset(user, presetId, { customInstructions: value });
+    setUser(u => u ? { ...u, preferences: { ...u.preferences, presets } } : u);
+    if (prev && config.customInstructions?.trim() === prev) {
+      setConfig(c => ({ ...c, customInstructions: value }));
     }
   };
 
@@ -2889,13 +2919,15 @@ const App: React.FC = () => {
       aspectRatio: config.aspectRatio || undefined,
       svgMode: config.svgMode,
       selectedModel,
-      openaiImageQuality: user.preferences.settings?.openaiImageQuality
+      openaiImageQuality: user.preferences.settings?.openaiImageQuality,
+      customInstructions: config.customInstructions?.trim() || undefined
     };
     const presets = await presetService.updatePreset(user, presetId, snapshot);
     setUser(prev => prev ? { ...prev, preferences: { ...prev.preferences, presets } } : prev);
   };
 
   const buildToolbarPresetSnapshot = useCallback((): ToolbarPresetSnapshot => ({
+    customInstructions: config.customInstructions?.trim() || undefined,
     graphicTypeId: config.graphicTypeId || undefined,
     visualStyleId: config.visualStyleId || undefined,
     colorSchemeId: config.colorSchemeId || undefined,
@@ -2904,6 +2936,7 @@ const App: React.FC = () => {
     selectedModel,
     openaiImageQuality: user?.preferences.settings?.openaiImageQuality,
   }), [
+    config.customInstructions,
     config.graphicTypeId,
     config.visualStyleId,
     config.colorSchemeId,
@@ -3009,6 +3042,21 @@ const App: React.FC = () => {
       return;
     }
     await handleRenamePreset(presetId, trimmed);
+  };
+
+  const handleGalleryEditPresetInstructions = async (presetId: string, instructions: string) => {
+    if (galleryPresetSource === 'folder') {
+      const nextFolders = await folderService.updateFolderPreset(
+        user || null,
+        folders,
+        galleryViewFolderId,
+        presetId,
+        { customInstructions: instructions.trim() || undefined }
+      );
+      syncFoldersToUser(nextFolders);
+      return;
+    }
+    await handleEditPresetInstructions(presetId, instructions);
   };
 
   const handleGalleryDeletePreset = async (presetId: string) => {
@@ -3599,6 +3647,7 @@ const App: React.FC = () => {
             onSavePreset={user ? handleSavePreset : undefined}
             onUpdatePreset={user ? handleUpdatePreset : undefined}
             onRenamePreset={user ? handleRenamePreset : undefined}
+            onEditPresetInstructions={user ? handleEditPresetInstructions : undefined}
             onDeletePreset={user ? handleDeletePreset : undefined}
             getPresetLabels={getPresetLabels}
             isOptionsCollapsed={isToolbarCollapsed}
@@ -3999,6 +4048,9 @@ const App: React.FC = () => {
               }
               onDeleteGalleryPreset={
                 galleryPresetSource === 'folder' || user ? handleGalleryDeletePreset : undefined
+              }
+              onEditGalleryPresetInstructions={
+                galleryPresetSource === 'folder' || user ? handleGalleryEditPresetInstructions : undefined
               }
               getPresetLabels={getPresetLabels}
               galleryFolderName={galleryViewFolder?.name}

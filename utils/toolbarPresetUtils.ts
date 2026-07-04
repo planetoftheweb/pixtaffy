@@ -23,7 +23,9 @@ export const presetToolbarDiffersFromSnapshot = (
     preset.svgMode !== current.svgMode ||
     (preset.selectedModel || undefined) !== (current.selectedModel || undefined) ||
     normalizeOpenAIImageQuality(preset.openaiImageQuality) !==
-      normalizeOpenAIImageQuality(current.openaiImageQuality)
+      normalizeOpenAIImageQuality(current.openaiImageQuality) ||
+    (preset.customInstructions?.trim() || undefined) !==
+      (current.customInstructions?.trim() || undefined)
   );
 };
 
@@ -45,6 +47,9 @@ export const sanitizeToolbarPreset = (raw: unknown): ToolbarPreset | null => {
   if (p.svgMode) preset.svgMode = p.svgMode;
   if (p.selectedModel) preset.selectedModel = p.selectedModel;
   if (p.openaiImageQuality) preset.openaiImageQuality = p.openaiImageQuality;
+  if (typeof p.customInstructions === 'string' && p.customInstructions.trim()) {
+    preset.customInstructions = p.customInstructions.trim().slice(0, 2000);
+  }
   return preset;
 };
 

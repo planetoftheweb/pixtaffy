@@ -10,6 +10,8 @@ export interface PresetLabels {
   svgMode?: string;
   model?: string;
   quality?: string;
+  /** Free-text art direction the preset carries (customInstructions). */
+  instructions?: string;
 }
 
 interface PresetHoverPreviewProps {
@@ -68,30 +70,37 @@ export const PresetHoverPreview: React.FC<PresetHoverPreviewProps> = ({
     { key: 'model', label: 'Model', value: labels.model || '' },
     { key: 'quality', label: 'Quality', value: labels.quality || '' },
   ].filter((r) => !!r.value);
+  const instructions = labels.instructions?.trim() || '';
 
-  const estimatedHeight = 60 + rows.length * 22;
+  const estimatedHeight = 64 + rows.length * 25 + (instructions ? 64 : 0);
   const style = computePreviewStyle(anchor, preferLeft, estimatedHeight);
 
   if (typeof document === 'undefined') return null;
-  if (rows.length === 0) return null;
+  if (rows.length === 0 && !instructions) return null;
 
   return createPortal(
     <div
       data-preset-popover="hover"
       style={style}
-      className="bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg shadow-xl p-3 text-[11px] text-slate-600 dark:text-slate-300"
+      className="bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg shadow-xl p-3 text-[13px] text-slate-600 dark:text-slate-300"
     >
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 truncate">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 truncate">
         {name}
       </p>
       <dl className="space-y-1">
         {rows.map((r) => (
           <div key={r.key} className="flex items-baseline gap-2">
-            <dt className="text-slate-400 dark:text-slate-500 shrink-0 w-12">{r.label}</dt>
+            <dt className="text-slate-400 dark:text-slate-500 shrink-0 w-14">{r.label}</dt>
             <dd className="text-slate-700 dark:text-slate-200 truncate">{r.value}</dd>
           </div>
         ))}
       </dl>
+      {instructions && (
+        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-[#30363d]">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-brand-teal mb-1">Art direction</p>
+          <p className="leading-snug text-slate-600 dark:text-slate-300 line-clamp-4">{instructions}</p>
+        </div>
+      )}
     </div>,
     document.body
   );

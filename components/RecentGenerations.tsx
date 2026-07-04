@@ -244,6 +244,7 @@ interface RecentGenerationsProps {
   onSaveGalleryPreset?: (name: string) => Promise<void>;
   onUpdateGalleryPreset?: (presetId: string) => Promise<void>;
   onRenameGalleryPreset?: (presetId: string, name: string) => Promise<void>;
+  onEditGalleryPresetInstructions?: (presetId: string, instructions: string) => Promise<void>;
   onDeleteGalleryPreset?: (presetId: string) => Promise<void>;
   getPresetLabels?: (preset: ToolbarPreset) => import('./PresetHoverPreview').PresetLabels;
   galleryFolderName?: string;
@@ -297,6 +298,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
   onSaveGalleryPreset,
   onUpdateGalleryPreset,
   onRenameGalleryPreset,
+  onEditGalleryPresetInstructions,
   onDeleteGalleryPreset,
   getPresetLabels,
   galleryFolderName,
@@ -2390,6 +2392,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 onSavePreset={onSaveGalleryPreset}
                 onUpdatePreset={onUpdateGalleryPreset}
                 onRenamePreset={onRenameGalleryPreset}
+                onEditPresetInstructions={onEditGalleryPresetInstructions}
                 onDeletePreset={onDeleteGalleryPreset}
                 getPresetLabels={getPresetLabels}
                 folderName={galleryFolderName}

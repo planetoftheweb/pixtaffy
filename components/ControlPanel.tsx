@@ -149,7 +149,8 @@ interface ControlPanelProps {
   /** Apply a preset's snapshot to the current toolbar config. */
   onApplyPreset?: (preset: ToolbarPreset) => void;
   /** Persist the current toolbar settings as a new named preset. */
-  onSavePreset?: (name: string) => Promise<void> | void;
+  onSavePreset?: (name: string, customInstructions?: string) => Promise<void> | void;
+  onEditPresetInstructions?: (presetId: string, instructions: string) => Promise<void>;
   /**
    * Overwrite an existing preset with the current toolbar settings. Used by
    * the "update from current" affordance so users can iterate on a preset
@@ -570,6 +571,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   presets = [],
   onApplyPreset,
   onSavePreset,
+  onEditPresetInstructions,
   onUpdatePreset,
   onRenamePreset,
   onDeletePreset,
@@ -625,6 +627,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   // an inline "name your preset" input when the user clicks the save CTA so
   // we don't need a full modal for a one-field interaction.
   const [presetNameDraft, setPresetNameDraft] = useState('');
+  const [presetInstructionsDraft, setPresetInstructionsDraft] = useState('');
   const [isSavingPreset, setIsSavingPreset] = useState(false);
   const [presetError, setPresetError] = useState<string | null>(null);
   const [isNamingPreset, setIsNamingPreset] = useState(false);
@@ -647,6 +650,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setIsNamingPreset(true);
     // Suggest a name to make the common case zero-friction.
     setPresetNameDraft(`Preset ${presets.length + 1}`);
+    // Prefill with whatever art direction is currently active so
+    // save-after-apply keeps it without retyping.
+    setPresetInstructionsDraft(config.customInstructions || '');
     // Defer focus so the input has mounted.
     window.setTimeout(() => presetNameInputRef.current?.focus(), 0);
   };
@@ -665,7 +671,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setIsSavingPreset(true);
     setPresetError(null);
     try {
-      await onSavePreset(trimmed);
+      await onSavePreset(trimmed, presetInstructionsDraft.trim() || undefined);
       closePresetDropdown();
     } catch (err: any) {
       setPresetError(err?.message || 'Failed to save preset.');
@@ -2298,7 +2304,38 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   onClick={() => toggleDropdown('presets')}
                 />
                 {activeDropdown === 'presets' && (
-                  <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  // right-0: Presets is the toolbar's right-most control, so a
+                  // left-anchored panel runs past the viewport edge and clips
+                  // its right column (the ⋯ per-preset actions!).
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                    {/* Active art direction — free text riding along with every
+                        generation (seeded by a preset or typed at save time).
+                        Shown here so it never steers prompts invisibly. */}
+                    {config.customInstructions?.trim() && (
+                      <div className="px-3 py-2 border-b border-gray-100 dark:border-[#30363d] bg-brand-teal/5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-teal">
+                              Art direction active
+                            </span>
+                            <p className="mt-0.5 text-[11px] leading-snug text-slate-600 dark:text-slate-300 line-clamp-3">
+                              {config.customInstructions}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setConfig(prev => ({ ...prev, customInstructions: undefined }))}
+                            className="group/tip relative shrink-0 p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                            aria-label="Clear art direction"
+                          >
+                            <X size={13} />
+                            <span className="pointer-events-none absolute -top-8 right-0 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity">
+                              Stop applying these instructions
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
                       {presets.length === 0 ? (
                         <div className="px-3 py-6 text-center text-xs text-slate-500">
@@ -2341,7 +2378,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                             );
                             const isApplied = !isDirty;
                             const isActionMenuOpen = actionMenuPresetId === preset.id;
-                            const hasAnyAction = !!(onRenamePreset || onUpdatePreset || onDeletePreset);
+                            const hasAnyAction = !!(onRenamePreset || onUpdatePreset || onDeletePreset || onEditPresetInstructions);
                             return (
                             <div
                               key={preset.id}
@@ -2438,12 +2475,33 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               e.preventDefault();
                               setIsNamingPreset(false);
                               setPresetNameDraft('');
+                              setPresetInstructionsDraft('');
                               setPresetError(null);
                             }
                           }}
                           placeholder="e.g. Square Hand Drawn"
                           className="w-full bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-sm rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal"
                           maxLength={60}
+                        />
+                        <label className="block pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          Art direction (optional)
+                        </label>
+                        <textarea
+                          value={presetInstructionsDraft}
+                          onChange={(e) => setPresetInstructionsDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              e.preventDefault();
+                              setIsNamingPreset(false);
+                              setPresetNameDraft('');
+                              setPresetInstructionsDraft('');
+                              setPresetError(null);
+                            }
+                          }}
+                          rows={3}
+                          maxLength={2000}
+                          placeholder="Extra guidance the menus can't capture — mood, composition rules, motifs, things to avoid. Appended to every generation while active."
+                          className="w-full bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-xs rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal resize-none"
                         />
                         {presetError && (
                           <p className="text-[11px] text-red-500" role="alert">{presetError}</p>
@@ -2454,6 +2512,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                             onClick={() => {
                               setIsNamingPreset(false);
                               setPresetNameDraft('');
+                              setPresetInstructionsDraft('');
                               setPresetError(null);
                             }}
                             className="flex-1 px-2 py-1.5 text-xs font-medium rounded-md border border-gray-200 dark:border-[#30363d] text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
@@ -2494,6 +2553,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     onUpdate={onUpdatePreset ? (id) => Promise.resolve(onUpdatePreset(id)) : undefined}
                     onDelete={onDeletePreset ? (id) => Promise.resolve(onDeletePreset(id)) : undefined}
                     onRename={onRenamePreset ? (id, name) => Promise.resolve(onRenamePreset(id, name)) : undefined}
+                    onEditInstructions={onEditPresetInstructions}
                   />
                 )}
                 {activeHoverPreset && hoverAnchor && getPresetLabels && (

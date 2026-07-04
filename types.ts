@@ -43,6 +43,13 @@ export interface GenerationConfig {
   graphicTypeId: string;
   aspectRatio: string;
   svgMode?: SvgMode;
+  /**
+   * Free-text art direction appended to every generation — captures guidance
+   * the dropdown menus can't express (mood, composition rules, decorative
+   * motifs, negative constraints). Seeded by applying a preset that carries
+   * instructions; visible and clearable from the Presets menu.
+   */
+  customInstructions?: string;
 }
 
 export interface GeneratedImage {
@@ -412,6 +419,10 @@ export interface ToolbarPreset {
   svgMode?: SvgMode;
   selectedModel?: string;
   openaiImageQuality?: 'low' | 'medium' | 'high' | 'auto';
+  /** Free-text art direction this preset carries — applied to the toolbar's
+   * active instructions when the preset is applied (see
+   * GenerationConfig.customInstructions). */
+  customInstructions?: string;
 }
 
 export interface UserSettings {

@@ -20,6 +20,7 @@ interface GalleryPresetMenuProps {
   onUpdatePreset?: (presetId: string) => Promise<void>;
   onRenamePreset?: (presetId: string, name: string) => Promise<void>;
   onDeletePreset?: (presetId: string) => Promise<void>;
+  onEditPresetInstructions?: (presetId: string, instructions: string) => Promise<void>;
   getPresetLabels?: (preset: ToolbarPreset) => PresetLabels;
   folderName?: string;
   disabled?: boolean;
@@ -35,6 +36,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
   onUpdatePreset,
   onRenamePreset,
   onDeletePreset,
+  onEditPresetInstructions,
   getPresetLabels,
   folderName,
   disabled = false,
@@ -279,7 +281,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                 const isDirty = presetToolbarDiffersFromSnapshot(preset, currentSnapshot);
                 const isApplied = !isDirty;
                 const isActionMenuOpen = actionMenuPresetId === preset.id;
-                const hasAnyAction = !!(onRenamePreset || onUpdatePreset || onDeletePreset);
+                const hasAnyAction = !!(onRenamePreset || onUpdatePreset || onDeletePreset || onEditPresetInstructions);
                 return (
                   <div
                     key={preset.id}
@@ -424,6 +426,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
           onUpdate={onUpdatePreset}
           onDelete={onDeletePreset}
           onRename={onRenamePreset}
+          onEditInstructions={onEditPresetInstructions}
         />
       )}
 

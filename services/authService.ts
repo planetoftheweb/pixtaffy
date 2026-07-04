@@ -106,6 +106,7 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
       if (preset.svgMode) p.svgMode = preset.svgMode;
       if (preset.selectedModel) p.selectedModel = preset.selectedModel;
       if (preset.openaiImageQuality) p.openaiImageQuality = preset.openaiImageQuality;
+      if (preset.customInstructions?.trim()) p.customInstructions = preset.customInstructions.trim().slice(0, 2000);
       return p;
     });
   }
@@ -156,6 +157,7 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
             if (preset.svgMode) p.svgMode = preset.svgMode;
             if (preset.selectedModel) p.selectedModel = preset.selectedModel;
             if (preset.openaiImageQuality) p.openaiImageQuality = preset.openaiImageQuality;
+            if (preset.customInstructions?.trim()) p.customInstructions = preset.customInstructions.trim().slice(0, 2000);
             return p;
           });
         }
