@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-07-04
+
+### Added
+
+- **Animated PowerPoint export.** New `services/buildPptxExport.ts` hand-authors a minimal OOXML package (JSZip, no PowerPoint library): one 16:9 slide with the image's background color, each frame's masked layer as a picture shape, and a `<p:timing>` main sequence giving every frame a native "fade in on click" entrance. Opens animated in PowerPoint/Keynote; imports into Google Slides with builds intact. Lazy-loaded from a new header button in Build Studio (`components/BuildStudio.tsx`).
+- **PNG-per-step export.** `exportBuildToPngZip` in `services/buildExportService.ts` renders the exact settled states the arrow-key walkthrough pauses on (start, each frame revealed, end) and zips them, named from frame labels — for slide decks that build with a Fade transition.
+- **Background-matched frames.** `sampleImageBackground` in `services/buildAnimator.ts` (mode of border pixels) now drives the 'blank' fill in `renderFrame`/`renderFrameFromState`, the Preview stage backdrop (shadow/rounding dropped there), MP4 export, PNG stills, and the PPTX slide background — isolated frames no longer read as cutouts on white/black.
+- **OpenRouter BYOK models.** `services/openRouterService.ts` + Settings key slot (`sk-or-…`) unlock curated top image models (Seedream 4.5, FLUX.2 Pro, Recraft V4.1 Pro, Grok Imagine) with rollover "good at" cards in the model picker; per-model roster + custom slugs persist in `preferences.openRouterModels`. Direct Google/OpenAI keys always win — their vendors' OpenRouter entries are hidden and routed native. Generation dispatch handles `openrouter:` ids in both batch and re-roll paths (`App.tsx`, `services/correctionAnalysisRouter.ts`).
+- **Estimated image spend on Stats.** `byModelImages` buckets in `services/statsService.ts` + `EstimatedSpendCard` (count × `MODEL_COST_PER_IMAGE_USD`) in admin and per-user views (`components/StatsPage.tsx`, `constants.ts`).
+- **Simplify on the preview toolbar.** The canned cleanup refine moved to `CLEANUP_FOR_ANIMATION_PROMPT` in `constants.ts` (shared with Build Studio) and got a Sparkles ActionButton next to Refine; the prompt is preservation-first (flat background in the image's own color, minimal separation nudges, no re-layout).
+
+### Fixed
+
+- **Build Studio cleanup no longer kicks you out.** The Sparkles pass used to hand the prompt to the current-tile refine handler (silent no-op when the studio was opened from a gallery tile) and close the studio. It now refines the studio's own generation/version via a shared `runRefineOn` core, shows a persistent working status, and swaps the studio to the new Mark on completion (`App.tsx`, `components/BuildStudio.tsx`).
+- **AI frame detection hardening.** Vertex-ring outlines are clamped to the model's own bounding box (sprawling rings fall back to rectangles), mask tracing median-smooths row extents so stray pixels can't spike the outline, whole-image and near-duplicate regions are dropped, and the segmentation prompt forbids overlapping masks and slicing through words/mascots (`services/buildAutoSelect.ts`).
+- **AI busy feedback.** The preview-toolbar AI button that started the in-flight work turns solid brand-red with a white icon and pulses; only that button, with an "AI is working…" tooltip (`components/ImageDisplay.tsx`).
+
+### Changed
+
+- **"Items" → "Frames"** across all Build Studio UI copy (sidebar, toolbar, transport, settings, status flashes); stored data keys unchanged.
+- **`package.json` bumped to `0.22.0`** with a featured What's New entry and hero image (`data/whatsNew.ts`, `public/whats-new/whatsnew-v0.22.0.png`).
+
 ## [0.21.0] - 2026-07-04
 
 ### Added

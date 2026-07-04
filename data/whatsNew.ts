@@ -23,6 +23,64 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.22.0-present-anywhere',
+    title: 'Present anywhere — animated PowerPoint & Google Slides exports',
+    summary:
+      'Export your build as a real .pptx with click-to-reveal animations, or as PNG stills — plus smarter AI frames and OpenRouter models.',
+    blurb:
+      'Build Studio animations now travel to wherever you present. Export a real PowerPoint file where every frame arrives as a native click-to-reveal fade build — it opens animated in PowerPoint and Keynote, and imports into Google Slides with the animations intact. Prefer stills? Export one PNG per step for classic slide-by-slide builds. Frames no longer look like cutouts: previews, recordings, and exports all sit on the image’s own background color. The AI frame detection got sharper (no more outlines slicing through mascots or text), a new Simplify button on the preview toolbar redraws busy art with each block cleanly separated — without touching your layout — and an OpenRouter key now unlocks top image models like Seedream 4.5, FLUX.2 Pro, and Recraft, with per-model spend estimates on the Stats page.',
+    publishedAt: Date.parse('2026-07-04T08:00:00Z'),
+    version: '0.22.0',
+    image: '/whats-new/whatsnew-v0.22.0.png',
+    featured: true,
+    sections: [
+      {
+        heading: 'Export an animated PowerPoint (.pptx)',
+        body: 'The new Export PowerPoint button in the Build Studio header writes a real .pptx: one slide, background matched to your image, and every frame stacked as a picture with a native "fade in on click" entrance — in your frame order, named after your frame labels. Because the animations are native, the deck stays fully editable afterwards.',
+        steps: [
+          { text: 'Open Build Studio and set up your frames as usual.', icon: 'Film' },
+          { text: 'Click the Presentation icon in the header — a .pptx downloads.', icon: 'Save' },
+          { text: 'Google Slides: upload to Drive and open it, or use File → Import slides — the click-to-reveal builds come along.', icon: 'ExternalLink' },
+        ],
+      },
+      {
+        heading: 'Or export PNG stills — one per step',
+        body: 'The Images icon exports a zip with one still per walkthrough stop: the empty start, each frame fully revealed, and the final state. Drop them into any deck — one per slide with a Fade transition — for crisp, presenter-paced builds with zero video hassle.',
+        steps: [
+          { text: 'Click the Images icon next to Export MP4.', icon: 'Image' },
+          { text: 'Add the numbered PNGs to your deck, one per slide, in order.', icon: 'Layers' },
+          { text: 'Apply a Fade transition to all slides — clicking now advances each build step.', icon: 'ArrowRight' },
+        ],
+      },
+      {
+        heading: 'No more cutout look',
+        body: 'Build Studio samples your image’s own background color and uses it everywhere a frame shows in isolation — the preview stage, MP4 exports, PNG stills, and the PowerPoint slide background. A revealed block now sits on the color it was drawn on instead of floating on white or black.',
+        steps: [
+          { text: 'Press Play in Build Studio — the whole stage takes the image’s background color.', icon: 'Film' },
+          { text: 'For the cleanest result, run Simplify first so the background is perfectly flat.', icon: 'Sparkles' },
+        ],
+      },
+      {
+        heading: 'Simplify busy art — now on the preview toolbar too',
+        body: 'The Sparkles button (next to Refine) redraws the current image with a flat background and clear gaps between blocks — while preserving your layout exactly: same positions, sizes, and proportions. Inside Build Studio the same button now works in place: a red pulse shows it’s thinking, and the cleaned image opens right in the studio as a new Mark. AI frame detection also got stricter — outlines can no longer wander across neighboring blocks or slice through words and mascots.',
+        steps: [
+          { text: 'Click Simplify on the preview toolbar (or the Sparkles in Build Studio).', icon: 'Sparkles' },
+          { text: 'The button pulses red while the AI works; the result lands as a new Mark.', icon: 'Layers' },
+          { text: 'Run the AI wand on the cleaned Mark for the best automatic frames.', icon: 'Wand2' },
+        ],
+      },
+      {
+        heading: 'More image models with OpenRouter',
+        body: 'Add an OpenRouter key in Settings and the model picker gains a curated set of top benchmark models — Seedream 4.5 (best-in-class text rendering, native 4K), FLUX.2 Pro, Recraft V4.1 Pro, and Grok Imagine — with rollover notes on what each is good at. Your direct Google and OpenAI keys always win: their models keep routing to the native APIs. You can toggle the roster or add any OpenRouter slug, and the Stats page now shows estimated spend per model.',
+        steps: [
+          { text: 'Settings → API Configuration → OpenRouter API Key (sk-or-…).', icon: 'KeyRound' },
+          { text: 'Check the models you want in the picker; add custom slugs if you like.', icon: 'Check' },
+          { text: 'Hover any model in the picker to see what it’s good at.', icon: 'Info' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.21.0-build-studio',
     title: 'Build Studio — animate your infographics and export MP4',
     summary:
