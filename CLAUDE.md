@@ -1,5 +1,42 @@
 # BranDolt – Developer Notes
 
+## UI design principles (Ray's taste — follow these for any new UI)
+
+Minimal, direct-manipulation interfaces. Every control must earn its pixels.
+
+- **Manipulate the value itself, not a separate input.** A number readout IS the
+  control: drag it to scrub, click it to type in place (see the item duration
+  in Build Studio). Never add a second input elsewhere for the same value.
+- **Rename in place.** Double-click the name where it's displayed → it becomes
+  an input. No "name" field in a details panel.
+- **Hide, then reveal.** Actions appear on hover (trash), details expand on
+  selection, settings collapse into titled sections. Default view = quiet list.
+- **Drag beats buttons.** Reorder by dragging the row, move by dragging the
+  badge, resize by dragging corners — not up/down arrow buttons.
+- **Icons + tooltips over text labels** for compact toggles (e.g. Smart/Center
+  zoom modes). Text only when an icon would be ambiguous (the "AI" tag).
+- **Rich tooltips, never native `title`.** Every hover hint is a styled
+  overlay (dark pill, `bg-black/90`, 13px, absolute-positioned off the
+  control — see `ToolBarButton`/`Tip` in BuildStudio). Native browser
+  tooltips are slow, unstyled, and inconsistent — don't ship them.
+- **EVERY interactive control gets an overlay. No exceptions.** When adding
+  or restyling any button/control, the tooltip is part of the control, not an
+  afterthought. Longer explanations use `title` + `text` (bold headline,
+  muted body), not one run-on paragraph.
+- **Tooltips must never crop.** Two recurring killers: (1) an
+  `overflow-hidden` ancestor (segmented button groups!) — round the child
+  buttons instead of clipping the group; (2) edge overflow — controls near
+  the right edge of the screen/panel use `align="right"`, controls inside
+  scroll containers use `side="left"` with wrapping. Verify by hovering after
+  any layout change.
+- **Destructive or paid actions confirm inline**, not with dialogs: first tap
+  arms the button ("Sure?"), second tap fires, ~2.5 s auto-disarm. Everything
+  destructive must be undoable (⌘Z) anyway.
+- **No layout shift** on hover/reveal — overlay or fade controls in, don't
+  push content around.
+- **One obvious escape hatch**: Esc peels back one layer at a time (field →
+  panel → zoom → selection → close), never jumps straight to closing.
+
 ## VPN / Corporate Proxy – Image Cache Contract
 
 **History of regressions**: VPN-blocking of `firebasestorage.googleapis.com` has caused image failures at least 3 times (08d54a2, f41d8ac, and the current session). Each time the fix involved the IndexedDB blob cache in `services/imageCache.ts`.

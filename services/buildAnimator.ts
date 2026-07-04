@@ -16,7 +16,7 @@
 import type { ImageBuild, BuildStep, BuildPoint, BuildShape } from '../types';
 
 /** A camera framing: center (cx,cy) and size s, all normalized 0..1. */
-interface Camera {
+export interface Camera {
   cx: number;
   cy: number;
   s: number;
@@ -29,11 +29,22 @@ const clamp = (v: number, lo: number, hi: number): number =>
 
 /**
  * Ease-in-out with a punchy acceleration curve (quartic). Higher power than a
- * standard cubic ease → slower starts, faster middles, softer lands.
+ * standard cubic ease → slower starts, faster middles, softer lands. Used for
+ * the ORIGINAL, timeline-driven reveal (auto-play, or holding on a stop).
  */
 const easeInOut = (t: number): number => {
   const x = clamp(t, 0, 1);
   return x < 0.5 ? 8 * x * x * x * x : 1 - Math.pow(-2 * x + 2, 4) / 2;
+};
+
+/**
+ * Cubic ease-OUT — starts fast, decelerates into the landing. Used for manual
+ * seeks (arrow-key stepping): the goal there is to feel instantaneous the
+ * moment the key is pressed, not to slowly wind up like the original reveal.
+ */
+export const easeOut = (t: number): number => {
+  const x = clamp(t, 0, 1);
+  return 1 - Math.pow(1 - x, 3);
 };
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
@@ -62,8 +73,7 @@ const boundsOf = (points: BuildPoint[]): { x: number; y: number; w: number; h: n
  * `zoom` (0..1) blends between the whole image (0) and a snug frame around the
  * region (1). No pan-clamp — the item sits dead-center on screen.
  */
-const cameraForRegion = (points: BuildPoint[], zoom: number): Camera => {
-  const b = boundsOf(points);
+const cameraForBounds = (b: { x: number; y: number; w: number; h: number }, zoom: number): Camera => {
   const margin = 0.12; // breathing room around the region when fully zoomed
   const fit = Math.max(b.w, b.h);
   // Floor so a tiny lasso doesn't zoom to an extreme close-up.
@@ -72,13 +82,86 @@ const cameraForRegion = (points: BuildPoint[], zoom: number): Camera => {
   return { cx: b.x + b.w / 2, cy: b.y + b.h / 2, s };
 };
 
-/** All points from a step's additive shapes — used for camera framing. */
+/** All points from a step's additive shapes — the geometric fallback. */
 const stepAddPoints = (step: BuildStep): BuildPoint[] =>
   step.shapes.filter((s) => s.op === 'add').flatMap((s) => s.points);
 
-/** Camera framing for a step (from its additive shapes' bounds). */
+/**
+ * Bounding box of a step's NET region — adds minus erase cutouts, measured by
+ * rasterizing the mask at low resolution. Erasing away part of a region must
+ * shrink its camera framing too; the raw add-points would keep framing the
+ * old, pre-trim box. Cached per step OBJECT (steps are immutable — every edit
+ * makes a new one, and undo restores old ones, so the cache is always right).
+ */
+const netBoundsCache = new WeakMap<BuildStep, { x: number; y: number; w: number; h: number } | null>();
+export const netRegionBounds = (step: BuildStep): { x: number; y: number; w: number; h: number } | null => {
+  const hit = netBoundsCache.get(step);
+  if (hit !== undefined) return hit;
+  let out: { x: number; y: number; w: number; h: number } | null = null;
+  try {
+    const S = 256; // plenty for framing accuracy (~0.4% of the image)
+    const mask = document.createElement('canvas');
+    mask.width = S;
+    mask.height = S;
+    const mc = mask.getContext('2d');
+    if (mc) {
+      mc.fillStyle = '#fff';
+      mc.strokeStyle = '#fff';
+      for (const sh of step.shapes) {
+        mc.globalCompositeOperation = sh.op === 'sub' ? 'destination-out' : 'source-over';
+        if (sh.kind === 'poly') {
+          if (sh.points.length < 3) continue;
+          mc.beginPath();
+          sh.points.forEach((p, i) => (i === 0 ? mc.moveTo(p.x * S, p.y * S) : mc.lineTo(p.x * S, p.y * S)));
+          mc.closePath();
+          mc.fill();
+        } else {
+          if (sh.points.length === 0) continue;
+          const w = Math.max(1, sh.radius * S * 2);
+          mc.lineWidth = w;
+          mc.lineCap = 'round';
+          mc.lineJoin = 'round';
+          if (sh.points.length === 1) {
+            mc.beginPath();
+            mc.arc(sh.points[0].x * S, sh.points[0].y * S, w / 2, 0, Math.PI * 2);
+            mc.fill();
+          } else {
+            mc.beginPath();
+            sh.points.forEach((p, i) => (i === 0 ? mc.moveTo(p.x * S, p.y * S) : mc.lineTo(p.x * S, p.y * S)));
+            mc.stroke();
+          }
+        }
+      }
+      const data = mc.getImageData(0, 0, S, S).data;
+      let minX = S, minY = S, maxX = -1, maxY = -1;
+      for (let y = 0; y < S; y++) {
+        for (let x = 0; x < S; x++) {
+          if (data[(y * S + x) * 4 + 3] > 16) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX >= minX && maxY >= minY) {
+        out = { x: minX / S, y: minY / S, w: (maxX - minX + 1) / S, h: (maxY - minY + 1) / S };
+      }
+    }
+  } catch {
+    out = null; // no DOM (tests) or canvas failure — fall back to geometry
+  }
+  netBoundsCache.set(step, out);
+  return out;
+};
+
+/** A step's framing bounds: net region when available, add-points otherwise. */
+const stepFrameBounds = (step: BuildStep): { x: number; y: number; w: number; h: number } =>
+  netRegionBounds(step) ?? boundsOf(stepAddPoints(step));
+
+/** Camera framing for a step (from its NET region's bounds). */
 const cameraForStep = (step: BuildStep, zoom: number): Camera =>
-  cameraForRegion(stepAddPoints(step), zoom);
+  cameraForBounds(stepFrameBounds(step), zoom);
 
 /** A step's hold length, using the build's global default when unset. */
 export const effectiveDurationMs = (step: BuildStep, build: ImageBuild): number =>
@@ -120,19 +203,43 @@ export const stepStopTimes = (build: ImageBuild): number[] => {
   return stops;
 };
 
-interface FrameState {
+export interface FrameState {
   camera: Camera;
   /** revealAlpha[i] = 0..1 how revealed step i is right now. */
   revealAlpha: number[];
   /** Index of the step currently animating in (or -1 in the tail). */
   activeStep: number;
+  /** 0..1 fade-in of the ENTIRE unmasked image — used by the
+   * `endStyle: 'image'` tail, 0 everywhere else. */
+  fullImageAlpha: number;
 }
+
+/**
+ * Interpolate directly between two already-resolved visual states. Used for
+ * manual seeks (arrow-key stepping) — interpolating the STATE, rather than
+ * the raw `timeMs` value, skips over any "hold" gap between a step's reveal
+ * completing and the next step's reveal starting. Without this, a seek that
+ * lands mid-hold would spend most of its (short, fixed) duration on a static
+ * frame before any visible motion began — the actual difficulty reported.
+ */
+export const lerpFrameState = (a: FrameState, b: FrameState, t: number): FrameState => {
+  const k = clamp(t, 0, 1);
+  const n = Math.max(a.revealAlpha.length, b.revealAlpha.length);
+  const revealAlpha: number[] = [];
+  for (let i = 0; i < n; i++) revealAlpha.push(lerp(a.revealAlpha[i] ?? 0, b.revealAlpha[i] ?? 0, k));
+  return {
+    camera: lerpCamera(a.camera, b.camera, k),
+    revealAlpha,
+    activeStep: k < 1 ? a.activeStep : b.activeStep,
+    fullImageAlpha: lerp(a.fullImageAlpha ?? 0, b.fullImageAlpha ?? 0, k),
+  };
+};
 
 /** Resolve the camera + per-step reveal at a given time. Pure. */
 export const frameStateAt = (build: ImageBuild, timeMs: number): FrameState => {
   const n = build.steps.length;
   const revealAlpha = new Array(n).fill(0);
-  if (n === 0) return { camera: FULL_CAMERA, revealAlpha, activeStep: -1 };
+  if (n === 0) return { camera: FULL_CAMERA, revealAlpha, activeStep: -1, fullImageAlpha: 0 };
 
   const starts = stepStartTimes(build);
   const total = totalDurationMs(build);
@@ -148,12 +255,19 @@ export const frameStateAt = (build: ImageBuild, timeMs: number): FrameState => {
   const inTail = build.endShowFull && t >= lastHoldStart;
 
   if (inTail) {
-    // End: reveal ALL selected items together and zoom back out to the whole
-    // image. Non-selected areas stay hidden (they're background).
+    // End: zoom back out to the whole image while either (a) revealing ALL
+    // selected items together — non-selected areas stay background — or
+    // (b) `endStyle: 'image'`: fading in the entire unmasked image.
+    const p = easeInOut(build.transitionMs > 0 ? clamp((t - lastHoldStart) / build.transitionMs, 0, 1) : 1);
+    const fullImage = (build.endStyle ?? 'items') === 'image';
     for (let k = 0; k < n; k++) revealAlpha[k] = 1;
-    const p = build.transitionMs > 0 ? (t - lastHoldStart) / build.transitionMs : 1;
     const lastCam = cameraForStep(build.steps[n - 1], build.zoom);
-    return { camera: lerpCamera(lastCam, FULL_CAMERA, easeInOut(p)), revealAlpha, activeStep: -1 };
+    return {
+      camera: lerpCamera(lastCam, FULL_CAMERA, p),
+      revealAlpha,
+      activeStep: -1,
+      fullImageAlpha: fullImage ? p : 0,
+    };
   }
 
   const localT = t - starts[i];
@@ -182,7 +296,7 @@ export const frameStateAt = (build: ImageBuild, timeMs: number): FrameState => {
     revealAlpha[i] = build.revealStyle === 'wipe' ? 1 : eased;
     if (i > 0) revealAlpha[i - 1] = 1 - eased;
   }
-  return { camera, revealAlpha, activeStep: i };
+  return { camera, revealAlpha, activeStep: i, fullImageAlpha: 0 };
 };
 
 /**
@@ -299,18 +413,22 @@ const wipeProgressAt = (build: ImageBuild, timeMs: number, activeStep: number): 
 };
 
 /**
- * Draw one frame of the build to `ctx`. The canvas must already be sized to the
- * output frame (its width/height are read as the drawing surface). Caller is
- * responsible for matching the canvas aspect ratio to the image.
+ * Draw one frame from an ALREADY-RESOLVED visual state (camera + per-step
+ * reveal alpha). This is the shared drawing core: `renderFrame` below feeds it
+ * a state computed from a timeline position; a manual seek (see
+ * BuildStudio's arrow-key stepping) feeds it a state interpolated directly
+ * between two stops via `lerpFrameState`, bypassing the timeline entirely so
+ * a static "hold" gap between two stops never eats into the seek's duration.
  */
-export const renderFrame = (
+export const renderFrameFromState = (
   ctx: CanvasRenderingContext2D,
   build: ImageBuild,
   image: CanvasImageSource,
   layers: (HTMLCanvasElement | null)[],
   imgW: number,
   imgH: number,
-  timeMs: number
+  state: FrameState,
+  wipeP: number
 ): void => {
   const cw = ctx.canvas.width;
   const ch = ctx.canvas.height;
@@ -326,8 +444,7 @@ export const renderFrame = (
     return;
   }
 
-  const { camera, revealAlpha, activeStep } = frameStateAt(build, timeMs);
-  applyCamera(ctx, camera, imgW, imgH, cw, ch);
+  applyCamera(ctx, state.camera, imgW, imgH, cw, ch);
 
   // Base layer inside the image bounds (the not-yet-revealed look). 'blank'
   // needs no base — the screen fill already shows white behind the reveals.
@@ -345,9 +462,8 @@ export const renderFrame = (
   }
 
   // Revealed regions: draw each step's precomputed masked layer over the base.
-  const wipeP = wipeProgressAt(build, timeMs, activeStep);
   for (let k = 0; k < build.steps.length; k++) {
-    const alpha = revealAlpha[k];
+    const alpha = state.revealAlpha[k] ?? 0;
     if (alpha <= 0) continue;
     const layer = layers[k];
     if (!layer) continue;
@@ -355,8 +471,8 @@ export const renderFrame = (
     ctx.save();
     ctx.globalAlpha = build.revealStyle === 'wipe' ? 1 : clamp(alpha, 0, 1);
     // Active step wipes left-to-right by clipping a growing rect over its bounds.
-    if (build.revealStyle === 'wipe' && k === activeStep) {
-      const b = boundsOf(stepAddPoints(build.steps[k]));
+    if (build.revealStyle === 'wipe' && k === state.activeStep) {
+      const b = stepFrameBounds(build.steps[k]);
       ctx.beginPath();
       ctx.rect(b.x * imgW, b.y * imgH, b.w * imgW * wipeP, b.h * imgH);
       ctx.clip();
@@ -365,7 +481,36 @@ export const renderFrame = (
     ctx.restore();
   }
 
+  // `endStyle: 'image'` tail: the entire unmasked image fades in over the
+  // revealed items as the camera pulls back to full.
+  if (state.fullImageAlpha > 0) {
+    ctx.save();
+    ctx.globalAlpha = clamp(state.fullImageAlpha, 0, 1);
+    ctx.drawImage(image, 0, 0, imgW, imgH);
+    ctx.restore();
+  }
+
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+};
+
+/**
+ * Draw one frame of the build to `ctx` at a specific timeline position. The
+ * canvas must already be sized to the output frame (its width/height are read
+ * as the drawing surface). Caller is responsible for matching the canvas
+ * aspect ratio to the image.
+ */
+export const renderFrame = (
+  ctx: CanvasRenderingContext2D,
+  build: ImageBuild,
+  image: CanvasImageSource,
+  layers: (HTMLCanvasElement | null)[],
+  imgW: number,
+  imgH: number,
+  timeMs: number
+): void => {
+  const state = frameStateAt(build, timeMs);
+  const wipeP = wipeProgressAt(build, timeMs, state.activeStep);
+  renderFrameFromState(ctx, build, image, layers, imgW, imgH, state, wipeP);
 };
 
 /** A sensible starting build for a freshly opened image. */
@@ -377,8 +522,10 @@ export const defaultBuild = (): ImageBuild => ({
   fps: 30,
   transitionMs: 900,
   endShowFull: true,
+  endStyle: 'items',
   background: 'blank',
   defaultDurationMs: 1800,
   defaultZoomFrom: 'smart',
   autoPlay: false,
+  startMode: 'first',
 });

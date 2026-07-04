@@ -173,6 +173,8 @@ export type BuildShape = BuildPolyShape | BuildBrushShape;
 export interface BuildStep {
   id: string;
   shapes: BuildShape[];
+  /** Short display name (e.g. from the AI auto-select pass). Falls back to "Item N". */
+  label?: string;
   /** Per-step hold length. Falls back to the build's global default when unset. */
   durationMs?: number;
   /**
@@ -209,10 +211,22 @@ export interface ImageBuild {
   fps: number;                   // export frame rate, default 30
   transitionMs: number;          // cross-step camera ease + content fade
   endShowFull: boolean;          // zoom back out to the whole image at the end
+  /**
+   * What the end zoom-out shows: 'items' reveals all selections together
+   * (non-selected areas stay background); 'image' fades in the ENTIRE
+   * unmasked image. Optional for builds saved before this existed → 'items'.
+   */
+  endStyle?: 'items' | 'image';
   background: BuildBackground;   // look of the not-yet-revealed area
   defaultDurationMs: number;     // global "seconds to show" per item (per-step override wins)
   defaultZoomFrom: BuildZoomFrom;// global camera origin (per-step override wins)
   autoPlay: boolean;             // Preview opens auto-playing vs. manual arrow-key advance
+  /**
+   * What Preview shows the instant it opens: 'blank' sits on the empty
+   * pre-reveal state (nothing shown yet, first arrow/space press starts it);
+   * 'first' jumps straight into the first item's reveal.
+   */
+  startMode: 'blank' | 'first';
 }
 
 /**

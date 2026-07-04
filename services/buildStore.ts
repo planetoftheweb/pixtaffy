@@ -78,12 +78,16 @@ const normalizeStep = (raw: unknown): ImageBuild['steps'][number] | null => {
     rect?: { x: number; y: number; w: number; h: number };
     durationMs?: unknown;
     zoomFrom?: unknown;
+    label?: unknown;
   };
   const id = typeof s.id === 'string' ? s.id : null;
   if (!id) return null;
-  const extra: Pick<ImageBuild['steps'][number], 'durationMs' | 'zoomFrom'> = {};
+  const extra: Pick<ImageBuild['steps'][number], 'durationMs' | 'zoomFrom' | 'label'> = {};
   if (typeof s.durationMs === 'number') extra.durationMs = s.durationMs;
   if (s.zoomFrom === 'smart' || s.zoomFrom === 'center') extra.zoomFrom = s.zoomFrom;
+  // Names (typed or AI-generated) must survive the round-trip — dropping
+  // unlisted fields here is what silently reset labels to "Item N".
+  if (typeof s.label === 'string' && s.label.trim()) extra.label = s.label.trim();
 
   // Current format: shapes[].
   if (Array.isArray(s.shapes)) {

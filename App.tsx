@@ -3963,6 +3963,8 @@ const App: React.FC = () => {
             version={buildStudioTarget.version}
             onClose={() => setBuildStudioTarget(null)}
             userId={user?.id}
+            geminiApiKey={getGeminiApiKeyForAnalysis(user)}
+            onRefine={handleRefine}
           />
         </Suspense>
       )}
