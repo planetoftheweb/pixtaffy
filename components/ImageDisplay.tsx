@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Generation, GenerationVersion, BrandColor, VisualStyle, GraphicType, AspectRatioOption, INBOX_FOLDER_ID } from '../types';
-import { Download, RefreshCw, Send, Image as ImageIcon, Copy, Link, Trash2, ChevronDown, ChevronLeft, ChevronRight, Layers, FileImage, Code, Play, Pause, FileCode, Info, X, Globe, Wand2, Maximize, Maximize2, Minimize, GitCompare, Plus, Expand, ScanSearch, Check, Star, Film } from 'lucide-react';
+import { Download, RefreshCw, Send, Image as ImageIcon, Copy, Link, Trash2, ChevronDown, ChevronLeft, ChevronRight, Layers, FileImage, Code, Play, Pause, FileCode, Info, X, Globe, Wand2, Maximize, Maximize2, Minimize, GitCompare, Plus, Expand, ScanSearch, Check, Star, Film, Sparkles } from 'lucide-react';
 import { useConfirmAction } from '../hooks/useConfirmAction';
 import { createBlobUrlFromImage } from '../services/imageSourceService';
 import { getCachedImageBlob, getCachedImageBlobUrl } from '../services/imageCache';
@@ -9,7 +9,7 @@ import { getCurrentVersion } from '../services/historyService';
 import { buildExportFilename } from '../services/versionUtils';
 import { webpToPngBlob, imageDataToPngBlob, imageBlobToPngBlob } from '../services/imageConversionService';
 import { sanitizeSvg } from '../services/svgService';
-import { SUPPORTED_MODELS, MODEL_GROUP_ORDER } from '../constants';
+import { SUPPORTED_MODELS, MODEL_GROUP_ORDER, CLEANUP_FOR_ANIMATION_PROMPT } from '../constants';
 import { normalizeAspectRatio } from '../services/aspectRatioService';
 import { RichSelect, RichSelectOption } from './RichSelect';
 import { DownloadMenu } from './DownloadMenu';
@@ -275,6 +275,15 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   /** True while refine / analysis / expand / recompose is in flight. */
   const refinementControlsLocked =
     isAnalyzingRefinePrompt || isResizingCanvas || isExpandingRefinement;
+  /** Any AI call in flight — drives the red "working" state on the AI
+   * toolbar buttons so it's obvious work is running. */
+  const aiBusy = isRefining || refinementControlsLocked;
+  /** Which AI button started the in-flight work — only THAT button turns
+   * red. Set on click, cleared when the pipeline goes idle. */
+  const [aiBusySource, setAiBusySource] = useState<'refine' | 'simplify' | null>(null);
+  useEffect(() => {
+    if (!aiBusy) setAiBusySource(null);
+  }, [aiBusy]);
   // True while the user is actively dragging the JuxtaposeSlider divider.
   // Used to mute the in-image overlays (rail, version chip, action buttons,
   // compare overlay, etc.) so the user gets a clean before/after read while
@@ -1318,11 +1327,13 @@ ${version.svgCode}
   const submitRefinementOrResize = (): boolean => {
     const preparedInput = cleanupRefinementPromptForSubmission(refinementInput);
     if (preparedInput) {
+      setAiBusySource('refine');
       onRefine(preparedInput);
       setRefinementInput('');
       return true;
     }
     if (canResizeToSelected) {
+      setAiBusySource('refine');
       void handleResizeCanvasClick();
       return true;
     }
@@ -1634,14 +1645,16 @@ ${version.svgCode}
     title: string;
     children: React.ReactNode;
     tooltip: string;
-    variant?: 'default' | 'danger';
+    variant?: 'default' | 'danger' | 'busy';
     className?: string;
   }) => (
-    <button 
+    <button
       onClick={onClick}
       className={`group/btn ${variant === 'danger'
         ? 'bg-white/85 dark:bg-[#2b1c1c]/85 border border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white'
-        : 'bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white'
+        : variant === 'busy'
+          ? 'bg-brand-red border border-brand-red text-white cursor-default animate-pulse'
+          : 'bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white'
       } p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative ${extraClass || ''}`}
       title={title}
     >
@@ -2701,8 +2714,9 @@ ${version.svgCode}
                 <ActionButton
                   onClick={() => setIsRefinePanelOpen((p) => !p)}
                   title={isRefinePanelOpen ? 'Hide refine & recompose panel' : 'Show refine & recompose panel'}
-                  tooltip={isRefinePanelOpen ? 'Hide refine' : 'Refine'}
-                  className={isRefinePanelOpen ? 'text-brand-teal' : undefined}
+                  tooltip={aiBusySource === 'refine' ? 'AI is working…' : isRefinePanelOpen ? 'Hide refine' : 'Refine'}
+                  variant={aiBusySource === 'refine' ? 'busy' : 'default'}
+                  className={aiBusySource !== 'refine' && isRefinePanelOpen ? 'text-brand-teal' : undefined}
                 >
                   <Wand2 size={18} />
                 </ActionButton>
@@ -2894,6 +2908,24 @@ ${version.svgCode}
                   </>
                 )}
               </div>
+
+              {/* Simplify for animation — same canned cleanup refine as the
+                  Sparkles button inside Build Studio. Sits right after
+                  Refine so the two AI actions read as a pair. Runs through
+                  the normal refine pipeline, so the usual refine spinner
+                  shows and the result lands as a new Mark on this tile. */}
+              <ActionButton
+                onClick={() => {
+                  if (aiBusy) return;
+                  setAiBusySource('simplify');
+                  onRefine(CLEANUP_FOR_ANIMATION_PROMPT);
+                }}
+                title="AI redraws this image with each block isolated on a flat background — easier to animate in Build Studio. Adds a new Mark (your original stays) · uses your image model."
+                tooltip={aiBusySource === 'simplify' ? 'AI is working…' : 'Simplify'}
+                variant={aiBusySource === 'simplify' ? 'busy' : 'default'}
+              >
+                <Sparkles size={18} />
+              </ActionButton>
 
               {/* Compare is only meaningful when there's a second mark to
                   pair with — otherwise the picker would open with nothing

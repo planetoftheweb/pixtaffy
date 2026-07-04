@@ -273,6 +273,37 @@ export const MODEL_COST_PER_IMAGE_USD: Record<string, number> = {
   'openai': 0.06,                           // GPT Image 1.5 (medium, est.)
 };
 
+/**
+ * Refine instruction for the "Simplify / clean up for animation" pass:
+ * redraw the same infographic, same content and style, but reorganized so
+ * blocks are isolated on a solid background — exactly what makes region
+ * selection and reveals easy in Build Studio. One canned prompt shared by
+ * the preview toolbar (ImageDisplay) and the Build Studio toolbar so the
+ * button behaves identically everywhere.
+ */
+export const CLEANUP_FOR_ANIMATION_PROMPT = `
+Redraw this exact infographic — same title, sections, wording, color
+palette, and hand-drawn illustration style — and, above all, the SAME
+LAYOUT: every element keeps its current position, size, and proportions.
+Do not rearrange, regroup, resize, stretch, or re-balance anything. The
+result must read as the same poster, just tidied up. Change ONLY:
+- Make the background one perfectly FLAT, uniform color across the whole
+  canvas. Keep the image's existing background color — do not change it to
+  white unless there is no clear background color to keep. Remove all
+  background scribbles, hatching, texture swatches, gradients, vignettes,
+  and stray marks behind or between elements. This matters because each
+  block is later shown alone against that background color: any texture or
+  color variation makes the block read as a pasted-on cutout instead of
+  part of the scene.
+- Where neighboring elements touch or overlap, open a small gap of clear
+  background between them — the smallest possible nudge that separates
+  them, keeping every element in place.
+- Shorten connector arrows so they start and end in open space near the
+  blocks they link, and never touch or cross any text, icon, or illustration.
+Do not add, remove, or reword any content. Keep the expressive hand-drawn
+character of every element.
+`.trim();
+
 for (const m of OPENROUTER_CURATED_MODELS) {
   if (m.costPerImageUsd) {
     MODEL_COST_PER_IMAGE_USD[`${OPENROUTER_MODEL_PREFIX}${m.slug}`] = m.costPerImageUsd;

@@ -393,13 +393,57 @@ export const prepareStepLayers = (
 ): (HTMLCanvasElement | null)[] =>
   build.steps.map((s) => (s.shapes.length ? renderStepLayer(image, imgW, imgH, s.shapes) : null));
 
+/**
+ * Sample the image's own background color (mode of its border pixels, on a
+ * small downscale). Used as the 'blank' fill so isolated frames sit on the
+ * SAME color they were drawn on — a white/dark stage makes every reveal look
+ * like a pasted-on cutout.
+ */
+export const sampleImageBackground = (
+  image: CanvasImageSource,
+  imgW: number,
+  imgH: number
+): string => {
+  try {
+    const S = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = S;
+    canvas.height = S;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return '#ffffff';
+    ctx.fillStyle = '#ffffff'; // transparent PNG/SVG → white, matching the editor
+    ctx.fillRect(0, 0, S, S);
+    ctx.drawImage(image, 0, 0, imgW, imgH, 0, 0, S, S);
+    const data = ctx.getImageData(0, 0, S, S).data;
+    // Border ring, 2px thick — the most likely pure-background pixels.
+    const buckets = new Map<string, { n: number; r: number; g: number; b: number }>();
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        if (x >= 2 && x < S - 2 && y >= 2 && y < S - 2) continue;
+        const i = (y * S + x) * 4;
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const key = `${r >> 4},${g >> 4},${b >> 4}`; // quantize to 16 levels
+        const e = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+        e.n++; e.r += r; e.g += g; e.b += b;
+        buckets.set(key, e);
+      }
+    }
+    let best: { n: number; r: number; g: number; b: number } | null = null;
+    for (const e of buckets.values()) if (!best || e.n > best.n) best = e;
+    if (!best) return '#ffffff';
+    return `rgb(${Math.round(best.r / best.n)}, ${Math.round(best.g / best.n)}, ${Math.round(best.b / best.n)})`;
+  } catch {
+    return '#ffffff'; // tainted canvas or decode issue — keep the old look
+  }
+};
+
 /** Screen-space background fill so centered/past-the-edge areas look intentional. */
-const fillBackground = (ctx: CanvasRenderingContext2D, build: ImageBuild): void => {
+const fillBackground = (ctx: CanvasRenderingContext2D, build: ImageBuild, bgColor?: string): void => {
   const { width, height } = ctx.canvas;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (build.background === 'dim') ctx.fillStyle = '#0d1117';
   else if (build.background === 'blur') ctx.fillStyle = '#e5e7eb';
-  else ctx.fillStyle = '#ffffff';
+  else ctx.fillStyle = bgColor || '#ffffff';
   ctx.fillRect(0, 0, width, height);
 };
 
@@ -428,13 +472,14 @@ export const renderFrameFromState = (
   imgW: number,
   imgH: number,
   state: FrameState,
-  wipeP: number
+  wipeP: number,
+  bgColor?: string
 ): void => {
   const cw = ctx.canvas.width;
   const ch = ctx.canvas.height;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, cw, ch);
-  fillBackground(ctx, build);
+  fillBackground(ctx, build, bgColor);
 
   // No steps yet → just show the whole image so the editor preview isn't blank.
   if (build.steps.length === 0) {
@@ -506,11 +551,12 @@ export const renderFrame = (
   layers: (HTMLCanvasElement | null)[],
   imgW: number,
   imgH: number,
-  timeMs: number
+  timeMs: number,
+  bgColor?: string
 ): void => {
   const state = frameStateAt(build, timeMs);
   const wipeP = wipeProgressAt(build, timeMs, state.activeStep);
-  renderFrameFromState(ctx, build, image, layers, imgW, imgH, state, wipeP);
+  renderFrameFromState(ctx, build, image, layers, imgW, imgH, state, wipeP, bgColor);
 };
 
 /** A sensible starting build for a freshly opened image. */

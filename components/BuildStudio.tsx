@@ -5,17 +5,18 @@ import {
   Film, Pencil, Loader2, Maximize, Minimize,
   ChevronLeft, ChevronRight, Square, PenTool, Brush, Ruler,
   PanelRightClose, PanelRightOpen, GripVertical,
-  Wand2, Focus, Sparkles,
+  Wand2, Focus, Sparkles, Images, Presentation,
   type LucideIcon,
 } from 'lucide-react';
 import type {
   Generation, GenerationVersion, ImageBuild, BuildStep, BuildPoint,
   BuildZoomFrom, BuildShape,
 } from '../types';
+import { CLEANUP_FOR_ANIMATION_PROMPT } from '../constants';
 import { createBlobUrlFromImage } from '../services/imageSourceService';
 import { getCachedImageBlobUrl } from '../services/imageCache';
 import {
-  renderFrame, renderFrameFromState, frameStateAt, lerpFrameState, easeOut,
+  renderFrame, renderFrameFromState, frameStateAt, lerpFrameState, easeOut, sampleImageBackground,
   totalDurationMs, stepStartTimes, stepStopTimes,
   effectiveDurationMs, renderStepLayer, defaultBuild, netRegionBounds,
   type FrameState,
@@ -35,37 +36,14 @@ interface BuildStudioProps {
   /** BYOK Gemini key for the AI auto-select pass (same key the app's other
    * auxiliary vision calls use). Absent → the wand explains what to set up. */
   geminiApiKey?: string;
-  /** The app's refine pipeline (same as ImageDisplay's refine bar) — powers
-   * the "Clean up for animation" pass, which creates a new Mark. */
-  onRefine?: (refinementText: string) => void;
+  /** The app's refine pipeline aimed at THIS studio's generation/version —
+   * powers the "Clean up for animation" pass. Creates a new Mark and swaps
+   * the studio to it; resolves true on success, false on failure. The
+   * studio stays open either way and reports progress/failure itself. */
+  onCleanupRefine?: (refinementText: string) => Promise<boolean>;
 }
 
 const MAX_RENDER_W = 1600; // cap on-screen canvas resolution for smooth playback
-
-/**
- * Refine instruction for the "Clean up for animation" pass: redraw the same
- * infographic, same content and style, but reorganized so blocks are isolated
- * on a solid background — exactly what makes region selection and reveals
- * easy. Kept as one canned prompt so the button behaves predictably.
- */
-const CLEANUP_FOR_ANIMATION_PROMPT = `
-Redraw this exact infographic with the same title, sections, wording, color
-palette, and hand-drawn illustration style — change ONLY the layout hygiene,
-to make each section easy to isolate:
-- Pure solid single-color background across the whole canvas (keep it the
-  current background color, or white): remove all background scribbles,
-  hatching, texture swatches, gradients, and stray marks behind or between
-  elements.
-- Make every section a self-contained block: its heading, body text, icon,
-  and illustration grouped tightly together.
-- Leave generous empty background space around every block — nothing may
-  touch or overlap another block.
-- Shorten connector arrows so they start and end in open space near the
-  blocks they link, and never touch or cross any text, icon, or illustration.
-- Keep all content clear of the canvas edges.
-Do not add, remove, or reword any content. Keep the expressive hand-drawn
-character inside the blocks.
-`.trim();
 
 const newId = (i: number): string => `step-${i}-${Math.round(performance.now())}`;
 
@@ -515,7 +493,7 @@ const SidebarSection: React.FC<{ title: string; defaultOpen?: boolean; children:
   );
 };
 
-export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, onClose, userId, geminiApiKey, onRefine }) => {
+export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, onClose, userId, geminiApiKey, onCleanupRefine }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imgDims, setImgDims] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -533,6 +511,9 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   const [status, setStatus] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [cleaning, setCleaning] = useState(false);
+  const [exportingPngs, setExportingPngs] = useState(false);
+  const [exportingPptx, setExportingPptx] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -698,6 +679,14 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
     setHistSize({ undo: undoStackRef.current.length, redo: redoStackRef.current.length });
   }, []);
 
+  // The image's own background color (border-pixel mode). 'blank' preview
+  // frames and the play-mode stage render on it so an isolated frame sits on
+  // the same color it was drawn on instead of reading as a cutout.
+  const bgColor = useMemo(
+    () => (image && imgDims.w ? sampleImageBackground(image, imgDims.w, imgDims.h) : '#ffffff'),
+    [image, imgDims.w, imgDims.h]
+  );
+
   // --- Load the image once ------------------------------------------------
   useEffect(() => {
     let cancelled = false;
@@ -799,11 +788,11 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
     } else if (seekOverride) {
       // Mid-seek: draw the interpolated state directly (no partial wipe —
       // we're moving between two already-settled stops, not mid-reveal).
-      renderFrameFromState(ctx, build, image, layers, imgDims.w, imgDims.h, seekOverride, 1);
+      renderFrameFromState(ctx, build, image, layers, imgDims.w, imgDims.h, seekOverride, 1, bgColor);
     } else {
-      renderFrame(ctx, build, image, layers, imgDims.w, imgDims.h, timeMs);
+      renderFrame(ctx, build, image, layers, imgDims.w, imgDims.h, timeMs, bgColor);
     }
-  }, [image, mode, build, layers, timeMs, seekOverride, imgDims.w, imgDims.h]);
+  }, [image, mode, build, layers, timeMs, seekOverride, imgDims.w, imgDims.h, bgColor]);
 
   useEffect(() => {
     draw();
@@ -1373,7 +1362,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       // ⌥ + a selected item → this marquee SUBTRACTS from it. ⌥ with nothing
       // selected can't subtract — say so, and draw additively as usual.
       if (e.altKey && !selectedStepId) {
-        flashStatus('Select an item first to subtract a rectangle from it.');
+        flashStatus('Select a frame first to subtract a rectangle from it.');
       }
       capturePointer(e);
       setRectDragSynced({ x0: p.x, y0: p.y, x1: p.x, y1: p.y, sub: e.altKey && !!selectedStepId });
@@ -1389,7 +1378,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         // is visible).
         const targetId = selectedStepId ?? hitStepAt(p);
         if (!targetId) {
-          flashStatus('Nothing to erase here — start on an item, or select one first.');
+          flashStatus('Nothing to erase here — start on a frame, or select one first.');
           return;
         }
         if (targetId !== selectedStepId) setSelectedStepId(targetId);
@@ -1739,7 +1728,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
     setBuild((b) => ({ ...b, steps: [] }));
     setSelectedStepId(null);
     resetView();
-    flashStatus('Cleared all items — ⌘Z restores them.', 6000);
+    flashStatus('Cleared all frames — ⌘Z restores them.', 6000);
   };
   const durDragRef = useRef<{ id: string; startX: number; startMs: number; moved: boolean; alt: boolean } | null>(null);
   const onDurDown = (e: React.PointerEvent, id: string, currentMs: number) => {
@@ -1887,7 +1876,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       return;
     }
     setNaming(true);
-    setStatus('AI is naming the items…');
+    setStatus('AI is naming the frames…');
     const stepsBefore = build.steps;
     try {
       const { nameBuildRegions } = await import('../services/buildAutoSelect');
@@ -1900,7 +1889,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         ...b,
         steps: b.steps.map((s, i) => (names.get(i) ? { ...s, label: names.get(i) } : s)),
       }));
-      flashStatus(`Named ${names.size} items — edit any name in the list, or ⌘Z to undo.`, 6000);
+      flashStatus(`Named ${names.size} frames — edit any name in the list, or ⌘Z to undo.`, 6000);
     } catch (err) {
       console.error('[BuildStudio] auto-name failed:', err);
       flashStatus(err instanceof Error ? err.message : 'AI naming failed — try again.', 8000);
@@ -1915,7 +1904,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       return;
     }
     setAutoSelecting(true);
-    setStatus('AI is reading the infographic and proposing items…');
+    setStatus('AI is reading the infographic and proposing frames…');
     // Snapshot the steps being replaced NOW, from this render's closure — the
     // ref mirror can be stale across the multi-second await (it burned us:
     // an empty snapshot made ⌘Z after an AI pass wipe the build).
@@ -1942,7 +1931,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       }));
       setBuild((b) => ({ ...b, steps }));
       setSelectedStepId(null);
-      flashStatus(`AI replaced your items with ${steps.length} proposals — ⌘Z brings yours back.`, 7000);
+      flashStatus(`AI replaced your frames with ${steps.length} proposals — ⌘Z brings yours back.`, 7000);
     } catch (err) {
       console.error('[BuildStudio] auto-select failed:', err);
       flashStatus(err instanceof Error ? err.message : 'AI auto-select failed — try again.', 8000);
@@ -1966,6 +1955,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       }
       const blob = await mod.exportBuildToMp4(build, image, imgDims.w, imgDims.h, {
         onProgress: (p) => setExportProgress(p),
+        bgColor,
       });
       const { downloadBlobAsFile } = await import('../services/batchExportService');
       const safe = (generation.config.prompt || 'build').slice(0, 40).replace(/[^a-z0-9]+/gi, '-');
@@ -1976,6 +1966,52 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       setStatus('Export failed. You can still screen-record the player.');
     } finally {
       setExporting(false);
+    }
+  };
+
+  // PNG-per-step export for slide decks (Google Slides / PowerPoint /
+  // Keynote): one still per walkthrough stop, zipped. Fast — no encoder gate.
+  const handleExportPngs = async () => {
+    if (!image || build.steps.length === 0 || exportingPngs) return;
+    setExportingPngs(true);
+    setStatus('Rendering one PNG per frame…');
+    try {
+      const mod = await import('../services/buildExportService');
+      const blob = await mod.exportBuildToPngZip(build, image, imgDims.w, imgDims.h, { bgColor });
+      const { downloadBlobAsFile } = await import('../services/batchExportService');
+      const safe = (generation.config.prompt || 'build').slice(0, 40).replace(/[^a-z0-9]+/gi, '-');
+      downloadBlobAsFile(blob, `${safe || 'build'}-v${version.number}-slides.zip`);
+      flashStatus('PNGs downloaded — add one per slide with a Fade transition.', 6000);
+    } catch (err) {
+      console.error('[BuildStudio] PNG export failed:', err);
+      flashStatus('PNG export failed.', 5000);
+    } finally {
+      setExportingPngs(false);
+    }
+  };
+
+  // Native .pptx export: one slide, each frame a picture shape with a real
+  // "Fade in on click" entrance. Opens animated in PowerPoint/Keynote and
+  // imports into Google Slides with the builds intact.
+  const handleExportPptx = async () => {
+    if (!image || build.steps.length === 0 || exportingPptx) return;
+    setExportingPptx(true);
+    setStatus('Building the PowerPoint deck…');
+    try {
+      const mod = await import('../services/buildPptxExport');
+      const blob = await mod.exportBuildToPptx(build, image, imgDims.w, imgDims.h, {
+        bgColor,
+        title: generation.config.prompt?.slice(0, 80),
+      });
+      const { downloadBlobAsFile } = await import('../services/batchExportService');
+      const safe = (generation.config.prompt || 'build').slice(0, 40).replace(/[^a-z0-9]+/gi, '-');
+      downloadBlobAsFile(blob, `${safe || 'build'}-v${version.number}.pptx`);
+      flashStatus('PPTX downloaded — in Google Slides use File → Import slides to keep the animations.', 8000);
+    } catch (err) {
+      console.error('[BuildStudio] PPTX export failed:', err);
+      flashStatus('PowerPoint export failed.', 5000);
+    } finally {
+      setExportingPptx(false);
     }
   };
 
@@ -2008,6 +2044,24 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             {/* Edit/Preview live in the toolbar (Play) and on Return/Esc —
                 the header only carries what the toolbar doesn't: export, close. */}
             <button
+              onClick={handleExportPptx}
+              disabled={!exportSupported || exportingPptx}
+              aria-label="Export PowerPoint with builds"
+              className="group/tip relative min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
+            >
+              {exportingPptx ? <Loader2 size={15} className="animate-spin" /> : <Presentation size={16} />}
+              <Tip side="bottom" align="right" wide title="Export PowerPoint (.pptx)" text={exportSupported ? 'One slide with every frame as a native click-to-reveal fade build. Opens animated in PowerPoint & Keynote; in Google Slides use File → Import slides and the animations come along.' : 'Add at least one frame first, then export an animated deck.'} />
+            </button>
+            <button
+              onClick={handleExportPngs}
+              disabled={!exportSupported || exportingPngs}
+              aria-label="Export PNGs for slides"
+              className="group/tip relative min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
+            >
+              {exportingPngs ? <Loader2 size={15} className="animate-spin" /> : <Images size={16} />}
+              <Tip side="bottom" align="right" wide title="Export PNGs for slides" text={exportSupported ? 'A zip with one still per frame (plus start & end). Drop into Google Slides, PowerPoint, or Keynote — one per slide with a Fade transition — for click-to-advance builds.' : 'Add at least one frame first, then export stills for your slide deck.'} />
+            </button>
+            <button
               onClick={handleExport}
               disabled={!exportSupported || exporting}
               aria-label="Export MP4"
@@ -2015,7 +2069,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             >
               {exporting ? <Loader2 size={15} className="animate-spin" /> : <Film size={16} />}
               {exporting && `${Math.round(exportProgress * 100)}%`}
-              <Tip side="bottom" align="right" wide title="Export MP4" text={exportSupported ? 'H.264 video that plays everywhere (QuickTime, PowerPoint, socials). Rendered locally in your browser.' : 'Add at least one item first, then export the animation as a video.'} />
+              <Tip side="bottom" align="right" wide title="Export MP4" text={exportSupported ? 'H.264 video that plays everywhere (QuickTime, PowerPoint, socials). Rendered locally in your browser.' : 'Add at least one frame first, then export the animation as a video.'} />
             </button>
             <button
               onClick={onClose}
@@ -2054,7 +2108,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   <GripVertical size={14} />
                 </button>
                 <ToolBarButton icon={PenTool} active={tool === 'freeform'} onClick={() => setTool('freeform')} label="Freeform selection (F)" />
-                <ToolBarButton icon={Square} active={tool === 'rectangle'} onClick={() => setTool('rectangle')} label="Rectangle selection (R) · hold ⌥ to subtract from the selected item" />
+                <ToolBarButton icon={Square} active={tool === 'rectangle'} onClick={() => setTool('rectangle')} label="Rectangle selection (R) · hold ⌥ to subtract from the selected frame" />
                 {/* One brush: plain = add (teal), hold ⌥ = erase (red —
                     the icon flips to a minus live). */}
                 <ToolBarButton
@@ -2082,24 +2136,38 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     side="bottom"
                     wide
                     title="AI auto-select"
-                    text="Proposes the items from the image, in reveal order. Replaces the current items (⌘Z restores) · one call on your Gemini key · for busy art, run “Clean up image” first."
+                    text="Proposes the frames from the image, in reveal order. Replaces the current frames (⌘Z restores) · one call on your Gemini key · for busy art, run “Clean up image” first."
                   />
                 </button>
 
 
-                {onRefine && (
+                {onCleanupRefine && (
                   <button
-                    onClick={() => {
-                      onRefine(CLEANUP_FOR_ANIMATION_PROMPT);
-                      // The refine runs in the app's normal generation pipeline —
-                      // close so its progress (and the new Mark) is visible.
-                      onClose();
+                    onClick={async () => {
+                      if (cleaning) return;
+                      setCleaning(true);
+                      // Persistent status (no auto-clear) — the redraw takes a
+                      // while. Success swaps the studio to the new Mark (fresh
+                      // mount clears this); failure flashes below.
+                      if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current);
+                      setStatus('AI is redrawing the image for animation — usually 30–60s…');
+                      try {
+                        const ok = await onCleanupRefine(CLEANUP_FOR_ANIMATION_PROMPT);
+                        if (!ok) {
+                          flashStatus('Clean up failed — check your API key and image model, then try again.', 6000);
+                        }
+                      } catch {
+                        flashStatus('Clean up failed — check your API key and image model, then try again.', 6000);
+                      }
+                      setCleaning(false);
                     }}
                     aria-label="Clean up image for animation"
-                    className="group/tip relative w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-brand-teal hover:bg-brand-teal/15"
+                    className={`group/tip relative w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-brand-teal ${
+                      cleaning ? 'bg-brand-teal/15 cursor-default' : 'hover:bg-brand-teal/15'
+                    }`}
                   >
-                    <Sparkles size={18} />
-                    <Tip side="bottom" wide title="Clean up for animation" text="AI redraws this image with each block isolated on a solid background, so items are easy to select. Creates a new Mark (your original stays) · uses your image model." />
+                    {cleaning ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                    <Tip side="bottom" wide title="Clean up for animation" text="AI redraws this image with each block isolated on a solid background, so frames are easy to select. The cleaned image opens right here as a new Mark (your original stays) · uses your image model." />
                   </button>
                 )}
                 <div className="w-px h-6 bg-white/10 mx-1" />
@@ -2125,13 +2193,13 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                       style={{ fontSize: selectedIdx + 1 >= 10 ? 10 : 11, lineHeight: '24px' }}
                     >
                       {selectedIdx + 1}
-                      <Tip side="bottom" text={`Editing item ${selectedIdx + 1} — click to finish`} />
+                      <Tip side="bottom" text={`Editing frame ${selectedIdx + 1} — click to finish`} />
                     </button>
                     <ToolBarButton
                       icon={Focus}
                       active={isolatedStepId === selectedStepId}
                       onClick={() => selectedStepId && toggleIsolation(selectedStepId)}
-                      label="Focus — isolate & zoom this item (⌥number · double-tap ⌥ · Esc exits)"
+                      label="Focus — isolate & zoom this frame (⌥number · double-tap ⌥ · Esc exits)"
                     />
                   </>
                 )}
@@ -2141,7 +2209,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   icon={Play}
                   onClick={() => enterPlay(selectedIdx >= 0 ? selectedIdx : undefined)}
                   disabled={build.steps.length === 0}
-                  label="Play the slideshow (Return) — starts at the selected item"
+                  label="Play the slideshow (Return) — starts at the selected frame"
                   activeClassName="bg-brand-teal text-white"
                 />
                 <ToolBarButton
@@ -2159,6 +2227,11 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             onPointerUp={endPan}
             onPointerCancel={endPan}
             className={`flex-1 min-h-0 flex items-center justify-center p-4 relative overflow-hidden ${isFullscreen ? 'bg-black' : ''} ${spaceHeld && mode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            // In Preview on a 'blank' build, the whole stage (letterbox bars
+            // included) takes the image's own background color — a frame shown
+            // in isolation then sits on the color it was drawn on instead of
+            // floating on black/white like a cutout. Recordings inherit it too.
+            style={mode === 'play' && build.background === 'blank' ? { background: bgColor } : undefined}
           >
             {loadError ? (
               <div className="text-center text-slate-300">
@@ -2172,7 +2245,12 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             ) : (
               <div
                 data-stage-inner
-                className="relative shrink-0 shadow-2xl shadow-black rounded-md overflow-hidden"
+                // In Preview on a 'blank' build the stage matches the image's
+                // background — the canvas shadow/rounding would redraw exactly
+                // the cutout rectangle we're hiding, so drop them there.
+                className={`relative shrink-0 overflow-hidden ${
+                  mode === 'play' && build.background === 'blank' ? '' : 'shadow-2xl shadow-black rounded-md'
+                }`}
                 style={{
                   ...stageInner,
                   transform: view.scale !== 1 ? `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})` : undefined,
@@ -2337,7 +2415,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           onPointerMove={onXformMove}
                           onPointerUp={endXform}
                           onPointerCancel={endXform}
-                          aria-label="Resize item"
+                          aria-label="Resize frame"
                           title="Drag to resize (anchors the opposite corner)"
                           className="absolute w-2.5 h-2.5 bg-brand-teal ring-1 ring-white rounded-[2px] touch-none hover:bg-teal-400"
                           style={{
@@ -2354,9 +2432,9 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                         <span className="px-3 py-1.5 rounded-full bg-black/70 text-white text-xs font-medium flex items-center gap-1.5">
                           <Plus size={13} />
                           {tool === 'rectangle'
-                            ? 'Drag a box around your first item'
+                            ? 'Drag a box around your first frame'
                             : tool === 'brush'
-                              ? 'Paint over your first item'
+                              ? 'Paint over your first frame'
                               : usesStraightLine
                                   ? 'Click to place corners (double-click to close) — hold Alt/Option to draw freehand'
                                   : 'Drag to draw freehand — hold Alt/Option for straight corners'}
@@ -2412,21 +2490,21 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                         </>
                       ) : (
                         <>
-                          <button onClick={() => setStopIndex((i) => Math.max(0, i - 1))} disabled={stopIndex <= 0} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 disabled:opacity-30" aria-label="Previous item" title="Previous (←)">
+                          <button onClick={() => setStopIndex((i) => Math.max(0, i - 1))} disabled={stopIndex <= 0} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 disabled:opacity-30" aria-label="Previous frame" title="Previous (←)">
                             <ChevronLeft size={16} />
                           </button>
                           <span className="text-xs text-slate-300 font-medium tabular-nums min-w-[7rem] text-center">
                             {stopIndex === 0
                               ? 'Start'
                               : build.endShowFull && stopIndex === stops.length - 1
-                                ? 'All items'
-                                : `Item ${stopIndex}`}
+                                ? 'All frames'
+                                : `Frame ${stopIndex}`}
                             <span className="text-slate-500"> · {stopIndex}/{stops.length - 1}</span>
                           </span>
-                          <button onClick={() => setStopIndex((i) => Math.min(stops.length - 1, i + 1))} disabled={stopIndex >= stops.length - 1} className="p-2 rounded-lg bg-brand-teal text-white hover:bg-teal-600 disabled:opacity-30" aria-label="Next item" title="Next (→)">
+                          <button onClick={() => setStopIndex((i) => Math.min(stops.length - 1, i + 1))} disabled={stopIndex >= stops.length - 1} className="p-2 rounded-lg bg-brand-teal text-white hover:bg-teal-600 disabled:opacity-30" aria-label="Next frame" title="Next (→)">
                             <ChevronRight size={16} />
                           </button>
-                          <span className="text-xs text-slate-400 hidden sm:inline">← → step · 1-9 jump · E edits this item</span>
+                          <span className="text-xs text-slate-400 hidden sm:inline">← → step · 1-9 jump · E edits this frame</span>
                         </>
                       )}
                       <div className="ml-auto flex items-center gap-2">
@@ -2447,8 +2525,8 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                         <button onClick={toggleFullscreen} className={`p-2 rounded-lg ${isFullscreen ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-300 hover:bg-white/10'}`} title="Fullscreen for recording" aria-label="Fullscreen">
                           {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
                         </button>
-                        <button onClick={editCurrentItem} className="group/tip relative p-2 rounded-lg text-slate-300 hover:bg-white/10" aria-label="Edit this item">
-                          <Tip text="Edit this item (E) · Esc exits without selecting" />
+                        <button onClick={editCurrentItem} className="group/tip relative p-2 rounded-lg text-slate-300 hover:bg-white/10" aria-label="Edit this frame">
+                          <Tip text="Edit this frame (E) · Esc exits without selecting" />
                           <Pencil size={15} />
                         </button>
                       </div>
@@ -2478,7 +2556,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="flex items-center justify-between px-3 pt-3 pb-1.5">
-                <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Items ({build.steps.length})</h3>
+                <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Frames ({build.steps.length})</h3>
                 <div className="flex items-center gap-1">
                   {build.steps.length > 0 && build.steps.some((s) => !s.label) && (
                     <button
@@ -2487,12 +2565,12 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                       className="group/tip relative inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-brand-teal text-[11px] font-semibold hover:bg-brand-teal/10 disabled:opacity-60"
                     >
                       {naming ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />} AI names
-                      <Tip text="AI names each item from the image (one call on your Gemini key)" side="bottom" align="right" />
+                      <Tip text="AI names each frame from the image (one call on your Gemini key)" side="bottom" align="right" />
                     </button>
                   )}
                   {selectedStepId && (
                     <button onClick={() => setSelectedStepId(null)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#21262d] text-slate-200 text-[11px] font-semibold hover:bg-[#2d333b]">
-                      <Plus size={11} /> New item
+                      <Plus size={11} /> New frame
                     </button>
                   )}
                   {build.steps.length > 0 && (
@@ -2502,13 +2580,13 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     >
                       <Trash2 size={11} />
                       {confirmClear && 'Sure?'}
-                      <Tip text={confirmClear ? "Tap again to clear all items (⌘Z restores)" : "Clear the whole animation (tap twice)"} side="bottom" align="right" />
+                      <Tip text={confirmClear ? "Tap again to clear all frames (⌘Z restores)" : "Clear the whole animation (tap twice)"} side="bottom" align="right" />
                     </button>
                   )}
                 </div>
               </div>
               {build.steps.length === 0 ? (
-                <p className="px-3 text-xs text-slate-500">Pick a tool above and draw around each item — or hit the wand to let AI propose the items and their order for you.</p>
+                <p className="px-3 text-xs text-slate-500">Pick a tool above and draw around each frame — or hit the wand to let AI propose the frames and their order for you.</p>
               ) : (
                 <ul className="px-2 pb-3 space-y-0.5">
                   {build.steps.map((s, i) => {
@@ -2541,7 +2619,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                               data-no-row-drag
                               type="text"
                               defaultValue={s.label ?? ''}
-                              placeholder={`Item ${i + 1}`}
+                              placeholder={`Frame ${i + 1}`}
                               autoFocus
                               onClick={(e) => e.stopPropagation()}
                               onBlur={(e) => {
@@ -2559,13 +2637,13 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                               className="text-xs font-medium text-slate-300 truncate min-w-0"
                               onDoubleClick={(e) => { e.stopPropagation(); setRenamingId(s.id); }}
                             >
-                              {s.label || `Item ${i + 1}`}
+                              {s.label || `Frame ${i + 1}`}
                             </span>
                           )}
                           {sel && (
                             <div data-no-row-drag className="ml-auto flex shrink-0 rounded-md border border-[#30363d] overflow-hidden">
                               {([
-                                ['smart', Route, 'Smart — camera pans in from the previous item'],
+                                ['smart', Route, 'Smart — camera pans in from the previous frame'],
                                 ['center', Crosshair, 'Center — pull back to the full image, then zoom in'],
                               ] as const).map(([zf, Icon, tip]) => {
                                 const active = (s.zoomFrom ?? build.defaultZoomFrom) === zf;
@@ -2587,10 +2665,10 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                             data-no-row-drag
                             onClick={(e) => { e.stopPropagation(); deleteStep(s.id); }}
                             className={`group/tip relative ${sel ? '' : 'ml-auto'} p-1 text-red-400 hover:text-red-300 opacity-0 group-hover/row:opacity-100 transition-opacity`}
-                            aria-label="Delete item"
+                            aria-label="Delete frame"
                           >
                             <Trash2 size={13} />
-                            <Tip text="Delete item" side="left" />
+                            <Tip text="Delete frame" side="left" />
                           </button>
                           {/* Duration: drag horizontally to scrub, click to type. */}
                           {editingDurId === s.id ? (
@@ -2642,9 +2720,9 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   value={build.revealStyle}
                   onChange={(v) => setBuild((b) => ({ ...b, revealStyle: v as ImageBuild['revealStyle'] }))}
                   options={[
-                    { key: 'fade', label: 'Fade', tip: 'Each item fades in' },
-                    { key: 'wipe', label: 'Wipe', tip: 'Each item wipes in, left to right' },
-                    { key: 'spotlight', label: 'Spot', tip: 'Spotlight — the image stays dimmed, items light up' },
+                    { key: 'fade', label: 'Fade', tip: 'Each frame fades in' },
+                    { key: 'wipe', label: 'Wipe', tip: 'Each frame wipes in, left to right' },
+                    { key: 'spotlight', label: 'Spot', tip: 'Spotlight — the image stays dimmed, frames light up' },
                   ]}
                 />
               </SettingRow>
@@ -2663,7 +2741,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 <Switch
                   checked={build.cumulative}
                   onChange={(v) => setBuild((b) => ({ ...b, cumulative: v }))}
-                  tip="Keep previous items visible as new ones appear"
+                  tip="Keep previous frames visible as new ones appear"
                 />
               </SettingRow>
               <SettingRow label="At the end">
@@ -2677,8 +2755,8 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     )
                   }
                   options={[
-                    { key: 'none', label: 'Stop', tip: 'End on the last item' },
-                    { key: 'items', label: 'Items', tip: 'Zoom out and show all items together' },
+                    { key: 'none', label: 'Stop', tip: 'End on the last frame' },
+                    { key: 'items', label: 'Frames', tip: 'Zoom out and show all frames together' },
                     { key: 'image', label: 'Image', tip: 'Zoom out and reveal the entire image' },
                   ]}
                 />
@@ -2688,14 +2766,14 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   value={build.startMode}
                   onChange={(k) => setBuild((b) => ({ ...b, startMode: k as 'blank' | 'first' }))}
                   options={[
-                    { key: 'blank', label: 'Blank', tip: 'Preview opens empty — first → reveals item 1' },
-                    { key: 'first', label: 'First item', tip: 'Preview opens with item 1 already revealing' },
+                    { key: 'blank', label: 'Blank', tip: 'Preview opens empty — first → reveals frame 1' },
+                    { key: 'first', label: 'First frame', tip: 'Preview opens with frame 1 already revealing' },
                   ]}
                 />
               </SettingRow>
             </SidebarSection>
             <SidebarSection title="Timing & camera">
-              <SettingRow label="Each item shows">
+              <SettingRow label="Each frame shows">
                 <ScrubValue
                   value={build.defaultDurationMs}
                   min={500} max={6000} step={100} perPx={20}
@@ -2703,7 +2781,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   toInput={(v) => (v / 1000).toFixed(1)}
                   fromInput={(t) => Number(t) * 1000}
                   onChange={(v) => setBuild((b) => ({ ...b, defaultDurationMs: v }))}
-                  tip="Default seconds per item · drag to adjust · click to type (per-item overrides win)"
+                  tip="Default seconds per frame · drag to adjust · click to type (per-frame overrides win)"
                 />
               </SettingRow>
               <SettingRow label="Transition">
@@ -2725,13 +2803,13 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   toInput={(v) => String(Math.round(v * 100))}
                   fromInput={(t) => Number(t) / 100}
                   onChange={(v) => setBuild((b) => ({ ...b, zoom: v }))}
-                  tip="0% = no camera zoom · 100% = frame each item tight · drag to adjust · click to type"
+                  tip="0% = no camera zoom · 100% = zoom in tight on each frame · drag to adjust · click to type"
                 />
               </SettingRow>
               <SettingRow label="Zoom from">
                 <div className="inline-flex rounded-md border border-[#30363d]">
                   {([
-                    ['smart', Route, 'Smart — camera pans in from the previous item'],
+                    ['smart', Route, 'Smart — camera pans in from the previous frame'],
                     ['center', Crosshair, 'Center — pull back to the full image, then zoom in'],
                   ] as const).map(([zf, Icon, tip]) => {
                     const active = build.defaultZoomFrom === zf;

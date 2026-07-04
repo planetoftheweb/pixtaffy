@@ -1854,13 +1854,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRefine = (refinementText: string) => {
-    void enqueuePreviewWork(async () => {
-      const currentGeneration = currentGenerationRef.current;
-      if (!currentGeneration) return;
-
-      setError(null);
-      try {
+  // Core refine: appends a refined Mark to `targetGeneration`, using
+  // `baseVersion` as the source image. Shared by the refine bar (current
+  // tile) and Build Studio's "Clean up for animation" (the studio's own
+  // target, which may not be the current tile). Returns the updated
+  // generation; throws on failure.
+  const runRefineOn = async (
+    targetGeneration: Generation,
+    baseVersion: GenerationVersion,
+    refinementText: string
+  ): Promise<Generation> => {
+    const currentGeneration = targetGeneration;
+    {
         if (!user) {
           openAuthModal('signup');
           throw new Error('Free accounts use your own API key (BYOK). Create an account, then add your key in Settings to refine images.');
@@ -1872,7 +1877,7 @@ const App: React.FC = () => {
           throw new Error('Add your API key in Settings before refining. Free accounts use BYOK keys.');
         }
 
-        const currentVersion = getCurrentVersion(currentGeneration);
+        const currentVersion = baseVersion;
       const refineFolderId = currentGeneration.folderId || INBOX_FOLDER_ID;
       const refineSystemPrompt = mergeFolderInstructionsWithSystemPrompt(
         folders,
@@ -1942,11 +1947,43 @@ const App: React.FC = () => {
       await historyService.updateGeneration(user, updatedGeneration);
       const updatedHistory = await historyService.getHistory(user);
       setHistory(updatedHistory);
+      return updatedGeneration;
+    }
+  };
 
+  const handleRefine = (refinementText: string) => {
+    void enqueuePreviewWork(async () => {
+      const currentGeneration = currentGenerationRef.current;
+      if (!currentGeneration) return;
+
+      setError(null);
+      try {
+        await runRefineOn(currentGeneration, getCurrentVersion(currentGeneration), refinementText);
       } catch (err: any) {
         setError(err.message || 'Failed to refine image.');
       }
     });
+  };
+
+  // Build Studio "Clean up for animation": refine the STUDIO's generation +
+  // version (which may not be the current tile — the old code refined the
+  // current tile and silently no-oped when there wasn't one), then swap the
+  // studio to the freshly created Mark. Returns true on success so the
+  // studio can flash a failure message without closing.
+  const handleBuildStudioCleanup = async (refinementText: string): Promise<boolean> => {
+    const target = buildStudioTarget;
+    if (!target) return false;
+    setError(null);
+    try {
+      const updated = await runRefineOn(target.generation, target.version, refinementText);
+      const newVersion = updated.versions[updated.versions.length - 1];
+      if (!newVersion) return false;
+      setBuildStudioTarget({ generation: updated, version: newVersion });
+      return true;
+    } catch (err: any) {
+      console.warn('[BuildStudio] cleanup refine failed:', err?.message || err);
+      return false;
+    }
   };
 
   // Re-roll: produce a brand-new image for the same prompt and append it as
@@ -4032,12 +4069,13 @@ const App: React.FC = () => {
       {buildStudioTarget && (
         <Suspense fallback={<LazyModalFallback />}>
           <BuildStudio
+            key={`${buildStudioTarget.generation.id}|${buildStudioTarget.version.id}`}
             generation={buildStudioTarget.generation}
             version={buildStudioTarget.version}
             onClose={() => setBuildStudioTarget(null)}
             userId={user?.id}
             geminiApiKey={getGeminiApiKeyForAnalysis(user)}
-            onRefine={handleRefine}
+            onCleanupRefine={handleBuildStudioCleanup}
           />
         </Suspense>
       )}

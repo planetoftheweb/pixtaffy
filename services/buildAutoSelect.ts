@@ -60,8 +60,18 @@ time, in order, to walk a viewer through the infographic. So:
 - Masks should follow each block's actual visual outline — panels here are
   often organic, hand-drawn shapes, not rectangles.
 - A mask must FULLY CONTAIN every part of its block — all text, icons, and
-  illustration, out to their outermost strokes. Never cut through artwork or
-  letters; when unsure, err a little generous.
+  illustration, out to their outermost strokes. NEVER slice through a word,
+  a line of text, a face, a mascot, or an illustration: if any part of one
+  belongs to the block, include ALL of it. When unsure, err generous.
+- "box_2d" must be at least as large as the mask — generous enough that the
+  whole block fits inside with a little margin on every side.
+- Masks must NOT overlap each other: a mask contains ONLY its own block,
+  never any part of a neighboring block, and stays inside its own "box_2d".
+- Outlines must be simple and tight: one smooth closed shape per block — no
+  long spikes, thin tails, or detached islands.
+- Before answering, double-check every entry: does the box really contain
+  exactly one block, and does the mask cover that whole block and nothing
+  else? Fix any entry that fails.
 `.trim();
 
 /** Push every vertex outward from the polygon's centroid by `pad` (normalized
@@ -191,6 +201,23 @@ const maskToPolygon = async (
     if (rows.length < 3) return null;
     const coverage = rows.reduce((s, rw) => s + (rw.r - rw.l + 1), 0) / (gw * gh);
     if (coverage < 0.05) return null; // mask is mostly noise
+    // Outlier guard: per-row min/max scanning amplifies a single stray mask
+    // pixel into a huge horizontal spike on the outline. Median-smooth each
+    // edge over a 5-row window so isolated noise rows can't drag it out.
+    const median5 = (get: (rw: { l: number; r: number }) => number): number[] =>
+      rows.map((_, i) => {
+        const win = rows
+          .slice(Math.max(0, i - 2), Math.min(rows.length, i + 3))
+          .map(get)
+          .sort((a, b) => a - b);
+        return win[Math.floor(win.length / 2)];
+      });
+    const smoothL = median5((rw) => rw.l);
+    const smoothR = median5((rw) => rw.r);
+    rows.forEach((rw, i) => {
+      rw.l = Math.min(smoothL[i], smoothR[i]);
+      rw.r = Math.max(smoothL[i], smoothR[i]);
+    });
     // Right edge down, then left edge back up (closed, clockwise-ish).
     const toNorm = (gx: number, gy: number) => ({
       x: rect.x + ((gx + 0.5) / gw) * rect.w,
@@ -271,6 +298,27 @@ export async function autoDetectBuildRegions(
       : typeof r.mask === 'string' && r.mask
         ? await maskToPolygon(r.mask, rect)
         : null;
+    if (poly && Array.isArray(r.mask)) {
+      // Vertex rings come back in absolute image coords, and sloppy answers
+      // wander far outside the declared box — the "outline sprawls across
+      // half the canvas" failure. Clamp every vertex into the box (small
+      // margin), then drop the ring if clamping degenerated it: the box is
+      // the model's own claim of where this block lives.
+      const m = 0.03;
+      poly = poly.map((p) => ({
+        x: Math.min(Math.max(p.x, x - m), x + w + m),
+        y: Math.min(Math.max(p.y, y - m), y + h + m),
+      }));
+      let area = 0;
+      for (let i = 0; i < poly.length; i++) {
+        const a = poly[i];
+        const b = poly[(i + 1) % poly.length];
+        area += a.x * b.y - b.x * a.y;
+      }
+      // After clamping, a wandering ring collapses onto the box edges (tiny
+      // area) — unusable; fall back to the rectangle.
+      if (Math.abs(area) / 2 < 0.25 * w * h) poly = null;
+    }
     if (poly) {
       // Safety margin proportional to the region, so a slightly-lazy mask
       // never clips artwork at its edge.
@@ -285,10 +333,28 @@ export async function autoDetectBuildRegions(
     if (regions.length >= MAX_REGIONS) break;
   }
 
-  if (regions.length === 0) {
+  // Cross-region error checks — the model sometimes answers with a region
+  // that is really the whole canvas, or lists the same block twice. Both
+  // ruin the reveal (one step shows everything / a block flashes twice).
+  const iou = (a: AutoRegion['rect'], b: AutoRegion['rect']): number => {
+    const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+    const iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+    const inter = ix * iy;
+    return inter / (a.w * a.h + b.w * b.h - inter || 1e-9);
+  };
+  const checked: AutoRegion[] = [];
+  for (const region of regions) {
+    // "Whole image" region alongside real blocks → drop it.
+    if (regions.length > 2 && region.rect.w * region.rect.h > 0.9) continue;
+    // Near-duplicate of an already-kept region → drop the later one.
+    if (checked.some((kept) => iou(kept.rect, region.rect) > 0.75)) continue;
+    checked.push(region);
+  }
+
+  if (checked.length === 0) {
     throw new Error('The AI could not find distinct regions in this image.');
   }
-  return regions;
+  return checked;
 }
 
 /**
