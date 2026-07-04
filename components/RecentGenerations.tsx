@@ -11,7 +11,7 @@ import {
 } from '../services/folderTreeUtils';
 import { sanitizeSvg } from '../services/svgService';
 import { createBlobUrlFromImage } from '../services/imageSourceService';
-import { getCachedImageBlobUrl } from '../services/imageCache';
+import { backfillImageCache, getCachedImageBlobUrl } from '../services/imageCache';
 import { getLatestVersion } from '../services/historyService';
 import {
   buildVersionDownload,
@@ -624,6 +624,31 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
     const start = (galleryPage - 1) * galleryPageSize;
     return visibleHistory.slice(start, start + galleryPageSize);
   }, [visibleHistory, galleryPaginationEnabled, galleryPage, galleryPageSize]);
+
+  React.useEffect(() => {
+    const targets = pagedVisibleHistory
+      .map((gen) => {
+        const latestVersion = getLatestVersion(gen);
+        if (
+          !latestVersion?.id ||
+          !latestVersion.imageUrl ||
+          latestVersion.mimeType === 'image/svg+xml' ||
+          !/^https?:/i.test(latestVersion.imageUrl)
+        ) {
+          return null;
+        }
+        return {
+          generationId: gen.id,
+          versionId: latestVersion.id,
+          imageUrl: latestVersion.imageUrl,
+        };
+      })
+      .filter((target): target is { generationId: string; versionId: string; imageUrl: string } => Boolean(target));
+
+    if (targets.length > 0) {
+      void backfillImageCache(targets);
+    }
+  }, [pagedVisibleHistory]);
 
   const galleryTotalPages = React.useMemo(() => {
     if (!galleryPaginationEnabled) return 1;
@@ -3052,6 +3077,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     src={imageUrl}
                     alt=""
                     className="block w-auto h-auto max-w-full max-h-full object-contain"
+                    onError={() => handleImageLoadError(gen)}
                   />
                 )}
               </div>

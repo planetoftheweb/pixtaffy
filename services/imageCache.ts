@@ -395,7 +395,7 @@ const enforceBudget = async (): Promise<void> => {
   }
 };
 
-interface BackfillTarget {
+export interface BackfillTarget {
   generationId: string;
   versionId: string;
   imageUrl: string;
@@ -426,47 +426,57 @@ const filterUncachedTargets = async (targets: BackfillTarget[]): Promise<Backfil
   }
 };
 
+const getBackfillTargetKey = (target: BackfillTarget): string =>
+  buildImageCacheKey(target.generationId, target.versionId);
+
 // Best-effort background fetch of any history image whose bytes aren't in
 // IndexedDB yet. Idempotent and rate-limited so concurrent calls (e.g. from
-// repeated `getHistory` invocations during the session) don't pile up.
+// repeated `getHistory` invocations during the session) don't pile up. New
+// targets requested while a run is active are queued for the same run instead
+// of being dropped.
 let backfillInFlight: Promise<void> | null = null;
+const pendingBackfillTargets = new Map<string, BackfillTarget>();
 
 export const backfillImageCache = (targets: BackfillTarget[]): Promise<void> => {
   if (!isBrowser()) return Promise.resolve();
+  targets
+    .filter((target) => target.imageUrl && /^https?:/i.test(target.imageUrl))
+    .forEach((target) => pendingBackfillTargets.set(getBackfillTargetKey(target), target));
   if (backfillInFlight) return backfillInFlight;
 
   backfillInFlight = (async () => {
     try {
-      const eligible = targets.filter(
-        (target) => target.imageUrl && /^https?:/i.test(target.imageUrl)
-      );
-      const uncached = await filterUncachedTargets(eligible);
-      if (uncached.length === 0) return;
+      while (pendingBackfillTargets.size > 0) {
+        const batch = Array.from(pendingBackfillTargets.values());
+        pendingBackfillTargets.clear();
+        const uncached = await filterUncachedTargets(batch);
+        if (uncached.length === 0) continue;
 
-      let cursor = 0;
-      const worker = async () => {
-        while (cursor < uncached.length) {
-          const index = cursor;
-          cursor += 1;
-          const target = uncached[index];
-          try {
-            const response = await fetchWithTimeout(target.imageUrl, BACKFILL_TIMEOUT_MS);
-            if (!response.ok) continue;
-            const blob = await response.blob();
-            if (blob.size === 0) continue;
-            await cacheImageBlob(target.generationId, target.versionId, blob);
-          } catch {
-            // VPN block, network drop, CORS — silently skip. We'll try again
-            // next session.
+        let cursor = 0;
+        const worker = async () => {
+          while (cursor < uncached.length) {
+            const index = cursor;
+            cursor += 1;
+            const target = uncached[index];
+            try {
+              const response = await fetchWithTimeout(target.imageUrl, BACKFILL_TIMEOUT_MS);
+              if (!response.ok) continue;
+              const blob = await response.blob();
+              if (blob.size === 0) continue;
+              await cacheImageBlob(target.generationId, target.versionId, blob);
+            } catch {
+              // VPN block, network drop, CORS — silently skip. We'll try again
+              // next session.
+            }
           }
-        }
-      };
+        };
 
-      const workers = Array.from(
-        { length: Math.min(BACKFILL_CONCURRENCY, uncached.length) },
-        () => worker()
-      );
-      await Promise.all(workers);
+        const workers = Array.from(
+          { length: Math.min(BACKFILL_CONCURRENCY, uncached.length) },
+          () => worker()
+        );
+        await Promise.all(workers);
+      }
     } finally {
       backfillInFlight = null;
     }

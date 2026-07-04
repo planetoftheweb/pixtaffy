@@ -39,7 +39,7 @@ Minimal, direct-manipulation interfaces. Every control must earn its pixels.
 
 ## VPN / Corporate Proxy – Image Cache Contract
 
-**History of regressions**: VPN-blocking of `firebasestorage.googleapis.com` has caused image failures at least 3 times (08d54a2, f41d8ac, and the current session). Each time the fix involved the IndexedDB blob cache in `services/imageCache.ts`.
+**History of regressions**: VPN-blocking of `firebasestorage.googleapis.com` has caused thumbnail/image failures repeatedly. Thumbnail-specific fixes landed in 08d54a2, 055b573, f41d8ac, and 201f2b7; adjacent hardening landed in 8a8f3b2 (profile photos) and 9efc7ca (Storage upload warnings). Each fix involved the IndexedDB blob cache in `services/imageCache.ts`.
 
 ### How it works
 
@@ -51,13 +51,13 @@ Images are stored in Firebase Storage after upload. On VPN, the Storage domain i
 
 ### The critical invariant (easy to break)
 
-**`cacheImageFromBase64` MUST be called BEFORE `uploadGenerationImage`** inside `serializeGenerationForRemote` in `services/historyService.ts`.
+**`cacheImageFromBase64` MUST be awaited BEFORE `uploadGenerationImage`** inside `serializeGenerationForRemote` in `services/historyService.ts`.
 
 If cache seeding comes AFTER the upload and the upload throws (VPN blocks Storage), the cache is never populated and the image is unrecoverable on VPN.
 
 Current safe ordering (do NOT reverse):
 ```
-void cacheImageFromBase64(...)   // 1. seed IDB — fire-and-forget, no network
+await cacheImageFromBase64(...)  // 1. seed IDB locally — no network
 const uploaded = await uploadGenerationImage(...)   // 2. upload to Storage (may throw on VPN)
 ```
 

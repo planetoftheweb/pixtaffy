@@ -393,8 +393,9 @@ const serializeGenerationForRemote = async (
       // If `firebasestorage.googleapis.com` is blocked (VPN/proxy/captive portal),
       // `uploadGenerationImage` will throw and the code after it never runs.
       // By caching first, the image survives future VPN sessions even when the
-      // Firebase Storage upload fails. Fire-and-forget; must not block the upload.
-      void cacheImageFromBase64(
+      // Firebase Storage upload fails. Await this local write so cloud sync
+      // never strips `imageData` before the durable local fallback exists.
+      await cacheImageFromBase64(
         normalized.id,
         version.id,
         version.imageData,
