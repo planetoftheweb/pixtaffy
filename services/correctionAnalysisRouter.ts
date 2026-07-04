@@ -1,9 +1,10 @@
 import type { User } from '../types';
+import { OPENROUTER_MODEL_PREFIX } from '../constants';
 
 const normalizeStoredApiKey = (value: string): string =>
   value.replace(/^\uFEFF/, '').trim();
 
-type ApiKeyProvider = 'gemini' | 'openai';
+type ApiKeyProvider = 'gemini' | 'openai' | 'openrouter';
 
 const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
   if (
@@ -17,14 +18,21 @@ const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
   if (modelId === 'openai' || modelId === 'openai-2' || modelId === 'openai-mini') {
     return 'openai';
   }
+  if (modelId.startsWith(OPENROUTER_MODEL_PREFIX)) {
+    return 'openrouter';
+  }
   return undefined;
 };
 
 // Real Gemini keys start with `AIza` and are 39 characters long. Real OpenAI
-// keys start with `sk-` (project keys ~164 chars). We use length bounds so a
-// pasted .env file or config blob can't slip through as a "valid" key.
+// keys start with `sk-` (project keys ~164 chars). OpenRouter keys start with
+// `sk-or-`. We use length bounds so a pasted .env file or config blob can't
+// slip through as a "valid" key.
 const isLikelyOpenAIKey = (value: string): boolean =>
-  /^sk-[A-Za-z0-9_-]+$/.test(value) && value.length >= 20 && value.length <= 256;
+  /^sk-[A-Za-z0-9_-]+$/.test(value) && value.length >= 20 && value.length <= 256 &&
+  !value.startsWith('sk-or-');
+export const isLikelyOpenRouterKey = (value: string): boolean =>
+  /^sk-or-[A-Za-z0-9_-]+$/.test(value) && value.length >= 20 && value.length <= 256;
 const isLikelyGoogleApiKey = (value: string): boolean =>
   /^AIza[A-Za-z0-9_-]+$/.test(value) && value.length >= 30 && value.length <= 60;
 
@@ -42,6 +50,7 @@ const normalizeProviderKey = (
   // next slot instead of sending garbage to the API.
   if (provider === 'gemini') return isLikelyGoogleApiKey(key) ? key : undefined;
   if (provider === 'openai') return isLikelyOpenAIKey(key) ? key : undefined;
+  if (provider === 'openrouter') return isLikelyOpenRouterKey(key) ? key : undefined;
   return undefined;
 };
 
@@ -76,7 +85,16 @@ export function getApiKeyForModelFromUser(
     const k = normalizeProviderKey(user.preferences.apiKeys?.openai, 'openai');
     if (k) return k;
   }
+  if (provider === 'openrouter') {
+    const k = normalizeProviderKey(user.preferences.apiKeys?.openrouter, 'openrouter');
+    if (k) return k;
+  }
   return undefined;
+}
+
+/** The user's shared OpenRouter key, if a valid-looking one is configured. */
+export function getOpenRouterKeyFromUser(user: User | null | undefined): string | undefined {
+  return normalizeProviderKey(user?.preferences.apiKeys?.openrouter, 'openrouter');
 }
 
 /**

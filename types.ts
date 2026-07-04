@@ -282,6 +282,12 @@ export interface UserPreferences {
   apiKeys?: {
     [modelId: string]: string;
   };
+  /**
+   * OpenRouter image models enabled in the model picker (bare slugs, e.g.
+   * "bytedance-seed/seedream-4.5"). Undefined = the curated defaults in
+   * OPENROUTER_CURATED_MODELS. Only used when apiKeys.openrouter is set.
+   */
+  openRouterModels?: string[];
   selectedModel?: string;
   systemPrompt?: string;
   settings?: UserSettings;

@@ -68,6 +68,14 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
   }
   if (prefs.selectedModel) clean.selectedModel = prefs.selectedModel;
   if (prefs.systemPrompt) clean.systemPrompt = prefs.systemPrompt;
+  // Enabled OpenRouter model slugs. An empty array is meaningful ("none
+  // enabled") and distinct from undefined ("use curated defaults"), so
+  // persist it whenever the field is an array at all.
+  if (Array.isArray(prefs.openRouterModels)) {
+    clean.openRouterModels = prefs.openRouterModels.filter(
+      (slug): slug is string => typeof slug === 'string' && slug.length > 0
+    );
+  }
 
   if (prefs.settings) {
     const s = prefs.settings;
@@ -206,6 +214,9 @@ const hydratePreferences = (savedPrefs: any): UserPreferences => {
     aspectRatios: [],
     geminiApiKey: legacyGeminiTrimmed || undefined,
     apiKeys: cleanedApiKeys,
+    openRouterModels: Array.isArray(savedPrefs.openRouterModels)
+      ? savedPrefs.openRouterModels.filter((s: unknown): s is string => typeof s === 'string')
+      : undefined,
     selectedModel: savedPrefs.selectedModel || 'gemini-3.1-flash-image-preview',
     systemPrompt: savedPrefs.systemPrompt,
     settings: {

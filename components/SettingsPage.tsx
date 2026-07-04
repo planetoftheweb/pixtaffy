@@ -5,8 +5,10 @@ import { uploadProfileImage } from '../services/imageService';
 import { buildProfileImageCacheKey } from '../services/imageCache';
 import { CachedImage } from './CachedImage';
 import { teamService } from '../services/teamService';
-import { SUPPORTED_MODELS, MODEL_GROUP_ORDER } from '../constants';
+import { SUPPORTED_MODELS, MODEL_GROUP_ORDER, OPENROUTER_CURATED_MODELS } from '../constants';
 import { getAspectRatiosForModel, getSafeAspectRatioForModel } from '../services/aspectRatioService';
+import { isLikelyOpenRouterKey } from '../services/correctionAnalysisRouter';
+import { listOpenRouterImageModels } from '../services/openRouterService';
 import { RichSelect } from './RichSelect';
 
 interface SettingsPageProps {
@@ -18,7 +20,8 @@ interface SettingsPageProps {
     geminiApiKey?: string,
     systemPrompt?: string,
     selectedModel?: string,
-    apiKeys?: { [modelId: string]: string }
+    apiKeys?: { [modelId: string]: string },
+    openRouterModels?: string[]
   ) => void | Promise<void>;
   graphicTypes: GraphicType[];
   visualStyles: VisualStyle[];
@@ -53,7 +56,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   });
   const [selectedModel, setSelectedModel] = useState<string>(user.preferences.selectedModel || 'gemini');
   const [systemPrompt, setSystemPrompt] = useState<string>(user.preferences.systemPrompt || '');
-  
+  // Enabled OpenRouter model slugs (undefined pref = curated defaults).
+  const [orModels, setOrModels] = useState<string[]>(
+    () => user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug)
+  );
+  const [orCustomSlug, setOrCustomSlug] = useState('');
+  const [orSlugWarning, setOrSlugWarning] = useState<string | null>(null);
+  const [orKnownSlugs, setOrKnownSlugs] = useState<Set<string> | null>(null);
+
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -69,6 +79,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     ([key, value]) =>
       key !== 'gemini' &&
       key !== 'openai' &&
+      key !== 'openrouter' &&
       key !== 'openai-2' &&
       key !== 'openai-mini' &&
       !!value
@@ -100,11 +111,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         ([modelId, value]) =>
           modelId !== 'gemini' &&
           modelId !== 'openai' &&
+          modelId !== 'openrouter' &&
           modelId !== 'openai-2' &&
           modelId !== 'openai-mini' &&
           !!value
       )
     );
+    setOrModels(user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug));
     loadTeams();
   }, [user]);
 
@@ -191,7 +204,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   // Only OpenAI-family models need their own key. Per-model overrides remain
   // possible (see the Advanced section below) but are optional.
   const API_PROVIDERS: Array<{
-    keyId: 'gemini' | 'openai';
+    keyId: 'gemini' | 'openai' | 'openrouter';
     label: string;
     description: string;
     placeholder: string;
@@ -210,6 +223,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       description: 'Used by GPT Image 2, GPT Image Mini, and GPT Image 1.5.',
       placeholder: 'sk-...',
       helpText: 'Create one at platform.openai.com/api-keys.'
+    },
+    {
+      keyId: 'openrouter',
+      label: 'OpenRouter API Key',
+      description: 'Unlocks extra image models (Seedream, FLUX, Recraft, …) in the model picker. Your direct Google/OpenAI keys above always take priority for their own models.',
+      placeholder: 'sk-or-...',
+      helpText: 'Create one at openrouter.ai/keys. Pick which models appear below.'
     }
   ];
 
@@ -263,7 +283,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     }
   };
 
-  const persistPreferences = async (nextApiKeys = apiKeys) => {
+  const persistPreferences = async (nextApiKeys = apiKeys, nextOrModels = orModels) => {
     // Use local state as the source of truth; pass apiKeys['gemini'] directly (no `||`
     // fallback) so clearing the Nano Banana key is actually persisted. sanitizePreferences
     // in authService strips empty-string entries.
@@ -273,8 +293,58 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       nextApiKeys['gemini'] ?? '',
       systemPrompt,
       selectedModel,
-      nextApiKeys
+      nextApiKeys,
+      nextOrModels
     );
+  };
+
+  const hasOpenRouterKey = isLikelyOpenRouterKey((apiKeys['openrouter'] || '').trim());
+  const hasDirectGeminiKey = !!(apiKeys['gemini'] || '').trim();
+  const hasDirectOpenAIKey = !!(apiKeys['openai'] || '').trim();
+
+  // Fetch OpenRouter's public image-model list (cached 24h) so custom slugs
+  // can be sanity-checked before the user burns a generation on a typo.
+  useEffect(() => {
+    if (!hasOpenRouterKey || orKnownSlugs) return;
+    listOpenRouterImageModels()
+      .then((models) => setOrKnownSlugs(new Set(models.map((m) => m.slug))))
+      .catch(() => { /* validation is best-effort only */ });
+  }, [hasOpenRouterKey, orKnownSlugs]);
+
+  const persistOrModels = async (next: string[]) => {
+    setOrModels(next);
+    try {
+      await persistPreferences(apiKeys, next);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to save OpenRouter models:', err);
+    }
+  };
+
+  const toggleOrModel = (slug: string) =>
+    persistOrModels(
+      orModels.includes(slug) ? orModels.filter((s) => s !== slug) : [...orModels, slug]
+    );
+
+  const handleAddOrCustomSlug = async () => {
+    const slug = orCustomSlug.trim();
+    if (!slug) return;
+    if (!/^[\w.-]+\/[\w.:-]+$/.test(slug)) {
+      setOrSlugWarning('Slugs look like vendor/model — e.g. bytedance-seed/seedream-4.5');
+      return;
+    }
+    if (orModels.includes(slug)) {
+      setOrSlugWarning('Already in your list.');
+      return;
+    }
+    setOrSlugWarning(
+      orKnownSlugs && !orKnownSlugs.has(slug)
+        ? `“${slug}” isn’t in OpenRouter’s image-model list — it may fail to generate.`
+        : null
+    );
+    setOrCustomSlug('');
+    await persistOrModels([...orModels, slug]);
   };
 
   const handleApiKeyBlur = async (_modelId: string) => {
@@ -395,6 +465,110 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   Keys are stored on your account and only used for your own requests.
                 </p>
               </div>
+
+              {/* OpenRouter model roster — which extra models show in the
+                  picker. Vendors already covered by a direct key are routed
+                  to the direct API and hidden from the picker. */}
+              {hasOpenRouterKey && (
+                <div className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-3">
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      OpenRouter models
+                    </h5>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Checked models appear in the model picker. Defaults are the top
+                      image models by benchmark for infographic work.
+                    </p>
+                  </div>
+                  {OPENROUTER_CURATED_MODELS.map((m) => {
+                    const enabled = orModels.includes(m.slug);
+                    const routedDirect =
+                      (hasDirectGeminiKey && m.slug.startsWith('google/')) ||
+                      (hasDirectOpenAIKey && m.slug.startsWith('openai/'));
+                    return (
+                      <label
+                        key={m.slug}
+                        className={`flex items-start gap-2.5 rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] p-3 cursor-pointer transition-opacity ${
+                          routedDirect ? 'opacity-60' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={() => toggleOrModel(m.slug)}
+                          className="mt-0.5 accent-teal-600"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-slate-900 dark:text-white">
+                            {m.name}
+                            <span className="ml-2 text-[11px] font-normal text-slate-500">{m.slug}</span>
+                          </span>
+                          <span className="block mt-0.5 text-xs text-slate-500">{m.goodAt}</span>
+                          {routedDirect && (
+                            <span className="block mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                              Covered by your direct {m.slug.startsWith('google/') ? 'Google' : 'OpenAI'} key —
+                              hidden from the picker; the direct API is used instead.
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {orModels
+                    .filter((slug) => !OPENROUTER_CURATED_MODELS.some((m) => m.slug === slug))
+                    .map((slug) => (
+                      <div
+                        key={slug}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] p-3"
+                      >
+                        <span className="min-w-0 truncate text-sm text-slate-900 dark:text-white">
+                          {slug}
+                          <span className="ml-2 text-[11px] text-slate-500">custom</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => persistOrModels(orModels.filter((s) => s !== slug))}
+                          className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors shrink-0"
+                        >
+                          <X size={12} /> Remove
+                        </button>
+                      </div>
+                    ))}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={orCustomSlug}
+                      onChange={(e) => {
+                        setOrCustomSlug(e.target.value);
+                        if (orSlugWarning) setOrSlugWarning(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddOrCustomSlug();
+                        }
+                      }}
+                      className="flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
+                      placeholder="Add a model slug — e.g. sourceful/riverflow-v2.5-pro"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddOrCustomSlug}
+                      disabled={!orCustomSlug.trim()}
+                      className="px-3 py-2 text-sm font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-teal-600 transition-colors shrink-0"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  {orSlugWarning && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400">{orSlugWarning}</p>
+                  )}
+                  <p className="text-[11px] text-slate-500">
+                    Browse the full list at openrouter.ai/models (filter by image output).
+                  </p>
+                </div>
+              )}
 
               {/* Advanced: per-model key overrides. Only needed if you want a
                   specific Gemini variant to use a different key than the

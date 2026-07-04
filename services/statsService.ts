@@ -86,6 +86,8 @@ export interface AdminStats {
     /** Chronological, last 30 days (images AND refinements per day). */
     perDayLast30: StatsDailyEntry[];
     byModel: StatsBucketEntry[];
+    /** Per-VERSION (every image) counts by model — basis for estimated spend. */
+    byModelImages: StatsBucketEntry[];
     byGraphicType: StatsBucketEntry[];
     byVisualStyle: StatsBucketEntry[];
     byAspectRatio: StatsBucketEntry[];
@@ -136,6 +138,8 @@ export interface UserStats {
     totalRefinements: number;
     perDayLast30: StatsDailyEntry[];
     byModel: StatsBucketEntry[];
+    /** Per-VERSION (every image) counts by model — basis for estimated spend. */
+    byModelImages: StatsBucketEntry[];
     byGraphicType: StatsBucketEntry[];
     byVisualStyle: StatsBucketEntry[];
     byAspectRatio: StatsBucketEntry[];
@@ -329,6 +333,9 @@ export const statsService = {
     let totalRefinements = 0;
 
     const byModel = new Map<string, { label: string; count: number }>();
+    // Per-VERSION counts by model — every generated/refined image, not just
+    // tiles. This is what the estimated-spend figures multiply against.
+    const byModelImages = new Map<string, { label: string; count: number }>();
     const byGraphicType = new Map<string, { label: string; count: number }>();
     const byVisualStyle = new Map<string, { label: string; count: number }>();
     const byAspectRatio = new Map<string, { label: string; count: number }>();
@@ -397,6 +404,10 @@ export const statsService = {
         const day = dayKey(new Date(ts));
         const isGen = v?.type === "generation";
         const isRef = v?.type === "refinement";
+        if (isGen || isRef) {
+          const vModel = v?.modelId || modelId;
+          addBucket(byModelImages, vModel, modelLabel(vModel), 1);
+        }
         if (isGen) {
           totalImages += 1;
           tileImages += 1;
@@ -459,6 +470,7 @@ export const statsService = {
         totalRefinements,
         perDayLast30,
         byModel: bucketToSortedEntries(byModel),
+        byModelImages: bucketToSortedEntries(byModelImages),
         byGraphicType: bucketToSortedEntries(byGraphicType, 10),
         byVisualStyle: bucketToSortedEntries(byVisualStyle, 10),
         byAspectRatio: bucketToSortedEntries(byAspectRatio, 10),
@@ -520,6 +532,7 @@ export const statsService = {
     let totalRefinements = 0;
 
     const byModel = new Map<string, { label: string; count: number }>();
+    const byModelImages = new Map<string, { label: string; count: number }>();
     const byGraphicType = new Map<string, { label: string; count: number }>();
     const byVisualStyle = new Map<string, { label: string; count: number }>();
     const byAspectRatio = new Map<string, { label: string; count: number }>();
@@ -565,6 +578,10 @@ export const statsService = {
       for (const v of versions) {
         const ts = coerceMs(v?.timestamp) ?? tileCreated;
         const day = dayKey(new Date(ts));
+        if (v?.type === "generation" || v?.type === "refinement") {
+          const vModel = v?.modelId || modelId;
+          addBucket(byModelImages, vModel, modelLabel(vModel), 1);
+        }
         if (v?.type === "generation") {
           totalImages += 1;
           dailyImages.set(day, (dailyImages.get(day) ?? 0) + 1);
@@ -604,6 +621,7 @@ export const statsService = {
         totalRefinements,
         perDayLast30,
         byModel: bucketToSortedEntries(byModel),
+        byModelImages: bucketToSortedEntries(byModelImages),
         byGraphicType: bucketToSortedEntries(byGraphicType, 10),
         byVisualStyle: bucketToSortedEntries(byVisualStyle, 10),
         byAspectRatio: bucketToSortedEntries(byAspectRatio, 10),

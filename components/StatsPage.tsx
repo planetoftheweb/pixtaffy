@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   CalendarClock,
   Hash,
+  DollarSign,
 } from 'lucide-react';
 import {
   statsService,
@@ -27,6 +28,7 @@ import {
   StatsBucketEntry,
   UserStats,
 } from '../services/statsService';
+import { MODEL_COST_PER_IMAGE_USD, DEFAULT_COST_PER_IMAGE_USD } from '../constants';
 import { buildProfileImageCacheKey } from '../services/imageCache';
 import { CachedImage } from './CachedImage';
 
@@ -65,6 +67,48 @@ const StatTile: React.FC<StatTileProps> = ({ label, value, hint, icon, accent = 
     </div>
   </div>
 );
+
+/**
+ * Estimated API spend from per-image counts × the price table in constants.
+ * Estimates at standard settings — real bills vary with resolution/quality.
+ */
+const EstimatedSpendCard: React.FC<{ entries: StatsBucketEntry[] }> = ({ entries }) => {
+  const rows = entries.map((e) => ({
+    ...e,
+    unit: MODEL_COST_PER_IMAGE_USD[e.key] ?? DEFAULT_COST_PER_IMAGE_USD,
+  }));
+  const total = rows.reduce((sum, r) => sum + r.count * r.unit, 0);
+  return (
+    <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 text-slate-300 text-sm font-semibold">
+          <DollarSign size={16} />
+          Estimated image spend
+        </div>
+        <span className="text-lg font-bold text-white tabular-nums">${total.toFixed(2)}</span>
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-xs text-slate-500">No images yet.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {rows.map((r) => (
+            <li key={r.key} className="flex items-center justify-between text-xs">
+              <span className="text-slate-300">{r.label}</span>
+              <span className="text-slate-400 tabular-nums">
+                {r.count.toLocaleString()} × ${r.unit.toFixed(3)}
+                <span className="text-slate-200 font-semibold ml-2">${(r.count * r.unit).toFixed(2)}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-[11px] text-slate-500">
+        Estimated at standard settings (≈1K output) — providers bill by resolution/quality, so
+        actuals vary. Auxiliary calls (prompt expansion, analysis, auto-select) not included.
+      </p>
+    </div>
+  );
+};
 
 interface HorizontalBarListProps {
   title: string;
@@ -438,6 +482,7 @@ const FocusedUserView: React.FC<FocusedUserViewProps> = ({ userStats }) => {
 
       {/* Breakdown row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <EstimatedSpendCard entries={g.byModelImages} />
         <HorizontalBarList
           title="By model"
           icon={<Layers size={16} />}
@@ -739,6 +784,7 @@ export const StatsPage: React.FC = () => {
 
           {/* Breakdown row 1 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <EstimatedSpendCard entries={stats.generations.byModelImages} />
             <HorizontalBarList
               title="By model"
               icon={<Layers size={16} />}

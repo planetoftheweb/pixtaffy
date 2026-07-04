@@ -114,6 +114,18 @@ interface ControlPanelProps {
   user: User | null; // Pass user for contribution
   selectedModel: string;
   onModelChange: (modelId: string) => void;
+  /**
+   * Dynamic models beyond SUPPORTED_MODELS (currently OpenRouter BYOK
+   * models). Rendered as extra groups in the model picker; `description`
+   * is the rollover blurb explaining what the model is good at.
+   */
+  extraModels?: Array<{
+    id: string;
+    name: string;
+    description: string;
+    format: 'raster' | 'vector';
+    group: string;
+  }>;
   openaiQuality?: 'low' | 'medium' | 'high' | 'auto';
   onOpenAIQualityChange?: (quality: 'low' | 'medium' | 'high' | 'auto') => void;
   /**
@@ -546,6 +558,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   user,
   selectedModel,
   onModelChange,
+  extraModels = [],
   openaiQuality = 'auto',
   onOpenAIQualityChange,
   selectedModelIds,
@@ -567,6 +580,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onPromptImageStyleReferenceChange,
 }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  // Rich rollover card for model rows (portal — the dropdown clips overflow).
+  const [modelTip, setModelTip] = useState<{
+    name: string;
+    description: string;
+    x: number;
+    y: number;
+    flipLeft: boolean;
+  } | null>(null);
   const [compareModelsMode, setCompareModelsMode] = useState(false);
   const effectiveSelectedModelIds = useMemo(() => {
     if (selectedModelIds && selectedModelIds.length > 0) return selectedModelIds;
@@ -1780,8 +1801,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     openai: 'GPT Image 1.5',
     'gemini-svg': 'Gemini SVG'
   };
+  // Native models + dynamic (OpenRouter) models, and the group headers to
+  // render them under. Extra groups always come after the native ones.
+  const allModels = useMemo(() => [...SUPPORTED_MODELS, ...extraModels], [extraModels]);
+  const modelGroupNames = useMemo(() => {
+    const names: string[] = [...MODEL_GROUP_ORDER];
+    for (const m of extraModels) {
+      if (!names.includes(m.group)) names.push(m.group);
+    }
+    return names;
+  }, [extraModels]);
+
   const getModelLabel = (id: string): string =>
-    modelLabelMap[id] || SUPPORTED_MODELS.find((m) => m.id === id)?.name || id || 'Model';
+    modelLabelMap[id] || allModels.find((m) => m.id === id)?.name || id || 'Model';
   const modelLabel: React.ReactNode = (() => {
     if (!isMultiModelActive) return getModelLabel(selectedModel);
     const ids = effectiveSelectedModelIds;
@@ -2096,8 +2128,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       {compareModelsMode ? 'On' : 'Off'}
                     </span>
                   </button>
-                  {MODEL_GROUP_ORDER.map((groupName) => {
-                    const groupModels = SUPPORTED_MODELS.filter((m) => m.group === groupName);
+                  {modelGroupNames.map((groupName) => {
+                    const groupModels = allModels.filter((m) => m.group === groupName);
                     if (groupModels.length === 0) return null;
                     return (
                       <div key={groupName}>
@@ -2132,9 +2164,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                   onModelChange(model.id);
                                   if (onModelIdsChange) onModelIdsChange([model.id]);
                                   setActiveDropdown(null);
+                                  setModelTip(null);
                                 }
                               }}
-                              title={model.description}
+                              onMouseEnter={(e) => {
+                                const r = e.currentTarget.getBoundingClientRect();
+                                const flipLeft = r.right + 296 > window.innerWidth;
+                                setModelTip({
+                                  name: modelLabelMap[model.id] || model.name,
+                                  description: model.description,
+                                  x: flipLeft ? r.left - 8 : r.right + 8,
+                                  y: r.top + r.height / 2,
+                                  flipLeft
+                                });
+                              }}
+                              onMouseLeave={() => setModelTip(null)}
                               aria-selected={compareModelsMode ? isChecked : isPrimary}
                               className={`w-full text-left pl-5 pr-3 py-2 text-[15px] flex items-center gap-2 transition-colors border-l-2 ${
                                 (compareModelsMode ? isChecked : isPrimary)
@@ -2170,6 +2214,24 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     </div>
                   )}
                 </div>
+              )}
+              {activeDropdown === 'model' && modelTip && createPortal(
+                <div
+                  className="fixed z-[400] pointer-events-none w-72"
+                  style={{
+                    top: modelTip.y,
+                    ...(modelTip.flipLeft
+                      ? { right: window.innerWidth - modelTip.x }
+                      : { left: modelTip.x }),
+                    transform: 'translateY(-50%)'
+                  }}
+                >
+                  <div className="rounded-lg bg-black/90 px-3 py-2 text-[13px] leading-snug text-white shadow-xl">
+                    <div className="font-semibold">{modelTip.name}</div>
+                    <div className="mt-0.5 text-white/70">{modelTip.description}</div>
+                  </div>
+                </div>,
+                document.body
               )}
             </div>
 

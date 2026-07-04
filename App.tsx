@@ -6,11 +6,13 @@ import type { GalleryPresetSource } from './components/GalleryPresetMenu';
 import { ToolbarPresetSnapshot } from './utils/toolbarPresetUtils';
 import { GenerationConfig, GeneratedImage, BrandColor, VisualStyle, GraphicType, AspectRatioOption, User, Generation, GenerationVersion, UserSettings, BrandGuidelinesAnalysis, ToolbarPreset, Folder, INBOX_FOLDER_ID, PromptImageStyleReference } from './types';
 import { 
-  BRAND_COLORS, 
-  VISUAL_STYLES, 
-  GRAPHIC_TYPES, 
+  BRAND_COLORS,
+  VISUAL_STYLES,
+  GRAPHIC_TYPES,
   ASPECT_RATIOS,
-  SUPPORTED_MODELS
+  SUPPORTED_MODELS,
+  OPENROUTER_MODEL_PREFIX,
+  OPENROUTER_CURATED_MODELS
 } from './constants';
 import {
   generateGraphic,
@@ -27,7 +29,8 @@ import {
   analyzeImageForCorrectionPromptOpenAI,
   expandPromptOpenAI,
 } from './services/openaiService';
-import { resolveAuxiliaryByokProvider, getApiKeyForModelFromUser, getGeminiApiKeyForAnalysis } from './services/correctionAnalysisRouter';
+import { resolveAuxiliaryByokProvider, getApiKeyForModelFromUser, getGeminiApiKeyForAnalysis, getOpenRouterKeyFromUser } from './services/correctionAnalysisRouter';
+import { generateOpenRouterImage } from './services/openRouterService';
 import { generateSvg, refineSvg } from './services/svgService';
 import { getAspectRatiosForModel, getSafeAspectRatioForModel, extractAspectRatioFromText, normalizeAspectRatio } from './services/aspectRatioService';
 import { authService } from './services/authService';
@@ -197,10 +200,15 @@ interface ActiveGenerationJob {
 const TOOLBAR_SELECTION_KEY_PREFIX = 'brandoit_toolbar_selection_v1';
 const TOOLBAR_SELECTION_LAST_KEY = `${TOOLBAR_SELECTION_KEY_PREFIX}:last`;
 const MODEL_ID_SET = new Set(SUPPORTED_MODELS.map(model => model.id));
+const isKnownModelId = (id: string): boolean =>
+  MODEL_ID_SET.has(id) || id.startsWith(OPENROUTER_MODEL_PREFIX);
 const MODEL_NAME_BY_ID: Record<string, string> = SUPPORTED_MODELS.reduce<Record<string, string>>((acc, model) => {
   acc[model.id] = model.name;
   return acc;
-}, {});
+}, OPENROUTER_CURATED_MODELS.reduce<Record<string, string>>((acc, model) => {
+  acc[`${OPENROUTER_MODEL_PREFIX}${model.slug}`] = model.name;
+  return acc;
+}, {}));
 
 const GITHUB_REPO_BASE = 'https://github.com/planetoftheweb/brandoit';
 const GITHUB_CHANGELOG_URL = `${GITHUB_REPO_BASE}/blob/main/CHANGELOG.md`;
@@ -218,7 +226,7 @@ const normalizeToolbarSelection = (value: unknown): ToolbarSelectionCache | null
   if (typeof source.visualStyleId === 'string') normalized.visualStyleId = source.visualStyleId;
   if (typeof source.graphicTypeId === 'string') normalized.graphicTypeId = source.graphicTypeId;
   if (typeof source.aspectRatio === 'string') normalized.aspectRatio = source.aspectRatio;
-  if (typeof source.selectedModel === 'string' && MODEL_ID_SET.has(source.selectedModel)) {
+  if (typeof source.selectedModel === 'string' && isKnownModelId(source.selectedModel)) {
     normalized.selectedModel = source.selectedModel;
   }
   if (
@@ -1124,6 +1132,33 @@ const App: React.FC = () => {
   const getApiKeyForModel = (modelId: string): string | undefined =>
     getApiKeyForModelFromUser(user, modelId);
 
+  // Extra models unlocked by an OpenRouter key: the user's enabled slugs
+  // (defaults = curated top benchmark picks), minus vendors already covered
+  // by a direct provider key — direct APIs always win over OpenRouter routing.
+  const openRouterModels = useMemo(() => {
+    if (!user || !getOpenRouterKeyFromUser(user)) return [];
+    const hasGeminiKey = !!getApiKeyForModelFromUser(user, 'gemini');
+    const hasOpenAIKey = !!getApiKeyForModelFromUser(user, 'openai');
+    const enabledSlugs =
+      user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug);
+    const curatedBySlug = new Map(OPENROUTER_CURATED_MODELS.map((m) => [m.slug, m]));
+    return enabledSlugs
+      .filter((slug) =>
+        !(hasGeminiKey && slug.startsWith('google/')) &&
+        !(hasOpenAIKey && slug.startsWith('openai/'))
+      )
+      .map((slug) => {
+        const curated = curatedBySlug.get(slug);
+        return {
+          id: `${OPENROUTER_MODEL_PREFIX}${slug}`,
+          name: curated?.name || slug.split('/').pop() || slug,
+          description: curated?.goodAt || `Custom OpenRouter model (${slug})`,
+          format: 'raster' as const,
+          group: 'OpenRouter' as const
+        };
+      });
+  }, [user?.preferences.apiKeys, user?.preferences.geminiApiKey, user?.preferences.openRouterModels]);
+
   const getActiveApiKey = (): string | undefined => getApiKeyForModel(selectedModel);
 
   const activeApiKey = getActiveApiKey();
@@ -1148,7 +1183,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     if (activeApiKey) return;
-    const fallbackModel = SUPPORTED_MODELS.find(
+    const fallbackModel = [...SUPPORTED_MODELS, ...openRouterModels].find(
       (model) => model.id !== selectedModel && !!getApiKeyForModel(model.id)
     );
     if (!fallbackModel) return;
@@ -1583,6 +1618,11 @@ const App: React.FC = () => {
           let result;
           if (modelId === 'gemini-svg') {
             result = await generateSvg(requestConfig, runContext, modelKey, runSystemPrompt);
+          } else if (modelId.startsWith(OPENROUTER_MODEL_PREFIX)) {
+            result = await generateOpenRouterImage(structuredPrompt, requestConfig, modelKey, {
+              modelSlug: modelId.slice(OPENROUTER_MODEL_PREFIX.length),
+              systemPrompt: runSystemPrompt
+            });
           } else if (modelId === 'openai' || modelId === 'openai-2' || modelId === 'openai-mini') {
             result = await generateOpenAIImage(structuredPrompt, requestConfig, modelKey, {
               modelId,
@@ -1973,6 +2013,11 @@ const App: React.FC = () => {
         let result: GeneratedImage;
         if (selectedModel === 'gemini-svg') {
           result = await generateSvg(rerunConfig, context, customKey, rerunSystemPrompt);
+        } else if (selectedModel.startsWith(OPENROUTER_MODEL_PREFIX)) {
+          result = await generateOpenRouterImage(structuredPrompt, rerunConfig, customKey, {
+            modelSlug: selectedModel.slice(OPENROUTER_MODEL_PREFIX.length),
+            systemPrompt: rerunSystemPrompt
+          });
         } else if (
           selectedModel === 'openai' ||
           selectedModel === 'openai-2' ||
@@ -2592,7 +2637,8 @@ const App: React.FC = () => {
     geminiApiKey?: string,
     systemPrompt?: string,
     preferredModel?: string,
-    apiKeys?: { [modelId: string]: string }
+    apiKeys?: { [modelId: string]: string },
+    openRouterModelSlugs?: string[]
   ) => {
     if (!user) return;
     const nextSelectedModel = preferredModel || user.preferences.selectedModel || 'gemini-3.1-flash-image-preview';
@@ -2617,7 +2663,9 @@ const App: React.FC = () => {
             geminiApiKey: geminiApiKey !== undefined ? geminiApiKey : user.preferences.geminiApiKey,
             systemPrompt: systemPrompt !== undefined ? systemPrompt : user.preferences.systemPrompt,
             selectedModel: nextSelectedModel,
-            apiKeys: nextApiKeys
+            apiKeys: nextApiKeys,
+            openRouterModels:
+              openRouterModelSlugs !== undefined ? openRouterModelSlugs : user.preferences.openRouterModels
         }
     };
     setUser(updatedUser);
@@ -3500,6 +3548,7 @@ const App: React.FC = () => {
             user={user}
             selectedModel={selectedModel}
             onModelChange={handleModelChange}
+            extraModels={openRouterModels}
             openaiQuality={user?.preferences.settings?.openaiImageQuality || 'auto'}
             onOpenAIQualityChange={user ? handleOpenAIQualityChange : undefined}
             selectedModelIds={selectedModelIds}

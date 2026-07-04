@@ -180,6 +180,69 @@ export const SUPPORTED_MODELS = [
 
 export const MODEL_GROUP_ORDER = ['Gemini', 'OpenAI'] as const;
 
+/**
+ * OpenRouter (BYOK) — model ids are namespaced `openrouter:<vendor/slug>` so
+ * generation dispatch and key resolution can route them without colliding
+ * with native model ids. Direct provider keys ALWAYS win: when the user has
+ * a Google or OpenAI key configured, the `google/*` / `openai/*` OpenRouter
+ * entries are hidden from the picker so those models generate via the
+ * native API instead of being re-billed through OpenRouter.
+ */
+export const OPENROUTER_MODEL_PREFIX = 'openrouter:';
+
+export interface OpenRouterCuratedModel {
+  slug: string;          // OpenRouter model slug, e.g. 'bytedance-seed/seedream-4.5'
+  name: string;
+  goodAt: string;        // rollover blurb: what this model is good at
+  costPerImageUsd?: number;
+}
+
+/**
+ * Curated defaults shown when an OpenRouter key is configured — the top
+ * image-generation models by benchmark (Artificial Analysis image
+ * leaderboard / LMArena image arena) with a bias toward infographic
+ * strengths (text rendering, typography, layout). Users can disable these
+ * or add their own slugs in Settings (`preferences.openRouterModels`).
+ */
+export const OPENROUTER_CURATED_MODELS: OpenRouterCuratedModel[] = [
+  {
+    slug: 'bytedance-seed/seedream-4.5',
+    name: 'Seedream 4.5',
+    goodAt: 'Best-in-class small-text rendering and native 4K output — the top benchmark pick for dense, text-heavy infographics.',
+    costPerImageUsd: 0.03
+  },
+  {
+    slug: 'black-forest-labs/flux.2-pro',
+    name: 'FLUX.2 Pro',
+    goodAt: 'Flagship all-rounder near the top of quality leaderboards — strong prompt adherence, clean composition, reliable layouts.',
+    costPerImageUsd: 0.04
+  },
+  {
+    slug: 'recraft/recraft-v4.1-pro',
+    name: 'Recraft V4.1 Pro',
+    goodAt: 'Design-native model — the strongest typography, brand styles, and graphic-design layouts of any API model.',
+    costPerImageUsd: 0.08
+  },
+  {
+    slug: 'x-ai/grok-imagine-image-quality',
+    name: 'Grok Imagine',
+    goodAt: 'xAI’s quality-tuned image model — strong general aesthetics and stylized looks.',
+    costPerImageUsd: 0.07
+  },
+  {
+    slug: 'google/gemini-3-pro-image',
+    name: 'Nano Banana Pro (OR)',
+    goodAt: 'Google’s flagship routed through OpenRouter. Hidden automatically when you have a direct Gemini key — the direct API is used instead.',
+    costPerImageUsd: 0.134
+  },
+  {
+    slug: 'openai/gpt-image-2',
+    name: 'GPT Image 2 (OR)',
+    goodAt: 'OpenAI’s flagship routed through OpenRouter. Hidden automatically when you have a direct OpenAI key — the direct API is used instead.',
+    costPerImageUsd: 0.053
+  }
+];
+
 export const ASPECT_RATIOS: AspectRatioOption[] = [
   { label: 'Square (1:1)', value: '1:1', icon: Frame },
   { label: 'Tall Portrait (2:3)', value: '2:3', icon: Smartphone },
@@ -192,3 +255,29 @@ export const ASPECT_RATIOS: AspectRatioOption[] = [
   { label: 'Landscape (16:9)', value: '16:9', icon: Tv },
   { label: 'Ultrawide (21:9)', value: '21:9', icon: Tv }
 ];
+
+/**
+ * Estimated API cost per generated image, in USD, by model id. Used for the
+ * "estimated spend" figures on the Stats page so pricing decisions can factor
+ * in real costs. These are ESTIMATES at standard settings (≈1K output,
+ * medium quality) — providers bill by tokens/resolution/quality, so actuals
+ * vary. Last checked against published pricing: July 2026.
+ */
+export const MODEL_COST_PER_IMAGE_USD: Record<string, number> = {
+  'gemini': 0.134,                          // Nano Banana Pro (Gemini 3 Pro Image, 1K/2K)
+  'gemini-3.1-flash-image-preview': 0.067,  // Nano Banana 2 (1K)
+  'gemini-3.1-flash-lite-image': 0.03,      // Nano Banana 2 Lite (est.)
+  'gemini-svg': 0.01,                       // Gemini SVG — token-based text output (est.)
+  'openai-2': 0.053,                        // GPT Image 2 (1024², medium)
+  'openai-mini': 0.01,                      // GPT Image Mini (est.)
+  'openai': 0.06,                           // GPT Image 1.5 (medium, est.)
+};
+
+for (const m of OPENROUTER_CURATED_MODELS) {
+  if (m.costPerImageUsd) {
+    MODEL_COST_PER_IMAGE_USD[`${OPENROUTER_MODEL_PREFIX}${m.slug}`] = m.costPerImageUsd;
+  }
+}
+
+/** Fallback for unknown/legacy model ids in cost estimates. */
+export const DEFAULT_COST_PER_IMAGE_USD = 0.05;
