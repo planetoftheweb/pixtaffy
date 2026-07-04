@@ -61,6 +61,7 @@ import {
 import { detectLikelyCanvasPadding } from './services/recomposeQualityService';
 import { toMarkLabel } from './services/versionUtils';
 import { buildProfileImageCacheKey, getCachedImageBlob } from './services/imageCache';
+import { fetchProfileThumbnailDataUrl } from './services/imageService';
 import { CachedImage } from './components/CachedImage';
 import { WhatsNewBell } from './components/WhatsNewBell';
 import { WhatsNewSpotlight } from './components/WhatsNewSpotlight';
@@ -656,6 +657,26 @@ const App: React.FC = () => {
 
     return () => unsubscribe();
   }, []); // Run once on mount
+
+  useEffect(() => {
+    if (!user?.id || !user.photoURL || user.photoDataUrl) return;
+    let cancelled = false;
+
+    void fetchProfileThumbnailDataUrl(user.photoURL).then((thumbnailDataUrl) => {
+      if (cancelled || !thumbnailDataUrl) return;
+      setUser((prev) => {
+        if (!prev || prev.id !== user.id || prev.photoDataUrl) return prev;
+        return { ...prev, photoDataUrl: thumbnailDataUrl };
+      });
+      void authService.updateUserProfile(user.id, { photoDataUrl: thumbnailDataUrl }).catch((error) => {
+        console.warn('[App] Failed to persist profile thumbnail fallback:', error);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.photoURL, user?.photoDataUrl]);
 
   // Sync preferences to Auth Service when they change AND a user is logged in.
   // We pass the full `user.preferences` (not a hand-picked subset) because
@@ -2567,7 +2588,7 @@ const App: React.FC = () => {
 
   const handleSaveSettings = async (
     newSettings: UserSettings,
-    profileData?: { name: string; username: string; photoURL?: string },
+    profileData?: { name: string; username: string; photoURL?: string; photoDataUrl?: string },
     geminiApiKey?: string,
     systemPrompt?: string,
     preferredModel?: string,
@@ -2587,6 +2608,7 @@ const App: React.FC = () => {
         name: profileData?.name || user.name,
         username: profileData?.username || user.username,
         photoURL: profileData?.photoURL || user.photoURL,
+        photoDataUrl: profileData?.photoDataUrl || user.photoDataUrl,
         preferences: {
             ...user.preferences,
             settings: newSettings,
@@ -3186,9 +3208,11 @@ const App: React.FC = () => {
                  className="flex items-center gap-2 p-1 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] rounded-full transition-colors"
                >
                  <div className="w-8 h-8 rounded-full bg-brand-red flex items-center justify-center text-white text-xs font-bold overflow-hidden">
-                    {user.photoURL ? (
+                    {user.photoURL || user.photoDataUrl ? (
                       <CachedImage
                         src={user.photoURL}
+                        fallbackSrc={user.photoDataUrl}
+                        fallback={user.name.charAt(0).toUpperCase()}
                         cacheKey={buildProfileImageCacheKey(user.id)}
                         alt={user.name}
                         className="w-full h-full object-cover"

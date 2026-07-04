@@ -14,7 +14,7 @@ interface SettingsPageProps {
   user: User;
   onSave: (
     newSettings: UserSettings,
-    profileData?: { name: string; username: string; photoURL?: string },
+    profileData?: { name: string; username: string; photoURL?: string; photoDataUrl?: string },
     geminiApiKey?: string,
     systemPrompt?: string,
     selectedModel?: string,
@@ -39,6 +39,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [name, setName] = useState(user.name);
   const [username, setUsername] = useState(user.username || '');
   const [photoURL, setPhotoURL] = useState<string | undefined>(user.photoURL);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | undefined>(user.photoDataUrl);
   const [apiKeys, setApiKeys] = useState<{ [key: string]: string }>(() => {
     const keys: { [key: string]: string } = {};
     if (user.preferences.apiKeys) {
@@ -86,6 +87,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setName(user.name);
     setUsername(user.username || '');
     setPhotoURL(user.photoURL);
+    setPhotoDataUrl(user.photoDataUrl);
     const keys: { [key: string]: string } = {};
     if (user.preferences.apiKeys) Object.assign(keys, user.preferences.apiKeys);
     const legacyGemini = user.preferences.geminiApiKey?.trim();
@@ -267,7 +269,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     // in authService strips empty-string entries.
     await onSave(
       localSettings,
-      { name, username, photoURL },
+      { name, username, photoURL, photoDataUrl },
       nextApiKeys['gemini'] ?? '',
       systemPrompt,
       selectedModel,
@@ -293,8 +295,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setUploadError(null);
 
     try {
-      const url = await uploadProfileImage(file, user.id);
-      setPhotoURL(url);
+      const uploaded = await uploadProfileImage(file, user.id);
+      setPhotoURL(uploaded.downloadUrl);
+      setPhotoDataUrl(uploaded.thumbnailDataUrl);
     } catch (err: any) {
       setUploadError(err.message);
     } finally {
@@ -489,9 +492,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 dark:bg-[#21262d] flex items-center justify-center border-2 border-gray-200 dark:border-[#30363d]">
                       {isUploading ? (
                         <Loader2 size={24} className="animate-spin text-brand-teal" />
-                      ) : photoURL ? (
+                      ) : photoURL || photoDataUrl ? (
                         <CachedImage
                           src={photoURL}
+                          fallbackSrc={photoDataUrl}
+                          fallback={<span className="text-2xl font-bold text-slate-400">{name.charAt(0).toUpperCase()}</span>}
                           cacheKey={buildProfileImageCacheKey(user.id)}
                           alt={name}
                           className="w-full h-full object-cover"

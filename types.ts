@@ -429,6 +429,7 @@ export interface User {
   username?: string; 
   email: string;
   photoURL?: string; 
+  photoDataUrl?: string;
   preferences: UserPreferences;
   teamIds?: string[]; // IDs of teams the user belongs to
 

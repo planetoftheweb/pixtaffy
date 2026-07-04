@@ -2,6 +2,10 @@ import { storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from 'firebase/storage';
 import { buildProfileImageCacheKey, cacheBlobByKey } from './imageCache';
 
+const PROFILE_THUMBNAIL_SIZE = 96;
+const PROFILE_THUMBNAIL_QUALITY = 0.82;
+const PROFILE_THUMBNAIL_FETCH_TIMEOUT_MS = 12_000;
+
 const extensionForMime = (mimeType: string): string => {
   const normalized = mimeType.toLowerCase();
   if (normalized === 'image/webp') return 'webp';
@@ -35,13 +39,78 @@ const base64ToBlob = (base64Data: string, mimeType: string): Blob => {
   return new Blob(chunks, { type: mimeType });
 };
 
+const loadImageElement = (src: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Profile image could not be decoded.'));
+    img.src = src;
+  });
+
+const createProfileThumbnailDataUrl = async (blob: Blob): Promise<string> => {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = await loadImageElement(objectUrl);
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    const sourceSize = Math.min(sourceWidth, sourceHeight);
+    if (!sourceSize) throw new Error('Profile image has no dimensions.');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = PROFILE_THUMBNAIL_SIZE;
+    canvas.height = PROFILE_THUMBNAIL_SIZE;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas context unavailable.');
+    ctx.drawImage(
+      image,
+      Math.max(0, (sourceWidth - sourceSize) / 2),
+      Math.max(0, (sourceHeight - sourceSize) / 2),
+      sourceSize,
+      sourceSize,
+      0,
+      0,
+      PROFILE_THUMBNAIL_SIZE,
+      PROFILE_THUMBNAIL_SIZE
+    );
+    return canvas.toDataURL('image/webp', PROFILE_THUMBNAIL_QUALITY);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
+export const fetchProfileThumbnailDataUrl = async (imageUrl: string): Promise<string | null> => {
+  if (!imageUrl || !/^https?:/i.test(imageUrl)) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROFILE_THUMBNAIL_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(imageUrl, {
+      signal: controller.signal,
+      mode: 'cors',
+      credentials: 'omit'
+    });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    if (!blob.size || !blob.type.startsWith('image/')) return null;
+    return await createProfileThumbnailDataUrl(blob);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 export interface UploadedGenerationImage {
   path: string;
   downloadUrl: string;
   size: number;
 }
 
-export const uploadProfileImage = async (file: File, userId: string): Promise<string> => {
+export interface UploadedProfileImage {
+  downloadUrl: string;
+  thumbnailDataUrl: string;
+}
+
+export const uploadProfileImage = async (file: File, userId: string): Promise<UploadedProfileImage> => {
   // Validate file type
   if (!file.type.startsWith('image/')) {
     throw new Error('Please upload an image file (JPEG, PNG, etc.)');
@@ -53,6 +122,8 @@ export const uploadProfileImage = async (file: File, userId: string): Promise<st
   }
 
   try {
+    const thumbnailDataUrl = await createProfileThumbnailDataUrl(file);
+
     // Create a storage reference: users/{userId}/profile.jpg
     // We use a fixed name so it overwrites the old one automatically
     const fileExtension = file.name.split('.').pop() || 'jpg';
@@ -73,9 +144,9 @@ export const uploadProfileImage = async (file: File, userId: string): Promise<st
     // Seed the IndexedDB cache with the original file blob so the avatar
     // still renders when Firebase Storage is unreachable (VPN, corp proxy,
     // etc.). We already have the bytes locally — no point re-fetching them.
-    void cacheBlobByKey(buildProfileImageCacheKey(userId), file);
+    await cacheBlobByKey(buildProfileImageCacheKey(userId), file);
 
-    return downloadURL;
+    return { downloadUrl: downloadURL, thumbnailDataUrl };
   } catch (error: any) {
     console.error("Error uploading image:", error);
     if (error.code === 'storage/unauthorized') {

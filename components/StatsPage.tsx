@@ -300,9 +300,15 @@ const FocusedUserView: React.FC<FocusedUserViewProps> = ({ userStats }) => {
     <>
       {/* Profile card */}
       <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 flex items-center gap-4">
-        {u.photoURL ? (
+        {u.photoURL || u.photoDataUrl ? (
           <CachedImage
             src={u.photoURL}
+            fallbackSrc={u.photoDataUrl}
+            fallback={
+              <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-[#21262d] flex items-center justify-center text-slate-500">
+                <UserIcon size={24} />
+              </div>
+            }
             cacheKey={buildProfileImageCacheKey(u.uid)}
             alt=""
             className="w-14 h-14 rounded-full object-cover border border-gray-200 dark:border-[#30363d]"
@@ -807,9 +813,15 @@ export const StatsPage: React.FC = () => {
                         <td className="px-4 py-2.5 text-slate-500 tabular-nums">{i + 1}</td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
-                            {u.photoURL ? (
+                            {u.photoURL || u.photoDataUrl ? (
                               <CachedImage
                                 src={u.photoURL}
+                                fallbackSrc={u.photoDataUrl}
+                                fallback={
+                                  <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-[#21262d] flex items-center justify-center text-slate-500">
+                                    <UserIcon size={12} />
+                                  </div>
+                                }
                                 cacheKey={buildProfileImageCacheKey(u.uid)}
                                 alt=""
                                 className="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-[#30363d]"

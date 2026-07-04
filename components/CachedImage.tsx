@@ -20,24 +20,30 @@ import { backfillBlobByKey, getCachedBlobUrlByKey } from '../services/imageCache
 export interface CachedImageProps
   extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   src?: string | null;
+  fallbackSrc?: string | null;
+  fallback?: React.ReactNode;
   cacheKey: string;
 }
 
 export const CachedImage: React.FC<CachedImageProps> = ({
   src,
+  fallbackSrc,
+  fallback = null,
   cacheKey,
   onError,
   ...rest
 }) => {
-  const [renderSrc, setRenderSrc] = useState<string | undefined>(src ?? undefined);
+  const [renderSrc, setRenderSrc] = useState<string | undefined>(src ?? fallbackSrc ?? undefined);
+  const [failed, setFailed] = useState(false);
   const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    setRenderSrc(src ?? undefined);
+    setFailed(false);
+    setRenderSrc(src ?? fallbackSrc ?? undefined);
     if (src && /^https?:/i.test(src)) {
       void backfillBlobByKey(cacheKey, src);
     }
-  }, [src, cacheKey]);
+  }, [src, fallbackSrc, cacheKey]);
 
   useEffect(() => () => {
     if (blobUrlRef.current) {
@@ -47,8 +53,14 @@ export const CachedImage: React.FC<CachedImageProps> = ({
   }, []);
 
   const handleError = async (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    // Already on a blob URL — nothing left to fall back to.
+    // A stale/corrupt blob can fail too. If an inline fallback exists, try it
+    // before giving up to the caller's fallback node.
     if (renderSrc?.startsWith('blob:')) {
+      if (fallbackSrc && renderSrc !== fallbackSrc) {
+        setRenderSrc(fallbackSrc);
+        return;
+      }
+      setFailed(true);
       onError?.(e);
       return;
     }
@@ -63,10 +75,15 @@ export const CachedImage: React.FC<CachedImageProps> = ({
     } catch {
       // Swallow — falling through to the consumer's onError below.
     }
+    if (fallbackSrc && renderSrc !== fallbackSrc) {
+      setRenderSrc(fallbackSrc);
+      return;
+    }
+    setFailed(true);
     onError?.(e);
   };
 
-  if (!renderSrc) return null;
+  if (!renderSrc || failed) return <>{fallback}</>;
 
   return <img src={renderSrc} onError={handleError} {...rest} />;
 };

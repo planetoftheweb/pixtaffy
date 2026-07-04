@@ -282,6 +282,7 @@ const transformUser = (firebaseUser: FirebaseUser, userData: any, isAdmin: boole
     username: userData?.username, // Map username from Firestore
     email: firebaseUser.email || '',
     photoURL: userData?.photoURL || firebaseUser.photoURL || undefined, // Map photoURL
+    photoDataUrl: typeof userData?.photoDataUrl === 'string' ? userData.photoDataUrl : undefined,
     preferences: userData?.preferences ? hydratePreferences(userData.preferences) : defaultPreferences,
     isAdmin,
     isDisabled: userData?.isDisabled === true,
@@ -533,7 +534,7 @@ export const authService = {
     }
   },
 
-  updateUserProfile: async (userId: string, data: { name?: string; username?: string; photoURL?: string }) => {
+  updateUserProfile: async (userId: string, data: { name?: string; username?: string; photoURL?: string; photoDataUrl?: string }) => {
     try {
       const userRef = doc(db, "users", userId);
       const existingSnap = await getDoc(userRef);
@@ -555,6 +556,9 @@ export const authService = {
       if (typeof data.name === 'string' && data.name.length > 0) clean.name = data.name;
       if (typeof data.username === 'string' && data.username.length > 0) clean.username = data.username;
       if (typeof data.photoURL === 'string' && data.photoURL.length > 0) clean.photoURL = data.photoURL;
+      if (typeof data.photoDataUrl === 'string' && data.photoDataUrl.startsWith('data:image/')) {
+        clean.photoDataUrl = data.photoDataUrl;
+      }
 
       if (Object.keys(clean).length > 0) {
         await updateDoc(userRef, clean);

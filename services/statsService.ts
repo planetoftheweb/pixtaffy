@@ -41,6 +41,7 @@ export interface StatsTopUser {
   email: string;
   username?: string;
   photoURL?: string;
+  photoDataUrl?: string;
   images: number;
   refinements: number;
   tiles: number;
@@ -116,6 +117,7 @@ export interface UserStats {
     email: string;
     username?: string;
     photoURL?: string;
+    photoDataUrl?: string;
     /** Account creation time as ms epoch (best-effort from `createdAt`). */
     createdAtMs: number | null;
     /** Last sign-in time as ms epoch (best-effort from `lastSignInAt`). */
@@ -429,6 +431,7 @@ export const statsService = {
           email: u?.email || "",
           username: u?.username,
           photoURL: u?.photoURL,
+          photoDataUrl: u?.photoDataUrl,
           images: counts.images,
           refinements: counts.refinements,
           tiles: counts.tiles,
@@ -588,6 +591,7 @@ export const statsService = {
         email: u?.email || "",
         username: u?.username,
         photoURL: u?.photoURL,
+        photoDataUrl: u?.photoDataUrl,
         createdAtMs: coerceMs(u?.createdAt),
         lastSignInAtMs: coerceMs(u?.lastSignInAt),
         isDisabled: u?.isDisabled === true,
