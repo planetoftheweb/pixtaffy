@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-07-04
+
+### Added
+
+- **Build Studio AI auto-select.** New `services/buildAutoSelect.ts` sends the infographic to Gemini (BYOK, lazy-loaded) and returns an ordered list of regions — title/hook first, content blocks in reading order, conclusion last — with optional segmentation-mask polygons preferred over bounding boxes. The wand in Build Studio replaces the current items in one shot; ⌘Z restores the previous list. A follow-up naming pass labels each block for the sidebar (`components/BuildStudio.tsx`, `App.tsx` passes `geminiApiKey`).
+- **"Clean up for animation" refine pass in Build Studio.** Sparkles button wires into the app's existing `onRefine` pipeline with a fixed instruction that redraws each section isolated on a solid background, making dense art easier to auto-select or trace manually. Creates a new Mark; the original stays (`components/BuildStudio.tsx`, `App.tsx`).
+- **Build Studio UX polish.** Resizable sidebar (drag left edge, persisted), portal tooltips that never clip scroll ancestors, focus-mode canvas zoom (double-tap ⌥, ⌥1-9, pinch/⌘-scroll), undo/redo over step-structure edits (⌘Z / ⇧⌘Z), inline rename (double-click) and duration scrubbing (drag the readout), collapsible sidebar sections, and a draggable floating toolbar. UI principles captured in `CLAUDE.md`.
+- **Animator improvements.** `netRegionBounds` caches per-step bounds including brush radii for accurate focus zoom; per-step camera framing and smoother reveal timing (`services/buildAnimator.ts`).
+
+### Changed
+
+- **`package.json` bumped to `0.21.0`** with a featured What's New entry, hero image, and walkthrough sections for Build Studio (`data/whatsNew.ts`, `public/whats-new/whatsnew-v0.21.0.png`).
+
 ## [0.20.0] - 2026-05-21
 
 ### Added

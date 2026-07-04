@@ -23,6 +23,65 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.21.0-build-studio',
+    title: 'Build Studio — animate your infographics and export MP4',
+    summary:
+      'Turn any image into a step-by-step reveal animation. AI proposes the items in reading order, or draw them yourself — then export H.264.',
+    blurb:
+      'Build Studio turns a generated infographic into a presentation-ready reveal animation. Open it from the Animate button on any preview, then let the AI wand propose every block in reading order — title first, content in the middle, conclusion last — or trace them yourself with freeform, rectangle, and brush tools. Each item gets its own reveal moment with camera zoom, fade/wipe/spotlight styles, and tunable timing. When you are happy, export a one-click H.264 MP4 right in the browser, or fullscreen the player and screen-record. Signed-in users get cloud-backed builds that survive a cleared browser; everyone gets ⌘Z undo on every edit.',
+    publishedAt: Date.parse('2026-07-04T03:00:00Z'),
+    version: '0.21.0',
+    image: '/whats-new/whatsnew-v0.21.0.png',
+    featured: true,
+    sections: [
+      {
+        heading: 'Open Build Studio from any preview',
+        body: 'The Animate button on the preview toolbar opens Build Studio for the image you are looking at. Your selections, item order, timing, and playback settings persist per image — locally for guests, and in Firestore for signed-in users so a build survives a new browser or cleared storage.',
+        steps: [
+          { text: 'Open any generation from your gallery so its preview is showing.', icon: 'Layers' },
+          { text: 'Click Animate on the preview toolbar — Build Studio opens over the image.', icon: 'Film' },
+          { text: 'Close with Esc (peels back one layer at a time) or the × button.', kbd: 'Esc' },
+        ],
+      },
+      {
+        heading: 'AI auto-select proposes items in reveal order',
+        body: 'The wand runs one Gemini vision call on your key and returns an ordered list of regions — hook first, body blocks in reading order, conclusion last. It replaces the current items in one shot; ⌘Z brings your manual work back. For busy art, run Clean up first so each block sits on a solid background.',
+        steps: [
+          { text: 'Click the wand in the floating toolbar above the canvas.', icon: 'Wand2' },
+          { text: 'Wait for the pass to finish — items appear in the sidebar with AI-proposed names you can double-click to rename.', icon: 'Sparkles' },
+          { text: 'Fine-tune any region with the selection tools, or undo the whole pass.', kbd: 'Cmd+Z' },
+        ],
+      },
+      {
+        heading: 'Clean up for animation before selecting',
+        body: 'Dense infographics can be hard to auto-select. Clean up sends a refine instruction that redraws the same content with each section isolated on a solid background — easier for both the wand and manual tracing. It creates a new Mark; your original stays untouched.',
+        steps: [
+          { text: 'Click the sparkles button next to the wand in the toolbar.', icon: 'Sparkles' },
+          { text: 'A new Mark appears with cleaner, separated blocks — switch to it in the version rail if needed.', icon: 'Layers' },
+          { text: 'Re-open Build Studio on the cleaned Mark and run AI auto-select or trace items yourself.', icon: 'Wand2' },
+        ],
+      },
+      {
+        heading: 'Draw, reorder, and focus individual items',
+        body: 'Freeform lasso (straight lines by default — hold Alt for a single drag), rectangle, and brush tools live in a Photoshop-style floating toolbar. Drag item badges to reorder. Double-tap ⌥ or press ⌥1-9 to focus-isolate one item for fine eraser work. Drag the duration readout to scrub per-item timing.',
+        steps: [
+          { text: 'Pick a selection tool from the floating toolbar and trace around a block — it becomes an item in the sidebar.', icon: 'Pencil' },
+          { text: 'Drag the numbered badge on the canvas to reorder; double-click a name to rename in place.', icon: 'ArrowRight' },
+          { text: 'Double-tap ⌥ to zoom into the selected item; Esc steps back out one layer at a time.', kbd: 'Esc' },
+        ],
+      },
+      {
+        heading: 'Play the reveal and export MP4',
+        body: 'The player walks through items one at a time with camera zoom and your chosen transition style. Arrow keys advance manually; toggle auto-play, loop, and speed. Export renders H.264 locally via WebCodecs — no upload — so the file plays in QuickTime, PowerPoint, and social feeds.',
+        steps: [
+          { text: 'Switch to the Play tab at the bottom of the sidebar and press Play.', icon: 'Film' },
+          { text: 'Use ← / → to step through items, or enable auto-play and loop.', icon: 'ArrowRight' },
+          { text: 'Click Export MP4 in the header — the file downloads when rendering finishes.', icon: 'Film' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.20.0-add-marks-rerolls',
     title: 'The + button now re-rolls the prompt — hold 1-9 to batch',
     summary:
