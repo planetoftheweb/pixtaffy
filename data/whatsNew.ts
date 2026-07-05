@@ -23,6 +23,47 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.24.0-api-and-mcp',
+    title: 'Generate from anywhere — personal API tokens & an MCP server',
+    summary:
+      'Create a token in Settings and generate from Claude, Codex, or your own apps — your presets, your keys, safely rate-limited.',
+    blurb:
+      'BranDoIt now works wherever you do. Create a personal API token in Settings → API access and any external tool can generate as your account: the bundled MCP server plugs BranDoIt into Claude Code, Claude Desktop, or Codex, and the plain HTTPS API lets your own apps generate with one POST. Calls use your saved presets (including art direction), your default styles, and your own model keys — Gemini, OpenAI, and OpenRouter models all supported. Built safely: tokens are shown once and stored only as hashes, they are generate-only and can never read or change your settings or keys, every call is rate-limited per account, and one click revokes a token forever.',
+    publishedAt: Date.parse('2026-07-05T14:00:00Z'),
+    version: '0.24.0',
+    image: '/whats-new/whatsnew-v0.24.0.png',
+    featured: true,
+    sections: [
+      {
+        heading: 'Create a personal API token',
+        body: 'Tokens live in Settings → API access. Each token is shown exactly once at creation — copy it then — and appears afterwards only as a name, a prefix, and its last-used date. You can hold up to five active tokens and revoke any of them instantly.',
+        steps: [
+          { text: 'Settings → API access → name the token for where it will live (e.g. "Claude MCP").', icon: 'KeyRound' },
+          { text: 'Click Create token and copy the bdi_… value immediately.', icon: 'Clipboard' },
+          { text: 'Revoke from the same list whenever a token is retired or exposed.', icon: 'Check' },
+        ],
+      },
+      {
+        heading: 'Plug BranDoIt into Claude or Codex',
+        body: 'The repo ships an MCP server (mcp/) that exposes a generate_infographic tool. Point Claude Code, Claude Desktop, or Codex at it with your token in the environment, then just ask for graphics — by preset name, model, aspect ratio, and target folder.',
+        steps: [
+          { text: 'Add the server to your client config with BRANDOIT_API_TOKEN set.', icon: 'Settings' },
+          { text: 'Ask: "Generate an infographic about tides with my What\'s New Hero preset, 16:9."', icon: 'Sparkles' },
+          { text: 'Results land in your BranDoIt gallery with hosted URLs returned to the chat.', icon: 'Image' },
+        ],
+      },
+      {
+        heading: 'Or call the HTTPS API from your own app',
+        body: 'One POST with your token generates up to 15 images per request, resolves presets by name, saves to a gallery folder of your choice (or returns bytes inline), and reports the true model and aspect ratio for each result.',
+        steps: [
+          { text: 'POST to the agentGenerateImage endpoint with Authorization: Bearer bdi_….', icon: 'ExternalLink' },
+          { text: 'Pass prompt (or prompts[]), optional presetName, and settings overrides.', icon: 'Edit' },
+          { text: 'Read results[].imageUrl — images are hosted and saved to your account.', icon: 'Check' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.23.0-presets-art-direction',
     title: 'Presets carry art direction — and your settings finally stick',
     summary:

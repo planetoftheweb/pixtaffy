@@ -10,6 +10,7 @@ import type { Response } from "express";
 import * as admin from "firebase-admin";
 import { randomUUID } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
+import { verifyApiToken, enforceApiRateLimit, RateLimitError } from "./apiTokens";
 import { getStorage } from "firebase-admin/storage";
 import type { Firestore, DocumentReference } from "firebase-admin/firestore";
 
@@ -177,7 +178,7 @@ const getSafeAspectRatioForModel = (
 
 /** --- BYOK resolution (parity with services/correctionAnalysisRouter) --- */
 
-type ApiKeyProvider = "gemini" | "openai";
+type ApiKeyProvider = "gemini" | "openai" | "openrouter";
 
 const normalizeStoredApiKey = (value: string): string =>
   value.replace(/^\uFEFF/, "").trim();
@@ -194,11 +195,17 @@ const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
   if (modelId === "openai" || modelId === "openai-2" || modelId === "openai-mini") {
     return "openai";
   }
+  if (modelId.startsWith("openrouter:")) {
+    return "openrouter";
+  }
   return undefined;
 };
 
 const isLikelyOpenAIKey = (value: string): boolean =>
-  /^sk-[A-Za-z0-9_-]+$/.test(value) && value.length >= 20 && value.length <= 256;
+  /^sk-[A-Za-z0-9_-]+$/.test(value) && value.length >= 20 && value.length <= 256 &&
+  !value.startsWith("sk-or-");
+const isLikelyOpenRouterKey = (value: string): boolean =>
+  /^sk-or-[A-Za-z0-9_-]+$/.test(value) && value.length >= 20 && value.length <= 256;
 const isLikelyGoogleApiKey = (value: string): boolean =>
   /^AIza[A-Za-z0-9_-]+$/.test(value) && value.length >= 30 && value.length <= 60;
 
@@ -212,6 +219,7 @@ const normalizeProviderKey = (
 
   if (provider === "gemini") return isLikelyGoogleApiKey(key) ? key : undefined;
   if (provider === "openai") return isLikelyOpenAIKey(key) ? key : undefined;
+  if (provider === "openrouter") return isLikelyOpenRouterKey(key) ? key : undefined;
   return undefined;
 };
 
@@ -268,6 +276,10 @@ function getApiKeyForModelFromPrefs(modelId: string, prefs?: PreferencesShape): 
   }
   if (provider === "openai") {
     const k = normalizeProviderKey(prefs.apiKeys?.openai, "openai");
+    if (k) return k;
+  }
+  if (provider === "openrouter") {
+    const k = normalizeProviderKey(prefs.apiKeys?.openrouter, "openrouter");
     if (k) return k;
   }
   return undefined;
@@ -635,6 +647,78 @@ function stripBase64Payload(raw: string): string {
   return (m?.[1] || raw).replace(/\s+/g, "");
 }
 
+
+/** ---- OpenRouter Images API (mirrors client services/openRouterService) --- */
+
+const OPENROUTER_SIZE_BY_ASPECT: Record<string, [string, string]> = {
+  "1:1": ["2048x2048", "1024x1024"],
+  "16:9": ["2560x1440", "1920x1080"],
+  "9:16": ["1440x2560", "1080x1920"],
+  "4:3": ["2304x1728", "1600x1200"],
+  "3:4": ["1728x2304", "1200x1600"],
+  "3:2": ["2448x1632", "1728x1152"],
+  "2:3": ["1632x2448", "1152x1728"],
+  "5:4": ["2160x1728", "1600x1280"],
+  "4:5": ["1728x2160", "1280x1600"],
+  "21:9": ["2940x1260", "2520x1080"],
+  "9:21": ["1260x2940", "1080x2520"],
+  "2:1": ["2720x1360", "2048x1024"],
+  "1:2": ["1360x2720", "1024x2048"],
+  "3:1": ["3330x1110", "2496x832"],
+};
+
+async function generateOpenRouterImage(
+  prompt: string,
+  config: GenerationConfig,
+  apiKey: string,
+  options: { modelSlug: string; systemPrompt?: string },
+): Promise<{ base64Data: string; mimeType: string }> {
+  const fullPrompt = options.systemPrompt?.trim()
+    ? `${options.systemPrompt.trim()}\n\n${prompt}`
+    : prompt;
+  const base: Record<string, unknown> = {
+    model: options.modelSlug,
+    prompt: fullPrompt,
+    output_format: "png",
+  };
+  const aspect = (config.aspectRatio || "").trim().replace(/_/g, ":").replace(/\s+/g, "");
+  const sizes = OPENROUTER_SIZE_BY_ASPECT[aspect];
+  const attempts: Record<string, unknown>[] = [];
+  if (sizes) attempts.push({ ...base, size: sizes[0] }, { ...base, size: sizes[1] });
+  attempts.push(aspect ? { ...base, aspect_ratio: aspect } : { ...base });
+
+  type OrImagesResponse = {
+    data?: Array<{ b64_json?: string; media_type?: string }>;
+    error?: { message?: string };
+  };
+  let json: OrImagesResponse | null = null;
+  let lastError = "";
+  for (const body of attempts) {
+    const resp = await fetch("https://openrouter.ai/api/v1/images", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey.trim()}`,
+        "Content-Type": "application/json",
+        "X-Title": "BranDoIt API",
+      },
+      body: JSON.stringify(body),
+    });
+    json = (await resp.json().catch(() => null)) as OrImagesResponse | null;
+    if (resp.ok) break;
+    lastError = json?.error?.message || `HTTP ${resp.status}`;
+    json = null;
+    if (resp.status !== 400) break; // only size rejections are retryable
+  }
+  if (!json) {
+    throw new Error(`OpenRouter (${options.modelSlug}): ${lastError || "request failed"}`);
+  }
+  const entry = json.data?.[0];
+  if (!entry?.b64_json) {
+    throw new Error(`OpenRouter (${options.modelSlug}) returned no image data`);
+  }
+  return { base64Data: entry.b64_json, mimeType: entry.media_type || "image/png" };
+}
+
 async function uploadGenerationImageAdmin(
   userId: string,
   generationId: string,
@@ -886,17 +970,34 @@ export const agentGenerateImage = onRequest(
         return;
       }
 
-      let decoded: admin.auth.DecodedIdToken;
-      try {
-        decoded = await admin.auth().verifyIdToken(token);
-      } catch {
-        sendJson(out, 401, { error: "Invalid or expired Firebase ID token." });
-        return;
-      }
-
-      if (!(decoded as { admin?: boolean }).admin) {
-        sendJson(out, 403, { error: "Admin claim required." });
-        return;
+      // Two credential kinds:
+      //  - `bdi_…` personal API token (created in Settings) — any account in
+      //    good standing; rate-limited per account below.
+      //  - Firebase ID token — the original path, still admin-only.
+      let authUid: string;
+      let authVia: "idToken" | "apiToken";
+      if (token.startsWith("bdi_")) {
+        const verified = await verifyApiToken(admin.firestore(), token);
+        if (!verified) {
+          sendJson(out, 401, { error: "Invalid or revoked API token." });
+          return;
+        }
+        authUid = verified.uid;
+        authVia = "apiToken";
+      } else {
+        let decoded: admin.auth.DecodedIdToken;
+        try {
+          decoded = await admin.auth().verifyIdToken(token);
+        } catch {
+          sendJson(out, 401, { error: "Invalid or expired Firebase ID token." });
+          return;
+        }
+        if (!(decoded as { admin?: boolean }).admin) {
+          sendJson(out, 403, { error: "Admin claim required (or use a personal API token)." });
+          return;
+        }
+        authUid = decoded.uid;
+        authVia = "idToken";
       }
 
       let body: AgentBody;
@@ -938,6 +1039,18 @@ export const agentGenerateImage = onRequest(
         return;
       }
 
+      if (authVia === "apiToken") {
+        try {
+          await enforceApiRateLimit(admin.firestore(), authUid, promptsToRun.length);
+        } catch (e) {
+          if (e instanceof RateLimitError) {
+            sendJson(out, 429, { error: e.message });
+            return;
+          }
+          throw e;
+        }
+      }
+
       const saveToGallery = body.saveToGallery === true;
 
       if (body.presetId && body.presetName) {
@@ -946,7 +1059,7 @@ export const agentGenerateImage = onRequest(
       }
 
       const db = admin.firestore();
-      const userRef = db.collection("users").doc(decoded.uid);
+      const userRef = db.collection("users").doc(authUid);
       const userSnap = await userRef.get();
       const userData = userSnap.data();
       if (!userData) {
@@ -979,10 +1092,10 @@ export const agentGenerateImage = onRequest(
       }
 
       const [graphicSnap, ratiosSnap, stylesSnap, colorsSnap] = await Promise.all([
-        fetchScopedResources(db, "graphic_types", decoded.uid, teamIds),
-        fetchScopedResources(db, "aspect_ratios", decoded.uid, teamIds),
-        fetchScopedResources(db, "visual_styles", decoded.uid, teamIds),
-        fetchScopedResources(db, "brand_colors", decoded.uid, teamIds),
+        fetchScopedResources(db, "graphic_types", authUid, teamIds),
+        fetchScopedResources(db, "aspect_ratios", authUid, teamIds),
+        fetchScopedResources(db, "visual_styles", authUid, teamIds),
+        fetchScopedResources(db, "brand_colors", authUid, teamIds),
       ]);
 
       const ctx: GenerationCtx = {
@@ -1163,6 +1276,12 @@ export const agentGenerateImage = onRequest(
               selectedModel,
               ctx.aspectRatios,
             );
+          } else if (selectedModel.startsWith("openrouter:")) {
+            const structured = buildStructuredOpenAIPrompt(config, ctx, selectedModel);
+            resultImage = await generateOpenRouterImage(structured, config, apiKey, {
+              modelSlug: selectedModel.slice("openrouter:".length),
+              systemPrompt: systemCombined,
+            });
           } else {
             sendJson(out, 400, { error: `Unsupported model "${selectedModel}".` });
             return;
@@ -1207,7 +1326,7 @@ export const agentGenerateImage = onRequest(
 
           try {
             const uploaded = await uploadGenerationImageAdmin(
-              decoded.uid,
+              authUid,
               generationId,
               versionId,
               resultImage.base64Data,
@@ -1238,7 +1357,7 @@ export const agentGenerateImage = onRequest(
               ],
             }));
 
-            const historyCol = db.collection("users").doc(decoded.uid).collection("history");
+            const historyCol = db.collection("users").doc(authUid).collection("history");
             const docRef = await historyCol.add(historyPayload);
             entry.generationId = generationId;
             entry.versionId = versionId;

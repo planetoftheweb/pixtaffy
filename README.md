@@ -130,6 +130,15 @@ npm run build
 
 The output will be in the `dist` directory.
 
+## API & MCP access
+
+Signed-in users can generate through the HTTPS API or the bundled MCP server
+(Claude Code / Claude Desktop / Codex) using personal `bdi_…` tokens created
+in **Settings → API access**. Tokens are hashed at rest, generate-only, and
+rate-limited per account; generation always uses the account's own BYOK model
+keys. See [`mcp/README.md`](./mcp/README.md) for setup and the raw HTTP
+contract.
+
 ## Deployment
 
 This project is configured for deployment on [Render](https://render.com) as a Static Site.

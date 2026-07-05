@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-07-05
+
+### Added
+
+- **Personal API tokens.** New `manageApiTokens` Cloud Function (create/list/revoke) + Settings → API access UI. Tokens are `bdi_` + 32 random bytes, shown once, stored only as SHA-256 hashes (doc id in the client-inaccessible `apiTokens` collection); max 5 active per account; revocation is an audited tombstone that takes effect immediately (`functions/src/apiTokens.ts`, `components/SettingsPage.tsx`).
+- **External generation access.** `agentGenerateImage` now accepts personal API tokens for ANY account in good standing (Firebase ID tokens remain admin-only). Token calls are rate-limited per account before any provider spend (defaults 60 images/hour, 300/day; admin-adjustable via `users/{uid}/private/apiUsage`). Added OpenRouter model dispatch (`openrouter:<slug>` with the same explicit per-aspect size fallbacks as the client) so the API covers every picker model except gemini-svg (`functions/src/agentGenerateImage.ts`).
+- **MCP server.** New `mcp/` package: a stdio Model Context Protocol server exposing `generate_infographic` (prompt, presetName, model, aspectRatio, saveToGallery, folderName) over the HTTPS API — plugs BranDoIt into Claude Code, Claude Desktop, and Codex with a `BRANDOIT_API_TOKEN` env var. Setup + raw-HTTP docs in `mcp/README.md`.
+- **Rules hardening.** `apiTokens/**` denied to all clients; `users/{uid}/private/**` (rate-limit counters) owner-readable but server-write-only (`firestore.rules`).
+
+### Verified
+
+- End-to-end: token minted via the function, curl generation with the token (openai-mini, saved to gallery, hosted URL returned), forged token → 401, MCP stdio round-trip (initialize → tools/list → tools/call) generating for real, preset resolution by name through the API, and revocation immediately killing the token (401).
+
 ## [0.23.0] - 2026-07-04
 
 ### Added

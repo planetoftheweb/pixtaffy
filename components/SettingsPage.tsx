@@ -64,6 +64,23 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [orSlugWarning, setOrSlugWarning] = useState<string | null>(null);
   const [orKnownSlugs, setOrKnownSlugs] = useState<Set<string> | null>(null);
 
+  // ---- Personal API tokens (external access: MCP, scripts, other apps) ----
+  interface ApiTokenRow {
+    tokenHash: string;
+    name: string;
+    prefix: string;
+    createdAt: number | null;
+    lastUsedAt: number | null;
+  }
+  const [apiTokens, setApiTokens] = useState<ApiTokenRow[] | null>(null);
+  const [apiTokenName, setApiTokenName] = useState('');
+  const [apiTokenBusy, setApiTokenBusy] = useState(false);
+  const [apiTokenError, setApiTokenError] = useState<string | null>(null);
+  /** Plaintext of a freshly created token — shown exactly once. */
+  const [freshToken, setFreshToken] = useState<string | null>(null);
+  const [freshTokenCopied, setFreshTokenCopied] = useState(false);
+  const [armRevokeHash, setArmRevokeHash] = useState<string | null>(null);
+
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -345,6 +362,65 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     );
     setOrCustomSlug('');
     await persistOrModels([...orModels, slug]);
+  };
+
+  const MANAGE_TOKENS_URL = 'https://us-central1-brandoit.cloudfunctions.net/manageApiTokens';
+
+  const callManageTokens = async (payload: Record<string, unknown>) => {
+    const { auth } = await import('../services/firebase');
+    const idToken = await auth.currentUser?.getIdToken();
+    if (!idToken) throw new Error('Sign in again to manage API tokens.');
+    const resp = await fetch(MANAGE_TOKENS_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(json.error || `HTTP ${resp.status}`);
+    return json;
+  };
+
+  const loadApiTokens = async () => {
+    try {
+      const json = await callManageTokens({ action: 'list' });
+      setApiTokens(json.tokens || []);
+    } catch (err) {
+      setApiTokenError(err instanceof Error ? err.message : 'Failed to load tokens.');
+      setApiTokens([]);
+    }
+  };
+  useEffect(() => { void loadApiTokens(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [user.id]);
+
+  const handleCreateApiToken = async () => {
+    if (apiTokenBusy) return;
+    setApiTokenBusy(true);
+    setApiTokenError(null);
+    try {
+      const json = await callManageTokens({ action: 'create', name: apiTokenName.trim() || 'API token' });
+      setFreshToken(json.token);
+      setFreshTokenCopied(false);
+      setApiTokenName('');
+      await loadApiTokens();
+    } catch (err) {
+      setApiTokenError(err instanceof Error ? err.message : 'Failed to create token.');
+    } finally {
+      setApiTokenBusy(false);
+    }
+  };
+
+  const handleRevokeApiToken = async (tokenHash: string) => {
+    if (armRevokeHash !== tokenHash) {
+      setArmRevokeHash(tokenHash);
+      window.setTimeout(() => setArmRevokeHash((h) => (h === tokenHash ? null : h)), 2500);
+      return;
+    }
+    setArmRevokeHash(null);
+    try {
+      await callManageTokens({ action: 'revoke', tokenHash });
+      await loadApiTokens();
+    } catch (err) {
+      setApiTokenError(err instanceof Error ? err.message : 'Failed to revoke token.');
+    }
   };
 
   const handleApiKeyBlur = async (_modelId: string) => {
@@ -631,6 +707,94 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   )}
                 </div>
               )}
+
+              {/* Personal API tokens — external access for MCP servers,
+                  scripts, and other apps. Plaintext is shown exactly once. */}
+              <div className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
+                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  API access
+                </h5>
+                <p className="text-xs text-slate-500">
+                  Personal tokens let external tools (the BranDoIt MCP server, scripts, other
+                  apps) generate images as your account, using your own model keys. Calls are
+                  rate-limited per account.
+                </p>
+                {freshToken && (
+                  <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-2.5 space-y-1.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                      Copy this token now — it won't be shown again
+                    </p>
+                    <code className="block break-all text-[11px] text-slate-800 dark:text-slate-100">{freshToken}</code>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(freshToken).then(() => setFreshTokenCopied(true));
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-brand-teal text-white hover:bg-teal-600"
+                      >
+                        {freshTokenCopied ? 'Copied ✓' : 'Copy token'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFreshToken(null)}
+                        className="px-2.5 py-1 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-[#30363d] text-slate-600 dark:text-slate-300"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {(apiTokens || []).map((t) => (
+                  <div
+                    key={t.tokenHash}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] px-2.5 py-2"
+                  >
+                    <div className="min-w-0">
+                      <span className="block text-sm font-medium text-slate-900 dark:text-white truncate">
+                        {t.name}
+                        <span className="ml-2 text-[11px] font-normal text-slate-500 font-mono">{t.prefix}</span>
+                      </span>
+                      <span className="block text-[11px] text-slate-500">
+                        {t.lastUsedAt ? `Last used ${new Date(t.lastUsedAt).toLocaleDateString()}` : 'Never used'}
+                        {t.createdAt ? ` · created ${new Date(t.createdAt).toLocaleDateString()}` : ''}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleRevokeApiToken(t.tokenHash)}
+                      className={`shrink-0 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                        armRevokeHash === t.tokenHash
+                          ? 'bg-red-600 text-white'
+                          : 'text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10'
+                      }`}
+                    >
+                      {armRevokeHash === t.tokenHash ? 'Sure?' : 'Revoke'}
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={apiTokenName}
+                    onChange={(e) => setApiTokenName(e.target.value)}
+                    maxLength={60}
+                    placeholder="Token name — e.g. Claude MCP, writAIble"
+                    className="flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateApiToken()}
+                    disabled={apiTokenBusy}
+                    className="px-3 py-1.5 text-sm font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 hover:bg-teal-600 transition-colors shrink-0"
+                  >
+                    {apiTokenBusy ? 'Creating…' : 'Create token'}
+                  </button>
+                </div>
+                {apiTokenError && (
+                  <p className="text-[11px] text-red-500">{apiTokenError}</p>
+                )}
+              </div>
 
               <div className="space-y-2 pt-3 border-t border-gray-200 dark:border-[#30363d]">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">

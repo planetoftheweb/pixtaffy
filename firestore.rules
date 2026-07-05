@@ -93,6 +93,22 @@ service cloud.firestore {
         allow update: if isOwner(uid) || isAdmin();
         allow delete: if isOwner(uid) || isAdmin();
       }
+
+      // Server-managed private docs (API rate-limit counters, etc.). Only
+      // Cloud Functions (admin SDK, which bypasses rules) may touch these —
+      // owners must not edit their own rate limits.
+      match /private/{docId} {
+        allow read:   if isOwner(uid) || isAdmin();
+        allow write:  if isAdmin();
+      }
+    }
+
+    // Personal API tokens: doc id is the SHA-256 of the token, managed
+    // exclusively by the manageApiTokens Cloud Function via the admin SDK.
+    // No client may read or write here — a client read would expose which
+    // hashes exist; writes could forge or un-revoke tokens.
+    match /apiTokens/{tokenHash} {
+      allow read, write: if false;
     }
 
     // ---- Collection-group rule for admin usage-stats dashboard ----------
