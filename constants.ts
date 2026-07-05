@@ -209,7 +209,7 @@ export const OPENROUTER_CURATED_MODELS: OpenRouterCuratedModel[] = [
     slug: 'bytedance-seed/seedream-4.5',
     name: 'Seedream 4.5',
     goodAt: 'Best-in-class small-text rendering and native 4K output — the top benchmark pick for dense, text-heavy infographics.',
-    costPerImageUsd: 0.03
+    costPerImageUsd: 0.04
   },
   {
     slug: 'black-forest-labs/flux.2-pro',
@@ -303,6 +303,24 @@ result must read as the same poster, just tidied up. Change ONLY:
 Do not add, remove, or reword any content. Keep the expressive hand-drawn
 character of every element.
 `.trim();
+
+/**
+ * Human-readable name for ANY model id — native, curated OpenRouter, or a
+ * custom OpenRouter slug. Display surfaces must use this instead of literal
+ * lookup maps, which silently mislabel ids they don't know (an OpenRouter
+ * generation showing a generic or wrong model name in the tile details).
+ */
+export const getModelDisplayName = (modelId?: string): string => {
+  if (!modelId) return 'Model';
+  const native = SUPPORTED_MODELS.find((m) => m.id === modelId);
+  if (native) return native.name;
+  if (modelId.startsWith(OPENROUTER_MODEL_PREFIX)) {
+    const slug = modelId.slice(OPENROUTER_MODEL_PREFIX.length);
+    const curated = OPENROUTER_CURATED_MODELS.find((m) => m.slug === slug);
+    return curated?.name || slug.split('/').pop() || slug;
+  }
+  return modelId;
+};
 
 for (const m of OPENROUTER_CURATED_MODELS) {
   if (m.costPerImageUsd) {

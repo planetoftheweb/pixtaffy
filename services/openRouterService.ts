@@ -73,28 +73,70 @@ export const generateOpenRouterImage = async (
     ? `${options.systemPrompt.trim()}\n\n${prompt}`
     : prompt;
 
-  const body: Record<string, unknown> = {
+  const base: Record<string, unknown> = {
     model: options.modelSlug,
     prompt: fullPrompt,
     output_format: 'png'
   };
-  if (config.aspectRatio) body.aspect_ratio = config.aspectRatio;
 
-  const resp = await fetch(`${OPENROUTER_API_BASE}/images`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey.trim()}`,
-      'Content-Type': 'application/json',
-      'X-Title': 'BranDoIt'
-    },
-    body: JSON.stringify(body)
-  });
+  // Aspect handling, verified empirically (Seedream 4.5, July 2026):
+  //  - a bare `aspect_ratio` is silently IGNORED by some providers → square
+  //    output despite a 16:9 request;
+  //  - `resolution: '2K'` maps to dims below some providers' minimum pixel
+  //    count (Seedream requires ≥3.69MP) → 400;
+  //  - an explicit pixel `size` works.
+  // So: try an explicit ~4MP size for the requested ratio, fall back to a
+  // ~2MP size for providers with lower maximums, then to the bare
+  // `aspect_ratio` hint. Failed size attempts return 400 and don't bill.
+  const SIZE_BY_ASPECT: Record<string, [string, string]> = {
+    '1:1': ['2048x2048', '1024x1024'],
+    '16:9': ['2560x1440', '1920x1080'],
+    '9:16': ['1440x2560', '1080x1920'],
+    '4:3': ['2304x1728', '1600x1200'],
+    '3:4': ['1728x2304', '1200x1600'],
+    '3:2': ['2448x1632', '1728x1152'],
+    '2:3': ['1632x2448', '1152x1728'],
+    '5:4': ['2160x1728', '1600x1280'],
+    '4:5': ['1728x2160', '1280x1600'],
+    '21:9': ['2940x1260', '2520x1080'],
+    '9:21': ['1260x2940', '1080x2520'],
+    '2:1': ['2720x1360', '2048x1024'],
+    '1:2': ['1360x2720', '1024x2048'],
+    '3:1': ['3330x1110', '2496x832'],
+  };
+  const aspect = (config.aspectRatio || '')
+    .trim()
+    .replace(/_/g, ':')
+    .replace(/\s+/g, '');
+  const sizes = SIZE_BY_ASPECT[aspect];
+  const attempts: Record<string, unknown>[] = [];
+  if (sizes) {
+    attempts.push({ ...base, size: sizes[0] }, { ...base, size: sizes[1] });
+  }
+  attempts.push(aspect ? { ...base, aspect_ratio: aspect } : { ...base });
 
-  const json = await resp.json().catch(() => null);
-  if (!resp.ok) {
-    const message =
-      json?.error?.message || json?.error || `HTTP ${resp.status}`;
-    throw new Error(`OpenRouter (${options.modelSlug}): ${message}`);
+  let json: any = null;
+  let lastError = '';
+  for (const body of attempts) {
+    const resp = await fetch(`${OPENROUTER_API_BASE}/images`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey.trim()}`,
+        'Content-Type': 'application/json',
+        'X-Title': 'BranDoIt'
+      },
+      body: JSON.stringify(body)
+    });
+    json = await resp.json().catch(() => null);
+    if (resp.ok) break;
+    lastError = json?.error?.message || json?.error || `HTTP ${resp.status}`;
+    json = null;
+    // Only size/parameter rejections are worth retrying with the next shape;
+    // auth/quota/moderation errors would fail every attempt identically.
+    if (resp.status !== 400) break;
+  }
+  if (!json) {
+    throw new Error(`OpenRouter (${options.modelSlug}): ${lastError || 'request failed'}`);
   }
 
   const entry = json?.data?.[0];

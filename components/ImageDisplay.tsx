@@ -9,7 +9,7 @@ import { getCurrentVersion } from '../services/historyService';
 import { buildExportFilename } from '../services/versionUtils';
 import { webpToPngBlob, imageDataToPngBlob, imageBlobToPngBlob } from '../services/imageConversionService';
 import { sanitizeSvg } from '../services/svgService';
-import { SUPPORTED_MODELS, MODEL_GROUP_ORDER, CLEANUP_FOR_ANIMATION_PROMPT } from '../constants';
+import { SUPPORTED_MODELS, MODEL_GROUP_ORDER, CLEANUP_FOR_ANIMATION_PROMPT, getModelDisplayName } from '../constants';
 import { normalizeAspectRatio } from '../services/aspectRatioService';
 import { RichSelect, RichSelectOption } from './RichSelect';
 import { DownloadMenu } from './DownloadMenu';
@@ -1913,9 +1913,9 @@ ${version.svgCode}
                       {hasMixedModels && thumbModelId && (
                         <span
                           className="absolute bottom-1 left-1 right-1 inline-flex items-center justify-center px-1 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-black/70 text-white shadow truncate"
-                          title={modelLabelMap[thumbModelId] || thumbModelId}
+                          title={modelLabelMap[thumbModelId] || getModelDisplayName(thumbModelId)}
                         >
-                          {modelShortLabelMap[thumbModelId] || modelLabelMap[thumbModelId] || thumbModelId}
+                          {modelShortLabelMap[thumbModelId] || modelLabelMap[thumbModelId] || getModelDisplayName(thumbModelId)}
                         </span>
                       )}
                     </button>
@@ -2438,7 +2438,7 @@ ${version.svgCode}
                     className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-brand-teal/15 text-brand-teal border border-brand-teal/50"
                     title={hasMixedModels ? 'Model that produced this version' : undefined}
                   >
-                    {modelLabelMap[version.modelId || generation.modelId || 'gemini'] || 'Model'}
+                    {modelLabelMap[version.modelId || generation.modelId || ''] || getModelDisplayName(version.modelId || generation.modelId)}
                   </span>
                   {isSvg && cfg?.svgMode && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-purple-500/15 text-purple-400 border border-purple-500/50 capitalize">
@@ -2505,14 +2505,14 @@ ${version.svgCode}
                         full model + mark identity if the user needs it. */}
                     <span
                       className="px-2 py-0.5 rounded bg-brand-teal/15 border border-brand-teal/40 text-brand-teal text-xs whitespace-nowrap"
-                      title={`${modelLabelMap[comparisonA.modelId] || comparisonA.modelId} · ${comparisonA.markLabel}`}
+                      title={`${modelLabelMap[comparisonA.modelId] || getModelDisplayName(comparisonA.modelId)} · ${comparisonA.markLabel}`}
                     >
                       {comparisonA.markLabel}
                     </span>
                     <span className="text-slate-400 shrink-0">vs</span>
                     <span
                       className="px-2 py-0.5 rounded bg-brand-teal/15 border border-brand-teal/40 text-brand-teal text-xs whitespace-nowrap"
-                      title={`${modelLabelMap[comparisonB.modelId] || comparisonB.modelId} · ${comparisonB.markLabel}`}
+                      title={`${modelLabelMap[comparisonB.modelId] || getModelDisplayName(comparisonB.modelId)} · ${comparisonB.markLabel}`}
                     >
                       {comparisonB.markLabel}
                     </span>

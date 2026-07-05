@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnchorRect } from './PresetActionPopover';
 
@@ -12,6 +12,9 @@ export interface PresetLabels {
   quality?: string;
   /** Free-text art direction the preset carries (customInstructions). */
   instructions?: string;
+  /** Newest generation made with matching settings — the "what you'll get"
+   * sample shown at the top of the card. */
+  sampleUrl?: string;
 }
 
 interface PresetHoverPreviewProps {
@@ -23,6 +26,10 @@ interface PresetHoverPreviewProps {
 }
 
 const PREVIEW_WIDTH = 220;
+// Preferred size — used whenever a side has room for it, so the sample
+// thumbnail reads at a useful size; falls back to the compact width in
+// cramped viewports.
+const PREVIEW_WIDTH_LG = 360;
 const GAP = 12;
 const MARGIN = 8;
 
@@ -33,8 +40,11 @@ function computePreviewStyle(
 ): React.CSSProperties {
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
-  const fitsRight = anchor.right + GAP + PREVIEW_WIDTH <= vw - MARGIN;
-  const fitsLeft = anchor.left - GAP - PREVIEW_WIDTH >= MARGIN;
+  const fitsRightLg = anchor.right + GAP + PREVIEW_WIDTH_LG <= vw - MARGIN;
+  const fitsLeftLg = anchor.left - GAP - PREVIEW_WIDTH_LG >= MARGIN;
+  const width = fitsRightLg || fitsLeftLg ? PREVIEW_WIDTH_LG : PREVIEW_WIDTH;
+  const fitsRight = anchor.right + GAP + width <= vw - MARGIN;
+  const fitsLeft = anchor.left - GAP - width >= MARGIN;
   const openLeft = preferLeft ? fitsLeft : !fitsRight && fitsLeft;
   const top = Math.max(
     MARGIN,
@@ -43,7 +53,7 @@ function computePreviewStyle(
   const style: React.CSSProperties = {
     position: 'fixed',
     top,
-    width: PREVIEW_WIDTH,
+    width,
     zIndex: 65,
     pointerEvents: 'none',
   };
@@ -71,8 +81,14 @@ export const PresetHoverPreview: React.FC<PresetHoverPreviewProps> = ({
     { key: 'quality', label: 'Quality', value: labels.quality || '' },
   ].filter((r) => !!r.value);
   const instructions = labels.instructions?.trim() || '';
+  const [sampleFailed, setSampleFailed] = useState(false);
+  // The card stays mounted while the hover moves between rows — a broken
+  // sample on one preset must not blank the next preset's sample.
+  useEffect(() => setSampleFailed(false), [labels.sampleUrl]);
+  const sampleUrl = !sampleFailed ? labels.sampleUrl : undefined;
 
-  const estimatedHeight = 64 + rows.length * 25 + (instructions ? 64 : 0);
+  const estimatedHeight =
+    64 + rows.length * 25 + (instructions ? 64 : 0) + (sampleUrl ? 200 : 0);
   const style = computePreviewStyle(anchor, preferLeft, estimatedHeight);
 
   if (typeof document === 'undefined') return null;
@@ -87,6 +103,15 @@ export const PresetHoverPreview: React.FC<PresetHoverPreviewProps> = ({
       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 truncate">
         {name}
       </p>
+      {sampleUrl && (
+        <img
+          src={sampleUrl}
+          alt=""
+          loading="lazy"
+          onError={() => setSampleFailed(true)}
+          className="w-full aspect-video object-cover rounded-md mb-2 border border-gray-100 dark:border-[#30363d] bg-gray-50 dark:bg-[#161b22]"
+        />
+      )}
       <dl className="space-y-1">
         {rows.map((r) => (
           <div key={r.key} className="flex items-baseline gap-2">

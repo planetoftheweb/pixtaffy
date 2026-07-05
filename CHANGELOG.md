@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-07-04
+
+### Added
+
+- **Preset sample previews.** The preset hover card shows the newest generation whose settings match the preset's pinned fields (partial presets match on the fields they carry), rendered as a 16:9 thumbnail above the parameter list. The card grew to 360px when viewport room allows (`App.tsx` `findPresetSampleUrl`, `components/PresetHoverPreview.tsx`).
+- **Model picker categories.** Provider groups (Gemini / OpenAI / OpenRouter) are collapsible accordions — one open at a time, anchored to the selected model's category; collapsed headers show the active model or a count, and compare mode shows a per-group checked badge (`components/ControlPanel.tsx`).
+- **`getModelDisplayName`.** Resolves any model id — native, curated OpenRouter, custom slug — for display; wired into the tile-detail chips, rail chips, and compare labels that previously mislabeled OpenRouter generations (`constants.ts`, `components/ImageDisplay.tsx`).
+
+### Fixed
+
+- **Settings drift (model not applied / not remembered).** Three cooperating bugs: (1) on session restore the localStorage toolbar cache OVERRODE the account's saved model, resurrecting stale picks; (2) same-tick preference updates (preset apply = model + quality) rebuilt state from stale closures, silently reverting each other; (3) their interleaved Firestore read-modify-write pairs could land out of order, persisting the reverted value. Fixes: account preference wins over the cache (cache only fills a gap), functional `setUser` updates, and a serialized latest-state preference write queue (`App.tsx`). The restore-from-gallery flow also persists the restored tile's model now.
+- **OpenRouter aspect ratios.** Some providers (Seedream 4.5) silently ignore a bare `aspect_ratio` and reject sub-minimum pixel sizes (`resolution: '2K'` → 400). The service now sends explicit per-aspect pixel sizes (~4MP, then ~2MP, then the aspect hint as fallbacks; failed attempts don't bill) — verified 16:9 requests deliver 16:9 (`services/openRouterService.ts`).
+- **Active Generations time remaining.** Replaced the rate-only formula (frozen countdown for single generations; ~2× overestimate spikes after a batch's first completion; worst simulated error >2 min) with a projected-makespan countdown: learned per-model speeds counted down by elapsed, blended with completion-anchored observed throughput crediting in-flight jobs as half done. Simulated mean error 0-19s; validated with two live batches (`App.tsx`, new `lastProgressAt` on jobs).
+- **Palette hexes painted into artwork.** Weaker models transcribed the Colors line's hex codes as literal swatch chips. All prompt builders now frame the palette as paint-mixing instructions with an explicit never-render clause, plus a closing note that Type/Style/Colors/Size are settings, not content (`App.tsx`, `services/geminiService.ts`, `services/openaiService.ts`).
+- **Expand prompt scope.** The wand's instructions told the model to amplify camera, lighting, texture, colors, and art-style references — baking the current dropdowns into prose so changing them later did nothing. Rewritten to enrich content only (concepts, sections, subjects, label wording) with a hard OMIT list for colors, style, typography, layout, and camera language (`services/correctionAnalysisShared.ts`).
+
+### Changed
+
+- **Preset menu polish.** The toolbar presets panel is right-anchored (its ⋯ actions column used to clip off-screen), rows are tighter with hairline dividers, all five presets fit without scrolling, and the ⋯ popover / hover card typography bumped to 13px. Settings' API column compacted (`components/ControlPanel.tsx`, `components/PresetActionPopover.tsx`, `components/PresetHoverPreview.tsx`, `components/SettingsPage.tsx`).
+- **What's New backfill.** Entries added for every 0.1-0.11 release so the discovery page covers the app's full history (`data/whatsNew.ts`, hero images under `public/whats-new/`).
+- **`package.json` bumped to `0.23.0`** with a featured What's New entry and hero image.
+
 ## [0.22.0] - 2026-07-04
 
 ### Added

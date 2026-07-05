@@ -188,6 +188,10 @@ interface ActiveGenerationJob {
   failed: number;
   inFlight: number;
   startedAt: number;
+  /** When `completed + failed` last increased — anchors the observed-speed
+   * term of the remaining-time estimate so the countdown keeps ticking
+   * between completions instead of stalling. */
+  lastProgressAt?: number;
   finishedAt?: number;
   status: ActiveGenerationJobStatus;
   errors: BatchError[];
@@ -329,6 +333,28 @@ const App: React.FC = () => {
   
   // Auth State
   const [user, setUser] = useState<User | null>(null);
+  // Latest user state, readable at async flush time (see queuePreferencesWrite).
+  const latestUserRef = useRef<User | null>(null);
+  useEffect(() => {
+    latestUserRef.current = user;
+  }, [user]);
+  // Serialized, latest-state preference persistence. Rapid successive
+  // preference changes (preset apply = model + quality, quick model
+  // switches) used to each fire their own read-modify-write against
+  // Firestore; those pairs interleave, so a STALE write could land last and
+  // become what a reload "remembers". The queue runs writes one at a time
+  // and each write snapshots the freshest state when it actually runs, so
+  // burst updates coalesce to the correct final value.
+  const prefsWriteChainRef = useRef<Promise<void>>(Promise.resolve());
+  const queuePreferencesWrite = useCallback(() => {
+    prefsWriteChainRef.current = prefsWriteChainRef.current.then(async () => {
+      // Let React flush the state update that triggered this write first.
+      await new Promise((r) => setTimeout(r, 0));
+      const u = latestUserRef.current;
+      if (!u) return;
+      await authService.updateUserPreferences(u.id, u.preferences).catch(console.error);
+    });
+  }, []);
   // Tracks whether Firebase auth has reported in at least once. Until this is
   // true, `user` is null because the session is still being restored — not
   // because the visitor is a guest. Several UI affordances (the BYOK setup
@@ -632,10 +658,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const unsubscribe = authService.onAuthStateChange(async (restoredUser) => {
       if (restoredUser) {
-        const cachedSelection = readToolbarSelection(restoredUser.id);
-        const cachedModel = cachedSelection?.selectedModel;
+        // The account preference is the source of truth for the model. The
+        // local toolbar cache only fills in when the account has none —
+        // letting it OVERRIDE the preference (as it used to) meant any stale
+        // cache from an older tab or session silently resurrected an old
+        // model on reload, and the next preference write persisted it: the
+        // "I picked Seedream but it generated/remembered GPT Image 2" drift.
+        const cachedModel = readToolbarSelection(restoredUser.id)?.selectedModel;
         const hydratedUser =
-          cachedModel && cachedModel !== restoredUser.preferences.selectedModel
+          !restoredUser.preferences.selectedModel && cachedModel
             ? {
                 ...restoredUser,
                 preferences: {
@@ -785,6 +816,35 @@ const App: React.FC = () => {
   const context = { brandColors, visualStyles, graphicTypes, aspectRatios };
   const selectedModel = user?.preferences.selectedModel || guestSelectedModel;
 
+  // Newest generation whose settings match the preset's PINNED fields —
+  // shown as a sample thumbnail in the hover preview so the user can see
+  // what a preset produces before applying it. Partial presets match on
+  // the fields they carry only (a style-only preset matches by style).
+  const findPresetSampleUrl = useCallback(
+    (preset: ToolbarPreset): string | undefined => {
+      const gen = history.find((g) => {
+        const c = g.config;
+        if (!c) return false;
+        if (preset.graphicTypeId && c.graphicTypeId !== preset.graphicTypeId) return false;
+        if (preset.visualStyleId && c.visualStyleId !== preset.visualStyleId) return false;
+        if (preset.colorSchemeId && c.colorSchemeId !== preset.colorSchemeId) return false;
+        // Normalized compare: legacy presets store ratios like "16_9" while
+        // applying coerces to "16:9" — a literal compare would never match.
+        if (
+          preset.aspectRatio &&
+          normalizeAspectRatio(c.aspectRatio) !== normalizeAspectRatio(preset.aspectRatio)
+        ) return false;
+        if (preset.selectedModel && g.modelId !== preset.selectedModel) return false;
+        return true;
+      });
+      if (!gen) return undefined;
+      const v = getCurrentVersion(gen);
+      if (!v) return undefined;
+      return v.imageUrl || (v.imageData ? `data:${v.mimeType};base64,${v.imageData}` : undefined);
+    },
+    [history]
+  );
+
   // Build a human-readable label map for a preset's snapshot. Used by the
   // hover preview in both the toolbar preset menu and the gallery preset menu
   // so the user can scan stored parameters without applying the preset first.
@@ -794,6 +854,7 @@ const App: React.FC = () => {
         ? aspectRatios.find((r) => r.value === preset.aspectRatio)
         : undefined;
       return {
+        sampleUrl: findPresetSampleUrl(preset),
         type: preset.graphicTypeId
           ? graphicTypes.find((t) => t.id === preset.graphicTypeId)?.name
           : undefined,
@@ -813,7 +874,7 @@ const App: React.FC = () => {
         instructions: preset.customInstructions,
       };
     },
-    [brandColors, visualStyles, graphicTypes, aspectRatios]
+    [brandColors, visualStyles, graphicTypes, aspectRatios, findPresetSampleUrl]
   );
 
   // Multi-model "compare" selection. When length > 1, handleGenerate fans the
@@ -1256,7 +1317,7 @@ const App: React.FC = () => {
       `Generate a ${typeLabel}`,
       aspectLabel ? `at ${aspectLabel} aspect ratio` : '',
       styleLabel ? `in the ${styleLabel}${styleDesc}` : '',
-      colorsLabel ? `using palette ${colorsLabel}` : '',
+      colorsLabel ? `painted with the palette ${colorsLabel}` : '',
       `Subject/Content: ${currentConfig.prompt}`
     ].filter(Boolean).join('. ');
 
@@ -1265,9 +1326,13 @@ const App: React.FC = () => {
       `Structured Prompt: ${expanded}`,
       `Type: ${typeLabel}`,
       styleLabel ? `Style: ${styleLabel}${styleDesc}` : '',
-      colorsLabel ? `Colors: ${colorsLabel}` : '',
+      colorsLabel ? `Colors (paint the artwork WITH these — NEVER draw the hex codes, palette name, or color swatches as visible elements): ${colorsLabel}` : '',
       aspectLabel ? `Size: ${aspectLabel}` : '',
-      instructions ? `Additional art direction: ${instructions}` : ''
+      instructions ? `Additional art direction: ${instructions}` : '',
+      // Weaker models transcribe settings into the artwork (hex codes drawn
+      // as swatch chips, style names as captions). Strong models ignore this
+      // line at no cost; weak ones need it stated flatly.
+      'Note: Type, Style, Colors, and Size above are generation settings, not content — never render their labels, names, hex codes, or swatches anywhere in the image.'
     ].filter(Boolean).join('\n');
   };
 
@@ -1741,6 +1806,10 @@ const App: React.FC = () => {
               ...job,
               completed: summary.completed,
               failed: summary.failed,
+              lastProgressAt:
+                summary.completed + summary.failed > job.completed + job.failed
+                  ? Date.now()
+                  : job.lastProgressAt,
               inFlight: summary.inFlight,
               errors: summary.errors,
               latest: summary.latest || job.latest,
@@ -2463,14 +2532,14 @@ const App: React.FC = () => {
     );
 
     if (user && restoredGeneration.modelId) {
-      const updatedUser = {
-        ...user,
-        preferences: {
-          ...user.preferences,
-          selectedModel: restoredGeneration.modelId
-        }
-      };
-      setUser(updatedUser);
+      // Functional + queued (see handleModelChange): the old snapshot-based
+      // setUser here could clobber interim preference changes, and the
+      // restored model was never persisted — so a reload forgot it.
+      setUser(prev => prev ? {
+        ...prev,
+        preferences: { ...prev.preferences, selectedModel: restoredGeneration.modelId }
+      } : prev);
+      queuePreferencesWrite();
     }
     // Snap the page back up so the restored generation is centered in the
     // preview. We mark the scroll as programmatic so the toolbar auto-
@@ -2796,33 +2865,30 @@ const App: React.FC = () => {
       setGuestSelectedModel(modelId);
       return;
     }
-
-    const updatedUser = {
-      ...user,
-      preferences: {
-        ...user.preferences,
-        selectedModel: modelId
-      }
-    };
-    setUser(updatedUser);
-    authService.updateUserPreferences(user.id, updatedUser.preferences).catch(console.error);
+    // Functional update + queued persist: building the next user from a
+    // captured `user` let two same-tick preference changes (e.g. a preset
+    // applying model AND quality) clobber each other — the second setUser
+    // rebuilt from the stale closure and silently reverted the first, and
+    // their interleaved Firestore writes could land out of order, so the
+    // reverted value was what got "remembered" after a reload.
+    setUser(prev => prev ? { ...prev, preferences: { ...prev.preferences, selectedModel: modelId } } : prev);
+    queuePreferencesWrite();
   };
 
   const handleOpenAIQualityChange = (quality: 'low' | 'medium' | 'high' | 'auto') => {
     if (!user) return;
-    const nextSettings = {
-      ...(user.preferences.settings || { contributeByDefault: false }),
-      openaiImageQuality: quality
-    };
-    const updatedUser = {
-      ...user,
+    // Functional update + queued persist — see handleModelChange for why.
+    setUser(prev => prev ? {
+      ...prev,
       preferences: {
-        ...user.preferences,
-        settings: nextSettings
+        ...prev.preferences,
+        settings: {
+          ...(prev.preferences.settings || { contributeByDefault: false }),
+          openaiImageQuality: quality
+        }
       }
-    };
-    setUser(updatedUser);
-    authService.updateUserPreferences(user.id, updatedUser.preferences).catch(console.error);
+    } : prev);
+    queuePreferencesWrite();
   };
 
   // ----- Toolbar preset handlers -----
@@ -3779,16 +3845,40 @@ const App: React.FC = () => {
                         const elapsedMs = (job.finishedAt || Date.now()) - job.startedAt;
                         const elapsedLabel = formatDuration(elapsedMs / 1000);
                         const remainingJobs = Math.max(0, job.total - doneCount);
+                        // Projected-makespan countdown. Project total wall time
+                        // from learned per-model speeds and count down with
+                        // elapsed; once generations complete, infer per-job
+                        // seconds from throughput (crediting in-flight jobs as
+                        // half done) and blend with the baseline. The previous
+                        // rate-only math froze for single generations and
+                        // spiked ~2× right after a batch's first completion
+                        // (simulated mean error 15-40s, worst >2min; this
+                        // formula: 0-19s mean, worst 64s).
                         let remainingSeconds = 0;
-                        if (remainingJobs > 0 && elapsedMs > 0 && doneCount > 0) {
-                          const observedJobsPerSecond = doneCount / Math.max(1, elapsedMs / 1000);
-                          remainingSeconds = Math.round(remainingJobs / Math.max(0.01, observedJobsPerSecond));
-                        } else if (remainingJobs > 0) {
-                          const expectedJobsPerSecond = job.modelIds.reduce((sum, modelId) => {
-                            const secsPerGen = Math.max(1, getModelSecondsPerGen(modelId));
-                            return sum + (DEFAULT_BATCH_CONCURRENCY / secsPerGen);
-                          }, 0);
-                          remainingSeconds = Math.round(remainingJobs / Math.max(0.01, expectedJobsPerSecond));
+                        if (remainingJobs > 0) {
+                          const modelCount = Math.max(1, job.modelIds.length);
+                          const effC = Math.max(1, Math.min(DEFAULT_BATCH_CONCURRENCY * modelCount, job.total));
+                          const baselinePerGen =
+                            job.modelIds.reduce((sum, modelId) => sum + Math.max(1, getModelSecondsPerGen(modelId)), 0) /
+                            modelCount;
+                          const elapsedSec = elapsedMs / 1000;
+                          let perGen = baselinePerGen;
+                          if (doneCount > 0) {
+                            // Anchor the observed speed to the moment of the
+                            // last completion — deriving it from live elapsed
+                            // makes perGen grow 1s/s and cancels the countdown
+                            // (the display stalls while a straggler runs).
+                            const anchoredSec = Math.max(
+                              1,
+                              ((job.lastProgressAt || Date.now()) - job.startedAt) / 1000
+                            );
+                            const inFlightNow = Math.min(effC, remainingJobs);
+                            const observed = (anchoredSec * effC) / (doneCount + 0.5 * inFlightNow);
+                            const trust = doneCount / (doneCount + 1);
+                            perGen = observed * trust + baselinePerGen * (1 - trust);
+                          }
+                          const projected = Math.ceil(job.total / effC) * perGen;
+                          remainingSeconds = Math.max(Math.round(projected - elapsedSec), 3);
                         }
                         const remainingLabel = formatDuration(remainingSeconds);
                         const modelChips = job.modelIds

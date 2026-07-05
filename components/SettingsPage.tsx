@@ -439,11 +439,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   Gemini key, so we present two provider-level inputs instead
                   of one per model. Per-model overrides live in the Advanced
                   section below and are optional. */}
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 {API_PROVIDERS.map((provider) => (
                   <div
                     key={provider.keyId}
-                    className="rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] p-3 space-y-2"
+                    className="rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] p-2.5 space-y-1"
                   >
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
                       {provider.label}
@@ -454,7 +454,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       value={apiKeys[provider.keyId] || ''}
                       onChange={(e) => handleApiKeyChange(provider.keyId, e.target.value)}
                       onBlur={() => handleApiKeyBlur(provider.keyId)}
-                      className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
+                      className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
                       placeholder={provider.placeholder}
                       autoComplete="off"
                     />
@@ -470,7 +470,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   picker. Vendors already covered by a direct key are routed
                   to the direct API and hidden from the picker. */}
               {hasOpenRouterKey && (
-                <div className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-3">
+                <div className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
                   <div>
                     <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                       OpenRouter models
@@ -488,7 +488,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     return (
                       <label
                         key={m.slug}
-                        className={`flex items-start gap-2.5 rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] p-3 cursor-pointer transition-opacity ${
+                        className={`flex items-start gap-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] px-2.5 py-2 cursor-pointer transition-opacity ${
                           routedDirect ? 'opacity-60' : ''
                         }`}
                       >
@@ -503,7 +503,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                             {m.name}
                             <span className="ml-2 text-[11px] font-normal text-slate-500">{m.slug}</span>
                           </span>
-                          <span className="block mt-0.5 text-xs text-slate-500">{m.goodAt}</span>
+                          <span className="block text-[11px] leading-snug text-slate-500">{m.goodAt}</span>
                           {routedDirect && (
                             <span className="block mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                               Covered by your direct {m.slug.startsWith('google/') ? 'Google' : 'OpenAI'} key —
@@ -519,7 +519,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     .map((slug) => (
                       <div
                         key={slug}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] p-3"
+                        className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] px-2.5 py-2"
                       >
                         <span className="min-w-0 truncate text-sm text-slate-900 dark:text-white">
                           {slug}

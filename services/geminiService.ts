@@ -101,7 +101,7 @@ const constructFullPrompt = (config: GenerationConfig, context: GenerationContex
   return `
     Create a ${typeName}.
     Visual Style: ${styleDesc}.
-    Color Palette: Strictly use these colors: ${colors}.
+    Color Palette: Strictly paint with these colors: ${colors}. The hex codes are paint-mixing instructions only — never draw the codes, palette names, or color swatches as visible elements in the image.
     
     Content Request: ${config.prompt}
     

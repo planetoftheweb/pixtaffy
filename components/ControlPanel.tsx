@@ -582,6 +582,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onPromptImageStyleReferenceChange,
 }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  // Model picker accordion: one provider category open at a time, anchored
+  // to the selected model's category each time the picker opens.
+  const [expandedModelGroup, setExpandedModelGroup] = useState<string | null>(null);
   // Rich rollover card for model rows (portal — the dropdown clips overflow).
   const [modelTip, setModelTip] = useState<{
     name: string;
@@ -1820,6 +1823,16 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const getModelLabel = (id: string): string =>
     modelLabelMap[id] || allModels.find((m) => m.id === id)?.name || id || 'Model';
+
+  // Open the picker with the selected model's category expanded.
+  useEffect(() => {
+    if (activeDropdown === 'model') {
+      setExpandedModelGroup(
+        allModels.find((m) => m.id === selectedModel)?.group ?? modelGroupNames[0] ?? null
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDropdown]);
   const modelLabel: React.ReactNode = (() => {
     if (!isMultiModelActive) return getModelLabel(selectedModel);
     const ids = effectiveSelectedModelIds;
@@ -2137,12 +2150,41 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   {modelGroupNames.map((groupName) => {
                     const groupModels = allModels.filter((m) => m.group === groupName);
                     if (groupModels.length === 0) return null;
+                    const isExpanded = expandedModelGroup === groupName;
+                    const selectedInGroup = groupModels.find((m) => m.id === selectedModel);
+                    const checkedInGroup = compareModelsMode
+                      ? groupModels.filter((m) => effectiveSelectedModelIds.includes(m.id)).length
+                      : 0;
                     return (
                       <div key={groupName}>
-                        <div className="px-3 pt-2 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-gray-50 dark:bg-[#0d1117] border-b border-gray-100 dark:border-[#30363d]">
-                          {groupName}
-                        </div>
-                        {groupModels.map((model) => {
+                        {/* Category header — accordion toggle. Collapsed rows
+                            still show which model inside is active. */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedModelGroup(isExpanded ? null : groupName)}
+                          aria-expanded={isExpanded}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-gray-50 dark:bg-[#0d1117] border-b border-gray-100 dark:border-[#30363d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                        >
+                          <ChevronDown
+                            size={12}
+                            className={`shrink-0 transition-transform ${isExpanded ? '' : '-rotate-90'}`}
+                          />
+                          <span>{groupName}</span>
+                          <span className="ml-auto flex items-center gap-1.5 min-w-0 normal-case tracking-normal font-medium">
+                            {checkedInGroup > 0 && (
+                              <span className="px-1.5 rounded-full bg-brand-teal/15 text-brand-teal text-[10px] font-bold">
+                                {checkedInGroup}
+                              </span>
+                            )}
+                            {!isExpanded && selectedInGroup && (
+                              <span className="truncate text-brand-teal">{getModelLabel(selectedInGroup.id)}</span>
+                            )}
+                            {!isExpanded && !selectedInGroup && (
+                              <span className="text-slate-400 dark:text-slate-500">{groupModels.length}</span>
+                            )}
+                          </span>
+                        </button>
+                        {isExpanded && groupModels.map((model) => {
                           const isChecked = effectiveSelectedModelIds.includes(model.id);
                           const isPrimary = selectedModel === model.id;
                           return (
@@ -2336,7 +2378,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         </div>
                       </div>
                     )}
-                    <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
+                    <div className="max-h-72 overflow-y-auto custom-scrollbar p-1">
                       {presets.length === 0 ? (
                         <div className="px-3 py-6 text-center text-xs text-slate-500">
                           No saved presets yet.
@@ -2385,13 +2427,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               aria-selected={isApplied}
                               onMouseEnter={(e) => handlePresetRowEnter(e, preset.id)}
                               onMouseLeave={handlePresetRowLeave}
-                              className={`rounded-md border transition-colors ${
+                              className={`rounded-md transition-colors border-b border-gray-100 dark:border-[#21262d] last:border-b-0 ${
                                 isApplied
-                                  ? 'bg-brand-teal/10 ring-1 ring-brand-teal/30 dark:ring-brand-teal/40 border-transparent hover:bg-brand-teal/15'
-                                  : 'border-transparent hover:bg-gray-100 dark:hover:bg-[#21262d]'
+                                  ? 'bg-brand-teal/10 ring-1 ring-brand-teal/30 dark:ring-brand-teal/40 hover:bg-brand-teal/15'
+                                  : 'hover:bg-gray-100 dark:hover:bg-[#21262d]'
                               }`}
                             >
-                              <div className="flex items-start justify-between gap-2 p-2">
+                              <div className="flex items-start justify-between gap-2 px-2 py-1.5">
                                 <div
                                   className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
                                   onClick={() => handleApplyPreset(preset)}

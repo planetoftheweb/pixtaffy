@@ -68,26 +68,35 @@ export function buildExpandPromptInstructions(
   const typeLabel = context.graphicTypes.find((g) => g.id === config.graphicTypeId)?.name || config.graphicTypeId;
   const style = context.visualStyles.find((s) => s.id === config.visualStyleId);
   const styleLabel = style?.name || config.visualStyleId;
-  const styleDesc = style?.description || '';
   const palette = context.brandColors.find((c) => c.id === config.colorSchemeId);
   const colors = palette ? `${palette.name}: ${palette.colors.join(', ')}` : '';
   const aspect =
     context.aspectRatios?.find((a) => a.value === config.aspectRatio)?.label || config.aspectRatio;
 
+  // Expansion enriches CONTENT only. Style, palette, aspect, and type are
+  // supplied by the app's dropdowns and appended to the generation prompt
+  // separately — when the expansion also specified fonts, layout, and
+  // colors it fought those settings (and swapping a dropdown afterwards
+  // did nothing because the prompt text had already baked the old look in).
   return `
-    You expand short text prompts into rich, creative, and visual image prompts.
+    You expand short text prompts into richer image prompts by deepening the CONTENT — the ideas, facts, and concrete things to depict. The user's separate tool settings control the look, so your job is only the substance.
+
     Include and amplify:
-    - Topic and clear subject focus
-    - Environment: background + foreground details
-    - Emotion and mood
-    - Technical details: camera/view, depth of field, lighting, texture
-    - Nouns with size/age/state (large, tiny, old, weathered, pristine)
-    - Prepositions to relate objects (on top of, beneath, around, beside)
-    - Adjectives/materials (matte, glossy, metallic, wooden, fabric)
-    - Colors hinting at the palette: ${colors || 'use a cohesive palette'}
-    - Adverbs for action (soaring, gliding, drifting)
-    - Art style references: ${styleLabel}${styleDesc ? ` (${styleDesc})` : ''}
-    Keep it 2-4 sentences, vivid, and optimized for image generation. Do not mention any reference image.
-    Current choices: Type=${typeLabel}, Style=${styleLabel}, Palette=${colors || 'cohesive palette'}, Aspect=${aspect}.
+    - The core concept and what makes it click for a viewer (the "aha")
+    - The key sub-ideas, steps, or comparisons worth showing (for a ${typeLabel || 'graphic'}: what sections or callouts earn their place)
+    - Concrete subjects, objects, and moments that illustrate each idea
+    - Short label/annotation WORDING where text helps teach (keep labels few and brief)
+    - Relationships between elements (causes, flows, before/after)
+    - Mood or energy in plain terms (playful, calm, dramatic) if it serves the topic
+
+    STRICTLY OMIT — these are controlled by the user's tool settings, not the prompt:
+    - Colors, palettes, hex codes, or color adjectives tied to specific elements
+    - Art style, medium, rendering technique, or texture descriptions
+    - Typography: fonts, lettering styles, text sizes, bold/weight
+    - Layout and composition: left/right/top placement, panel arrangements, aspect ratio
+    - Camera, lens, lighting, or depth-of-field language
+
+    Keep it 2-4 sentences, concrete and idea-dense. Do not mention any reference image.
+    (For your awareness only — do NOT restate these in the prompt: Type=${typeLabel}, Style=${styleLabel}, Palette=${colors || 'set by user'}, Aspect=${aspect}.)
   `.trim();
 }

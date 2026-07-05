@@ -41,7 +41,7 @@ User request: ${refinementText}
 
 For any pixels you must alter, stay coherent with:
 ${styleDesc ? `- Visual style: ${styleDesc}` : '- Visual style: match the source image exactly'}
-${colors ? `- Brand palette (hex): ${colors}` : ''}
+${colors ? `- Brand palette (hex — colors to paint WITH, never to be drawn as visible codes or swatches): ${colors}` : ''}
 `.trim();
 };
 
