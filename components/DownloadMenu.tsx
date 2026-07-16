@@ -6,6 +6,8 @@ import {
   ChevronDown,
   Image as ImageIcon,
   FileCode,
+  FileText,
+  Presentation,
 } from "lucide-react";
 import { Generation } from "../types";
 import { getCurrentVersion } from "../services/historyService";
@@ -19,9 +21,11 @@ import {
 } from "../services/imageFormatService";
 import {
   buildGenerationsZipBlob,
+  countGenerationExportItems,
   downloadBlobAsFile,
   defaultBatchExportFilename,
 } from "../services/batchExportService";
+import type { DocumentExportFormat } from "../services/documentExportService";
 
 export type DownloadMenuMode = "this-and-all" | "all-only";
 
@@ -91,6 +95,9 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
   const version = currentGeneration ? getCurrentVersion(currentGeneration) : null;
   const thisFormats = singleDownloadOptions(version);
   const allCount = allGenerations?.length ?? 0;
+  const documentItemCount = allGenerations
+    ? countGenerationExportItems(allGenerations)
+    : 0;
   const batchIncludesSvg = allGenerations && allCount > 0 ? tileBatchIncludesSvg(allGenerations) : false;
   const batchOptions = batchFormatOptionsForTile(batchIncludesSvg);
 
@@ -129,6 +136,40 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
     } catch (err) {
       console.error("ZIP failed:", err);
       notify("ZIP download failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runDocument = async (format: DocumentExportFormat) => {
+    if (!allGenerations || allGenerations.length === 0) return;
+    const label = format === "pdf" ? "PDF" : "PowerPoint";
+    const unit = format === "pdf" ? "page" : "slide";
+    setBusy(true);
+    setIsOpen(false);
+    notify(`Preparing ${label} (${documentItemCount} ${unit}${documentItemCount === 1 ? "" : "s"})…`);
+    try {
+      const {
+        buildGenerationsDocumentBlob,
+        defaultDocumentExportFilename,
+      } = await import("../services/documentExportService");
+      const { blob, successCount, failCount } = await buildGenerationsDocumentBlob(
+        allGenerations,
+        format
+      );
+      downloadBlobAsFile(blob, defaultDocumentExportFilename(format));
+      if (failCount > 0) {
+        notify(
+          `${label} downloaded (${successCount} of ${successCount + failCount} images — ${failCount} could not be loaded)`
+        );
+      } else {
+        notify(
+          `${label} download started (${successCount} ${unit}${successCount === 1 ? "" : "s"})`
+        );
+      }
+    } catch (err) {
+      console.error(`${label} export failed:`, err);
+      notify(`${label} export failed`);
     } finally {
       setBusy(false);
     }
@@ -247,6 +288,41 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
                   )}
                 </button>
               ))}
+              <div
+                className="my-1 border-t border-gray-200 dark:border-[#30363d]"
+                aria-hidden="true"
+              />
+              <div className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Slides and carousel
+              </div>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => runDocument("pdf")}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left"
+              >
+                <span className="flex items-center gap-2">
+                  <FileText size={14} aria-hidden="true" />
+                  <span className="font-medium">PDF carousel</span>
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {documentItemCount} {documentItemCount === 1 ? "page" : "pages"}
+                </span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => runDocument("pptx")}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left"
+              >
+                <span className="flex items-center gap-2">
+                  <Presentation size={14} aria-hidden="true" />
+                  <span className="font-medium">PowerPoint</span>
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {documentItemCount} {documentItemCount === 1 ? "slide" : "slides"}
+                </span>
+              </button>
             </div>
           )}
 

@@ -51,8 +51,13 @@ Ask your assistant things like:
 > Hero" preset, 16:9, and save it to my Explainers folder.
 
 The `generate_infographic` tool accepts `prompt`, `presetName`, `model`,
-`aspectRatio`, `saveToGallery`, and `folderName`. Generation takes 30–90s per
-image and returns hosted image URLs; results appear in your BranDoIt gallery.
+`aspectRatio`, `outputFormat`, `saveToGallery`, and `folderName`. Generation
+takes 30–90s per image and returns hosted image URLs; results appear in your
+BranDoIt gallery.
+
+Images are delivered as lossless **webp** by default — identical pixels and
+resolution to the model's PNG output, just a smaller file. Pass
+`outputFormat: "png"` or `"jpeg"` when a consumer requires those.
 
 ## Using the raw HTTP API instead
 

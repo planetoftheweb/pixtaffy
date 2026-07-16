@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { UserSettings, AspectRatioOption, GraphicType, User, Team, VisualStyle, BrandColor } from '../types';
 import { ArrowLeft, Settings as SettingsIcon, Save, User as UserIcon, Camera, Loader2, Users, Plus, Key, CheckCircle, Layout, PenTool, Palette, Maximize, Sparkles, ChevronDown, X } from 'lucide-react';
 import { uploadProfileImage } from '../services/imageService';
+import { useConfirmAction } from '../hooks/useConfirmAction';
 import { buildProfileImageCacheKey } from '../services/imageCache';
 import { CachedImage } from './CachedImage';
 import { teamService } from '../services/teamService';
@@ -79,7 +80,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   /** Plaintext of a freshly created token — shown exactly once. */
   const [freshToken, setFreshToken] = useState<string | null>(null);
   const [freshTokenCopied, setFreshTokenCopied] = useState(false);
-  const [armRevokeHash, setArmRevokeHash] = useState<string | null>(null);
+  const revokeConfirm = useConfirmAction({
+    onConfirm: async (tokenHash) => {
+      try {
+        await callManageTokens({ action: 'revoke', tokenHash });
+        await loadApiTokens();
+      } catch (err) {
+        setApiTokenError(err instanceof Error ? err.message : 'Failed to revoke token.');
+      }
+    },
+  });
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -405,21 +415,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       setApiTokenError(err instanceof Error ? err.message : 'Failed to create token.');
     } finally {
       setApiTokenBusy(false);
-    }
-  };
-
-  const handleRevokeApiToken = async (tokenHash: string) => {
-    if (armRevokeHash !== tokenHash) {
-      setArmRevokeHash(tokenHash);
-      window.setTimeout(() => setArmRevokeHash((h) => (h === tokenHash ? null : h)), 2500);
-      return;
-    }
-    setArmRevokeHash(null);
-    try {
-      await callManageTokens({ action: 'revoke', tokenHash });
-      await loadApiTokens();
-    } catch (err) {
-      setApiTokenError(err instanceof Error ? err.message : 'Failed to revoke token.');
     }
   };
 
@@ -762,14 +757,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => void handleRevokeApiToken(t.tokenHash)}
+                      onClick={() => revokeConfirm.trigger(t.tokenHash)}
                       className={`shrink-0 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${
-                        armRevokeHash === t.tokenHash
-                          ? 'bg-red-600 text-white'
+                        revokeConfirm.isArmed(t.tokenHash)
+                          ? 'bg-amber-500 text-white animate-pulse'
                           : 'text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10'
                       }`}
                     >
-                      {armRevokeHash === t.tokenHash ? 'Sure?' : 'Revoke'}
+                      {revokeConfirm.isArmed(t.tokenHash) ? 'Sure?' : 'Revoke'}
                     </button>
                   </div>
                 ))}

@@ -256,6 +256,12 @@ interface RecentGenerationsProps {
    */
   activeGenerationId?: string;
   /**
+   * Per-generation count of queued/in-flight AI work (refines, reruns,
+   * recomposes). Tiles with a count > 0 show a pulsing badge so the user can
+   * switch tiles freely and still see where background work is landing.
+   */
+  pendingRerunCounts?: Record<string, number>;
+  /**
    * Whether the large preview (`ImageDisplay`) is rendered above the gallery.
    * When it is, the gallery draws a top divider + margin to separate itself
    * from the preview. On first load with nothing selected there's no preview,
@@ -303,10 +309,13 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
   getPresetLabels,
   galleryFolderName,
   activeGenerationId,
+  pendingRerunCounts,
   hasPreviewAbove = true,
   toolbarCollapsed = false,
 }) => {
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  /** Neutral notices use the dark-glass pill; red is reserved for errors. */
+  const [toastTone, setToastTone] = React.useState<'neutral' | 'error'>('neutral');
   const [imageSrcById, setImageSrcById] = React.useState<Record<string, string>>({});
   const [selectionMode, setSelectionMode] = React.useState(false);
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
@@ -446,9 +455,10 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
   const toastTimerRef = React.useRef<number | null>(null);
   const blobUrlsRef = React.useRef<Record<string, string>>({});
 
-  const showToast = React.useCallback((msg: string) => {
+  const showToast = React.useCallback((msg: string, tone: 'neutral' | 'error' = 'neutral') => {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     setToastMessage(msg);
+    setToastTone(tone);
     toastTimerRef.current = window.setTimeout(() => setToastMessage(null), 1800);
   }, []);
   // Hover preview: floats a large, full-aspect-ratio version of the tile's
@@ -620,6 +630,30 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
     [history, viewFolderId]
   );
 
+  const allVisibleSelected = React.useMemo(
+    () =>
+      visibleHistory.length > 0 &&
+      visibleHistory.every((generation) => selectedIds.includes(generation.id)),
+    [visibleHistory, selectedIds]
+  );
+
+  const toggleSelectVisible = React.useCallback(() => {
+    setSelectedIds((previous) => {
+      const visibleIds = new Set(visibleHistory.map((generation) => generation.id));
+      const everyVisibleSelected =
+        visibleIds.size > 0 && [...visibleIds].every((id) => previous.includes(id));
+      if (everyVisibleSelected) {
+        return previous.filter((id) => !visibleIds.has(id));
+      }
+      const next = [...previous];
+      const selected = new Set(previous);
+      for (const generation of visibleHistory) {
+        if (!selected.has(generation.id)) next.push(generation.id);
+      }
+      return next;
+    });
+  }, [visibleHistory]);
+
   const galleryPaginationEnabled = visibleHistory.length > GALLERY_PAGE_THRESHOLD;
   const pagedVisibleHistory = React.useMemo(() => {
     if (!galleryPaginationEnabled) return visibleHistory;
@@ -744,7 +778,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         showToast(`${format.toUpperCase()} download started`);
       } catch (err) {
         console.warn('[RecentGenerations] tile download failed:', err);
-        showToast('Download failed');
+        showToast('Download failed', 'error');
       } finally {
         setTileDownloadBusy(false);
       }
@@ -759,7 +793,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         showToast('Prompt copied');
         closeAllContextMenus();
       } catch {
-        showToast('Could not copy prompt');
+        showToast('Could not copy prompt', 'error');
       }
     },
     [closeAllContextMenus, showToast]
@@ -776,7 +810,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         closeAllContextMenus();
       } catch (err) {
         console.error('Move tile failed:', err);
-        showToast('Move failed');
+        showToast('Move failed', 'error');
       } finally {
         setFolderBusy(false);
       }
@@ -863,7 +897,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         if (selectionMode) setSelectedIds([]);
       } catch (err) {
         console.error('Drag move to folder failed:', err);
-        showToast('Move failed');
+        showToast('Move failed', 'error');
       } finally {
         setFolderBusy(false);
         setMoveProgress(null);
@@ -889,7 +923,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         }
       } catch (err) {
         console.error('Move folder failed:', err);
-        showToast(err instanceof Error ? err.message : 'Could not move folder');
+        showToast(err instanceof Error ? err.message : 'Could not move folder', 'error');
       } finally {
         setFolderBusy(false);
       }
@@ -956,16 +990,19 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
     },
   });
 
-  // Items that the "download all" menu operates on: selected items when the
-  // user has made a selection; otherwise the visible folder's history.
+  // Preserve checkbox order across folder changes so a multi-folder carousel
+  // exports exactly the set (and sequence) the user assembled.
   const downloadScope = React.useMemo(() => {
     if (selectedIds.length === 0) return visibleHistory;
-    return visibleHistory.filter((g) => selectedIds.includes(g.id));
-  }, [visibleHistory, selectedIds]);
+    const byId = new Map(history.map((generation) => [generation.id, generation]));
+    return selectedIds
+      .map((id) => byId.get(id))
+      .filter((generation): generation is Generation => Boolean(generation));
+  }, [history, visibleHistory, selectedIds]);
   const downloadScopeLabel =
     selectedIds.length > 0
-      ? `Download selected (${selectedIds.length})`
-      : `Download all (${visibleHistory.length})`;
+      ? `Export selected (${selectedIds.length})`
+      : `Export all (${visibleHistory.length})`;
 
   React.useEffect(() => {
     return () => {
@@ -1252,7 +1289,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                         showToast('Folder renamed');
                       } catch (err) {
                         console.error('Rename folder failed:', err);
-                        showToast('Rename failed');
+                        showToast('Rename failed', 'error');
                       } finally {
                         setFolderBusy(false);
                       }
@@ -1479,7 +1516,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     showToast(`Created ${created.name}`);
                   } catch (err) {
                     console.error('Create folder failed:', err);
-                    showToast('Could not create folder');
+                    showToast('Could not create folder', 'error');
                   } finally {
                     setFolderBusy(false);
                   }
@@ -2168,16 +2205,17 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             <>
               <button
                 type="button"
-                onClick={() => setSelectedIds(visibleHistory.map((g) => g.id))}
-                aria-label="Select all items in this folder"
-                className="group/tip-selectall relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0"
+                onClick={toggleSelectVisible}
+                disabled={visibleHistory.length === 0}
+                aria-label={allVisibleSelected ? 'Deselect all items in this folder' : 'Select all items in this folder'}
+                className="group/tip-selectall relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0 disabled:opacity-50 disabled:pointer-events-none"
               >
-                <CheckSquare size={16} aria-hidden />
+                {allVisibleSelected ? <Square size={16} aria-hidden /> : <CheckSquare size={16} aria-hidden />}
                 <span
                   role="tooltip"
                   className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-selectall:opacity-100 group-focus-visible/tip-selectall:opacity-100 transition-opacity z-20"
                 >
-                  Select all
+                  {allVisibleSelected ? 'Deselect this folder' : 'Select this folder'}
                 </span>
               </button>
               <button
@@ -2270,7 +2308,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                               setSelectedIds([]);
                             } catch (err) {
                               console.error('Move to folder failed:', err);
-                              showToast('Move failed');
+                              showToast('Move failed', 'error');
                             } finally {
                               setFolderBusy(false);
                               setMoveProgress(null);
@@ -2441,9 +2479,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               <DownloadMenu
                 mode="all-only"
                 allGenerations={visibleHistory}
-                allLabel={`Download all (${visibleHistory.length})`}
-                triggerTitle={`Download all (${visibleHistory.length}) in folder as ZIP`}
-                triggerTooltip={`Download all (${visibleHistory.length}) in folder as ZIP`}
+                allLabel={`Export all (${visibleHistory.length})`}
+                triggerTitle={`Export all (${visibleHistory.length}) in folder`}
+                triggerTooltip={`Export all (${visibleHistory.length}) in folder`}
                 // Hide the visible "Download all (N)" label on the trigger;
                 // the gallery heading already shows the count next to the
                 // folder name, and the open dropdown still surfaces it in
@@ -2694,6 +2732,18 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   </span>
                 </div>
               )}
+              {(pendingRerunCounts?.[gen.id] ?? 0) > 0 && (
+                <div
+                  className={`absolute top-2 z-20 pointer-events-none ${isPickedSide ? 'right-10' : 'right-2'}`}
+                  aria-label={`${pendingRerunCounts![gen.id]} AI ${
+                    pendingRerunCounts![gen.id] === 1 ? 'task' : 'tasks'
+                  } in progress on this tile`}
+                >
+                  <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full bg-brand-teal text-[11px] font-bold text-white shadow animate-pulse">
+                    {pendingRerunCounts![gen.id]}
+                  </span>
+                </div>
+              )}
 
               {/* Per-tile hover toolbar removed: every action (download,
                   copy, delete, etc.) is one click away once the user opens
@@ -2866,7 +2916,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       showToast('Folder instructions saved');
                     } catch (err) {
                       console.error('Save folder instructions failed:', err);
-                      showToast('Could not save instructions');
+                      showToast('Could not save instructions', 'error');
                     } finally {
                       setFolderBusy(false);
                     }
@@ -2926,7 +2976,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       showToast(`Deleted ${target.name}`);
                     } catch (err) {
                       console.error('Delete folder failed:', err);
-                      showToast('Could not delete folder');
+                      showToast('Could not delete folder', 'error');
                     } finally {
                       setFolderBusy(false);
                     }
@@ -3109,7 +3159,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
 
       {toastMessage && (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
-          <div className="bg-brand-red text-white text-sm px-4 py-3 rounded-lg shadow-2xl border border-brand-red/70 animate-in fade-in duration-150" role="status" aria-live="polite">
+          <div className={`text-white text-sm px-4 py-3 rounded-lg shadow-2xl border animate-in fade-in duration-150 ${toastTone === 'error' ? 'bg-brand-red border-brand-red/70' : 'bg-black/90 border-white/10'}`} role="status" aria-live="polite">
             {toastMessage}
           </div>
         </div>

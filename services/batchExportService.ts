@@ -10,7 +10,7 @@ import {
   extensionForMime,
 } from "./imageFormatService";
 
-const blobForVersionOriginal = async (
+export const getVersionOriginalBlob = async (
   genId: string,
   v: GenerationVersion
 ): Promise<Blob> => {
@@ -38,6 +38,19 @@ const blobForVersionOriginal = async (
   }
   return res.blob();
 };
+
+export const getGenerationExportVersions = (
+  generation: Generation
+): GenerationVersion[] => {
+  const generatedMarks = generation.versions.filter((version) => version.type === "generation");
+  return generatedMarks.length > 0 ? generatedMarks : [getLatestVersion(generation)];
+};
+
+export const countGenerationExportItems = (generations: Generation[]): number =>
+  generations.reduce(
+    (total, generation) => total + getGenerationExportVersions(generation).length,
+    0
+  );
 
 const uniqueZipEntryName = (base: string, used: Set<string>, genId: string): string => {
   if (!used.has(base)) return base;
@@ -72,13 +85,7 @@ export const buildGenerationsZipBlob = async (
   let failCount = 0;
 
   for (const gen of generations) {
-    // Batch-generated tiles stack every variation on one Generation as
-    // Mark I, Mark II, Mark III… Exporting only the latest would silently
-    // drop the rest, so fan out over every "generation"-type version and
-    // fall back to the latest for tiles that only have refinements.
-    const generationVersions = gen.versions.filter((v) => v.type === "generation");
-    const versionsToExport: GenerationVersion[] =
-      generationVersions.length > 0 ? generationVersions : [getLatestVersion(gen)];
+    const versionsToExport = getGenerationExportVersions(gen);
 
     for (const v of versionsToExport) {
       try {
@@ -86,7 +93,7 @@ export const buildGenerationsZipBlob = async (
         let extension: string;
 
         if (format === "original") {
-          blob = await blobForVersionOriginal(gen.id, v);
+          blob = await getVersionOriginalBlob(gen.id, v);
           extension =
             v.mimeType === "image/svg+xml" && v.svgCode
               ? "svg"

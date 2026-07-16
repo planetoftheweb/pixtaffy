@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Backing keyframes for the animate-in / fade-in / zoom-in-* utilities used
+   across modals and popovers — without this import those classes are inert. */
+@import "tw-animate-css";
 
 @variant dark (&:where(.dark, .dark *));
 

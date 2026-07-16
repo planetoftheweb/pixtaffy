@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => {
       build: {
         rollupOptions: {
           output: {
+            // Do not pull Rollup's shared preload helper into whichever manual
+            // vendor chunk first references it; that would make lazy exporters
+            // appear as eager modulepreloads in the app shell.
+            onlyExplicitManualChunks: true,
             manualChunks(id) {
               if (!id.includes('node_modules')) return undefined;
               // Firebase ships a tightly cyclic module graph (firebase/app <-> @firebase/util
@@ -25,6 +29,37 @@ export default defineConfig(({ mode }) => {
               if (id.includes('/react/') || id.includes('/react-dom/')) return 'vendor-react';
               if (id.includes('/lucide-react/')) return 'vendor-icons';
               if (id.includes('/jszip/')) return 'vendor-zip';
+              // PDF and PowerPoint generation are only reached from the
+              // dynamically-imported document exporter. Keep their complete
+              // dependency trees out of the eagerly-loaded shared vendor file.
+              if (
+                [
+                  '/jspdf/',
+                  '/@babel/runtime/',
+                  '/canvg/',
+                  '/core-js/',
+                  '/css-line-break/',
+                  '/dompurify/',
+                  '/fast-png/',
+                  '/fflate/',
+                  '/html2canvas/',
+                  '/iobuffer/',
+                  '/pako/',
+                  '/performance-now/',
+                  '/raf/',
+                  '/regenerator-runtime/',
+                  '/rgbcolor/',
+                  '/stackblur-canvas/',
+                  '/svg-pathdata/',
+                  '/text-segmentation/',
+                  '/utrie/',
+                ].some((packagePath) => id.includes(packagePath))
+              ) return 'vendor-pdf';
+              if (
+                ['/pptxgenjs/', '/image-size/', '/https/', '/queue/'].some((packagePath) =>
+                  id.includes(packagePath)
+                )
+              ) return 'vendor-pptx';
               // Keep mediabunny (MP4 export) in its own chunk so it loads only
               // when the Build Studio exporter is dynamically imported, instead
               // of being folded into the eagerly-loaded shared `vendor` chunk.

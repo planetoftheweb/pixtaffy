@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Generation, GenerationVersion, BrandColor, VisualStyle, GraphicType, AspectRatioOption, INBOX_FOLDER_ID } from '../types';
-import { Download, RefreshCw, Send, Image as ImageIcon, Copy, Link, Trash2, ChevronDown, ChevronLeft, ChevronRight, Layers, FileImage, Code, Play, Pause, FileCode, Info, X, Globe, Wand2, Maximize, Maximize2, Minimize, GitCompare, Plus, Expand, ScanSearch, Check, Star, Film, Sparkles } from 'lucide-react';
+import { Download, RefreshCw, Send, Image as ImageIcon, Copy, Link, Trash2, ChevronDown, ChevronLeft, ChevronRight, Layers, FileImage, Code, Play, Pause, FileCode, Info, X, Globe, Wand2, Maximize, Maximize2, Minimize, GitCompare, Plus, Expand, ScanSearch, Check, Star, Film, Sparkles, GripVertical } from 'lucide-react';
 import { useConfirmAction } from '../hooks/useConfirmAction';
 import { createBlobUrlFromImage } from '../services/imageSourceService';
 import { getCachedImageBlob, getCachedImageBlobUrl } from '../services/imageCache';
@@ -202,6 +202,8 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   };
   const [refinementInput, setRefinementInput] = useState('');
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  /** Neutral notices use the dark-glass pill; red is reserved for errors. */
+  const [copyNoticeTone, setCopyNoticeTone] = useState<'neutral' | 'error'>('neutral');
   // Transient toast for star-toggle feedback so the user gets a confirmation
   // even when the version rail is faded out (idle) or off-screen. Mirrors the
   // shape of copyNotice but lives separately so a copy + star fired in quick
@@ -228,6 +230,15 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   // the user actively wants to refine or resize. Default closed so the
   // canvas claims the freed space whenever refinement isn't in play.
   const [isRefinePanelOpen, setIsRefinePanelOpen] = useState(false);
+  const [refinePanelOffset, setRefinePanelOffset] = useState({ x: 0, y: 0 });
+  const refinePanelRef = useRef<HTMLDivElement>(null);
+  const refinePanelOffsetRef = useRef(refinePanelOffset);
+  const refinePanelDragRef = useRef<{
+    pointerX: number;
+    pointerY: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
   // Fullscreen / slideshow mode. The F key (and the Maximize button in the
   // in-image action group) flips into a black-background, image-maxed view.
   // The H key inside fullscreen hides the chrome (counter, arrows, hint) for
@@ -327,6 +338,111 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   const version = generation ? getCurrentVersion(generation) : null;
   const isSvg = version?.mimeType === 'image/svg+xml';
   const lastRefineModelSyncKeyRef = useRef<string | null>(null);
+
+  const clampRefinePanelOffset = useCallback((next: { x: number; y: number }) => {
+    const panel = refinePanelRef.current;
+    if (!panel) return next;
+
+    const rect = panel.getBoundingClientRect();
+    const current = refinePanelOffsetRef.current;
+    const naturalLeft = rect.left - current.x;
+    const naturalTop = rect.top - current.y;
+    const preview = mainPreviewGroupRef.current?.getBoundingClientRect();
+    const edge = 8;
+    const boundaryLeft = Math.max(edge, preview?.left ?? edge);
+    const boundaryRight = Math.min(window.innerWidth - edge, preview?.right ?? window.innerWidth - edge);
+    const boundaryTop = Math.max(edge, preview?.top ?? edge);
+    const boundaryBottom = Math.min(window.innerHeight - edge, preview?.bottom ?? window.innerHeight - edge);
+    const minX = boundaryLeft - naturalLeft;
+    const maxX = boundaryRight - rect.width - naturalLeft;
+    const minY = boundaryTop - naturalTop;
+    const maxY = boundaryBottom - rect.height - naturalTop;
+
+    return {
+      x: minX <= maxX ? Math.min(maxX, Math.max(minX, next.x)) : (minX + maxX) / 2,
+      y: minY <= maxY ? Math.min(maxY, Math.max(minY, next.y)) : (minY + maxY) / 2,
+    };
+  }, []);
+
+  const applyRefinePanelOffset = useCallback((next: { x: number; y: number }) => {
+    const clamped = clampRefinePanelOffset(next);
+    refinePanelOffsetRef.current = clamped;
+    if (refinePanelRef.current) {
+      refinePanelRef.current.style.transform = `translate(${clamped.x}px, ${clamped.y}px)`;
+    }
+    return clamped;
+  }, [clampRefinePanelOffset]);
+
+  const handleRefinePanelDragStart = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const current = refinePanelOffsetRef.current;
+    refinePanelDragRef.current = {
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      offsetX: current.x,
+      offsetY: current.y,
+    };
+  };
+
+  const handleRefinePanelDragMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = refinePanelDragRef.current;
+    if (!drag) return;
+    applyRefinePanelOffset({
+      x: drag.offsetX + event.clientX - drag.pointerX,
+      y: drag.offsetY + event.clientY - drag.pointerY,
+    });
+  };
+
+  const handleRefinePanelDragEnd = () => {
+    if (!refinePanelDragRef.current) return;
+    refinePanelDragRef.current = null;
+    setRefinePanelOffset(refinePanelOffsetRef.current);
+  };
+
+  const resetRefinePanelOffset = () => {
+    const origin = { x: 0, y: 0 };
+    refinePanelOffsetRef.current = origin;
+    setRefinePanelOffset(origin);
+  };
+
+  const handleRefinePanelMoveKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const directions: Partial<Record<string, { x: number; y: number }>> = {
+      ArrowLeft: { x: -1, y: 0 },
+      ArrowRight: { x: 1, y: 0 },
+      ArrowUp: { x: 0, y: -1 },
+      ArrowDown: { x: 0, y: 1 },
+    };
+    if (event.key === 'Home') {
+      event.preventDefault();
+      resetRefinePanelOffset();
+      return;
+    }
+    const direction = directions[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 32 : 8;
+    const current = refinePanelOffsetRef.current;
+    const next = applyRefinePanelOffset({
+      x: current.x + direction.x * step,
+      y: current.y + direction.y * step,
+    });
+    setRefinePanelOffset(next);
+  };
+
+  useEffect(() => {
+    if (!isRefinePanelOpen) return;
+    const keepPanelVisible = () => {
+      const next = applyRefinePanelOffset(refinePanelOffsetRef.current);
+      setRefinePanelOffset(next);
+    };
+    const frame = window.requestAnimationFrame(keepPanelVisible);
+    window.addEventListener('resize', keepPanelVisible);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', keepPanelVisible);
+    };
+  }, [applyRefinePanelOffset, isRefinePanelOpen]);
   const getVersionImageKey = (generationId: string, versionId: string): string =>
     `${generationId}|${versionId}`;
   const getVersionDisplayImageUrl = (generationId: string, targetVersion: GenerationVersion): string =>
@@ -956,9 +1072,10 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
     });
   }, [animationPaused, isSvg, version?.id]);
 
-  const showNotice = (msg: string) => {
+  const showNotice = (msg: string, tone: 'neutral' | 'error' = 'neutral') => {
     if (noticeTimer) window.clearTimeout(noticeTimer);
     setCopyNotice(msg);
+    setCopyNoticeTone(tone);
     const timer = window.setTimeout(() => setCopyNotice(null), 2000);
     setNoticeTimer(timer);
   };
@@ -1148,11 +1265,11 @@ ${version.svgCode}
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        showNotice('PNG export failed');
+        showNotice('PNG export failed', 'error');
       };
       img.src = url;
     } catch {
-      showNotice('PNG export failed');
+      showNotice('PNG export failed', 'error');
     }
   }, [generation, version]);
 
@@ -1162,7 +1279,7 @@ ${version.svgCode}
       await navigator.clipboard.writeText(version.svgCode);
       showNotice('SVG code copied');
     } catch {
-      showNotice('Copy failed');
+      showNotice('Copy failed', 'error');
     }
   };
 
@@ -1258,7 +1375,7 @@ ${version.svgCode}
       await navigator.clipboard.writeText(version?.imageUrl || '');
       showNotice('Copied image URL (image not available offline)');
     } catch {
-      showNotice('Copy failed');
+      showNotice('Copy failed', 'error');
     }
   };
 
@@ -1300,7 +1417,7 @@ ${version.svgCode}
       showNotice('Version deleted');
       setVersionDropdownOpen(false);
     } catch (error: any) {
-      showNotice(error?.message || 'Failed to delete version');
+      showNotice(error?.message || 'Failed to delete version', 'error');
     } finally {
       setDeletingRefinementId(null);
     }
@@ -1395,7 +1512,7 @@ ${version.svgCode}
         showNotice('Analysis finished with no prompt.');
       }
     } catch (error: any) {
-      showNotice(error?.message || 'Analysis failed');
+      showNotice(error?.message || 'Analysis failed', 'error');
     } finally {
       setIsAnalyzingRefinePrompt(false);
     }
@@ -1413,7 +1530,7 @@ ${version.svgCode}
         showNotice('Expand finished with no text.');
       }
     } catch (error: any) {
-      showNotice(error?.message || 'Expand failed');
+      showNotice(error?.message || 'Expand failed', 'error');
     } finally {
       setIsExpandingRefinement(false);
     }
@@ -1424,7 +1541,7 @@ ${version.svgCode}
     const sourceAspect = normalizeAspectRatio(version?.aspectRatio || generation?.config.aspectRatio || '');
     const targetAspect = normalizeAspectRatio(resizeAspectRatio);
     if (!targetAspect || !sourceAspect || targetAspect === sourceAspect) {
-      showNotice('Choose a different target size first');
+      showNotice('Choose a different target size first', 'error');
       return;
     }
     setIsResizingCanvas(true);
@@ -1432,7 +1549,7 @@ ${version.svgCode}
       await onResizeCanvasRefine(resizeAspectRatio);
       showNotice('Canvas resize complete');
     } catch (error: any) {
-      showNotice(error?.message || 'Resize failed');
+      showNotice(error?.message || 'Resize failed', 'error');
     } finally {
       setIsResizingCanvas(false);
     }
@@ -2730,6 +2847,7 @@ ${version.svgCode}
                       onClick={() => setIsRefinePanelOpen(false)}
                     />
                     <div
+                      ref={refinePanelRef}
                       role="dialog"
                       aria-label="Refine and recompose"
                       // Anchored to the right edge of the wand button so
@@ -2739,6 +2857,7 @@ ${version.svgCode}
                       // most room). Width is capped to the viewport so
                       // narrow screens don't push the panel off-canvas.
                       className="absolute top-full right-0 mt-2 z-30 w-[40rem] max-w-[calc(100vw-2rem)] bg-white/95 dark:bg-[#161b22]/95 backdrop-blur-xl border border-gray-200 dark:border-[#30363d] p-2 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-black/50"
+                      style={{ transform: `translate(${refinePanelOffset.x}px, ${refinePanelOffset.y}px)` }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       {/* Header with title + close. Matches dismissibility
@@ -2746,10 +2865,29 @@ ${version.svgCode}
                           closed from inside itself as well as via the
                           in-image Wand2 toggle or outside-click. */}
                       <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          <Wand2 size={12} className="text-brand-teal" />
-                          Refine &amp; Recompose
-                        </span>
+                        <div className="flex min-w-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onPointerDown={handleRefinePanelDragStart}
+                            onPointerMove={handleRefinePanelDragMove}
+                            onPointerUp={handleRefinePanelDragEnd}
+                            onPointerCancel={handleRefinePanelDragEnd}
+                            onLostPointerCapture={handleRefinePanelDragEnd}
+                            onDoubleClick={resetRefinePanelOffset}
+                            onKeyDown={handleRefinePanelMoveKeyDown}
+                            aria-label="Move refine panel. Use arrow keys to move and Home to reset."
+                            className="group/move relative h-7 w-7 shrink-0 touch-none cursor-grab active:cursor-grabbing inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-gray-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-teal/70 dark:text-slate-500 dark:hover:bg-[#21262d] dark:hover:text-slate-200"
+                          >
+                            <GripVertical size={14} />
+                            <span className="pointer-events-none absolute top-full left-0 z-20 mt-2 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[11px] font-medium normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity group-hover/move:opacity-100 group-focus/move:opacity-100">
+                              Drag to move · double-click to reset
+                            </span>
+                          </button>
+                          <span className="inline-flex items-center gap-1.5 truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            <Wand2 size={12} className="shrink-0 text-brand-teal" />
+                            Refine &amp; Recompose
+                          </span>
+                        </div>
                         <button
                           type="button"
                           onClick={() => setIsRefinePanelOpen(false)}
@@ -3094,7 +3232,7 @@ ${version.svgCode}
                 // current tile only (all marks/versions inside this generation),
                 // not the entire history gallery.
                 allGenerations={[generation]}
-                allLabel="Download all in this tile"
+                allLabel="Export all in this tile"
                 triggerClassName="group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition inline-flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                 triggerTitle="Download"
                 icon={<Download size={18} />}
@@ -3158,7 +3296,7 @@ ${version.svgCode}
 
       {copyNotice && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
-          <div className="bg-brand-red text-white text-base px-6 py-4 rounded-2xl shadow-2xl border border-brand-red/70 animate-in fade-in duration-150 pointer-events-none" role="status" aria-live="polite">
+          <div className={`text-white text-base px-6 py-4 rounded-2xl shadow-2xl border animate-in fade-in duration-150 pointer-events-none ${copyNoticeTone === 'error' ? 'bg-brand-red border-brand-red/70' : 'bg-black/90 border-white/10'}`} role="status" aria-live="polite">
             {copyNotice}
           </div>
         </div>

@@ -81,6 +81,12 @@ server.tool(
       .string()
       .optional()
       .describe("Aspect ratio like '16:9', '1:1', '9:16'. Omit for the account default."),
+    outputFormat: z
+      .enum(["webp", "png", "jpeg"])
+      .optional()
+      .describe(
+        "Delivered file format. Default 'webp' — lossless, same resolution, smaller file. Use 'png' or 'jpeg' only when a consumer requires it.",
+      ),
     saveToGallery: z
       .boolean()
       .optional()
@@ -90,7 +96,7 @@ server.tool(
       .optional()
       .describe("Gallery folder to save into (existing folder name)."),
   },
-  async ({ prompt, presetName, model, aspectRatio, saveToGallery, folderName }) => {
+  async ({ prompt, presetName, model, aspectRatio, outputFormat, saveToGallery, folderName }) => {
     const body = {
       prompt,
       saveToGallery: saveToGallery !== false,
@@ -101,6 +107,7 @@ server.tool(
     const settings = {};
     if (model) settings.selectedModel = model;
     if (aspectRatio) settings.aspectRatio = aspectRatio;
+    if (outputFormat) settings.outputFormat = outputFormat;
     if (Object.keys(settings).length) body.settings = settings;
 
     const json = await callApi(body);

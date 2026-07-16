@@ -11,6 +11,7 @@ import * as admin from "firebase-admin";
 import { randomUUID } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
 import { verifyApiToken, enforceApiRateLimit, RateLimitError } from "./apiTokens";
+import sharp from "sharp";
 import { getStorage } from "firebase-admin/storage";
 import type { Firestore, DocumentReference } from "firebase-admin/firestore";
 
@@ -647,6 +648,46 @@ function stripBase64Payload(raw: string): string {
   return (m?.[1] || raw).replace(/\s+/g, "");
 }
 
+/** ---------- Output format conversion ---------- */
+
+type OutputFormat = "webp" | "png" | "jpeg";
+
+const OUTPUT_FORMATS: readonly OutputFormat[] = ["webp", "png", "jpeg"];
+
+/**
+ * Convert to the requested format at identical pixel dimensions. webp is
+ * encoded lossless (exact pixels, smaller than PNG); jpeg is quality 95.
+ * Keeps the original when it is already smaller or conversion fails.
+ */
+async function convertImageFormat(
+  image: { base64Data: string; mimeType: string },
+  format: OutputFormat,
+): Promise<{ base64Data: string; mimeType: string }> {
+  const current = (image.mimeType || "").toLowerCase();
+  if (current.includes(format) || (format === "jpeg" && current.includes("jpg"))) {
+    return image;
+  }
+  try {
+    const input = Buffer.from(stripBase64Payload(image.base64Data), "base64");
+    let out: Buffer;
+    if (format === "webp") {
+      out = await sharp(input).webp({ lossless: true, effort: 4 }).toBuffer();
+    } else if (format === "png") {
+      out = await sharp(input).png().toBuffer();
+    } else {
+      out = await sharp(input).jpeg({ quality: 95 }).toBuffer();
+    }
+    if (out.length >= input.length) return image;
+    return { base64Data: out.toString("base64"), mimeType: `image/${format}` };
+  } catch (e: unknown) {
+    logger.warn("Output format conversion failed; keeping original", {
+      format,
+      msg: e instanceof Error ? e.message : String(e),
+    });
+    return image;
+  }
+}
+
 
 /** ---- OpenRouter Images API (mirrors client services/openRouterService) --- */
 
@@ -798,6 +839,8 @@ interface AgentBody {
     selectedModel: string;
     svgMode: string;
     openaiImageQuality: "low" | "medium" | "high" | "auto";
+    /** Delivered file format; defaults to "webp" (lossless, same resolution, smaller). */
+    outputFormat: OutputFormat;
   }>;
   systemPromptOverride?: string;
   systemPromptAppend?: string;
@@ -1205,6 +1248,15 @@ export const agentGenerateImage = onRequest(
         prefs?.settings?.openaiImageQuality ||
         "auto";
 
+      const outputFormatRaw = String(ov.outputFormat || "webp").toLowerCase();
+      if (!OUTPUT_FORMATS.includes(outputFormatRaw as OutputFormat)) {
+        sendJson(out, 400, {
+          error: `Unsupported outputFormat "${ov.outputFormat}". Use "webp", "png", or "jpeg".`,
+        });
+        return;
+      }
+      const outputFormat = outputFormatRaw as OutputFormat;
+
       const apiKey = getApiKeyForModelFromPrefs(selectedModel, prefs);
       if (!apiKey) {
         sendJson(out, 400, {
@@ -1291,6 +1343,8 @@ export const agentGenerateImage = onRequest(
           results.push({ index: i, prompt: promptRaw, ok: false, error: msg });
           continue;
         }
+
+        resultImage = await convertImageFormat(resultImage, outputFormat);
 
         const hasBytes = Boolean(resultImage.base64Data && resultImage.base64Data.length > 100);
         if (!hasBytes) {

@@ -412,6 +412,7 @@ const App: React.FC = () => {
   const [previewPipelineDepth, setPreviewPipelineDepth] = useState(0);
   const previewWorkChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const currentGenerationRef = useRef<Generation | null>(null);
+  const historyRef = useRef<Generation[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeGenerationJobs, setActiveGenerationJobs] = useState<ActiveGenerationJob[]>([]);
@@ -422,6 +423,10 @@ const App: React.FC = () => {
   useEffect(() => {
     currentGenerationRef.current = currentGeneration;
   }, [currentGeneration]);
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
 
   const enqueuePreviewWork = useCallback((work: () => Promise<void>) => {
     setPreviewPipelineDepth((n) => n + 1);
@@ -440,11 +445,68 @@ const App: React.FC = () => {
   // doesn't cover the main preview while batches run.
   const [isGenerationsPanelCollapsed, setIsGenerationsPanelCollapsed] = useState(false);
   // Count of in-flight "Add a new Mark" re-rolls. The version rail renders
-  // this many spinner placeholders after the real versions so the user can
-  // see how many more Marks are coming when they batch (hold 1-9 + click +,
-  // or pick a count in the rerun editor). Decremented in the work item's
-  // finally so failures also clear the placeholder.
-  const [pendingRerunCount, setPendingRerunCount] = useState(0);
+  // spinner placeholders after the real versions for the generation that
+  // started the work. Keyed by generation id so navigating to another slide
+  // does not make that slide look like it is generating Marks.
+  const [pendingRerunCounts, setPendingRerunCounts] = useState<Record<string, number>>({});
+
+  const adjustPendingRerunCount = useCallback((generationId: string, delta: number) => {
+    setPendingRerunCounts((prev) => {
+      const nextCount = Math.max(0, (prev[generationId] || 0) + delta);
+      if (nextCount === 0) {
+        const { [generationId]: _drop, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [generationId]: nextCount };
+    });
+  }, []);
+
+  // A generation finished while the user was viewing a different tile.
+  // Instead of hijacking the preview (the old behavior), surface a quiet
+  // click-to-view toast and let the user decide when to switch. Single slot:
+  // rapid batch completions replace the toast rather than stacking.
+  const [completionToast, setCompletionToast] = useState<Generation | null>(null);
+  const completionToastTimerRef = useRef<number | null>(null);
+
+  const dismissCompletionToast = useCallback(() => {
+    if (completionToastTimerRef.current) {
+      window.clearTimeout(completionToastTimerRef.current);
+      completionToastTimerRef.current = null;
+    }
+    setCompletionToast(null);
+  }, []);
+
+  const showCompletionToast = useCallback((generation: Generation) => {
+    if (completionToastTimerRef.current) {
+      window.clearTimeout(completionToastTimerRef.current);
+    }
+    setCompletionToast(generation);
+    completionToastTimerRef.current = window.setTimeout(() => {
+      completionToastTimerRef.current = null;
+      setCompletionToast(null);
+    }, 6000);
+  }, []);
+
+  const applyGenerationSnapshot = useCallback((updatedGeneration: Generation) => {
+    if (currentGenerationRef.current?.id === updatedGeneration.id) {
+      currentGenerationRef.current = updatedGeneration;
+    }
+    setCurrentGeneration((prev) => (
+      prev?.id === updatedGeneration.id ? updatedGeneration : prev
+    ));
+    setHistory((prev) => {
+      const index = prev.findIndex((item) => item.id === updatedGeneration.id);
+      const next = index >= 0 ? [...prev] : [updatedGeneration, ...prev];
+      if (index >= 0) next[index] = updatedGeneration;
+      historyRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const replaceHistorySnapshots = useCallback((updatedHistory: Generation[]) => {
+    historyRef.current = updatedHistory;
+    setHistory(updatedHistory);
+  }, []);
   // Toolbar (Type/Style/Colors/Size/Model row) can be collapsed so the user
   // can focus on previews. We auto-collapse on scroll-down past the toolbar
   // and restore on scroll-up; a header button lets the user pin the choice
@@ -1827,7 +1889,15 @@ const App: React.FC = () => {
             if (progress.latest) {
               const latest = progress.latest;
               aggregate.lastGeneration = latest;
-              setCurrentGeneration(latest);
+              const viewing = currentGenerationRef.current;
+              if (!viewing || viewing.id === latest.id) {
+                // Empty preview (or already on this tile): show results live.
+                setCurrentGeneration(latest);
+              } else {
+                // The user is working on another tile — don't yank them away;
+                // offer a click-to-view toast instead.
+                showCompletionToast(latest);
+              }
               setHistory((prev) => {
                 const idx = prev.findIndex((g) => g.id === latest.id);
                 if (idx >= 0) {
@@ -2014,26 +2084,43 @@ const App: React.FC = () => {
         selectedModel,
         safeAspectRatio
       );
-      setCurrentGeneration(updatedGeneration);
-      currentGenerationRef.current = updatedGeneration;
+      // Guarded apply: refresh the preview only if the user is STILL viewing
+      // this generation — a refine finishing on tile A must not hijack the
+      // view (or worse, the result) when the user has moved on to tile B.
+      applyGenerationSnapshot(updatedGeneration);
 
       await historyService.updateGeneration(user, updatedGeneration);
       const updatedHistory = await historyService.getHistory(user);
-      setHistory(updatedHistory);
+      replaceHistorySnapshots(updatedHistory);
       return updatedGeneration;
     }
   };
 
   const handleRefine = (refinementText: string) => {
+    // Pin the ORIGIN tile at call time — queued work must never retarget to
+    // whatever tile the user is viewing when it finally runs (switching
+    // slides mid-refine used to land the new Mark on the wrong generation).
+    const targetGeneration = currentGenerationRef.current;
+    if (!targetGeneration) return;
+    const targetGenerationId = targetGeneration.id;
+    adjustPendingRerunCount(targetGenerationId, 1);
     void enqueuePreviewWork(async () => {
-      const currentGeneration = currentGenerationRef.current;
-      if (!currentGeneration) return;
+      // Refine on the freshest snapshot OF THE PINNED TILE, so queued
+      // refines stack correctly even after earlier ones added Marks.
+      const latest =
+        (currentGenerationRef.current?.id === targetGenerationId
+          ? currentGenerationRef.current
+          : null) ||
+        historyRef.current.find((g) => g.id === targetGenerationId) ||
+        targetGeneration;
 
       setError(null);
       try {
-        await runRefineOn(currentGeneration, getCurrentVersion(currentGeneration), refinementText);
+        await runRefineOn(latest, getCurrentVersion(latest), refinementText);
       } catch (err: any) {
         setError(err.message || 'Failed to refine image.');
+      } finally {
+        adjustPendingRerunCount(targetGenerationId, -1);
       }
     });
   };
@@ -2071,17 +2158,25 @@ const App: React.FC = () => {
   const handleRerun = (rerunPrompt: string, count: number = 1) => {
     // Hold a number key (1-9) while clicking the "+" button to batch this:
     // the queue runs each unit serially so the user sees each new Mark
-    // appear in order, and each unit picks up the latest tile state via
-    // `currentGenerationRef.current` so multiple re-rolls stack on the
-    // same tile.
+    // appear in order. Capture the originating tile now; queued work may
+    // begin after the user has already navigated to another slide.
     const safeCount = Math.max(1, Math.min(9, Math.floor(count || 1)));
-    setPendingRerunCount((n) => n + safeCount);
+    const targetGeneration = currentGenerationRef.current;
+    if (!targetGeneration) return;
+    const targetGenerationId = targetGeneration.id;
+    const getLatestTargetGeneration = () => {
+      const current = currentGenerationRef.current;
+      if (current?.id === targetGenerationId) return current;
+      return historyRef.current.find((item) => item.id === targetGenerationId) || targetGeneration;
+    };
+
+    adjustPendingRerunCount(targetGenerationId, safeCount);
     for (let i = 0; i < safeCount; i++) {
       void enqueuePreviewWork(runOneRerun);
     }
 
     async function runOneRerun() {
-      const currentGeneration = currentGenerationRef.current;
+      const currentGeneration = getLatestTargetGeneration();
       if (!currentGeneration) return;
 
       setError(null);
@@ -2167,17 +2262,16 @@ const App: React.FC = () => {
             aspectRatio: safeAspectRatio || currentGeneration.config.aspectRatio,
           },
         };
-        setCurrentGeneration(updatedGeneration);
-        currentGenerationRef.current = updatedGeneration;
+        applyGenerationSnapshot(updatedGeneration);
 
         await historyService.updateGeneration(user, updatedGeneration);
         const updatedHistory = await historyService.getHistory(user);
-        setHistory(updatedHistory);
+        replaceHistorySnapshots(updatedHistory);
       } catch (err: any) {
         setError(err.message || 'Failed to add a new Mark.');
       } finally {
         // Always decrement so a failure doesn't leave a stale placeholder.
-        setPendingRerunCount((n) => Math.max(0, n - 1));
+        adjustPendingRerunCount(targetGenerationId, -1);
       }
     }
   };
@@ -2356,8 +2450,21 @@ const App: React.FC = () => {
   };
 
   const handleResizeCanvasRefine = async (targetAspectRatioInput: string): Promise<void> => {
+    // Pin the origin tile at call time (see handleRefine) — queued work must
+    // not retarget to whichever tile is showing when it runs.
+    const pinned = currentGenerationRef.current;
+    if (!pinned) {
+      throw new Error('Restore or generate an image first.');
+    }
+    const pinnedId = pinned.id;
+    adjustPendingRerunCount(pinnedId, 1);
     return enqueuePreviewWork(async () => {
-      const currentGeneration = currentGenerationRef.current;
+      const currentGeneration =
+        (currentGenerationRef.current?.id === pinnedId
+          ? currentGenerationRef.current
+          : null) ||
+        historyRef.current.find((g) => g.id === pinnedId) ||
+        pinned;
       if (!currentGeneration) {
         throw new Error('Restore or generate an image first.');
       }
@@ -2500,16 +2607,21 @@ const App: React.FC = () => {
           targetModel,
           targetAspectRatio
         );
-        setCurrentGeneration(updatedGeneration);
-        currentGenerationRef.current = updatedGeneration;
-        setConfig(prev => ({ ...prev, aspectRatio: targetAspectRatio }));
+        applyGenerationSnapshot(updatedGeneration);
+        // Only steer the shared toolbar aspect if the user is still on this
+        // tile — background completions shouldn't reconfigure the toolbar.
+        if (currentGenerationRef.current?.id === pinnedId) {
+          setConfig(prev => ({ ...prev, aspectRatio: targetAspectRatio }));
+        }
 
         await historyService.updateGeneration(user, updatedGeneration);
         const updatedHistory = await historyService.getHistory(user);
-        setHistory(updatedHistory);
+        replaceHistorySnapshots(updatedHistory);
       } catch (err: any) {
         setError(err.message || 'Failed to resize canvas.');
         throw err;
+      } finally {
+        adjustPendingRerunCount(pinnedId, -1);
       }
     });
   };
@@ -3759,6 +3871,68 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {/* Finished-generation toast — quiet click-to-view notice shown
+                when a generation completes while the user is on another tile
+                (the preview is never hijacked). Bottom-right so it stays
+                clear of the Active Generations monitor at top-right. */}
+            {completionToast && (() => {
+              const toastVersion =
+                completionToast.versions[completionToast.currentVersionIndex] ||
+                completionToast.versions[completionToast.versions.length - 1];
+              const openToastGeneration = () => {
+                const freshest =
+                  historyRef.current.find((g) => g.id === completionToast.id) ||
+                  completionToast;
+                dismissCompletionToast();
+                void handleRestoreFromHistory(freshest);
+              };
+              return (
+                <div className="group fixed bottom-6 right-4 z-40 animate-bounce-in">
+                  <button
+                    type="button"
+                    onClick={openToastGeneration}
+                    aria-label="Generation finished — view it"
+                    className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 pl-2 pr-4 py-2 text-left shadow-lg backdrop-blur-sm transition-colors hover:border-brand-teal"
+                  >
+                    {toastVersion?.imageUrl ? (
+                      <img
+                        src={toastVersion.imageUrl}
+                        alt=""
+                        className="h-12 w-12 shrink-0 rounded-lg bg-gray-100 object-cover dark:bg-[#0d1117]"
+                        onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
+                      />
+                    ) : (
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-[#0d1117]">
+                        <Sparkles size={16} className="text-brand-teal" />
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      <span className="block text-xs font-semibold text-slate-900 dark:text-white">
+                        Generation finished
+                      </span>
+                      <span className="block max-w-[190px] truncate text-[11px] text-slate-500 dark:text-slate-400">
+                        {completionToast.config.prompt}
+                      </span>
+                      <span className="block text-[11px] font-semibold text-brand-teal">
+                        Click to view
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={dismissCompletionToast}
+                    aria-label="Dismiss"
+                    className="group/dismiss absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-white text-[10px] text-slate-500 opacity-0 shadow transition-opacity hover:text-slate-900 group-hover:opacity-100 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-400 dark:hover:text-white"
+                  >
+                    ✕
+                    <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 hidden whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[13px] font-medium text-white group-hover/dismiss:block">
+                      Dismiss
+                    </span>
+                  </button>
+                </div>
+              );
+            })()}
+
             {/* Background generation monitor */}
             {activeGenerationJobs.length > 0 && (() => {
               void batchClockTick;
@@ -4047,7 +4221,9 @@ const App: React.FC = () => {
                 onRefine={handleRefine}
                 onRerun={handleRerun}
                 onToggleStarred={handleToggleStarred}
-                pendingRerunCount={pendingRerunCount}
+                pendingRerunCount={
+                  currentGeneration ? pendingRerunCounts[currentGeneration.id] || 0 : 0
+                }
                 onAnalyzeRefinePrompt={handleAnalyzeRefinePrompt}
                 onExpandRefinementPrompt={handleExpandRefinementPrompt}
                 onResizeCanvasRefine={handleResizeCanvasRefine}
@@ -4096,6 +4272,7 @@ const App: React.FC = () => {
               toolbarCollapsed={isToolbarCollapsed}
               history={history}
               activeGenerationId={currentGeneration?.id}
+              pendingRerunCounts={pendingRerunCounts}
               onSelect={handleRestoreFromHistory}
               onDelete={(historyId: string) => {
                 // Tile delete is self-confirming via double-tap inside

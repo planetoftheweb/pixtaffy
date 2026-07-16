@@ -13,6 +13,7 @@ import type {
   BuildZoomFrom, BuildShape,
 } from '../types';
 import { CLEANUP_FOR_ANIMATION_PROMPT } from '../constants';
+import { useConfirmAction } from '../hooks/useConfirmAction';
 import { createBlobUrlFromImage } from '../services/imageSourceService';
 import { getCachedImageBlobUrl } from '../services/imageCache';
 import {
@@ -1713,23 +1714,18 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   // opens a small inline edit box. Rows: drag vertically to reorder.
   const [editingDurId, setEditingDurId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null); // double-click a name → rename in place
-  const [confirmClear, setConfirmClear] = useState(false); // header trash arms, second tap clears
-  const confirmClearTimerRef = useRef<number | null>(null);
-  const armClearAll = () => {
-    if (!confirmClear) {
-      setConfirmClear(true);
-      if (confirmClearTimerRef.current) window.clearTimeout(confirmClearTimerRef.current);
-      confirmClearTimerRef.current = window.setTimeout(() => setConfirmClear(false), 2500);
-      return;
-    }
-    if (confirmClearTimerRef.current) window.clearTimeout(confirmClearTimerRef.current);
-    setConfirmClear(false);
-    pushHistory(build.steps);
-    setBuild((b) => ({ ...b, steps: [] }));
-    setSelectedStepId(null);
-    resetView();
-    flashStatus('Cleared all frames — ⌘Z restores them.', 6000);
-  };
+  // Header trash arms, second tap clears (shared inline-confirm hook).
+  const clearAllConfirm = useConfirmAction({
+    onConfirm: () => {
+      pushHistory(build.steps);
+      setBuild((b) => ({ ...b, steps: [] }));
+      setSelectedStepId(null);
+      resetView();
+      flashStatus('Cleared all frames — ⌘Z restores them.', 6000);
+    },
+  });
+  const confirmClear = clearAllConfirm.isArmed('clear-all');
+  const armClearAll = () => clearAllConfirm.trigger('clear-all');
   const durDragRef = useRef<{ id: string; startX: number; startMs: number; moved: boolean; alt: boolean } | null>(null);
   const onDurDown = (e: React.PointerEvent, id: string, currentMs: number) => {
     e.preventDefault();
@@ -2576,7 +2572,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   {build.steps.length > 0 && (
                     <button
                       onClick={armClearAll}
-                      className={`group/tip relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${confirmClear ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'}`}
+                      className={`group/tip relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${confirmClear ? 'bg-amber-500 text-white animate-pulse' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'}`}
                     >
                       <Trash2 size={11} />
                       {confirmClear && 'Sure?'}
