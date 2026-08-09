@@ -76,7 +76,6 @@ import { resourceService } from './services/resourceService'; // Import resource
 import { missingKeys } from './services/firebase';
 import { 
   AlertCircle, 
-  Sun, 
   Moon, 
   X,
   KeyRound,
@@ -3604,8 +3603,8 @@ const App: React.FC = () => {
       )}
 
       {/* 1. Dedicated Header Row */}
-      <header className="w-full flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] sticky top-0 z-50">
-        <div className="flex items-center gap-6">
+      <header className="w-full flex items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] sticky top-0 z-50">
+        <div className="min-w-0 flex-1">
           <button 
             onClick={() => {
               setCatalogMode(null);
@@ -3615,18 +3614,18 @@ const App: React.FC = () => {
               setWhatsNewMode(false);
               setWhatsNewEntryId(null);
             }}
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity focus:outline-none"
+            className="flex min-w-0 items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity focus:outline-none"
           >
             <img 
               src="/pixtaffy.png"
               alt="PixTaffy logo"
-              className="w-12 h-12 object-contain drop-shadow-lg"
+              className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 object-contain drop-shadow-lg"
             />
-            <h1 className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">PixTaffy</h1>
+            <h1 className="hidden min-[360px]:block whitespace-nowrap font-bold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-white">PixTaffy</h1>
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
 
           {/* Auth Buttons */}
           {user ? (
@@ -3810,10 +3809,10 @@ const App: React.FC = () => {
               )}
              </div>
           ) : (
-            <div className="flex items-center gap-2 mr-2">
+            <div className="flex items-center">
               <button 
                 onClick={() => openAuthModal('login')}
-                className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand-teal dark:hover:text-brand-teal px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:hover:border-brand-teal dark:hover:text-brand-teal"
               >
                 Log In
               </button>
@@ -3826,7 +3825,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-           <div className="h-6 w-px bg-gray-200 dark:bg-[#30363d]"></div>
+           {user && <div className="h-6 w-px bg-gray-200 dark:bg-[#30363d]"></div>}
 
            {/* Focus mode toggle — collapses BOTH the toolbar options row
                and the prompt input so the user can see more of the
@@ -3846,50 +3845,23 @@ const App: React.FC = () => {
              </button>
            )}
 
-           {/* GitHub repo link lives inside the user dropdown for signed-in
-               users; guests get it inline here so they can still find the
-               source without having to sign in first. */}
-           {!user && (
-             <a
-               href={GITHUB_REPO_BASE}
-               target="_blank"
-               rel="noopener noreferrer"
-               className="p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
-               title="View source code on GitHub"
-               aria-label="View source code on GitHub"
-             >
-               <Github size={20} />
-             </a>
-           )}
-
-           {/* Theme toggle for guests only. Signed-in users get this inside
-               the user dropdown menu so the header stays uncluttered. */}
-           {!user && (
-             <button
-               onClick={() => setIsDarkMode(!isDarkMode)}
-               className="p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
-               title="Toggle theme"
-               aria-label="Toggle theme"
-             >
-               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-             </button>
-           )}
-
            {/* What's New bell — last icon in the row so the unread count
                bubble sits in the corner where users expect notification
-               pings. Available to signed-in users and guests alike. */}
-           <WhatsNewBell
-             entries={whatsNew.entries}
-             unreadCount={whatsNew.unreadCount}
-             unseenIds={whatsNew.unseenIds}
-             isOpen={whatsNew.isBellOpen}
-             focusedEntryId={whatsNew.focusedEntryId}
-             onOpen={whatsNew.openBell}
-             onClose={whatsNew.closeBell}
-             onClearFocusedEntry={whatsNew.clearFocusedEntry}
-             onOpenPage={() => openWhatsNewPage(null)}
-             onSelectEntry={(id) => openWhatsNewPage(id)}
-           />
+               pings. Guest navigation stays focused on Log In. */}
+           {user && (
+             <WhatsNewBell
+               entries={whatsNew.entries}
+               unreadCount={whatsNew.unreadCount}
+               unseenIds={whatsNew.unseenIds}
+               isOpen={whatsNew.isBellOpen}
+               focusedEntryId={whatsNew.focusedEntryId}
+               onOpen={whatsNew.openBell}
+               onClose={whatsNew.closeBell}
+               onClearFocusedEntry={whatsNew.clearFocusedEntry}
+               onOpenPage={() => openWhatsNewPage(null)}
+               onSelectEntry={(id) => openWhatsNewPage(id)}
+             />
+           )}
         </div>
       </header>
 
@@ -4655,16 +4627,16 @@ const App: React.FC = () => {
 
       {isAuthResolved && needsSetup && isSetupModalOpen && (
         <div
-          className="fixed inset-0 z-[140] flex items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 z-[140] flex items-center justify-center p-3 sm:p-6 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
           onClick={() => setIsSetupModalOpen(false)}
         >
           <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-white/15 bg-white dark:bg-[#0d1117] shadow-2xl"
+            className="relative w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] overflow-x-hidden overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] rounded-2xl sm:rounded-3xl border border-white/15 bg-white dark:bg-[#0d1117] shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.18),transparent_45%),radial-gradient(circle_at_bottom_left,rgba(239,68,68,0.15),transparent_40%)]" />
-            <div className="relative p-6 sm:p-8">
+            <div className="relative p-5 sm:p-8">
               <button
                 onClick={() => setIsSetupModalOpen(false)}
                 className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors"
