@@ -1,11 +1,22 @@
 # Changelog
 
-All notable changes to BranDoIt Studio are documented here.
+All notable changes to PixTaffy are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.25.0] - 2026-08-09
+
+### Changed
+
+- Rebranded the product as PixTaffy, including the in-app identity, transparent brandmark, document export metadata, MCP labels, package metadata, and pixtaffy.com social metadata. Legacy Firebase endpoints, token prefixes, MCP environment variables, and browser storage keys remain compatible.
+- Moved the public frontend to a dedicated Firebase Hosting site at `pixtaffy.web.app`, ready for the `pixtaffy.com` custom domain, while keeping Auth, Firestore, Storage, and Functions in the existing Firebase project.
+
+### Added
+
+- Added a featured PixTaffy release guide to the in-app What's New view.
 
 ## [0.24.0] - 2026-07-05
 

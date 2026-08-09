@@ -72,9 +72,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         <div className="p-8">
             <div className="text-center mb-8">
               <img 
-                src="/brandoit.png" 
-                alt="BranDoIt Logo" 
-                className="w-16 h-16 rounded-full shadow-lg shadow-brand-red/20 object-cover mx-auto mb-4" 
+                src="/pixtaffy.png"
+                alt="PixTaffy logo"
+                className="w-16 h-16 object-contain drop-shadow-lg mx-auto mb-4"
               />
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {isLogin ? 'Welcome back' : 'Create your account'}

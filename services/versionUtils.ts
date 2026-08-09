@@ -34,7 +34,7 @@ export const buildExportFilename = (
   versionNumber: number,
   extension: string
 ): string => {
-  const slug = toSlug(prompt) || 'brandoit';
+  const slug = toSlug(prompt) || 'pixtaffy';
   const numeral = toRomanNumeral(versionNumber).toLowerCase();
   return `${slug}-mark-${numeral}.${extension}`;
 };

@@ -123,7 +123,7 @@ export const generateOpenRouterImage = async (
       headers: {
         Authorization: `Bearer ${apiKey.trim()}`,
         'Content-Type': 'application/json',
-        'X-Title': 'BranDoIt'
+        'X-Title': 'PixTaffy'
       },
       body: JSON.stringify(body)
     });

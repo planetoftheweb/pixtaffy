@@ -1,7 +1,7 @@
 # Project Agents & Architecture
 
 ## Core Philosophy
-BranDoIt is an AI-powered design studio helper that streamlines brand asset creation.
+PixTaffy is an AI-powered design studio helper that streamlines brand asset creation.
 We prioritize:
 - **Clean, Maintainable Code:** Modular services and components.
 - **Modern React Patterns:** Hooks, Functional Components, Composition.

@@ -1,23 +1,26 @@
-# BranDoIt MCP server
+# PixTaffy MCP server
 
-Generate BranDoIt infographics from Claude Code, Claude Desktop, Codex, or any
-MCP client — as your own BranDoIt account, with your saved styles, presets,
+Generate PixTaffy infographics from Claude Code, Claude Desktop, Codex, or any
+MCP client as your own PixTaffy account, with your saved styles, presets,
 and model keys.
 
 ## 1. Get a token
 
-BranDoIt → **Settings → API access** → name a token (e.g. "Claude MCP") →
+PixTaffy → **Settings → API access** → name a token (e.g. "Claude MCP") →
 **Create token**. Copy the `bdi_…` value immediately — it is shown exactly
 once. Revoke it from the same screen any time.
+
+Existing `BRANDOIT_API_TOKEN` and `BRANDOIT_API_URL` environment variables
+still work as compatibility aliases.
 
 ## 2. Configure your client
 
 **Claude Code**
 
 ```bash
-claude mcp add brandoit \
-  --env BRANDOIT_API_TOKEN=bdi_YOUR_TOKEN \
-  -- node /path/to/brandoit/mcp/index.js
+claude mcp add pixtaffy \
+  --env PIXTAFFY_API_TOKEN=bdi_YOUR_TOKEN \
+  -- node /path/to/pixtaffy/mcp/index.js
 ```
 
 **Claude Desktop** (`claude_desktop_config.json`)
@@ -25,10 +28,10 @@ claude mcp add brandoit \
 ```json
 {
   "mcpServers": {
-    "brandoit": {
+    "pixtaffy": {
       "command": "node",
-      "args": ["/path/to/brandoit/mcp/index.js"],
-      "env": { "BRANDOIT_API_TOKEN": "bdi_YOUR_TOKEN" }
+      "args": ["/path/to/pixtaffy/mcp/index.js"],
+      "env": { "PIXTAFFY_API_TOKEN": "bdi_YOUR_TOKEN" }
     }
   }
 }
@@ -37,10 +40,10 @@ claude mcp add brandoit \
 **Codex CLI** (`~/.codex/config.toml`)
 
 ```toml
-[mcp_servers.brandoit]
+[mcp_servers.pixtaffy]
 command = "node"
-args = ["/path/to/brandoit/mcp/index.js"]
-env = { BRANDOIT_API_TOKEN = "bdi_YOUR_TOKEN" }
+args = ["/path/to/pixtaffy/mcp/index.js"]
+env = { PIXTAFFY_API_TOKEN = "bdi_YOUR_TOKEN" }
 ```
 
 ## 3. Use it
@@ -53,7 +56,7 @@ Ask your assistant things like:
 The `generate_infographic` tool accepts `prompt`, `presetName`, `model`,
 `aspectRatio`, `outputFormat`, `saveToGallery`, and `folderName`. Generation
 takes 30–90s per image and returns hosted image URLs; results appear in your
-BranDoIt gallery.
+PixTaffy gallery.
 
 Images are delivered as lossless **webp** by default — identical pixels and
 resolution to the model's PNG output, just a smaller file. Pass

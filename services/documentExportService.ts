@@ -165,10 +165,10 @@ const buildPdf = async (items: RasterExportItem[]): Promise<Blob> => {
     putOnlyUsedFonts: true,
   });
   pdf.setProperties({
-    title: "BranDoIt carousel",
-    subject: "Selected BranDoIt generations",
-    author: "BranDoIt",
-    creator: "BranDoIt",
+    title: "PixTaffy carousel",
+    subject: "Selected PixTaffy generations",
+    author: "PixTaffy",
+    creator: "PixTaffy",
   });
 
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -201,13 +201,13 @@ const buildPowerPoint = async (items: RasterExportItem[]): Promise<Blob> => {
   const first = items[0];
   const slideSize = canvasDimensionsForRatio(first.width / first.height, 10);
   const pptx = new PptxGenJS();
-  const layoutName = "BRANDOIT_EXPORT";
+  const layoutName = "PIXTAFFY_EXPORT";
   pptx.defineLayout({ name: layoutName, width: slideSize.width, height: slideSize.height });
   pptx.layout = layoutName;
-  pptx.author = "BranDoIt";
-  pptx.company = "BranDoIt";
-  pptx.subject = "Selected BranDoIt generations";
-  pptx.title = "BranDoIt slideshow";
+  pptx.author = "PixTaffy";
+  pptx.company = "PixTaffy";
+  pptx.subject = "Selected PixTaffy generations";
+  pptx.title = "PixTaffy slideshow";
 
   items.forEach((item) => {
     const slide = pptx.addSlide();
@@ -258,5 +258,5 @@ export const defaultDocumentExportFilename = (format: DocumentExportFormat): str
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0"),
   ].join("-");
-  return `brandoit-${format === "pdf" ? "carousel" : "slideshow"}-${stamp}.${format}`;
+  return `pixtaffy-${format === "pdf" ? "carousel" : "slideshow"}-${stamp}.${format}`;
 };

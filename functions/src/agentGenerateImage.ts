@@ -740,7 +740,7 @@ async function generateOpenRouterImage(
       headers: {
         Authorization: `Bearer ${apiKey.trim()}`,
         "Content-Type": "application/json",
-        "X-Title": "BranDoIt API",
+        "X-Title": "PixTaffy API",
       },
       body: JSON.stringify(body),
     });

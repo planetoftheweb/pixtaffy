@@ -23,12 +23,35 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.25.0-pixtaffy',
+    title: 'Say hello to PixTaffy',
+    summary:
+      'A new name, a new candy-bright brandmark, and a new home at pixtaffy.com.',
+    blurb:
+      'BranDoIt is now PixTaffy. Your account, gallery, presets, API tokens, and saved settings are still right where you left them. The app has a new transparent brandmark and a new home at pixtaffy.com, while the tools and workflows you already know keep working.',
+    publishedAt: Date.parse('2026-08-09T16:00:00Z'),
+    version: '0.25.0',
+    image: '/pixtaffy.png',
+    featured: true,
+    sections: [
+      {
+        heading: 'Same studio, brighter sign out front',
+        body: 'The new PixTaffy identity now appears throughout the app, exported files, API labels, and developer tools. Nothing in your workspace was reset or moved.',
+        steps: [
+          { text: 'Visit pixtaffy.com for the new permanent home.', icon: 'ExternalLink' },
+          { text: 'Sign in with the same account and keep creating.', icon: 'Check' },
+          { text: 'Existing API tokens and integrations continue to work.', icon: 'KeyRound' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.24.0-api-and-mcp',
     title: 'Generate from anywhere — personal API tokens & an MCP server',
     summary:
       'Create a token in Settings and generate from Claude, Codex, or your own apps — your presets, your keys, safely rate-limited.',
     blurb:
-      'BranDoIt now works wherever you do. Create a personal API token in Settings → API access and any external tool can generate as your account: the bundled MCP server plugs BranDoIt into Claude Code, Claude Desktop, or Codex, and the plain HTTPS API lets your own apps generate with one POST. Calls use your saved presets (including art direction), your default styles, and your own model keys — Gemini, OpenAI, and OpenRouter models all supported. Built safely: tokens are shown once and stored only as hashes, they are generate-only and can never read or change your settings or keys, every call is rate-limited per account, and one click revokes a token forever.',
+      'PixTaffy now works wherever you do. Create a personal API token in Settings → API access and any external tool can generate as your account: the bundled MCP server plugs PixTaffy into Claude Code, Claude Desktop, or Codex, and the plain HTTPS API lets your own apps generate with one POST. Calls use your saved presets (including art direction), your default styles, and your own model keys — Gemini, OpenAI, and OpenRouter models all supported. Built safely: tokens are shown once and stored only as hashes, they are generate-only and can never read or change your settings or keys, every call is rate-limited per account, and one click revokes a token forever.',
     publishedAt: Date.parse('2026-07-05T14:00:00Z'),
     version: '0.24.0',
     image: '/whats-new/whatsnew-v0.24.0.png',
@@ -44,12 +67,12 @@ export const WHATS_NEW: WhatsNewEntry[] = [
         ],
       },
       {
-        heading: 'Plug BranDoIt into Claude or Codex',
+        heading: 'Plug PixTaffy into Claude or Codex',
         body: 'The repo ships an MCP server (mcp/) that exposes a generate_infographic tool. Point Claude Code, Claude Desktop, or Codex at it with your token in the environment, then just ask for graphics — by preset name, model, aspect ratio, and target folder.',
         steps: [
-          { text: 'Add the server to your client config with BRANDOIT_API_TOKEN set.', icon: 'Settings' },
+          { text: 'Add the server to your client config with PIXTAFFY_API_TOKEN set.', icon: 'Settings' },
           { text: 'Ask: "Generate an infographic about tides with my What\'s New Hero preset, 16:9."', icon: 'Sparkles' },
-          { text: 'Results land in your BranDoIt gallery with hosted URLs returned to the chat.', icon: 'Image' },
+          { text: 'Results land in your PixTaffy gallery with hosted URLs returned to the chat.', icon: 'Image' },
         ],
       },
       {
