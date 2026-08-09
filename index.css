@@ -110,3 +110,16 @@
 .dark *:focus-within {
   scrollbar-color: rgba(72, 79, 88, 0.7) transparent;
 }
+
+/* Toolbar popovers stay inside the visual viewport on phones. The owning
+   toolbar deliberately allows overflow so menus can escape its rows; this
+   class handles the remaining viewport edge and touch-scrolling constraints. */
+.mobile-dropdown-panel {
+  max-width: calc(100vw - 1rem);
+  max-height: min(30rem, calc(100dvh - 10rem));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}

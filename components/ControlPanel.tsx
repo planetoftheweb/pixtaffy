@@ -1934,7 +1934,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 onClick={() => toggleDropdown('type')} 
               />
               {activeDropdown === 'type' && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={options.graphicTypes} 
@@ -1960,7 +1960,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 onClick={() => toggleDropdown('style')} 
               />
                {activeDropdown === 'style' && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={filteredStyles} 
@@ -1987,7 +1987,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   onClick={() => toggleDropdown('svgmode')} 
                 />
                 {activeDropdown === 'svgmode' && (
-                  <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {([
                       { id: 'static' as SvgMode, label: 'Static', icon: Pause, desc: 'No animations' },
                       { id: 'animated' as SvgMode, label: 'Animated', icon: Play, desc: 'CSS/SMIL animations' },
@@ -2033,7 +2033,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 colors={currentColor?.colors}
               />
               {activeDropdown === 'color' && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={options.brandColors} 
@@ -2059,7 +2059,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 onClick={() => toggleDropdown('size')} 
               />
               {activeDropdown === 'size' && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={modelAspectRatios} 
@@ -2089,7 +2089,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 disabled={modelSelectionLocked}
               />
               {activeDropdown === 'model' && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   <button
                     type="button"
                     onClick={() => {
@@ -2274,7 +2274,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   onClick={() => toggleDropdown('quality')}
                 />
                 {activeDropdown === 'quality' && (
-                  <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {([
                       { id: 'auto' as const, label: 'Auto', desc: 'Model picks the best' },
                       { id: 'low' as const, label: 'Low', desc: 'Fastest, cheapest' },
@@ -2325,7 +2325,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   // right-0: Presets is the toolbar's right-most control, so a
                   // left-anchored panel runs past the viewport edge and clips
                   // its right column (the ⋯ per-preset actions!).
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-80 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {/* Active art direction — free text riding along with every
                         generation (seeded by a preset or typed at save time).
                         Shown here so it never steers prompts invisibly. */}
