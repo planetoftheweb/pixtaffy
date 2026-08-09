@@ -83,7 +83,7 @@ export const WhatsNewSpotlight: React.FC<WhatsNewSpotlightProps> = ({
         <div className="p-6">
           <div className="inline-flex items-center gap-1.5 mb-3 px-2 py-1 rounded-full bg-brand-teal/10 text-brand-teal text-[11px] font-bold uppercase tracking-wide">
             <Sparkles size={12} />
-            New in BranDoIt
+            New in PixTaffy
             {entry.version && (
               <span className="text-brand-teal/70">&middot; v{entry.version}</span>
             )}

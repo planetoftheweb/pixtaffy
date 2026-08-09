@@ -214,7 +214,7 @@ const MODEL_NAME_BY_ID: Record<string, string> = SUPPORTED_MODELS.reduce<Record<
   return acc;
 }, {}));
 
-const GITHUB_REPO_BASE = 'https://github.com/planetoftheweb/brandoit';
+const GITHUB_REPO_BASE = 'https://github.com/planetoftheweb/pixtaffy';
 const GITHUB_CHANGELOG_URL = `${GITHUB_REPO_BASE}/blob/main/CHANGELOG.md`;
 const GITHUB_RELEASES_URL = `${GITHUB_REPO_BASE}/releases`;
 
@@ -3501,11 +3501,11 @@ const App: React.FC = () => {
             className="flex items-center gap-3 hover:opacity-80 transition-opacity focus:outline-none"
           >
             <img 
-              src="/brandoit.png" 
-              alt="BranDoIt Logo" 
-              className="w-12 h-12 rounded-full shadow-lg shadow-brand-red/20 object-cover" 
+              src="/pixtaffy.png"
+              alt="PixTaffy logo"
+              className="w-12 h-12 object-contain drop-shadow-lg"
             />
-            <h1 className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">BranDoIt</h1>
+            <h1 className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">PixTaffy</h1>
           </button>
         </div>
 
@@ -4332,7 +4332,7 @@ const App: React.FC = () => {
         aria-label="Site copyright and project links"
       >
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-1">
-          <p>© {new Date().getFullYear()} BranDoIt. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} PixTaffy. All rights reserved.</p>
           <nav
             className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2"
             aria-label="Project documentation"
@@ -4507,7 +4507,7 @@ const App: React.FC = () => {
                     Start free with your own API key
                   </h2>
                   <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-300">
-                    BranDoIt uses BYOK on free accounts. Create your account, add a Gemini or OpenAI key, and you are ready to generate.
+                    PixTaffy uses BYOK on free accounts. Create your account, add a Gemini or OpenAI key, and you are ready to generate.
                   </p>
                 </>
               ) : (

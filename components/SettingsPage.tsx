@@ -710,7 +710,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   API access
                 </h5>
                 <p className="text-xs text-slate-500">
-                  Personal tokens let external tools (the BranDoIt MCP server, scripts, other
+                  Personal tokens let external tools (the PixTaffy MCP server, scripts, other
                   apps) generate images as your account, using your own model keys. Calls are
                   rate-limited per account.
                 </p>

@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "brandoit"
-  }
+  },
+  "targets": {
+    "brandoit": {
+      "hosting": {
+        "pixtaffy": [
+          "pixtaffy"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

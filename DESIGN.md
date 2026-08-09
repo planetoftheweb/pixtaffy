@@ -1,6 +1,6 @@
-# BranDoIt — Design System
+# PixTaffy Design System
 
-The source of truth for how BranDoIt looks, moves, and behaves. These are
+The source of truth for how PixTaffy looks, moves, and behaves. These are
 decisions, not suggestions: they were made (and often re-made) across releases
 0.1 → 0.24. When adding UI, copy a recipe from here; when a rule and existing
 code disagree, this document names the canonical form and the code is the

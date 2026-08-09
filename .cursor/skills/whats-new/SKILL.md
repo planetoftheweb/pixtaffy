@@ -1,11 +1,11 @@
 ---
 name: whats-new
-description: Author and ship a What's New entry for BranDoIt — the user-facing release surface that drives the header bell dropdown, the spotlight modal, the discovery page, and per-release detail guides. Use when adding a user-visible feature, bumping the minor or major version, or when `npm run build` fails the `whats-new:check` prebuild gate. The companion script `scripts/whats-new.mjs` scaffolds the entry; this skill explains the conventions, fields, and verify checklist around it. The agent is responsible for generating the brand-matched 16:9 hero image via `GenerateImage` and saving it at `public/whats-new/whatsnew-v<version>.png` — do not punt this step to the user.
+description: Author and ship a What's New entry for PixTaffy, the user-facing release surface that drives the header bell dropdown, the spotlight modal, the discovery page, and per-release detail guides. Use when adding a user-visible feature, bumping the minor or major version, or when `npm run build` fails the `whats-new:check` prebuild gate. The companion script `scripts/whats-new.mjs` scaffolds the entry; this skill explains the conventions, fields, and verify checklist around it. The agent is responsible for generating the brand-matched 16:9 hero image via `GenerateImage` and saving it at `public/whats-new/whatsnew-v<version>.png`; do not punt this step to the user.
 ---
 
 # Skill: Author a What's New entry
 
-BranDoIt surfaces every user-facing release through a single curated content
+PixTaffy surfaces every user-facing release through a single curated content
 file. There are four surfaces, but only one source of truth — get the entry
 right and every surface updates correctly.
 

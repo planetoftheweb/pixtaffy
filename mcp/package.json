@@ -1,9 +1,10 @@
 {
-  "name": "brandoit-mcp",
+  "name": "pixtaffy-mcp",
   "version": "1.0.0",
-  "description": "MCP server for BranDoIt \u2014 generate infographics from Claude, Codex, or any MCP client using your BranDoIt account.",
+  "description": "MCP server for PixTaffy, generating infographics from Claude, Codex, or any MCP client using your PixTaffy account.",
   "type": "module",
   "bin": {
+    "pixtaffy-mcp": "./index.js",
     "brandoit-mcp": "./index.js"
   },
   "main": "index.js",

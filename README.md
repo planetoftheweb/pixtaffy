@@ -1,8 +1,10 @@
-# BranDoIt Studio
+# PixTaffy
 
-![BranDoIt Studio](./screenshot.png)
+![PixTaffy](./screenshot.png)
 
-An AI-powered brand design studio that helps you generate cohesive visual assets using Google's Gemini API.
+An AI-powered brand design studio that helps you generate cohesive visual assets using Google Gemini, OpenAI, and OpenRouter models.
+
+**Website:** [pixtaffy.com](https://pixtaffy.com)
 
 ## Features
 
@@ -68,8 +70,8 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/planetoftheweb/brandoit.git
-    cd brandoit
+    git clone https://github.com/planetoftheweb/pixtaffy.git
+    cd pixtaffy
     ```
 
 2.  **Install dependencies:**

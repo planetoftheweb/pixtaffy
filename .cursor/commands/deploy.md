@@ -1,4 +1,4 @@
-# /deploy — Ship a new release of BranDoIt Studio
+# /deploy: Ship a new release of PixTaffy
 
 Running this command is **explicit authorization** to commit, push, tag, draft a
 GitHub release, deploy Firebase rules if they changed, and monitor the Render
@@ -204,7 +204,7 @@ find and watch the freshly-triggered deploy:
    `list_services` errors, surface the error and stop — do not fall back to
    FTP. (FTP is the separate `deploy-ftp-git` flow for other projects, not
    this one.)
-2. Find the BranDoIt static-site service via `list_services`.
+2. Find the PixTaffy static-site service via `list_services`.
 3. Call `list_deploys` for that service and grab the newest entry — its
    commit SHA should match the push from step 8 within ~30 seconds.
 4. Poll `get_deploy` until `status` is `live` (success), `build_failed`,

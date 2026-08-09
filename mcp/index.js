@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * BranDoIt MCP server — generate infographics from Claude, Codex, or any MCP
- * client, as your own BranDoIt account.
+ * PixTaffy MCP server: generate infographics from Claude, Codex, or any MCP
+ * client as your own PixTaffy account.
  *
  * Setup:
- *   1. In BranDoIt → Settings → API access, create a personal token (bdi_…).
+ *   1. In PixTaffy → Settings → API access, create a personal token (bdi_…).
  *   2. Configure your MCP client with:
- *        command: npx   args: ["-y", "brandoit-mcp"]   (or: node path/to/mcp/index.js)
- *        env: { "BRANDOIT_API_TOKEN": "bdi_…" }
+ *        command: npx   args: ["-y", "pixtaffy-mcp"]   (or: node path/to/mcp/index.js)
+ *        env: { "PIXTAFFY_API_TOKEN": "bdi_…" }
  *
- * The server is a thin wrapper over the BranDoIt HTTPS API. Generation runs
+ * The server is a thin wrapper over the PixTaffy HTTPS API. Generation runs
  * with YOUR account's model keys (BYOK) and is rate-limited per account.
  * The token grants generate-only access — it cannot read or change account
  * settings, keys, or other users' data.
@@ -19,18 +19,22 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 const API_URL =
+  process.env.PIXTAFFY_API_URL ||
   process.env.BRANDOIT_API_URL ||
   "https://us-central1-brandoit.cloudfunctions.net/agentGenerateImage";
-const TOKEN = process.env.BRANDOIT_API_TOKEN || "";
+const TOKEN =
+  process.env.PIXTAFFY_API_TOKEN ||
+  process.env.BRANDOIT_API_TOKEN ||
+  "";
 
 if (!TOKEN) {
   console.error(
-    "BRANDOIT_API_TOKEN is not set. Create a token in BranDoIt → Settings → API access.",
+    "PIXTAFFY_API_TOKEN is not set. Create a token in PixTaffy → Settings → API access.",
   );
   process.exit(1);
 }
 
-const server = new McpServer({ name: "brandoit", version: "1.0.0" });
+const server = new McpServer({ name: "pixtaffy", version: "1.0.0" });
 
 const callApi = async (body) => {
   const resp = await fetch(API_URL, {
@@ -43,7 +47,7 @@ const callApi = async (body) => {
   });
   const json = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    throw new Error(json.error || `BranDoIt API error (HTTP ${resp.status})`);
+    throw new Error(json.error || `PixTaffy API error (HTTP ${resp.status})`);
   }
   return json;
 };
@@ -51,14 +55,14 @@ const callApi = async (body) => {
 server.tool(
   "generate_infographic",
   [
-    "Generate one or more infographic-style images with BranDoIt using the",
+    "Generate one or more infographic-style images with PixTaffy using the",
     "account's saved look (type, visual style, brand colors) and the",
     "account's own model API keys. Give a CONTENT prompt — the concepts,",
     "sections, and label wording to depict — and let the account's style",
     "settings control the look. Prefer passing presetName when the user has",
     "a saved preset for this kind of work. Generation takes 30-90 seconds",
     "per image. Returns hosted image URLs; images are saved to the user's",
-    "BranDoIt gallery when saveToGallery is true (the default).",
+    "PixTaffy gallery when saveToGallery is true (the default).",
   ].join(" "),
   {
     prompt: z
@@ -69,7 +73,7 @@ server.tool(
       .string()
       .optional()
       .describe(
-        "Name of a saved BranDoIt preset (exact, case-insensitive) supplying style/colors/size/model and optional art direction.",
+        "Name of a saved PixTaffy preset (exact, case-insensitive) supplying style/colors/size/model and optional art direction.",
       ),
     model: z
       .string()
@@ -90,7 +94,7 @@ server.tool(
     saveToGallery: z
       .boolean()
       .optional()
-      .describe("Save the result to the user's BranDoIt gallery (default true)."),
+      .describe("Save the result to the user's PixTaffy gallery (default true)."),
     folderName: z
       .string()
       .optional()

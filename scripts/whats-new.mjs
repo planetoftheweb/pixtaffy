@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * What's New tooling — twin subcommands that keep BranDoIt's user-facing
+ * What's New tooling: twin subcommands that keep PixTaffy's user-facing
  * release surface in sync with the package version.
  *
  *   node scripts/whats-new.mjs add     # interactive scaffold → data/whatsNew.ts

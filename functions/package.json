@@ -1,6 +1,6 @@
 {
   "name": "functions",
-  "description": "Cloud Functions for BranDoIt",
+  "description": "Cloud Functions for PixTaffy",
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
