@@ -22,10 +22,11 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 *   **🌍 Community Catalog:** Browse public items shared by other users.
 *   **💾 Cloud History:** Automatically saves your generation history with metadata in Firestore and raster image bytes in Firebase Storage (`users/{uid}/history/{generationId}/{versionId}.{ext}`), so tiles never bump into the 1 MiB Firestore document limit and deletes clean up Storage automatically.
 *   **🖼️ Smart Analysis:** Upload brand guidelines (PDF/Image) to extract colors and styles with an interactive review modal.
-*   **✨ Prompt Expansion:** One-click prompt enhancement using AI to generate detailed visual descriptions from simple text. Uses your **Gemini** or **OpenAI** BYOK key (same routing as the toolbar—Gemini Flash or OpenAI `gpt-4o-mini`, not the GPT Image endpoints).
+*   **✨ PixTaffy AI tools:** Prompt expansion, naming, image analysis, correction analysis, style extraction, region detection, and brand-guideline analysis run through a server-side Gemini key and consume 0.1 to 0.5 PixTaffy credit. BYOK remains free for image generation only.
 *   **👤 User Profiles:** Sign up with Email or Username. Sync preferences across devices.
 *   **⚙️ Full Settings Management:** dedicated page for managing API keys, profile settings, and application preferences.
 *   **🔑 BYOK (Bring Your Own Key):** Multi-model keys for Google Gemini and OpenAI. A single OpenAI key drives three tiers — **GPT Image 2** (flagship, 2K/4K, 3:1 & 1:3 ratios), **GPT Image Mini** (budget), and **GPT Image 1.5** (legacy) — with a per-model **Quality** control (Auto / Low / Medium / High).
+*   **💳 Optional PixTaffy credits:** Verified accounts receive 5 starter credits for 30 days. Credit packs and PixTaffy Pro fund curated OpenRouter image models without exposing shared provider keys to the browser.
 *   **🧠 Refinement Workspace:** Per-image refine model + target size controls, built-in **Run analysis** correction-plan generator (Gemini Flash vision or OpenAI `gpt-4o-mini` vision + JSON, matching your configured keys), and style-reference fallback for difficult recompositions.
 *   **🧬 Versioned Iteration:** Mark-based generation/refinement history with restore, per-refinement deletion, and per-version aspect-ratio tracking so follow-up edits keep the correct size.
 *   **📝 Better Prompt Editing:** Compact refine textbox with optional **full-screen prompt editor** (opens after Run analysis or via **Open full editor**), **Escape** to close, and keyboard submit shortcut (`Cmd/Ctrl + Enter`).
@@ -83,9 +84,6 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
     Create a `.env` (or `.env.local`) file in the root directory. **Keys must start with `VITE_`**.
 
     ```env
-    # Google Gemini AI
-    VITE_GEMINI_API_KEY=your_gemini_key
-
     # Firebase Configuration
     VITE_FIREBASE_API_KEY=your_firebase_api_key
     VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -93,8 +91,11 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
     VITE_FIREBASE_STORAGE_BUCKET=your_bucket.appspot.com
     VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_id
     VITE_FIREBASE_APP_ID=your_app_id
+    VITE_FIREBASE_APPCHECK_SITE_KEY=your_recaptcha_enterprise_site_key
     ```
     *Note: The app includes a built-in "Configuration Error" screen that will alert you if any of these keys are missing.*
+
+    PixTaffy's shared OpenRouter and Gemini keys must not use `VITE_` variables. Store them as Firebase Function secrets named `OPENROUTER_API_KEY` and `PIXTAFFY_GEMINI_API_KEY`.
 
 4.  **Configure Firebase Storage CORS:**
     To allow image uploads from localhost and your production domain, you must apply CORS rules to your Storage bucket.

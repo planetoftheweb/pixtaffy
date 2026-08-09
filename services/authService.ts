@@ -5,7 +5,8 @@ import {
   updateProfile,
   deleteUser,
   User as FirebaseUser,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendEmailVerification,
 } from "firebase/auth";
 import { 
   doc, 
@@ -294,6 +295,7 @@ const transformUser = (firebaseUser: FirebaseUser, userData: any, isAdmin: boole
     name: userData?.name || firebaseUser.displayName || 'User',
     username: userData?.username, // Map username from Firestore
     email: firebaseUser.email || '',
+    emailVerified: firebaseUser.emailVerified,
     photoURL: userData?.photoURL || firebaseUser.photoURL || undefined, // Map photoURL
     photoDataUrl: typeof userData?.photoDataUrl === 'string' ? userData.photoDataUrl : undefined,
     preferences: userData?.preferences ? hydratePreferences(userData.preferences) : defaultPreferences,
@@ -418,6 +420,9 @@ export const authService = {
       const user = userCredential.user;
 
       await updateProfile(user, { displayName: name });
+      await sendEmailVerification(user, {
+        url: `${window.location.origin}/?verified=1`,
+      });
 
       // Create the user document in Firestore - SANITIZED
       const newUserProfile = {
@@ -510,6 +515,21 @@ export const authService = {
     } catch (error) {
       console.error("Logout Error:", error);
     }
+  },
+
+  resendVerification: async (): Promise<void> => {
+    const current = auth.currentUser;
+    if (!current) throw new Error('Sign in before requesting a verification email.');
+    if (current.emailVerified) return;
+    await sendEmailVerification(current, { url: `${window.location.origin}/?verified=1` });
+  },
+
+  refreshEmailVerification: async (): Promise<boolean> => {
+    const current = auth.currentUser;
+    if (!current) return false;
+    await current.reload();
+    await current.getIdToken(true);
+    return current.emailVerified;
   },
 
   getCurrentUser: (): Promise<User | null> => {

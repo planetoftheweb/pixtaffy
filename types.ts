@@ -445,6 +445,7 @@ export interface User {
   name: string;
   username?: string; 
   email: string;
+  emailVerified?: boolean;
   photoURL?: string; 
   photoDataUrl?: string;
   preferences: UserPreferences;

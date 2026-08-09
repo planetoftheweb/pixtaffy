@@ -23,6 +23,46 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.26.0-sustainable-ai-credits',
+    title: 'Five credits to start, then pay as you go',
+    summary:
+      'PixTaffy now includes starter credits, permanent credit packs, and a monthly Pro plan for site-funded AI.',
+    blurb:
+      'You can still bring your own image-generation key and use PixTaffy for free. When you want PixTaffy to handle the provider bill, verified accounts get five starter credits, credit packs never expire, and PixTaffy Pro adds 100 credits every month with two-month rollover. Every paid model and AI helper shows its credit cost before it runs.',
+    publishedAt: Date.parse('2026-08-09T20:30:00Z'),
+    version: '0.26.0',
+    image: '/pixtaffy.png',
+    featured: true,
+    sections: [
+      {
+        heading: 'Try site-funded AI with five starter credits',
+        body: 'Verify your email and PixTaffy adds five credits that are good for 30 days. They work in the web studio for paid image models and AI workflow tools, so you can try the whole experience before buying anything.',
+        steps: [
+          { text: 'Create an account or sign in, then verify your email.', icon: 'Check' },
+          { text: 'Open Pricing to see your balance and credit activity.', icon: 'Eye' },
+          { text: 'Pick a paid model and review its exact credit cost before generating.', icon: 'Sparkles' },
+        ],
+      },
+      {
+        heading: 'Buy permanent credits or subscribe to Pro',
+        body: 'Credit packs cost $6 for 25, $18 for 100, or $45 for 300, and purchased credits never expire. PixTaffy Pro costs $15 a month, adds 100 credits each billing period, and lets unused subscription credits roll over for up to two months.',
+        steps: [
+          { text: 'Choose a pack when you want credits without a subscription.', icon: 'CreditCard' },
+          { text: 'Choose Pro for a fresh monthly balance and 2,000 saved generations.', icon: 'Layers' },
+          { text: 'Use the billing portal anytime to update payment details or cancel.', icon: 'Settings' },
+        ],
+      },
+      {
+        heading: 'BYOK stays free',
+        body: 'Your own image-generation keys still work without PixTaffy credits. Paid Gemini helpers use the PixTaffy balance so the cost is predictable and the provider keys stay safely on the server.',
+        steps: [
+          { text: 'Add your image provider key in Settings to keep generating free.', icon: 'KeyRound' },
+          { text: 'Switch to a PixTaffy-funded model whenever you want one-click billing.', icon: 'ArrowRight' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.25.0-pixtaffy',
     title: 'Say hello to PixTaffy',
     summary:

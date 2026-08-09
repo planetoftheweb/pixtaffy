@@ -4,6 +4,7 @@ import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import {
   getAnalytics,
   isSupported as isAnalyticsSupported,
@@ -54,6 +55,19 @@ export const functions = getFunctions(app);
 const useEmulators =
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ||
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === '1';
+
+// App Check protects paid callable endpoints from scripts that bypass the web
+// app. Enforcement is enabled server-side only after this site key is present
+// in production so local development never gets locked out accidentally.
+const appCheckSiteKey =
+  import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY ||
+  '6LcPunwtAAAAAH_6Lae-Kt5DyXIsZIY2xxK2Po4u';
+if (typeof window !== 'undefined' && !useEmulators && appCheckSiteKey) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
 
 // ---- Google Analytics (GA4) ------------------------------------------------
 // Firebase Analytics is only wired up when:

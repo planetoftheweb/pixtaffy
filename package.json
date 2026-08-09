@@ -1,12 +1,13 @@
 {
   "name": "pixtaffy",
   "private": true,
-  "version": "0.25.0",
+  "version": "0.26.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/whats-new.mjs check",
     "build": "vite build",
+    "test:rules": "firebase emulators:exec --only firestore,storage \"node --test tests/billing.rules.test.mjs\"",
     "preview": "vite preview",
     "whats-new": "node scripts/whats-new.mjs add",
     "whats-new:check": "node scripts/whats-new.mjs check",
@@ -25,6 +26,7 @@
     "react-dom": "^19.2.3"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",

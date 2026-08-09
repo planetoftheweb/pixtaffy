@@ -1,6 +1,6 @@
 [
   {
-    "origin": ["*"],
+    "origin": ["https://pixtaffy.com", "https://www.pixtaffy.com", "https://pixtaffy.web.app", "http://localhost:5173"],
     "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
     "maxAgeSeconds": 3600
   }

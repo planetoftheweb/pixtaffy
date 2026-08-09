@@ -1,13 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { GenerationConfig, BrandColor, VisualStyle, GraphicType, AspectRatioOption, User, Team, SvgMode, ToolbarPreset, GeneratedImage, PromptImageStyleInfluenceMode, PromptImageStyleReference } from '../types';
-import { analyzeImageForOption, describeImageContentPrompt, expandPrompt } from '../services/geminiService';
-import {
-  expandPromptOpenAI,
-  analyzeImageStyleOpenAI,
-  describeImageContentPromptOpenAI,
-} from '../services/openaiService';
-import { resolveAuxiliaryByokProvider, getApiKeyForModelFromUser, getGeminiApiKeyForAnalysis } from '../services/correctionAnalysisRouter';
+import { analyzeFileOptionPaid, describeImagePaid, expandPromptPaid } from '../services/paidAiService';
+import { SITE_FUNDED_MODEL_MILLICREDITS } from '../services/billingService';
 import { resourceService } from '../services/resourceService';
 import { teamService } from '../services/teamService';
 import { SUPPORTED_MODELS, MODEL_GROUP_ORDER } from '../constants';
@@ -96,6 +91,8 @@ interface ControlPanelProps {
   config: GenerationConfig;
   setConfig: React.Dispatch<React.SetStateAction<GenerationConfig>>;
   onGenerate: (count: number) => void;
+  /** PixTaffy-funded cost for one pass across the selected models. */
+  paidBatchMilliCredits?: number;
   isGenerating: boolean;
   options: {
     brandColors: BrandColor[];
@@ -551,6 +548,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   config,
   setConfig,
   onGenerate,
+  paidBatchMilliCredits = 0,
   isGenerating,
   options,
   setOptions,
@@ -829,6 +827,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const perModelBatchRuns = expandedPromptCount * safeBatchCount;
   const modelCount = isMultiModelActive ? effectiveSelectedModelIds.length : 1;
   const totalBatchRuns = perModelBatchRuns * modelCount;
+  const totalPaidBatchMilliCredits = paidBatchMilliCredits * perModelBatchRuns;
+  const paidBatchCreditLabel = Number.isInteger(totalPaidBatchMilliCredits / 1_000)
+    ? String(totalPaidBatchMilliCredits / 1_000)
+    : (totalPaidBatchMilliCredits / 1_000).toFixed(1);
   const exceedsBatchCap = Number.isFinite(batchCap) && totalBatchRuns > batchCap;
   const hasSetupAction = setupRequired && typeof onSetupAction === 'function';
   const generateButtonLabel = hasSetupAction
@@ -891,7 +893,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const hasBatchInfo =
     !!config.prompt &&
     (totalBatchRuns > 0 || expansion.hasBraces || expansion.hasPromptList || exceedsBatchCap) &&
-    (!hasGenerated || isGenerating || exceedsBatchCap);
+    (!hasGenerated || isGenerating || exceedsBatchCap || totalPaidBatchMilliCredits > 0);
   const [paletteCopyMessage, setPaletteCopyMessage] = useState<string | null>(null);
   const paletteCopyTimerRef = useRef<number | null>(null);
   const [bulkPaletteInput, setBulkPaletteInput] = useState('');
@@ -907,30 +909,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     if (!config.prompt || isExpandingPrompt) return;
     setIsExpandingPrompt(true);
     try {
-      const route = resolveAuxiliaryByokProvider(selectedModel, (id) =>
-        getApiKeyForModelFromUser(user, id)
-      );
-      if (!route) {
-        console.warn('Expand prompt: no OpenAI or Gemini API key configured.');
+      if (!user) {
+        console.warn('Expand prompt: sign in and add credits first.');
         return;
       }
       const ctx = { ...options, aspectRatios: options.aspectRatios };
-      const expanded =
-        route.provider === 'openai'
-          ? await expandPromptOpenAI(
-              config.prompt,
-              config,
-              ctx,
-              route.apiKey,
-              user?.preferences?.systemPrompt
-            )
-          : await expandPrompt(
-              config.prompt,
-              config,
-              ctx,
-              route.apiKey,
-              user?.preferences?.systemPrompt
-            );
+      const expanded = await expandPromptPaid(config.prompt, config, ctx, user.preferences?.systemPrompt);
       setConfig((prev) => ({ ...prev, prompt: expanded }));
     } catch (err) {
       console.error('Failed to expand prompt:', err);
@@ -1212,18 +1196,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setActiveColorIndex(null);
   };
 
-  const getGeminiAnalysisKey = (): string | undefined => getGeminiApiKeyForAnalysis(user);
-
-  /**
-   * Same routing as Run analysis / Expand prompt: prefer the toolbar provider,
-   * otherwise whichever key is configured. This lets dropped-image style and
-   * content prompts succeed when Google rejects the Gemini key for Flash
-   * text/vision (a known project-enablement edge case) but the OpenAI key
-   * still works.
-   */
-  const resolvePromptImageRoute = (): { provider: 'gemini' | 'openai'; apiKey: string } | null =>
-    resolveAuxiliaryByokProvider(selectedModel, (id) => getApiKeyForModelFromUser(user, id));
-
   const fileToGeneratedImage = (file: File): Promise<GeneratedImage> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -1290,9 +1262,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const handlePromptImageToPrompt = async () => {
     if (!promptImageFile) return;
-    const route = resolvePromptImageRoute();
-    if (!route) {
-      setPromptImageError('Add an OpenAI or Gemini API key in Settings to analyze dropped images.');
+    if (!user) {
+      setPromptImageError('Sign in and add credits to analyze dropped images.');
       return;
     }
 
@@ -1300,20 +1271,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setPromptImageError(null);
     try {
       const image = await fileToGeneratedImage(promptImageFile);
-      const contentPrompt =
-        route.provider === 'openai'
-          ? await describeImageContentPromptOpenAI(
-              image.base64Data,
-              image.mimeType,
-              route.apiKey,
-              user?.preferences.systemPrompt
-            )
-          : await describeImageContentPrompt(
-              image.base64Data,
-              image.mimeType,
-              route.apiKey,
-              user?.preferences.systemPrompt
-            );
+      const contentPrompt = await describeImagePaid(image.base64Data, image.mimeType);
       setConfig((prev) => ({ ...prev, prompt: contentPrompt }));
       closePromptImageDialog();
     } catch (err) {
@@ -1339,9 +1297,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const handlePromptImageAsStyle = async (influenceMode: PromptImageStyleInfluenceMode) => {
     if (!promptImageFile) return;
-    const route = resolvePromptImageRoute();
-    if (!route) {
-      setPromptImageError('Add an OpenAI or Gemini API key in Settings to analyze dropped images.');
+    if (!user) {
+      setPromptImageError('Sign in and add credits to analyze dropped images.');
       return;
     }
 
@@ -1350,9 +1307,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     try {
       const [image, style] = await Promise.all([
         fileToGeneratedImage(promptImageFile),
-        route.provider === 'openai'
-          ? analyzeImageStyleOpenAI(promptImageFile, route.apiKey, user?.preferences.systemPrompt)
-          : analyzeImageForOption(promptImageFile, 'style', route.apiKey, user?.preferences.systemPrompt),
+        analyzeFileOptionPaid(promptImageFile, 'style'),
       ]);
       onPromptImageStyleReferenceChange?.({
         image,
@@ -1390,10 +1345,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
     setIsAnalysingOption(true);
     try {
-      // analyzeImageForOption always runs on Gemini's analysis model, so it
-      // must use the Gemini key regardless of the user's selected image model.
-      const geminiKey = getGeminiApiKeyForAnalysis(user);
-      const result = await analyzeImageForOption(file, modalType, geminiKey, user?.preferences.systemPrompt); 
+      if (!user) throw new Error('Sign in and add credits to analyze images.');
+      const result = await analyzeFileOptionPaid(file, modalType);
       
       setNewItemName(result.name);
       if (modalType === 'style' && result.description) setNewItemDescription(result.description);
@@ -2248,6 +2201,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                 <Sparkles size={14} className="text-brand-teal shrink-0" />
                               )}
                               <span className="font-medium">{modelLabelMap[model.id] || model.name}</span>
+                              {SITE_FUNDED_MODEL_MILLICREDITS[model.id] && (
+                                <span className="ml-auto shrink-0 rounded-full bg-fuchsia-50 px-2 py-0.5 text-[10px] font-bold text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200">
+                                  {SITE_FUNDED_MODEL_MILLICREDITS[model.id] / 1_000} cr or BYOK
+                                </span>
+                              )}
                             </button>
                           );
                         })}
@@ -2853,6 +2811,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         .
                       </span>
                     )}
+                    {totalPaidBatchMilliCredits > 0 && (
+                      <span className="font-semibold text-brand-teal">
+                        {' '}PixTaffy cost: {paidBatchCreditLabel} credit{totalPaidBatchMilliCredits === 1_000 ? '' : 's'}.
+                      </span>
+                    )}
                   </>
                 )}
               </div>
@@ -2943,6 +2906,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       {totalBatchRuns > 0 && (
                         <span className="text-slate-400 dark:text-slate-500">
                           {' '}Est. ~{estimatedLabel}.
+                        </span>
+                      )}
+                      {totalPaidBatchMilliCredits > 0 && (
+                        <span className="font-semibold text-brand-teal">
+                          {' '}PixTaffy cost: {paidBatchCreditLabel} credit{totalPaidBatchMilliCredits === 1_000 ? '' : 's'}.
                         </span>
                       )}
                     </>

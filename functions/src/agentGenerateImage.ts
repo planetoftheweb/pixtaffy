@@ -14,6 +14,7 @@ import { verifyApiToken, enforceApiRateLimit, RateLimitError } from "./apiTokens
 import sharp from "sharp";
 import { getStorage } from "firebase-admin/storage";
 import type { Firestore, DocumentReference } from "firebase-admin/firestore";
+import { generateOpenRouterImageCore } from "./openRouterProvider";
 
 const REGION = "us-central1";
 const MAX_BATCH_PROMPTS = 15;
@@ -691,23 +692,6 @@ async function convertImageFormat(
 
 /** ---- OpenRouter Images API (mirrors client services/openRouterService) --- */
 
-const OPENROUTER_SIZE_BY_ASPECT: Record<string, [string, string]> = {
-  "1:1": ["2048x2048", "1024x1024"],
-  "16:9": ["2560x1440", "1920x1080"],
-  "9:16": ["1440x2560", "1080x1920"],
-  "4:3": ["2304x1728", "1600x1200"],
-  "3:4": ["1728x2304", "1200x1600"],
-  "3:2": ["2448x1632", "1728x1152"],
-  "2:3": ["1632x2448", "1152x1728"],
-  "5:4": ["2160x1728", "1600x1280"],
-  "4:5": ["1728x2160", "1280x1600"],
-  "21:9": ["2940x1260", "2520x1080"],
-  "9:21": ["1260x2940", "1080x2520"],
-  "2:1": ["2720x1360", "2048x1024"],
-  "1:2": ["1360x2720", "1024x2048"],
-  "3:1": ["3330x1110", "2496x832"],
-};
-
 async function generateOpenRouterImage(
   prompt: string,
   config: GenerationConfig,
@@ -717,47 +701,14 @@ async function generateOpenRouterImage(
   const fullPrompt = options.systemPrompt?.trim()
     ? `${options.systemPrompt.trim()}\n\n${prompt}`
     : prompt;
-  const base: Record<string, unknown> = {
-    model: options.modelSlug,
+  const generated = await generateOpenRouterImageCore({
+    apiKey,
+    modelSlug: options.modelSlug,
     prompt: fullPrompt,
-    output_format: "png",
-  };
-  const aspect = (config.aspectRatio || "").trim().replace(/_/g, ":").replace(/\s+/g, "");
-  const sizes = OPENROUTER_SIZE_BY_ASPECT[aspect];
-  const attempts: Record<string, unknown>[] = [];
-  if (sizes) attempts.push({ ...base, size: sizes[0] }, { ...base, size: sizes[1] });
-  attempts.push(aspect ? { ...base, aspect_ratio: aspect } : { ...base });
-
-  type OrImagesResponse = {
-    data?: Array<{ b64_json?: string; media_type?: string }>;
-    error?: { message?: string };
-  };
-  let json: OrImagesResponse | null = null;
-  let lastError = "";
-  for (const body of attempts) {
-    const resp = await fetch("https://openrouter.ai/api/v1/images", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey.trim()}`,
-        "Content-Type": "application/json",
-        "X-Title": "PixTaffy API",
-      },
-      body: JSON.stringify(body),
-    });
-    json = (await resp.json().catch(() => null)) as OrImagesResponse | null;
-    if (resp.ok) break;
-    lastError = json?.error?.message || `HTTP ${resp.status}`;
-    json = null;
-    if (resp.status !== 400) break; // only size rejections are retryable
-  }
-  if (!json) {
-    throw new Error(`OpenRouter (${options.modelSlug}): ${lastError || "request failed"}`);
-  }
-  const entry = json.data?.[0];
-  if (!entry?.b64_json) {
-    throw new Error(`OpenRouter (${options.modelSlug}) returned no image data`);
-  }
-  return { base64Data: entry.b64_json, mimeType: entry.media_type || "image/png" };
+    aspectRatio: config.aspectRatio,
+    title: "PixTaffy API",
+  });
+  return { base64Data: generated.base64Data, mimeType: generated.mimeType };
 }
 
 async function uploadGenerationImageAdmin(

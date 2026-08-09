@@ -23,6 +23,7 @@ import {
   type FrameState,
 } from '../services/buildAnimator';
 import { loadBuildSync, loadRemoteBuild, saveLocalBuild, saveBuild } from '../services/buildStore';
+import { autoDetectBuildRegionsPaid, nameBuildRegionsPaid } from '../services/paidAiService';
 
 type BuildTool = 'freeform' | 'rectangle' | 'brush';
 
@@ -34,9 +35,6 @@ interface BuildStudioProps {
    * survives beyond this browser's localStorage (cleared storage, a
    * different device, etc). Guests get local-only persistence. */
   userId?: string;
-  /** BYOK Gemini key for the AI auto-select pass (same key the app's other
-   * auxiliary vision calls use). Absent → the wand explains what to set up. */
-  geminiApiKey?: string;
   /** The app's refine pipeline aimed at THIS studio's generation/version —
    * powers the "Clean up for animation" pass. Creates a new Mark and swaps
    * the studio to it; resolves true on success, false on failure. The
@@ -494,7 +492,7 @@ const SidebarSection: React.FC<{ title: string; defaultOpen?: boolean; children:
   );
 };
 
-export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, onClose, userId, geminiApiKey, onCleanupRefine }) => {
+export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, onClose, userId, onCleanupRefine }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imgDims, setImgDims] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -1867,19 +1865,18 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   const [naming, setNaming] = useState(false);
   const handleAutoName = async () => {
     if (!image || naming || build.steps.length === 0) return;
-    if (!geminiApiKey) {
-      flashStatus('AI naming needs a Google Gemini API key — add one in Settings.');
+    if (!userId) {
+      flashStatus('Sign in and add credits to use AI naming.');
       return;
     }
     setNaming(true);
     setStatus('AI is naming the frames…');
     const stepsBefore = build.steps;
     try {
-      const { nameBuildRegions } = await import('../services/buildAutoSelect');
       const regions = build.steps
         .map((s, i) => ({ index: i, rect: stepBounds(s, imgDims.w, imgDims.h) }))
         .filter((r): r is { index: number; rect: NonNullable<ReturnType<typeof stepBounds>> } => !!r.rect);
-      const names = await nameBuildRegions(image, imgDims.w, imgDims.h, geminiApiKey, regions);
+      const names = await nameBuildRegionsPaid(image, imgDims.w, imgDims.h, regions);
       pushHistory(stepsBefore);
       setBuild((b) => ({
         ...b,
@@ -1895,8 +1892,8 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   };
   const handleAutoSelect = async () => {
     if (!image || autoSelecting) return;
-    if (!geminiApiKey) {
-      flashStatus('AI auto-select needs a Google Gemini API key — add one in Settings.');
+    if (!userId) {
+      flashStatus('Sign in and add credits to use AI auto-select.');
       return;
     }
     setAutoSelecting(true);
@@ -1906,8 +1903,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
     // an empty snapshot made ⌘Z after an AI pass wipe the build).
     const stepsBeforeAi = build.steps;
     try {
-      const { autoDetectBuildRegions } = await import('../services/buildAutoSelect');
-      const regions = await autoDetectBuildRegions(image, imgDims.w, imgDims.h, geminiApiKey);
+      const regions = await autoDetectBuildRegionsPaid(image, imgDims.w, imgDims.h);
       pushHistory(stepsBeforeAi);
       const steps: BuildStep[] = regions.map((r, i) => ({
         id: newId(i),

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-08-09
+
+### Added
+
+- Added verified-email starter grants of 5 credits, expiring after 30 days.
+- Added permanent credit packs at $6 for 25 credits, $18 for 100 credits, and $45 for 300 credits, plus PixTaffy Pro at $15 per month with 100 monthly credits and two-month rollover.
+- Added the Pricing experience, credit balance and activity views, Stripe Checkout, subscription status, and a customer billing portal.
+- Added server-funded OpenRouter image generation and Gemini workflow helpers with published millicredit prices, atomic reservations, idempotent grants, delivery recovery, rate limits, and daily spend circuit breakers.
+- Added protected billing summaries and append-only ledgers, Stripe product and subscription synchronization, refund and chargeback debt handling, history retention tiers, and nightly storage cleanup.
+
+### Changed
+
+- Kept image generation with personal provider keys free, while site-funded image models and Gemini helpers now consume PixTaffy credits.
+- Moved paid provider keys into Firebase Secret Manager and routed paid AI calls through authenticated, App Check-protected Cloud Functions.
+
+### Verified
+
+- Completed Stripe test-mode purchases for the $6 credit pack and $15 monthly Pro plan. Firestore granted one idempotent 25-credit purchase bucket and one 100-credit subscription bucket, with the Pro account active and the customer portal showing payment updates and cancellation controls.
+
 ## [0.25.0] - 2026-08-09
 
 ### Changed

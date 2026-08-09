@@ -25,13 +25,14 @@ import {
   removeCachedGeneration,
   buildImageCacheKey
 } from "./imageCache";
+import { billingService } from './billingService';
 
 const LOCAL_STORAGE_KEY = 'brandoit_generations_v2';
 const LEGACY_STORAGE_KEY = 'brandoit_history';
 const MERGE_BACKUP_KEY = 'brandoit_generations_merge_backup_v1';
 const USER_REMOTE_CACHE_KEY_PREFIX = 'brandoit_remote_history_cache_v1';
 const LOCAL_LIMIT = 20;
-const REMOTE_LIMIT = 20;
+const REMOTE_LIMIT = 100;
 const REMOTE_SCAN_LIMIT = REMOTE_LIMIT * 3;
 /** Admins keep full Firestore history; fetch in pages (Firestore query limits). */
 const ADMIN_REMOTE_PAGE_SIZE = 200;
@@ -696,10 +697,14 @@ export const historyService = {
     const normalized = normalizeGeneration(generation);
     if (user) {
       try {
+        const historyLimit = user.isAdmin
+          ? Number.MAX_SAFE_INTEGER
+          : (await billingService.getBillingState().catch(() => null))?.historyLimit ?? REMOTE_LIMIT;
         const remotePayload = await historyService.saveToRemote(
           user.id,
           normalized,
-          user.isAdmin === true
+          user.isAdmin === true,
+          historyLimit
         );
         upsertUserRemoteCache(
           user.id,
@@ -721,10 +726,14 @@ export const historyService = {
     const normalized = normalizeGeneration(generation);
     if (user) {
       try {
+        const historyLimit = user.isAdmin
+          ? Number.MAX_SAFE_INTEGER
+          : (await billingService.getBillingState().catch(() => null))?.historyLimit ?? REMOTE_LIMIT;
         const remotePayload = await historyService.updateRemote(
           user.id,
           normalized,
-          user.isAdmin === true
+          user.isAdmin === true,
+          historyLimit
         );
         upsertUserRemoteCache(
           user.id,
@@ -780,8 +789,11 @@ export const historyService = {
   getHistory: async (user: User | null): Promise<Generation[]> => {
     if (user) {
       const isAdmin = user.isAdmin === true;
+      const historyLimit = isAdmin
+        ? Number.MAX_SAFE_INTEGER
+        : (await billingService.getBillingState().catch(() => null))?.historyLimit ?? REMOTE_LIMIT;
       const [remoteHistory, localPending, remoteCache, mergeBackup] = await Promise.all([
-        historyService.getFromRemote(user.id, isAdmin),
+        historyService.getFromRemote(user.id, isAdmin, historyLimit),
         Promise.resolve(historyService.getFromLocal()),
         Promise.resolve(readUserRemoteCache(user.id, isAdmin)),
         Promise.resolve(readMergeBackup())
@@ -794,7 +806,7 @@ export const historyService = {
       const recoveryFromBackup = mergeBackup.filter((generation) => knownIds.has(generation.id));
       const merged = mergeGenerationCollections(
         [remoteHistory, remoteCache, localPending, recoveryFromBackup],
-        isAdmin ? undefined : Math.max(REMOTE_LIMIT, LOCAL_LIMIT)
+        isAdmin ? undefined : Math.max(historyLimit, LOCAL_LIMIT)
       );
       writeUserRemoteCache(user.id, merged, isAdmin);
       // Best-effort: pull every history image into IndexedDB so VPN-blocked
@@ -972,7 +984,8 @@ export const historyService = {
   saveToRemote: async (
     userId: string,
     generation: Generation,
-    isAdmin: boolean = false
+    isAdmin: boolean = false,
+    historyLimit: number = REMOTE_LIMIT
   ): Promise<Record<string, unknown>> => {
     const historyRef = collection(db, "users", userId, "history");
     const payload = await serializeGenerationForRemote(userId, normalizeGeneration(generation));
@@ -986,8 +999,8 @@ export const historyService = {
       const q = query(historyRef, orderBy("createdAt", "desc"));
       const snapshot = await getDocs(q);
 
-      if (snapshot.size > REMOTE_LIMIT) {
-        const itemsToDelete = snapshot.docs.slice(REMOTE_LIMIT);
+      if (snapshot.size > historyLimit) {
+        const itemsToDelete = snapshot.docs.slice(historyLimit);
         const deletePromises = itemsToDelete.map(async (d) => {
           const evictedId = d.data().id || d.id;
           await deleteDoc(doc(db, "users", userId, "history", d.id));
@@ -1004,7 +1017,8 @@ export const historyService = {
   updateRemote: async (
     userId: string,
     generation: Generation,
-    isAdmin: boolean = false
+    isAdmin: boolean = false,
+    historyLimit: number = REMOTE_LIMIT
   ): Promise<Record<string, unknown>> => {
     const historyRef = collection(db, "users", userId, "history");
     const genId = generation.id;
@@ -1025,20 +1039,20 @@ export const historyService = {
       await updateDoc(doc(db, "users", userId, "history", existing.id), payload);
       return payload;
     }
-    return historyService.saveToRemote(userId, generation, isAdmin);
+    return historyService.saveToRemote(userId, generation, isAdmin, historyLimit);
   },
 
-  getFromRemote: async (userId: string, isAdmin: boolean = false): Promise<Generation[]> => {
+  getFromRemote: async (userId: string, isAdmin: boolean = false, historyLimit: number = REMOTE_LIMIT): Promise<Generation[]> => {
     try {
       if (isAdmin) {
         return await fetchAllRemoteHistoryPages(userId);
       }
       const historyRef = collection(db, "users", userId, "history");
-      const q = query(historyRef, orderBy("createdAt", "desc"), limit(REMOTE_SCAN_LIMIT));
+      const q = query(historyRef, orderBy("createdAt", "desc"), limit(Math.max(1, historyLimit)));
       const snapshot = await getDocs(q);
 
       const parsed = snapshot.docs.map(d => mapRemoteDocToGeneration(d.id, d.data()));
-      return mergeGenerationCollections([parsed], REMOTE_LIMIT);
+      return mergeGenerationCollections([parsed], historyLimit);
     } catch (e) {
       console.error("Failed to fetch remote history:", e);
       return [];

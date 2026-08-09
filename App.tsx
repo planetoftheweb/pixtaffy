@@ -18,18 +18,12 @@ import {
   generateGraphic,
   generateGraphicWithStyleReference,
   refineGraphic,
-  analyzeBrandGuidelines,
-  describeImagePrompt,
-  analyzeImageForCorrectionPrompt,
-  expandPrompt
 } from './services/geminiService';
 import {
   generateOpenAIImage,
   refineOpenAIImage,
-  analyzeImageForCorrectionPromptOpenAI,
-  expandPromptOpenAI,
 } from './services/openaiService';
-import { resolveAuxiliaryByokProvider, getApiKeyForModelFromUser, getGeminiApiKeyForAnalysis, getOpenRouterKeyFromUser } from './services/correctionAnalysisRouter';
+import { getApiKeyForModelFromUser, getOpenRouterKeyFromUser } from './services/correctionAnalysisRouter';
 import { generateOpenRouterImage } from './services/openRouterService';
 import { generateSvg, refineSvg } from './services/svgService';
 import { getAspectRatiosForModel, getSafeAspectRatioForModel, extractAspectRatioFromText, normalizeAspectRatio } from './services/aspectRatioService';
@@ -65,6 +59,13 @@ import { detectLikelyCanvasPadding } from './services/recomposeQualityService';
 import { toMarkLabel } from './services/versionUtils';
 import { buildProfileImageCacheKey, getCachedImageBlob } from './services/imageCache';
 import { fetchProfileThumbnailDataUrl } from './services/imageService';
+import { billingService, makeRequestId, SITE_FUNDED_MODEL_MILLICREDITS, type BillingState } from './services/billingService';
+import {
+  analyzeBrandGuidelinesPaid,
+  analyzeImageForCorrectionPaid,
+  describeImagePaid,
+  expandPromptPaid,
+} from './services/paidAiService';
 import { CachedImage } from './components/CachedImage';
 import { WhatsNewBell } from './components/WhatsNewBell';
 import { WhatsNewSpotlight } from './components/WhatsNewSpotlight';
@@ -89,6 +90,7 @@ import {
   Globe,
   Github,
   ShieldCheck,
+  Coins,
   Minimize2,
   Maximize2
 } from 'lucide-react';
@@ -110,6 +112,9 @@ const AdminPage = lazy(() =>
 );
 const WhatsNewPage = lazy(() =>
   import('./components/WhatsNewPage').then((mod) => ({ default: mod.WhatsNewPage }))
+);
+const PricingPage = lazy(() =>
+  import('./components/PricingPage').then((mod) => ({ default: mod.PricingPage }))
 );
 const SearchModal = lazy(() =>
   import('./components/SearchModal').then((mod) => ({ default: mod.SearchModal }))
@@ -321,6 +326,10 @@ const App: React.FC = () => {
   const [settingsMode, setSettingsMode] = useState(false);
   const [catalogMode, setCatalogMode] = useState<'style' | 'color' | null>(null);
   const [adminMode, setAdminMode] = useState(false);
+  const [billingMode, setBillingMode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('billing') || params.has('checkout');
+  });
   // Full-page "What's new" blog view (siblings: WhatsNewBell dropdown, WhatsNewSpotlight modal).
   // Reachable from the bell footer "View all updates" link, the bell rows
   // (which open the per-entry detail), the spotlight's "Read the guide"
@@ -364,6 +373,7 @@ const App: React.FC = () => {
   const [isAuthResolved, setIsAuthResolved] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
+  const [billingState, setBillingState] = useState<BillingState | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   // Build Studio (reveal animator) target — the generation+version to animate.
   const [buildStudioTarget, setBuildStudioTarget] = useState<
@@ -371,6 +381,17 @@ const App: React.FC = () => {
   >(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setBillingState(null);
+      billingService.clearCache();
+      return;
+    }
+    void billingService.getBillingState(true)
+      .then(setBillingState)
+      .catch((error) => console.warn('[App] Billing state unavailable:', error));
+  }, [user?.id, user?.emailVerified]);
 
   // Application State for Options (allows adding/removing)
   const [brandColors, setBrandColors] = useState<BrandColor[]>([]);
@@ -840,6 +861,7 @@ const App: React.FC = () => {
       setWhatsNewEntryId(entryId);
       setSettingsMode(false);
       setAdminMode(false);
+      setBillingMode(false);
       setCatalogMode(null);
       whatsNew.closeBell();
       whatsNew.markAllAsSeen();
@@ -1286,7 +1308,9 @@ const App: React.FC = () => {
   const getActiveApiKey = (): string | undefined => getApiKeyForModel(selectedModel);
 
   const activeApiKey = getActiveApiKey();
-  const needsSetup = !user || !activeApiKey;
+  const activeModelSupportsCredits = Boolean(SITE_FUNDED_MODEL_MILLICREDITS[selectedModel]);
+  const hasUsableCredits = Boolean(billingState?.isAdmin || (billingState?.balanceMilliCredits ?? 0) > 0);
+  const needsSetup = !user || (!activeApiKey && (!activeModelSupportsCredits || !hasUsableCredits));
 
   // Open the BYOK "Quick Start" modal only after Firebase auth has actually
   // resolved. Without this guard, returning users see a flash of the
@@ -1413,10 +1437,9 @@ const App: React.FC = () => {
     try {
       let imageDescription = '';
       try {
-        const geminiKey = getGeminiApiKeyForAnalysis(user);
-        if (geminiKey) {
+        if (user) {
           const { base64, mime } = await fetchImageAsBase64(version.imageUrl);
-          imageDescription = await describeImagePrompt(base64, mime, geminiKey);
+          imageDescription = await describeImagePaid(base64, mime);
         }
       } catch (err) {
         console.warn('Image describe fallback (main image):', err);
@@ -1575,10 +1598,11 @@ const App: React.FC = () => {
     setIsGenerationsPanelCollapsed(false);
 
     let jobId = '';
+    let batchReservationId: string | null = null;
     try {
       if (!user) {
         openAuthModal('signup');
-        throw new Error('Free accounts use your own API key (BYOK). Create an account, then add your key in Settings to start generating.');
+        throw new Error('Create an account to receive 5 starter credits, or bring your own image-generation key.');
       }
       if (!config.prompt.trim()) {
         throw new Error('Enter a prompt before generating.');
@@ -1590,14 +1614,14 @@ const App: React.FC = () => {
         if (key) acc[modelId] = key;
         return acc;
       }, {});
-      // Verify every selected model has an API key wired up before we start.
+      // A model can run either through the user's own key or through PixTaffy's
+      // server key when it has an explicit, server-mirrored credit price.
       const missingKeys = modelIdsToRun.filter((id) => !apiKeysByModel[id]);
-      if (missingKeys.length > 0) {
+      const unsupportedWithoutKey = missingKeys.filter((id) => !SITE_FUNDED_MODEL_MILLICREDITS[id]);
+      if (unsupportedWithoutKey.length > 0) {
         setSettingsMode(true);
         throw new Error(
-          missingKeys.length === modelIdsToRun.length
-            ? 'Add your API key in Settings before generating. Free accounts use BYOK keys.'
-            : `Missing API key(s) for: ${missingKeys.join(', ')}. Add them in Settings or deselect those models.`
+          `BYOK is required for: ${unsupportedWithoutKey.join(', ')}. Add the matching API key in Settings or choose a credit-enabled model.`
         );
       }
 
@@ -1615,6 +1639,20 @@ const App: React.FC = () => {
       const safeCount = Math.max(1, Math.floor(count || 1));
       const perModelRuns = prompts.length * safeCount;
       const totalRuns = perModelRuns * modelIdsToRun.length;
+      const requiredMilliCredits = modelIdsToRun.reduce(
+        (sum, modelId) => sum + (apiKeysByModel[modelId] ? 0 : (SITE_FUNDED_MODEL_MILLICREDITS[modelId] ?? 0) * perModelRuns),
+        0
+      );
+      if (
+        requiredMilliCredits > 0 &&
+        !billingState?.isAdmin &&
+        (billingState?.balanceMilliCredits ?? 0) < requiredMilliCredits
+      ) {
+        setBillingMode(true);
+        throw new Error(
+          `This batch costs ${(requiredMilliCredits / 1000).toFixed(1).replace(/\.0$/, '')} credits. Add credits or use your own API key.`
+        );
+      }
       const cap = batchCapFor(user);
       if (Number.isFinite(cap) && totalRuns > cap) {
         throw new Error(
@@ -1654,6 +1692,23 @@ const App: React.FC = () => {
       // while the batch is in flight.
       const startedAt = Date.now();
       jobId = `run-${startedAt.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const siteFundedModels = modelIdsToRun
+        .filter((modelId) => !apiKeysByModel[modelId])
+        .map((modelId) => ({ modelId, count: perModelRuns }));
+      if (siteFundedModels.length > 0) {
+        const reserved = await billingService.reserveImageBatch({
+          models: siteFundedModels,
+          idempotencyKey: makeRequestId(`${jobId}-batch`),
+        });
+        batchReservationId = reserved.reservationId;
+        setBillingState((current) => current && !current.isAdmin
+          ? {
+              ...current,
+              balanceMilliCredits: reserved.balanceMilliCredits,
+              balanceCredits: reserved.balanceMilliCredits / 1000,
+            }
+          : current);
+      }
       const abortController = new AbortController();
       generationJobAbortControllersRef.current[jobId] = abortController;
       const initialModelProgress = modelIdsToRun.reduce<Record<string, BatchModelProgressSummary>>((acc, modelId) => {
@@ -1725,7 +1780,8 @@ const App: React.FC = () => {
 
       const runBatchForModel = async (modelId: string) => {
         const modelKey = apiKeysByModel[modelId];
-        if (!modelKey) throw new Error(`Missing API key for ${modelId}.`);
+        const usePixTaffyCredits = !modelKey && Boolean(SITE_FUNDED_MODEL_MILLICREDITS[modelId]);
+        if (!modelKey && !usePixTaffyCredits) throw new Error(`Missing API key for ${modelId}.`);
         // Per-model aspect-ratio coercion: GPT Image 2 supports wider ratios
         // than GPT Image 1.5, Gemini models support different ones, etc.
         const safeAspectRatioForModel = getSafeAspectRatioForModel(modelId, safeConfig.aspectRatio, runContext.aspectRatios);
@@ -1747,7 +1803,18 @@ const App: React.FC = () => {
 
           const jobStart = performance.now();
           let result;
-          if (modelId === 'gemini-svg') {
+          if (usePixTaffyCredits) {
+            result = await billingService.generateWithCredits({
+              modelId,
+              prompt: structuredPrompt,
+              aspectRatio: requestConfig.aspectRatio,
+              idempotencyKey: makeRequestId(`${jobId}-${modelId}-${job.globalIndex}`),
+              batchReservationId,
+            });
+            setBillingState((current) => current && !current.isAdmin
+              ? { ...current, balanceMilliCredits: result.balanceMilliCredits, balanceCredits: result.balanceMilliCredits / 1000 }
+              : current);
+          } else if (modelId === 'gemini-svg') {
             result = await generateSvg(requestConfig, runContext, modelKey, runSystemPrompt);
           } else if (modelId.startsWith(OPENROUTER_MODEL_PREFIX)) {
             result = await generateOpenRouterImage(structuredPrompt, requestConfig, modelKey, {
@@ -1991,6 +2058,16 @@ const App: React.FC = () => {
         scheduleGenerationJobDismissal(jobId, 14000);
       }
     } finally {
+      if (batchReservationId) {
+        try {
+          const balanceMilliCredits = await billingService.releaseImageBatchRemainder(batchReservationId);
+          setBillingState((current) => current && !current.isAdmin
+            ? { ...current, balanceMilliCredits, balanceCredits: balanceMilliCredits / 1000 }
+            : current);
+        } catch (releaseError) {
+          console.warn('Unable to release the unused batch credit reservation:', releaseError);
+        }
+      }
       if (jobId) {
         delete generationJobAbortControllersRef.current[jobId];
       }
@@ -2309,13 +2386,7 @@ const App: React.FC = () => {
 
     if (!user) {
       openAuthModal('signup');
-      throw new Error('Create a free account and add your API key in Settings before running analysis.');
-    }
-
-    const analysisRoute = resolveAuxiliaryByokProvider(selectedModel, getApiKeyForModel);
-    if (!analysisRoute) {
-      setSettingsMode(true);
-      throw new Error('Add an OpenAI or Gemini API key in Settings to run image analysis.');
+      throw new Error('Create an account to use PixTaffy image analysis.');
     }
 
     const currentVersion = getCurrentVersion(currentGeneration);
@@ -2347,39 +2418,12 @@ const App: React.FC = () => {
       }
     }
 
-    let plan;
-    try {
-      plan =
-        analysisRoute.provider === 'openai'
-          ? await analyzeImageForCorrectionPromptOpenAI(
-              currentImage,
-              currentGeneration.config,
-              context,
-              analysisRoute.apiKey,
-              user?.preferences.systemPrompt
-            )
-          : await analyzeImageForCorrectionPrompt(
-              currentImage,
-              currentGeneration.config,
-              context,
-              analysisRoute.apiKey,
-              user?.preferences.systemPrompt
-            );
-    } catch (err: unknown) {
-      const raw =
-        err instanceof Error ? err.message : typeof err === 'string' ? err : '';
-      if (
-        /API_KEY_INVALID|API key not valid|invalid api key|invalid_api_key|Incorrect API key/i.test(raw)
-      ) {
-        setSettingsMode(true);
-        throw new Error(
-          analysisRoute.provider === 'openai'
-            ? 'OpenAI rejected your API key or refused this vision request. Open Settings → API keys, fix your OpenAI key, save, then try Run analysis again.'
-            : 'Google rejected your Gemini API key. Open Settings → API keys, paste a fresh key from Google AI Studio (Generative Language API enabled for that project), save, then try Run analysis again.'
-        );
-      }
-      throw err;
-    }
+    const plan = await analyzeImageForCorrectionPaid(
+      currentImage,
+      currentGeneration.config,
+      context,
+      user.preferences.systemPrompt
+    );
 
     const issueLines = plan.issues.length > 0
       ? plan.issues.map((issue, idx) => `${idx + 1}. ${issue.trim()}`).join('\n')
@@ -2408,44 +2452,18 @@ const App: React.FC = () => {
     }
     if (!user) {
       openAuthModal('signup');
-      throw new Error('Create a free account and add your API key in Settings before expanding prompts.');
-    }
-    const expandRoute = resolveAuxiliaryByokProvider(selectedModel, getApiKeyForModel);
-    if (!expandRoute) {
-      setSettingsMode(true);
-      throw new Error('Add an OpenAI or Gemini API key in Settings to expand prompts.');
+      throw new Error('Create an account to use PixTaffy prompt expansion.');
     }
     const seed = draft.trim() || (currentGeneration.config.prompt || '').trim();
     if (!seed) {
       throw new Error('Type a refinement idea, or open a generation that still has its original prompt.');
     }
-    let expanded: string;
-    try {
-      expanded =
-        expandRoute.provider === 'openai'
-          ? await expandPromptOpenAI(
-              seed,
-              currentGeneration.config,
-              context,
-              expandRoute.apiKey,
-              user.preferences.systemPrompt
-            )
-          : await expandPrompt(seed, currentGeneration.config, context, expandRoute.apiKey, user.preferences.systemPrompt);
-    } catch (err: unknown) {
-      const raw =
-        err instanceof Error ? err.message : typeof err === 'string' ? err : '';
-      if (
-        /API_KEY_INVALID|API key not valid|invalid api key|invalid_api_key|Incorrect API key/i.test(raw)
-      ) {
-        setSettingsMode(true);
-        throw new Error(
-          expandRoute.provider === 'openai'
-            ? 'OpenAI rejected your API key or refused expand prompt. Open Settings → API keys, fix your OpenAI key, save, then try again.'
-            : 'Google rejected your Gemini API key. Open Settings → API keys, paste a fresh key from Google AI Studio, save, then try Expand prompt again.'
-        );
-      }
-      throw err;
-    }
+    const expanded = await expandPromptPaid(
+      seed,
+      currentGeneration.config,
+      context,
+      user.preferences.systemPrompt
+    );
     return expanded.trim();
   };
 
@@ -2573,11 +2591,10 @@ const App: React.FC = () => {
           }
 
           if (looksPadded) {
-            const conceptBrief = await describeImagePrompt(
-              currentVersion.imageData,
-              currentVersion.mimeType,
-              customKey
-            );
+            const sourceForDescription = currentVersion.imageData
+              ? { base64: currentVersion.imageData, mime: currentVersion.mimeType }
+              : await fetchImageAsBase64(currentVersion.imageUrl);
+            const conceptBrief = await describeImagePaid(sourceForDescription.base64, sourceForDescription.mime);
             const styleReferencePrompt = [
               `Rebuild this as a new composition at ${normalizedTarget}.`,
               'Use the original image as style reference only, not as a layout template.',
@@ -2767,16 +2784,10 @@ const App: React.FC = () => {
     try {
       if (!user) {
         openAuthModal('signup');
-        throw new Error('Create a free account and add your API key in Settings before analyzing brand guidelines.');
+        throw new Error('Create an account to analyze brand guidelines.');
       }
 
-      const customKey = getGeminiApiKeyForAnalysis(user);
-      if (!customKey) {
-        setSettingsMode(true);
-        throw new Error('Add a Gemini API key in Settings before analyzing brand guidelines.');
-      }
-
-      const result = await analyzeBrandGuidelines(file, customKey, user?.preferences.systemPrompt);
+      const result = await analyzeBrandGuidelinesPaid(file);
       setAnalysisResult(result);
       setIsAnalysisModalOpen(true);
     } catch (err: any) {
@@ -3415,20 +3426,38 @@ const App: React.FC = () => {
   const missingGenerationApiKeyIds = user
     ? generationModelIdsToRun.filter((modelId) => !getApiKeyForModel(modelId))
     : generationModelIdsToRun;
-  const isGenerateSetupRequired = !user || missingGenerationApiKeyIds.length > 0;
+  const creditEligibleMissingIds = missingGenerationApiKeyIds.filter((modelId) => SITE_FUNDED_MODEL_MILLICREDITS[modelId]);
+  const byokOnlyMissingIds = missingGenerationApiKeyIds.filter((modelId) => !SITE_FUNDED_MODEL_MILLICREDITS[modelId]);
+  const canUseCredits = billingState?.isAdmin || (billingState?.balanceMilliCredits ?? 0) > 0;
+  const paidMilliCreditsPerPrompt = user
+    ? generationModelIdsToRun.reduce(
+        (sum, modelId) => sum + (getApiKeyForModel(modelId) ? 0 : SITE_FUNDED_MODEL_MILLICREDITS[modelId] ?? 0),
+        0
+      )
+    : 0;
+  const isGenerateSetupRequired = !user || byokOnlyMissingIds.length > 0 || (creditEligibleMissingIds.length > 0 && !canUseCredits);
   const firstMissingModelId = missingGenerationApiKeyIds[0] || selectedModel;
-  const generateSetupActionLabel = !user ? 'Create account' : 'Add API key';
+  const generateSetupActionLabel = !user ? 'Create account' : byokOnlyMissingIds.length > 0 ? 'Add API key' : 'Get credits';
   const generateSetupActionDescription = !user
     ? 'Create a free account before generating'
-    : missingGenerationApiKeyIds.length > 1
+    : byokOnlyMissingIds.length > 0
+      ? `Add an API key for ${byokOnlyMissingIds.map((id) => MODEL_NAME_BY_ID[id] || id).join(', ')}`
+      : missingGenerationApiKeyIds.length > 1
       ? `Add API keys for ${missingGenerationApiKeyIds.map((id) => MODEL_NAME_BY_ID[id] || id).join(', ')}`
-      : `Add an API key for ${MODEL_NAME_BY_ID[firstMissingModelId] || firstMissingModelId}`;
+      : `Use credits or add your own key for ${MODEL_NAME_BY_ID[firstMissingModelId] || firstMissingModelId}`;
 
   const handleGenerateSetupAction = () => {
     setError(null);
     setIsSetupModalOpen(false);
     if (!user) {
       openAuthModal('signup');
+      return;
+    }
+    if (byokOnlyMissingIds.length === 0 && creditEligibleMissingIds.length > 0) {
+      setBillingMode(true);
+      setSettingsMode(false);
+      setCatalogMode(null);
+      setAdminMode(false);
       return;
     }
     setSettingsMode(true);
@@ -3495,6 +3524,7 @@ const App: React.FC = () => {
               setCatalogMode(null);
               setSettingsMode(false);
               setAdminMode(false);
+              setBillingMode(false);
               setWhatsNewMode(false);
               setWhatsNewEntryId(null);
             }}
@@ -3571,7 +3601,30 @@ const App: React.FC = () => {
                         type="button"
                         role="menuitem"
                         onClick={() => {
+                          setBillingMode(true);
+                          setSettingsMode(false);
+                          setAdminMode(false);
+                          setCatalogMode(null);
+                          setWhatsNewMode(false);
+                          setWhatsNewEntryId(null);
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+                      >
+                        <Coins size={16} className="shrink-0 text-brand-teal" />
+                        <span className="flex-1">Credits & plans</span>
+                        {billingState && !billingState.isAdmin && (
+                          <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-bold text-teal-700 dark:bg-teal-900/30 dark:text-teal-200">
+                            {(billingState.balanceMilliCredits / 1000).toFixed(billingState.balanceMilliCredits % 1000 === 0 ? 0 : 1)}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
                           setSettingsMode(true);
+                          setBillingMode(false);
                           setAdminMode(false);
                           setCatalogMode(null);
                           setWhatsNewMode(false);
@@ -3594,6 +3647,7 @@ const App: React.FC = () => {
                           onClick={() => {
                             setAdminMode(true);
                             setSettingsMode(false);
+                            setBillingMode(false);
                             setCatalogMode(null);
                             setWhatsNewMode(false);
                             setWhatsNewEntryId(null);
@@ -3693,7 +3747,7 @@ const App: React.FC = () => {
                admin/settings/catalog), where the ControlPanel is mounted.
                The header itself stays z-50 so the click target sits
                above the (z-40) toolbar even mid-collapse. */}
-           {!adminMode && !settingsMode && !catalogMode && !whatsNewMode && (
+           {!adminMode && !settingsMode && !billingMode && !catalogMode && !whatsNewMode && (
              <button
                onClick={toggleToolbarCollapsed}
                className="hidden md:inline-flex p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
@@ -3760,6 +3814,10 @@ const App: React.FC = () => {
             currentUser={user}
           />
         </Suspense>
+      ) : billingMode && user ? (
+        <Suspense fallback={<LazyPageFallback label="Loading credits..." />}>
+          <PricingPage user={user} onBack={() => setBillingMode(false)} />
+        </Suspense>
       ) : settingsMode ? (
         user && (
           <Suspense fallback={<LazyPageFallback label="Loading settings..." />}>
@@ -3803,6 +3861,7 @@ const App: React.FC = () => {
             config={config} 
             setConfig={setConfig} 
             onGenerate={handleGenerate}
+            paidBatchMilliCredits={paidMilliCreditsPerPrompt}
             isGenerating={hasRunningGenerationJobs}
             options={context}
             setOptions={{ setBrandColors, setVisualStyles, setGraphicTypes, setAspectRatios }}
@@ -4267,6 +4326,11 @@ const App: React.FC = () => {
             )}
 
             {/* History Gallery */}
+            {user && billingState && !billingState.isAdmin && history.length >= Math.floor(billingState.historyLimit * 0.9) && (
+              <div className="mx-auto mb-3 w-full max-w-6xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200">
+                You have {history.length.toLocaleString()} of {billingState.historyLimit.toLocaleString()} saved generations. Export anything you want to keep before the oldest complete entries roll off.
+              </div>
+            )}
             <RecentGenerations
               hasPreviewAbove={!!currentGeneration || hasRunningGenerationJobs || history.length === 0}
               toolbarCollapsed={isToolbarCollapsed}
@@ -4393,7 +4457,6 @@ const App: React.FC = () => {
             version={buildStudioTarget.version}
             onClose={() => setBuildStudioTarget(null)}
             userId={user?.id}
-            geminiApiKey={getGeminiApiKeyForAnalysis(user)}
             onCleanupRefine={handleBuildStudioCleanup}
           />
         </Suspense>
@@ -4504,10 +4567,10 @@ const App: React.FC = () => {
               {!user ? (
                 <>
                   <h2 className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    Start free with your own API key
+                    Start free, your way
                   </h2>
                   <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-300">
-                    PixTaffy uses BYOK on free accounts. Create your account, add a Gemini or OpenAI key, and you are ready to generate.
+                    Create an account and verify your email for 5 starter credits, or bring your own image-generation key and keep generating free.
                   </p>
                 </>
               ) : (
@@ -4516,7 +4579,7 @@ const App: React.FC = () => {
                     One setup step left
                   </h2>
                   <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-300">
-                    Add your API key in Settings to start generating. Free accounts run on BYOK keys.
+                    Verify your email to claim 5 starter credits, buy a credit pack, or add your own key in Settings.
                   </p>
                 </>
               )}
@@ -4539,9 +4602,9 @@ const App: React.FC = () => {
                 <div className="rounded-2xl border border-slate-200 dark:border-[#30363d] bg-slate-50/80 dark:bg-[#111827]/70 p-4">
                   <div className="flex items-center gap-2 text-slate-900 dark:text-white font-semibold text-sm">
                     <Sparkles size={14} className="text-sky-600 dark:text-sky-300" />
-                    Paid Plans Soon
+                    5 starter credits
                   </div>
-                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">More model access and additional workspace features.</p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Verify your email, then try paid models and AI workflow tools.</p>
                 </div>
               </div>
 
@@ -4564,17 +4627,31 @@ const App: React.FC = () => {
                     </button>
                   </>
                 ) : (
-                  <button
-                    onClick={() => {
-                      setSettingsMode(true);
-                      setIsSetupModalOpen(false);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-brand-red hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-red/20 transition-colors"
-                  >
-                    <SettingsIcon size={15} />
-                    Open Settings
-                    <ArrowRight size={15} />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setBillingMode(true);
+                        setSettingsMode(false);
+                        setIsSetupModalOpen(false);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl bg-brand-red hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-red/20 transition-colors"
+                    >
+                      <Coins size={15} />
+                      View Credits
+                      <ArrowRight size={15} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSettingsMode(true);
+                        setBillingMode(false);
+                        setIsSetupModalOpen(false);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors"
+                    >
+                      <SettingsIcon size={15} />
+                      Add your key
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => setIsSetupModalOpen(false)}

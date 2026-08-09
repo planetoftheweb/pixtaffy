@@ -12,13 +12,30 @@ service firebase.storage {
     }
 
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn()
+        && 'admin' in request.auth.token
+        && request.auth.token.admin == true;
     }
 
-    // Owner can read/write anything under their own namespace. Admins override.
-    match /users/{uid}/{allPaths=**} {
-      allow read:  if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid) || isAdmin();
+    function isImageUpload(maxBytes) {
+      return request.resource != null
+        && request.resource.size <= maxBytes
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /users/{uid}/{profileFile} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if profileFile.matches('profile\\.[A-Za-z0-9]+')
+        && (isOwner(uid) || isAdmin())
+        && isImageUpload(5 * 1024 * 1024);
+      allow delete: if profileFile.matches('profile\\.[A-Za-z0-9]+')
+        && (isOwner(uid) || isAdmin());
+    }
+
+    match /users/{uid}/history/{generationId}/{fileName} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if (isOwner(uid) || isAdmin()) && isImageUpload(25 * 1024 * 1024);
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
     // Everything else: admins only.
