@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.3] - 2026-08-09
+
+### Fixed
+
+- Made Quick Start fit the mobile visual viewport and scroll independently on short screens.
+- Simplified the logged-out mobile header to the PixTaffy identity and a prominent Log In action.
+- Kept toolbar dropdowns inside the viewport and made long dropdown and What's New content touch-scrollable.
+
 ## [0.26.2] - 2026-08-09
 
 ### Fixed
