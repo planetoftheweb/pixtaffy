@@ -1712,6 +1712,10 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   // opens a small inline edit box. Rows: drag vertically to reorder.
   const [editingDurId, setEditingDurId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null); // double-click a name → rename in place
+  const commitStepRename = (id: string, value: string) => {
+    updateStep(id, { label: value.trim() || undefined });
+    setRenamingId(null);
+  };
   // Header trash arms, second tap clears (shared inline-confirm hook).
   const clearAllConfirm = useConfirmAction({
     onConfirm: () => {
@@ -2613,21 +2617,43 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                               defaultValue={s.label ?? ''}
                               placeholder={`Frame ${i + 1}`}
                               autoFocus
+                              onPointerDown={(e) => e.stopPropagation()}
                               onClick={(e) => e.stopPropagation()}
-                              onBlur={(e) => {
-                                updateStep(s.id, { label: e.target.value.trim() || undefined });
-                                setRenamingId(null);
-                              }}
+                              onBlur={(e) => commitStepRename(s.id, e.currentTarget.value)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                if (e.key === 'Escape') { e.stopPropagation(); setRenamingId(null); }
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  commitStepRename(s.id, e.currentTarget.value);
+                                }
+                                if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setRenamingId(null);
+                                }
                               }}
                               className="flex-1 min-w-0 bg-[#0d1117] border border-brand-teal/60 rounded px-1.5 py-0.5 text-xs text-white placeholder:text-slate-600"
                             />
                           ) : (
                             <span
-                              className="text-xs font-medium text-slate-300 truncate min-w-0"
-                              onDoubleClick={(e) => { e.stopPropagation(); setRenamingId(s.id); }}
+                              data-no-row-drag
+                              role="button"
+                              tabIndex={0}
+                              className="text-xs font-medium text-slate-300 truncate min-w-0 cursor-text"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedStepId(s.id);
+                                setRenamingId(s.id);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key !== 'Enter' && e.key !== 'F2') return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSelectedStepId(s.id);
+                                setRenamingId(s.id);
+                              }}
                             >
                               {s.label || `Frame ${i + 1}`}
                             </span>

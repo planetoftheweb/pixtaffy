@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-08-09
+
+### Added
+
+- Added a candy-bright welcome page that explains PixTaffy's brand system, multi-model image generation, AI workflow helpers, Build Studio, history, and payment choices.
+- Added a first-visit path that takes guests directly from the welcome page into their free generation without showing a second onboarding popup.
+- Added a View welcome page action to the signed-in account menu.
+
+### Fixed
+
+- Made Build Studio frame names stay in place through a double-click, with Enter committing the current name and Escape canceling it.
+- Made the toolbar-hidden notice appear on every expanded-to-collapsed transition instead of suppressing later scroll collapses for 12 seconds.
+
 ## [0.28.0] - 2026-08-09
 
 ### Added

@@ -67,6 +67,7 @@ import {
   expandPromptPaid,
 } from './services/paidAiService';
 import { CachedImage } from './components/CachedImage';
+import { LandingPage } from './components/LandingPage';
 import { WhatsNewBell } from './components/WhatsNewBell';
 import { WhatsNewSpotlight } from './components/WhatsNewSpotlight';
 import { useWhatsNew } from './hooks/useWhatsNew';
@@ -91,6 +92,7 @@ import {
   ShieldCheck,
   Coins,
   MessageSquarePlus,
+  House,
   Minimize2,
   Maximize2
 } from 'lucide-react';
@@ -227,6 +229,7 @@ const GITHUB_CHANGELOG_URL = `${GITHUB_REPO_BASE}/blob/main/CHANGELOG.md`;
 const GITHUB_RELEASES_URL = `${GITHUB_REPO_BASE}/releases`;
 const GUEST_FIRST_IMAGE_MODEL_ID = 'openrouter:bytedance-seed/seedream-4.5';
 const GUEST_FIRST_IMAGE_USED_KEY = 'pixtaffy_guest_first_image_used_v1';
+const WELCOME_SEEN_KEY = 'pixtaffy_welcome_seen_v1';
 
 const getToolbarSelectionKey = (userId?: string | null) =>
   `${TOOLBAR_SELECTION_KEY_PREFIX}:${userId || 'guest'}`;
@@ -344,6 +347,13 @@ const App: React.FC = () => {
   // instead of the discovery list. Reset when the user clicks "All updates"
   // inside the page or fully exits the page.
   const [whatsNewEntryId, setWhatsNewEntryId] = useState<string | null>(null);
+  // New browsers start on the welcome page. Entering the studio records the
+  // choice locally so returning guests go straight back to their workspace.
+  // Signed-in members always bypass it during session restoration, but can
+  // reopen it from the account menu whenever they want the tour.
+  const [welcomeMode, setWelcomeMode] = useState(() =>
+    typeof window !== 'undefined' && window.localStorage.getItem(WELCOME_SEEN_KEY) !== 'true'
+  );
   
   // Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -584,13 +594,11 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // Discoverability hint: when the toolbar collapses there's nothing left on
-  // screen explaining where it went, so flash a brief auto-fading pill telling
-  // the user how to bring it back. Throttled so rapid scroll-driven collapses
-  // (auto-dock) don't nag — shows at most once every 12s. (The effect that
-  // drives it lives below, after `isStudioRoute` is defined.)
+  // Discoverability hint: whenever the toolbar changes from visible to hidden,
+  // flash a brief pill telling the user how to bring it back. The state
+  // transition itself prevents duplicates while it stays collapsed, so a
+  // cooldown only made legitimate later collapses look broken.
   const [showToolbarHint, setShowToolbarHint] = useState(false);
-  const toolbarHintCooldownRef = useRef(0);
   const toolbarHintTimerRef = useRef<number | undefined>(undefined);
 
   // Analysis Modal State
@@ -791,6 +799,11 @@ const App: React.FC = () => {
   }, []); // Run once on mount
 
   useEffect(() => {
+    if (!isAuthResolved || !user) return;
+    setWelcomeMode(false);
+  }, [isAuthResolved, user?.id]);
+
+  useEffect(() => {
     if (!user?.id || !user.photoURL || user.photoDataUrl) return;
     let cancelled = false;
 
@@ -873,6 +886,7 @@ const App: React.FC = () => {
       setAdminMode(false);
       setBillingMode(false);
       setCatalogMode(null);
+      setWelcomeMode(false);
       whatsNew.closeBell();
       whatsNew.markAllAsSeen();
     },
@@ -1063,7 +1077,7 @@ const App: React.FC = () => {
   }, []);
 
   const isStudioRoute =
-    !adminMode && !settingsMode && !catalogMode && !whatsNewMode;
+    !adminMode && !settingsMode && !billingMode && !catalogMode && !whatsNewMode && !welcomeMode;
 
   useEffect(() => {
     if (!isStudioRoute) {
@@ -1071,9 +1085,6 @@ const App: React.FC = () => {
       return;
     }
     if (isToolbarCollapsed) {
-      const now = Date.now();
-      if (now - toolbarHintCooldownRef.current < 12000) return;
-      toolbarHintCooldownRef.current = now;
       setShowToolbarHint(true);
       window.clearTimeout(toolbarHintTimerRef.current);
       toolbarHintTimerRef.current = window.setTimeout(
@@ -1327,16 +1338,12 @@ const App: React.FC = () => {
     ? !activeApiKey && (!activeModelSupportsCredits || !hasUsableCredits)
     : true;
 
-  // Open the BYOK "Quick Start" modal only after Firebase auth has actually
-  // resolved. Without this guard, returning users see a flash of the
-  // onboarding modal on every page load while their session is still being
-  // restored (user is null for one tick → needsSetup is true → modal opens
-  // → auth resolves → user populates → modal closes). Waiting for
-  // `isAuthResolved` means the modal only appears for genuine guests or
-  // signed-in users who really have no API key configured.
+  // Quick Start is now setup help for signed-in members only. Guests get the
+  // full welcome page on their first visit, then enter the one-free-image
+  // studio without a second onboarding layer sitting on top of it.
   useEffect(() => {
     if (!isAuthResolved) return;
-    setIsSetupModalOpen(needsSetup);
+    setIsSetupModalOpen(Boolean(user && needsSetup));
   }, [isAuthResolved, needsSetup, user?.id]);
 
   // If the currently selected model has no usable API key but the user has
@@ -1544,6 +1551,24 @@ const App: React.FC = () => {
     // the auth modal (the setup modal has a higher z-index).
     setIsSetupModalOpen(false);
   };
+
+  const enterStudioFromWelcome = useCallback(() => {
+    try {
+      window.localStorage.setItem(WELCOME_SEEN_KEY, 'true');
+    } catch {
+      // Private browsing can reject storage writes. The current session can
+      // still continue into the studio normally.
+    }
+    setWelcomeMode(false);
+    setSettingsMode(false);
+    setBillingMode(false);
+    setAdminMode(false);
+    setCatalogMode(null);
+    setWhatsNewMode(false);
+    setWhatsNewEntryId(null);
+    setIsSetupModalOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   const updateGenerationJob = (
     jobId: string,
@@ -3596,7 +3621,7 @@ const App: React.FC = () => {
       {/* What's New spotlight — auto-fires for the newest featured entry the
           current user hasn't dismissed. Lives outside the scrollable layout
           so its fixed overlay covers the entire viewport including header. */}
-      {user && whatsNew.isSpotlightPending && whatsNew.spotlightEntry && (
+      {user && !welcomeMode && whatsNew.isSpotlightPending && whatsNew.spotlightEntry && (
         <WhatsNewSpotlight
           entry={whatsNew.spotlightEntry}
           onDismiss={whatsNew.dismissSpotlight}
@@ -3619,6 +3644,7 @@ const App: React.FC = () => {
               setBillingMode(false);
               setWhatsNewMode(false);
               setWhatsNewEntryId(null);
+              setWelcomeMode(false);
             }}
             className="flex min-w-0 items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity focus:outline-none"
           >
@@ -3693,12 +3719,33 @@ const App: React.FC = () => {
                         type="button"
                         role="menuitem"
                         onClick={() => {
+                          setWelcomeMode(true);
+                          setBillingMode(false);
+                          setSettingsMode(false);
+                          setAdminMode(false);
+                          setCatalogMode(null);
+                          setWhatsNewMode(false);
+                          setWhatsNewEntryId(null);
+                          setIsSetupModalOpen(false);
+                          setIsUserMenuOpen(false);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+                      >
+                        <House size={16} className="shrink-0 text-brand-orange" />
+                        <span>View welcome page</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
                           setBillingMode(true);
                           setSettingsMode(false);
                           setAdminMode(false);
                           setCatalogMode(null);
                           setWhatsNewMode(false);
                           setWhatsNewEntryId(null);
+                          setWelcomeMode(false);
                           setIsUserMenuOpen(false);
                         }}
                         className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
@@ -3721,6 +3768,7 @@ const App: React.FC = () => {
                           setCatalogMode(null);
                           setWhatsNewMode(false);
                           setWhatsNewEntryId(null);
+                          setWelcomeMode(false);
                           setIsUserMenuOpen(false);
                         }}
                         className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
@@ -3743,6 +3791,7 @@ const App: React.FC = () => {
                             setCatalogMode(null);
                             setWhatsNewMode(false);
                             setWhatsNewEntryId(null);
+                            setWelcomeMode(false);
                             setIsUserMenuOpen(false);
                           }}
                           className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
@@ -3851,7 +3900,7 @@ const App: React.FC = () => {
                admin/settings/catalog), where the ControlPanel is mounted.
                The header itself stays z-50 so the click target sits
                above the (z-40) toolbar even mid-collapse. */}
-           {!adminMode && !settingsMode && !billingMode && !catalogMode && !whatsNewMode && (
+           {!adminMode && !settingsMode && !billingMode && !catalogMode && !whatsNewMode && !welcomeMode && (
              <button
                onClick={toggleToolbarCollapsed}
                className="hidden md:inline-flex p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
@@ -3884,7 +3933,16 @@ const App: React.FC = () => {
       </header>
 
       {/* 2. Content Switching */}
-      {adminMode && user ? (
+      {!isAuthResolved ? (
+        <LazyPageFallback label="Loading PixTaffy..." />
+      ) : welcomeMode ? (
+        <LandingPage
+          isMember={Boolean(user)}
+          onEnterStudio={enterStudioFromWelcome}
+          onLogin={() => openAuthModal('login')}
+          onSignUp={() => openAuthModal('signup')}
+        />
+      ) : adminMode && user ? (
         <Suspense fallback={<LazyPageFallback label="Loading admin..." />}>
           <AdminPage
             onBack={() => setAdminMode(false)}
@@ -3977,6 +4035,7 @@ const App: React.FC = () => {
               can fade both ways via opacity; pointer-events off so it never
               eats clicks on the preview underneath. */}
           <div
+            data-testid="toolbar-hidden-hint"
             className={`pointer-events-none fixed left-1/2 top-[88px] z-[45] -translate-x-1/2 transition-opacity duration-500 ${
               showToolbarHint ? 'opacity-100' : 'opacity-0'
             }`}
@@ -4663,7 +4722,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {isAuthResolved && needsSetup && isSetupModalOpen && (
+      {isAuthResolved && user && !welcomeMode && needsSetup && isSetupModalOpen && (
         <div
           className="fixed inset-0 z-[140] flex items-center justify-center p-3 sm:p-6 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
           onClick={() => setIsSetupModalOpen(false)}

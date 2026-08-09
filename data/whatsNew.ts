@@ -23,6 +23,38 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.29.0-welcome-to-pixtaffy',
+    title: 'Take the new PixTaffy studio tour',
+    summary:
+      'First-time visitors now get a proper welcome page, a clear feature tour, and a direct path to their first free image.',
+    blurb:
+      'The candy crew finally has a front door. New visitors can see how brand settings, image models, AI helpers, saved versions, and Build Studio fit together before they make anything. One button takes them straight into a real free generation, with no signup form and no second popup in the way. Members still go directly to their workspace and can reopen the tour from the account menu.',
+    publishedAt: Date.parse('2026-08-10T02:00:00Z'),
+    version: '0.29.0',
+    image: '/brand/pixtaffy-creative-studio.png',
+    featured: true,
+    sections: [
+      {
+        heading: 'See the whole studio before signing up',
+        body: 'The welcome page walks through brand-aware generation, model comparisons, AI workflow helpers, Build Studio, saved versions, and the choice between free BYOK and PixTaffy credits.',
+        steps: [
+          { text: 'Tour the feature set without creating an account.', icon: 'Eye' },
+          { text: 'Create one real Standard image free, then download it immediately.', icon: 'Sparkles' },
+          { text: 'Create an account when you want to save work and claim five starter credits.', icon: 'ArrowRight' },
+        ],
+      },
+      {
+        heading: 'A smoother studio once you arrive',
+        body: 'The toolbar notice now appears every time the toolbar scrolls away, and frame-name editing in Build Studio no longer moves the target between the two clicks.',
+        steps: [
+          { text: 'Scroll the toolbar away and the restore hint appears every time.', icon: 'Eye' },
+          { text: 'Double-click a frame name without chasing a moving label.', icon: 'Edit' },
+          { text: 'Press Enter to keep the name or Escape to cancel.', icon: 'Check' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.28.0-taffy-studio-pricing',
     title: 'Meet the PixTaffy candy crew',
     summary:
