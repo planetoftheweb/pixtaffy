@@ -164,9 +164,9 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
             ref={panelRef}
             role="dialog"
             aria-label="What's new"
-            className="absolute right-0 top-full mt-2 w-[32rem] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+4.75rem)] bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:bottom-auto sm:mt-2 sm:w-[32rem] sm:max-w-[calc(100vw-2rem)] sm:max-h-[calc(100dvh-6rem)] flex flex-col bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#30363d]">
+            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#30363d]">
               <div className="flex items-center gap-2">
                 <Sparkles size={15} className="text-brand-teal" />
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -186,7 +186,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
               </p>
             ) : (
               <ul
-                className="max-h-[26rem] overflow-y-auto py-1"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] py-1 sm:max-h-[26rem]"
                 // mouseleave / focusout are intentionally on the list (not on
                 // each row) so transitions between adjacent rows don't briefly
                 // null out `hoveredEntryId` and re-fire the overlay's
@@ -233,12 +233,12 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
                             <img
                               src={entry.image}
                               alt=""
-                              className="w-36 h-20 rounded-lg object-cover shrink-0 border border-gray-200 dark:border-[#30363d] bg-gray-100 dark:bg-[#21262d] transition-shadow group-hover:ring-2 group-hover:ring-brand-teal/60 group-focus-visible:ring-2 group-focus-visible:ring-brand-teal/60"
+                              className="w-24 h-16 sm:w-36 sm:h-20 rounded-lg object-cover shrink-0 border border-gray-200 dark:border-[#30363d] bg-gray-100 dark:bg-[#21262d] transition-shadow group-hover:ring-2 group-hover:ring-brand-teal/60 group-focus-visible:ring-2 group-focus-visible:ring-brand-teal/60"
                               loading="lazy"
                               decoding="async"
                             />
                           ) : (
-                            <div className="w-36 h-20 rounded-lg shrink-0 border border-gray-200 dark:border-[#30363d] bg-gradient-to-br from-brand-teal/15 via-brand-orange/10 to-brand-red/10 flex items-center justify-center text-brand-teal/60 transition-shadow group-hover:ring-2 group-hover:ring-brand-teal/60 group-focus-visible:ring-2 group-focus-visible:ring-brand-teal/60">
+                            <div className="w-24 h-16 sm:w-36 sm:h-20 rounded-lg shrink-0 border border-gray-200 dark:border-[#30363d] bg-gradient-to-br from-brand-teal/15 via-brand-orange/10 to-brand-red/10 flex items-center justify-center text-brand-teal/60 transition-shadow group-hover:ring-2 group-hover:ring-brand-teal/60 group-focus-visible:ring-2 group-focus-visible:ring-brand-teal/60">
                               <Sparkles size={22} />
                             </div>
                           )}
@@ -273,7 +273,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
                           <ArrowRight
                             size={14}
                             aria-hidden
-                            className="self-center shrink-0 text-brand-teal opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100 group-focus-visible:translate-x-0"
+                            className="hidden sm:block self-center shrink-0 text-brand-teal opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100 group-focus-visible:translate-x-0"
                           />
                         </div>
                       </button>
@@ -287,7 +287,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
               <button
                 type="button"
                 onClick={onOpenPage}
-                className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-brand-teal hover:bg-brand-teal/5 dark:hover:bg-brand-teal/10 border-t border-gray-200 dark:border-[#30363d] transition-colors"
+                className="shrink-0 w-full flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-semibold text-brand-teal hover:bg-brand-teal/5 dark:hover:bg-brand-teal/10 border-t border-gray-200 dark:border-[#30363d] transition-colors"
               >
                 View all updates
                 <ArrowRight size={12} />
