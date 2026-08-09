@@ -1320,7 +1320,7 @@ const App: React.FC = () => {
   const hasUsableCredits = Boolean(billingState?.isAdmin || (billingState?.balanceMilliCredits ?? 0) > 0);
   const needsSetup = user
     ? !activeApiKey && (!activeModelSupportsCredits || !hasUsableCredits)
-    : hasUsedGuestGeneration;
+    : true;
 
   // Open the BYOK "Quick Start" modal only after Firebase auth has actually
   // resolved. Without this guard, returning users see a flash of the
@@ -1331,13 +1331,6 @@ const App: React.FC = () => {
   // signed-in users who really have no API key configured.
   useEffect(() => {
     if (!isAuthResolved) return;
-    // Guests should land directly in the studio for their first free image.
-    // After that, the inline conversion card and Generate button invite them
-    // to register without covering the result they just made.
-    if (!user) {
-      setIsSetupModalOpen(false);
-      return;
-    }
     setIsSetupModalOpen(needsSetup);
   }, [isAuthResolved, needsSetup, user?.id]);
 
@@ -3598,7 +3591,7 @@ const App: React.FC = () => {
       {/* What's New spotlight — auto-fires for the newest featured entry the
           current user hasn't dismissed. Lives outside the scrollable layout
           so its fixed overlay covers the entire viewport including header. */}
-      {whatsNew.isSpotlightPending && whatsNew.spotlightEntry && (
+      {user && whatsNew.isSpotlightPending && whatsNew.spotlightEntry && (
         <WhatsNewSpotlight
           entry={whatsNew.spotlightEntry}
           onDismiss={whatsNew.dismissSpotlight}
