@@ -4,7 +4,7 @@ import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken, type AppCheck } from "firebase/app-check";
 import {
   getAnalytics,
   isSupported as isAnalyticsSupported,
@@ -45,7 +45,6 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app);
 
 // ---- Emulator wiring -------------------------------------------------------
 // When running `npm run dev` with VITE_USE_FIREBASE_EMULATORS=true, point the
@@ -62,12 +61,22 @@ const useEmulators =
 const appCheckSiteKey =
   import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY ||
   '6LcPunwtAAAAAH_6Lae-Kt5DyXIsZIY2xxK2Po4u';
+let appCheck: AppCheck | null = null;
 if (typeof window !== 'undefined' && !useEmulators && appCheckSiteKey) {
-  initializeAppCheck(app, {
+  appCheck = initializeAppCheck(app, {
     provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
     isTokenAutoRefreshEnabled: true,
   });
 }
+
+// Functions must be initialized after App Check so callable requests receive
+// the token provider. The first protected request also awaits token creation,
+// avoiding a cold-page race where Auth is ready but App Check is still empty.
+export const functions = getFunctions(app);
+export const ensureAppCheckToken = async (): Promise<void> => {
+  if (!appCheck) return;
+  await getToken(appCheck, false);
+};
 
 // ---- Google Analytics (GA4) ------------------------------------------------
 // Firebase Analytics is only wired up when:

@@ -1,7 +1,7 @@
 import { doc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import type { GeneratedImage } from '../types';
-import { auth, db, functions } from './firebase';
+import { auth, db, ensureAppCheckToken, functions } from './firebase';
 
 export interface BillingState {
   balanceMilliCredits: number;
@@ -32,6 +32,16 @@ export interface CreditActivityEntry {
 }
 
 let cachedState: { value: BillingState; at: number } | null = null;
+const GUEST_INSTALL_ID_KEY = 'pixtaffy_guest_install_id_v1';
+const GUEST_REQUEST_ID_KEY = 'pixtaffy_guest_request_id_v1';
+
+const persistentGuestId = (key: string, prefix: string): string => {
+  const existing = localStorage.getItem(key);
+  if (existing && existing.length >= 16 && existing.length <= 160) return existing;
+  const created = makeRequestId(prefix);
+  localStorage.setItem(key, created);
+  return created;
+};
 
 export const SITE_FUNDED_MODEL_MILLICREDITS: Record<string, number> = {
   'openrouter:bytedance-seed/seedream-4.5': 1_000,
@@ -41,8 +51,8 @@ export const SITE_FUNDED_MODEL_MILLICREDITS: Record<string, number> = {
   'openrouter:google/gemini-3-pro-image': 2_000,
   'openrouter:openai/gpt-image-2': 2_000,
   gemini: 2_000,
-  'gemini-3.1-flash-image-preview': 1_000,
-  'gemini-3.1-flash-lite-image': 1_000,
+  'gemini-3.1-flash-image-preview': 2_000,
+  'gemini-3.1-flash-lite-image': 2_000,
   'openai-2': 2_000,
 };
 
@@ -59,6 +69,7 @@ export const billingService = {
     if (!force && cachedState && Date.now() - cachedState.at < 30_000) return cachedState.value;
     await auth.currentUser.reload();
     await auth.currentUser.getIdToken(true);
+    await ensureAppCheckToken();
     const call = httpsCallable<Record<string, never>, BillingState>(functions, 'getBillingState');
     const result = await call({});
     cachedState = { value: result.data, at: Date.now() };
@@ -91,6 +102,27 @@ export const billingService = {
     const result = await call(input);
     cachedState = null;
     return result.data;
+  },
+
+  generateGuestImage: async (input: {
+    prompt: string;
+    aspectRatio: string;
+  }): Promise<GeneratedImage & { modelId: string }> => {
+    if (!auth.currentUser?.isAnonymous) {
+      throw new Error('Start a guest session before generating your free image.');
+    }
+    const payload = {
+      ...input,
+      guestInstallId: persistentGuestId(GUEST_INSTALL_ID_KEY, 'guest-install'),
+      idempotencyKey: persistentGuestId(GUEST_REQUEST_ID_KEY, 'guest-image'),
+    };
+    await ensureAppCheckToken();
+    const call = httpsCallable<typeof payload, GeneratedImage & { modelId: string }>(
+      functions,
+      'generateGuestImage',
+      { timeout: 300_000 }
+    );
+    return (await call(payload)).data;
   },
 
   reserveImageBatch: async (input: {

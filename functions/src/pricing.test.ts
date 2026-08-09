@@ -8,6 +8,7 @@ test("custom OpenRouter models remain BYOK only", () => {
 
 test("curated models use the intended 1, 2, and 3-credit bands", () => {
   assert.equal(getPaidModelPrice("openrouter:bytedance-seed/seedream-4.5")?.milliCredits, 1_000);
+  assert.equal(getPaidModelPrice("gemini-3.1-flash-image-preview")?.milliCredits, 2_000);
   assert.equal(getPaidModelPrice("openai-2")?.milliCredits, 2_000);
   assert.equal(getPaidModelPrice("openrouter:recraft/recraft-v4.1-pro")?.milliCredits, 3_000);
 });

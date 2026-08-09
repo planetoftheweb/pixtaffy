@@ -23,6 +23,29 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.26.1-first-image-free',
+    title: 'Make your first image before signing up',
+    summary:
+      'New visitors can now create and download one Standard image before PixTaffy asks for an account.',
+    blurb:
+      'Sometimes you just want to see the thing work. Type a prompt and PixTaffy will make your first Standard image free, with no registration form in the way. Download the result immediately, then create an account to save it to your cloud history and verify your email for five more credits.',
+    publishedAt: Date.parse('2026-08-09T21:00:00Z'),
+    version: '0.26.1',
+    image: '/pixtaffy.png',
+    featured: true,
+    sections: [
+      {
+        heading: 'Prompt first, account second',
+        body: 'The guest image uses PixTaffy\'s Standard model and the same protected server pipeline as paid generations. It is limited to one image, but the result is yours to download right away.',
+        steps: [
+          { text: 'Write a prompt and click Create your first image free.', icon: 'Sparkles' },
+          { text: 'Preview or download the finished image without registering.', icon: 'Download' },
+          { text: 'Create an account to save it and verify your email for five additional credits.', icon: 'ArrowRight' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.26.0-sustainable-ai-credits',
     title: 'Five credits to start, then pay as you go',
     summary:

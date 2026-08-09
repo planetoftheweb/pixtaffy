@@ -137,6 +137,12 @@ interface ControlPanelProps {
   setupActionLabel?: string;
   setupActionDescription?: string;
   onSetupAction?: () => void;
+  /** Optional hard cap for guest or promotional generation flows. */
+  generationCap?: number;
+  /** Labels the initial anonymous generation as the free first image. */
+  freeFirstGeneration?: boolean;
+  /** Keeps guests on the server-priced Standard model. */
+  modelSelectionLocked?: boolean;
   /**
    * Saved toolbar presets the user can recall. When omitted/empty the
    * dropdown shows an empty state inviting the user to save their first
@@ -566,6 +572,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   setupActionLabel,
   setupActionDescription,
   onSetupAction,
+  generationCap,
+  freeFirstGeneration = false,
+  modelSelectionLocked = false,
   presets = [],
   onApplyPreset,
   onSavePreset,
@@ -814,7 +823,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   // PresetActionPopover) and anchor it to the trigger instead.
   const batchCountTriggerRef = useRef<HTMLDivElement>(null);
   const [batchCountAnchor, setBatchCountAnchor] = useState<DOMRect | null>(null);
-  const batchCap = batchCapFor(user);
+  const batchCap = generationCap ?? batchCapFor(user);
   const isAdmin = isAdminUser(user);
   const batchCapLabel = Number.isFinite(batchCap) ? String(batchCap) : 'unlimited';
   const expansion = useMemo(
@@ -835,6 +844,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const hasSetupAction = setupRequired && typeof onSetupAction === 'function';
   const generateButtonLabel = hasSetupAction
     ? (setupActionLabel || (user ? 'Add API key' : 'Create account'))
+    : freeFirstGeneration
+      ? 'Create free image'
     : isGenerating
       ? totalBatchRuns > 1
         ? `Start x${totalBatchRuns}`
@@ -845,6 +856,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const generateButtonDisabled = !hasSetupAction && (!config.prompt || exceedsBatchCap);
   const generateButtonTitle = hasSetupAction
     ? (setupActionDescription || generateButtonLabel)
+    : freeFirstGeneration
+      ? 'Create your first image free'
     : isGenerating
       ? totalBatchRuns > 1
         ? `Start ${totalBatchRuns} more images`
@@ -1667,7 +1680,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     confirmCatalogDelete.trigger(`${type}:${idOrValue}`);
   };
 
-  const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors }: any) => {
+  const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false }: any) => {
     // Menu-style item (no per-button border). Five responsive tiers driven by pure CSS:
     //   - base  (< md):   icon-only 44x44 tap target (tooltip shows label)
     //   - md+  (>=768):   icon + UPPERCASE category label (TYPE, STYLE, ...)
@@ -1685,6 +1698,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     return (
       <button
         onClick={onClick}
+        disabled={disabled}
         title={titleText}
         aria-label={titleText}
         className={`h-11 rounded-md flex items-center transition-colors group shrink-0 lg:shrink lg:min-w-0
@@ -1694,7 +1708,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           ${
             isActive
               ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal'
-              : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
+              : disabled
+                ? 'text-slate-500 dark:text-slate-300 cursor-default'
+                : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
           }`}
       >
         <Icon
@@ -1758,6 +1774,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     gemini: 'Nano Banana Pro',
     'gemini-3.1-flash-image-preview': 'Nano Banana 2',
     'gemini-3.1-flash-lite-image': 'Nano Banana 2 Lite',
+    'openrouter:bytedance-seed/seedream-4.5': 'Seedream 4.5',
     'openai-2': 'GPT Image 2',
     'openai-mini': 'GPT Image Mini',
     openai: 'GPT Image 1.5',
@@ -2069,6 +2086,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 label={modelLabel} 
                 isActive={activeDropdown === 'model'} 
                 onClick={() => toggleDropdown('model')} 
+                disabled={modelSelectionLocked}
               />
               {activeDropdown === 'model' && (
                 <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
@@ -2683,7 +2701,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         role="listbox"
                         aria-label="Variations per prompt"
                       >
-                        {[1, 2, 3, 4, 5].map((n) => {
+                        {[1, 2, 3, 4, 5].filter((n) => !Number.isFinite(batchCap) || n <= batchCap).map((n) => {
                           const isSelected = batchCount === n;
                           return (
                             <button

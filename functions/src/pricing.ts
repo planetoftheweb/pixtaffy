@@ -51,14 +51,14 @@ const PRICES: Record<string, Omit<PaidModelPrice, "requestedModelId">> = {
   },
   "gemini-3.1-flash-image-preview": {
     openRouterModelId: "google/gemini-3.1-flash-image-preview",
-    milliCredits: 1_000,
-    costCeilingUsd: 0.07,
+    milliCredits: 2_000,
+    costCeilingUsd: 0.14,
     label: "Nano Banana 2",
   },
   "gemini-3.1-flash-lite-image": {
     openRouterModelId: "google/gemini-3.1-flash-image-preview",
-    milliCredits: 1_000,
-    costCeilingUsd: 0.07,
+    milliCredits: 2_000,
+    costCeilingUsd: 0.14,
     label: "Nano Banana 2 Lite",
   },
   "openai-2": {

@@ -10,6 +10,10 @@ import { ref, uploadBytes } from 'firebase/storage';
 
 const projectId = 'brandoit';
 let testEnv;
+const registeredContext = (uid, claims = {}) => testEnv.authenticatedContext(uid, {
+  firebase: { sign_in_provider: 'password' },
+  ...claims,
+});
 
 before(async () => {
   testEnv = await initializeTestEnvironment({
@@ -31,7 +35,7 @@ after(async () => {
 });
 
 test('owners may read their ledger but cannot edit billing authority', async () => {
-  const ownerDb = testEnv.authenticatedContext('owner').firestore();
+  const ownerDb = registeredContext('owner').firestore();
   await assertSucceeds(getDoc(doc(ownerDb, 'users/owner/billingLedger/grant-1')));
   await assertFails(setDoc(doc(ownerDb, 'users/owner/billingLedger/forged'), { deltaMilliCredits: 999_000 }));
   await assertFails(setDoc(doc(ownerDb, 'users/owner/private/billing'), { balanceMilliCredits: 999_000 }));
@@ -39,7 +43,7 @@ test('owners may read their ledger but cannot edit billing authority', async () 
 });
 
 test('clients cannot edit reservations, grants, provider costs, or spend controls', async () => {
-  const ownerDb = testEnv.authenticatedContext('owner').firestore();
+  const ownerDb = registeredContext('owner').firestore();
   await assertFails(setDoc(doc(ownerDb, 'billingReservations/fake'), { state: 'committed' }));
   await assertFails(setDoc(doc(ownerDb, 'billingReservations/fake/items/item-1'), { state: 'committed' }));
   await assertFails(setDoc(doc(ownerDb, 'systemSpend/2099-01-01'), { openrouterUsd: 0 }));
@@ -49,13 +53,13 @@ test('clients cannot edit reservations, grants, provider costs, or spend control
 });
 
 test('admins retain server-support access to protected billing data', async () => {
-  const adminDb = testEnv.authenticatedContext('admin', { admin: true }).firestore();
+  const adminDb = registeredContext('admin', { admin: true }).firestore();
   await assertSucceeds(setDoc(doc(adminDb, 'users/owner/private/billing'), { balanceMilliCredits: 0 }));
   await assertSucceeds(getDoc(doc(adminDb, 'users/owner/billingLedger/grant-1')));
 });
 
 test('history storage accepts bounded images and rejects other uploads', async () => {
-  const storage = testEnv.authenticatedContext('owner').storage(`gs://${projectId}.firebasestorage.app`);
+  const storage = registeredContext('owner').storage(`gs://${projectId}.firebasestorage.app`);
   await assertSucceeds(uploadBytes(
     ref(storage, 'users/owner/history/generation-1/mark.webp'),
     new Uint8Array([1, 2, 3]),
@@ -66,9 +70,22 @@ test('history storage accepts bounded images and rejects other uploads', async (
     new TextEncoder().encode('not an image'),
     { contentType: 'text/plain' },
   ));
-  const otherStorage = testEnv.authenticatedContext('other').storage(`gs://${projectId}.firebasestorage.app`);
+  const otherStorage = registeredContext('other').storage(`gs://${projectId}.firebasestorage.app`);
   await assertFails(uploadBytes(
     ref(otherStorage, 'users/owner/history/generation-1/stolen.webp'),
+    new Uint8Array([1, 2, 3]),
+    { contentType: 'image/webp' },
+  ));
+});
+
+test('anonymous guests cannot write account history or storage directly', async () => {
+  const guest = testEnv.authenticatedContext('guest', {
+    firebase: { sign_in_provider: 'anonymous' },
+  });
+  await assertFails(setDoc(doc(guest.firestore(), 'users/guest'), { name: 'Guest' }));
+  await assertFails(setDoc(doc(guest.firestore(), 'users/guest/history/free-image'), { id: 'free-image' }));
+  await assertFails(uploadBytes(
+    ref(guest.storage(`gs://${projectId}.firebasestorage.app`), 'users/guest/history/free-image/mark.webp'),
     new Uint8Array([1, 2, 3]),
     { contentType: 'image/webp' },
   ));

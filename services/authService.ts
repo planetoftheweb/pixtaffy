@@ -1,6 +1,9 @@
 import { 
   createUserWithEmailAndPassword, 
+  EmailAuthProvider,
+  linkWithCredential,
   signInWithEmailAndPassword, 
+  signInAnonymously,
   signOut, 
   updateProfile,
   deleteUser,
@@ -410,16 +413,26 @@ const ensureUsernameReservation = async (
 };
 
 export const authService = {
+  ensureAnonymousSession: async (): Promise<string> => {
+    if (auth.currentUser) return auth.currentUser.uid;
+    const credential = await signInAnonymously(auth);
+    return credential.user.uid;
+  },
+
   register: async (name: string, email: string, password: string, username?: string): Promise<User> => {
     try {
       if (!username) throw new Error("Username is required.");
       
       await checkUsernameUnique(username);
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const anonymousUser = auth.currentUser?.isAnonymous ? auth.currentUser : null;
+      const userCredential = anonymousUser
+        ? await linkWithCredential(anonymousUser, EmailAuthProvider.credential(email, password))
+        : await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
       await updateProfile(user, { displayName: name });
+      await user.getIdToken(true);
       await sendEmailVerification(user, {
         url: `${window.location.origin}/?verified=1`,
       });
@@ -451,7 +464,7 @@ export const authService = {
       return transformUser(user, newUserProfile);
     } catch (error: any) {
       console.error("Registration Error:", error);
-      if (error.code === 'auth/email-already-in-use') {
+      if (error.code === 'auth/email-already-in-use' || error.code === 'auth/credential-already-in-use') {
         throw new Error('This email is already registered.');
       } else if (error.code === 'auth/weak-password') {
         throw new Error('Password should be at least 6 characters.');
@@ -477,6 +490,10 @@ export const authService = {
         email = resolvedEmail;
       }
 
+      // Existing-account login cannot link an anonymous identity. The guest
+      // image is already stored locally and App merges it after login, so end
+      // the anonymous Firebase session before authenticating the account.
+      if (auth.currentUser?.isAnonymous) await signOut(auth);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
@@ -535,7 +552,7 @@ export const authService = {
   getCurrentUser: (): Promise<User | null> => {
     return new Promise((resolve) => {
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
+        if (user && !user.isAnonymous) {
           try {
             const userData = await ensureUserDocument(user.uid);
             const isAdmin = await readAdminClaim(user);
@@ -625,7 +642,7 @@ export const authService = {
   
   onAuthStateChange: (callback: (user: User | null) => void) => {
     return onAuthStateChanged(auth, async (user) => {
-      if (user) {
+      if (user && !user.isAnonymous) {
         const userData = await ensureUserDocument(user.uid);
         const isAdmin = await readAdminClaim(user);
         void recordSignIn(user.uid);

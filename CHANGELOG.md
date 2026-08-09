@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-08-09
+
+### Added
+
+- Added one Standard image generation before registration, including immediate preview and download.
+- Added anonymous Firebase account linking so the guest image follows a visitor into their new account and cloud history.
+- Added server-side guest claim, browser-window, network-rate, App Check, idempotency, and daily-spend protections.
+
+### Changed
+
+- Replaced the initial signup gate with a prompt-first experience. Registration is offered after the result for cloud saving, AI tools, and five verified-email credits.
+- Moved higher-resolution Nano Banana 2 site-funded output to the two-credit Pro band after measured provider cost exceeded the Standard ceiling. Guest images use Seedream 4.5 in the Standard band.
+- Blocked anonymous Firebase identities from writing directly to user documents, history, or Storage.
+
 ## [0.26.0] - 2026-08-09
 
 ### Added

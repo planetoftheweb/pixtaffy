@@ -23,6 +23,7 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 *   **💾 Cloud History:** Automatically saves your generation history with metadata in Firestore and raster image bytes in Firebase Storage (`users/{uid}/history/{generationId}/{versionId}.{ext}`), so tiles never bump into the 1 MiB Firestore document limit and deletes clean up Storage automatically.
 *   **🖼️ Smart Analysis:** Upload brand guidelines (PDF/Image) to extract colors and styles with an interactive review modal.
 *   **✨ PixTaffy AI tools:** Prompt expansion, naming, image analysis, correction analysis, style extraction, region detection, and brand-guideline analysis run through a server-side Gemini key and consume 0.1 to 0.5 PixTaffy credit. BYOK remains free for image generation only.
+*   **🍬 First image free:** New visitors can create and download one Standard image before registering. Firebase Anonymous Auth, App Check, idempotency, browser and network limits, and the daily provider circuit breaker protect the guest path.
 *   **👤 User Profiles:** Sign up with Email or Username. Sync preferences across devices.
 *   **⚙️ Full Settings Management:** dedicated page for managing API keys, profile settings, and application preferences.
 *   **🔑 BYOK (Bring Your Own Key):** Multi-model keys for Google Gemini and OpenAI. A single OpenAI key drives three tiers — **GPT Image 2** (flagship, 2K/4K, 3:1 & 1:3 ratios), **GPT Image Mini** (budget), and **GPT Image 1.5** (legacy) — with a per-model **Quality** control (Auto / Low / Medium / High).

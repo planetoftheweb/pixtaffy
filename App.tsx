@@ -222,6 +222,8 @@ const MODEL_NAME_BY_ID: Record<string, string> = SUPPORTED_MODELS.reduce<Record<
 const GITHUB_REPO_BASE = 'https://github.com/planetoftheweb/pixtaffy';
 const GITHUB_CHANGELOG_URL = `${GITHUB_REPO_BASE}/blob/main/CHANGELOG.md`;
 const GITHUB_RELEASES_URL = `${GITHUB_REPO_BASE}/releases`;
+const GUEST_FIRST_IMAGE_MODEL_ID = 'openrouter:bytedance-seed/seedream-4.5';
+const GUEST_FIRST_IMAGE_USED_KEY = 'pixtaffy_guest_first_image_used_v1';
 
 const getToolbarSelectionKey = (userId?: string | null) =>
   `${TOOLBAR_SELECTION_KEY_PREFIX}:${userId || 'guest'}`;
@@ -374,6 +376,9 @@ const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
   const [billingState, setBillingState] = useState<BillingState | null>(null);
+  const [hasUsedGuestGeneration, setHasUsedGuestGeneration] = useState(
+    () => localStorage.getItem(GUEST_FIRST_IMAGE_USED_KEY) === 'true'
+  );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   // Build Studio (reveal animator) target — the generation+version to animate.
   const [buildStudioTarget, setBuildStudioTarget] = useState<
@@ -772,7 +777,7 @@ const App: React.FC = () => {
         setHistory(updatedHistory);
       } else {
         setUser(null);
-        setHistory([]);
+        setHistory(historyService.getFromLocal());
       }
       setIsAuthResolved(true);
     });
@@ -898,7 +903,9 @@ const App: React.FC = () => {
 
   // Grouped context for easier passing
   const context = { brandColors, visualStyles, graphicTypes, aspectRatios };
-  const selectedModel = user?.preferences.selectedModel || guestSelectedModel;
+  const selectedModel = user
+    ? (user.preferences.selectedModel || guestSelectedModel)
+    : GUEST_FIRST_IMAGE_MODEL_ID;
 
   // Newest generation whose settings match the preset's PINNED fields —
   // shown as a sample thumbnail in the hover preview so the user can see
@@ -969,11 +976,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     setSelectedModelIds((prev) => {
+      if (!user) return [GUEST_FIRST_IMAGE_MODEL_ID];
       if (prev.length <= 1) return [selectedModel];
       if (!prev.includes(selectedModel)) return [selectedModel, ...prev];
       return prev;
     });
-  }, [selectedModel]);
+  }, [selectedModel, user?.id]);
 
   // --- Comparison (Juxtapose) state machine -------------------------------
   // Picks up to two marks from anywhere in the app (thumbnail rail, current
@@ -1310,7 +1318,9 @@ const App: React.FC = () => {
   const activeApiKey = getActiveApiKey();
   const activeModelSupportsCredits = Boolean(SITE_FUNDED_MODEL_MILLICREDITS[selectedModel]);
   const hasUsableCredits = Boolean(billingState?.isAdmin || (billingState?.balanceMilliCredits ?? 0) > 0);
-  const needsSetup = !user || (!activeApiKey && (!activeModelSupportsCredits || !hasUsableCredits));
+  const needsSetup = user
+    ? !activeApiKey && (!activeModelSupportsCredits || !hasUsableCredits)
+    : hasUsedGuestGeneration;
 
   // Open the BYOK "Quick Start" modal only after Firebase auth has actually
   // resolved. Without this guard, returning users see a flash of the
@@ -1321,6 +1331,13 @@ const App: React.FC = () => {
   // signed-in users who really have no API key configured.
   useEffect(() => {
     if (!isAuthResolved) return;
+    // Guests should land directly in the studio for their first free image.
+    // After that, the inline conversion card and Generate button invite them
+    // to register without covering the result they just made.
+    if (!user) {
+      setIsSetupModalOpen(false);
+      return;
+    }
     setIsSetupModalOpen(needsSetup);
   }, [isAuthResolved, needsSetup, user?.id]);
 
@@ -1600,12 +1617,83 @@ const App: React.FC = () => {
     let jobId = '';
     let batchReservationId: string | null = null;
     try {
-      if (!user) {
-        openAuthModal('signup');
-        throw new Error('Create an account to receive 5 starter credits, or bring your own image-generation key.');
-      }
       if (!config.prompt.trim()) {
         throw new Error('Enter a prompt before generating.');
+      }
+
+      if (!user) {
+        if (hasUsedGuestGeneration) {
+          openAuthModal('signup');
+          throw new Error('Your first image was free. Create an account and verify your email to get 5 more credits.');
+        }
+        const guestAspectRatio = getSafeAspectRatioForModel(
+          GUEST_FIRST_IMAGE_MODEL_ID,
+          config.aspectRatio,
+          aspectRatios
+        );
+        const guestConfig: GenerationConfig = {
+          ...config,
+          aspectRatio: guestAspectRatio,
+        };
+        if (guestAspectRatio !== config.aspectRatio) {
+          setConfig((previous) => ({ ...previous, aspectRatio: guestAspectRatio }));
+        }
+        const startedAt = Date.now();
+        jobId = `guest-${startedAt.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        setActiveGenerationJobs((previous) => [{
+          id: jobId,
+          prompt: guestConfig.prompt,
+          modelIds: [GUEST_FIRST_IMAGE_MODEL_ID],
+          total: 1,
+          completed: 0,
+          failed: 0,
+          inFlight: 1,
+          startedAt,
+          status: 'running',
+          errors: [],
+          modelProgress: {
+            [GUEST_FIRST_IMAGE_MODEL_ID]: { total: 1, completed: 0, failed: 0, inFlight: 1 },
+          },
+          currentJobs: [{
+            key: `${jobId}:first-image`,
+            modelId: GUEST_FIRST_IMAGE_MODEL_ID,
+            prompt: guestConfig.prompt,
+          }],
+        }, ...previous]);
+
+        await authService.ensureAnonymousSession();
+        const result = await billingService.generateGuestImage({
+          prompt: buildStructuredPrompt(guestConfig),
+          aspectRatio: guestAspectRatio,
+        });
+        const generation = await createGeneration(
+          result,
+          guestConfig,
+          result.modelId || GUEST_FIRST_IMAGE_MODEL_ID,
+          undefined,
+          INBOX_FOLDER_ID
+        );
+        await historyService.saveGeneration(null, generation);
+        historyRef.current = [generation];
+        setHistory([generation]);
+        setCurrentGeneration(generation);
+        localStorage.setItem(GUEST_FIRST_IMAGE_USED_KEY, 'true');
+        setHasUsedGuestGeneration(true);
+        updateGenerationJob(jobId, (job) => ({
+          ...job,
+          completed: 1,
+          inFlight: 0,
+          currentJobs: [],
+          latest: generation,
+          status: 'completed',
+          finishedAt: Date.now(),
+          message: 'Your first image is ready. Download it, or create an account to save it and get 5 more credits.',
+          modelProgress: {
+            [GUEST_FIRST_IMAGE_MODEL_ID]: { total: 1, completed: 1, failed: 0, inFlight: 0 },
+          },
+        }));
+        scheduleGenerationJobDismissal(jobId, 12_000);
+        return;
       }
 
       const modelIdsToRun = selectedModelIds.length > 0 ? selectedModelIds : [selectedModel];
@@ -2045,6 +2133,10 @@ const App: React.FC = () => {
       scheduleGenerationJobDismissal(jobId, finalStatus === 'failed' ? 14000 : 9000);
     } catch (err: any) {
       const message = err.message || 'An unexpected error occurred.';
+      if (!user && (err?.code === 'functions/already-exists' || err?.code === 'functions/resource-exhausted')) {
+        localStorage.setItem(GUEST_FIRST_IMAGE_USED_KEY, 'true');
+        setHasUsedGuestGeneration(true);
+      }
       setError(message);
       if (jobId) {
         updateGenerationJob(jobId, (job) => ({
@@ -3435,11 +3527,13 @@ const App: React.FC = () => {
         0
       )
     : 0;
-  const isGenerateSetupRequired = !user || byokOnlyMissingIds.length > 0 || (creditEligibleMissingIds.length > 0 && !canUseCredits);
+  const isGenerateSetupRequired = !user
+    ? hasUsedGuestGeneration
+    : byokOnlyMissingIds.length > 0 || (creditEligibleMissingIds.length > 0 && !canUseCredits);
   const firstMissingModelId = missingGenerationApiKeyIds[0] || selectedModel;
-  const generateSetupActionLabel = !user ? 'Create account' : byokOnlyMissingIds.length > 0 ? 'Add API key' : 'Get credits';
+  const generateSetupActionLabel = !user ? 'Get 5 credits' : byokOnlyMissingIds.length > 0 ? 'Add API key' : 'Get credits';
   const generateSetupActionDescription = !user
-    ? 'Create a free account before generating'
+    ? 'Create an account and verify your email to get 5 credits'
     : byokOnlyMissingIds.length > 0
       ? `Add an API key for ${byokOnlyMissingIds.map((id) => MODEL_NAME_BY_ID[id] || id).join(', ')}`
       : missingGenerationApiKeyIds.length > 1
@@ -3879,6 +3973,9 @@ const App: React.FC = () => {
             setupActionLabel={generateSetupActionLabel}
             setupActionDescription={generateSetupActionDescription}
             onSetupAction={handleGenerateSetupAction}
+            generationCap={!user ? 1 : undefined}
+            freeFirstGeneration={!user && !hasUsedGuestGeneration}
+            modelSelectionLocked={!user}
             presets={user?.preferences.presets || []}
             onApplyPreset={handleApplyPreset}
             onSavePreset={user ? handleSavePreset : undefined}
@@ -4323,6 +4420,30 @@ const App: React.FC = () => {
                     : undefined
                 }
               />
+            )}
+
+            {!user && hasUsedGuestGeneration && currentGeneration && (
+              <div className="mx-auto my-4 flex w-[calc(100%-2rem)] max-w-6xl flex-col gap-4 rounded-2xl border border-fuchsia-200 bg-gradient-to-r from-fuchsia-50 via-white to-orange-50 px-5 py-4 shadow-sm dark:border-fuchsia-900/50 dark:from-fuchsia-950/30 dark:via-[#161b22] dark:to-orange-950/20 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-xl bg-fuchsia-100 p-2 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-200">
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-white">Your first image is on us.</p>
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                      Download it now, or save it to your account and verify your email to get 5 more credits.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openAuthModal('signup')}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-red/20 transition-colors hover:bg-red-700"
+                >
+                  Save it and get 5 credits
+                  <ArrowRight size={15} />
+                </button>
+              </div>
             )}
 
             {/* History Gallery */}

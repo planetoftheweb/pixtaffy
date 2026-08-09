@@ -8,8 +8,13 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isRegistered() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
     function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+      return isRegistered() && request.auth.uid == uid;
     }
 
     function isAdmin() {

@@ -20,6 +20,7 @@ export {
 } from "./billing";
 export {
   cleanupPaidDeliveries,
+  generateGuestImage,
   generateWithCredits,
   getPaidAiCatalog,
   refreshOpenRouterModelCatalog,

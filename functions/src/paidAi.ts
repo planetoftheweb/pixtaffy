@@ -47,6 +47,9 @@ const baseOptions = {
 };
 
 const db = () => admin.firestore();
+const GUEST_MODEL_ID = "openrouter:bytedance-seed/seedream-4.5";
+const GUEST_DEVICE_WINDOW_MS = 30 * 24 * 60 * 60 * 1_000;
+const GUEST_IP_DAILY_LIMIT = 5;
 
 function requireAuth(request: CallableRequest): { uid: string; isAdmin: boolean } {
   const uid = request.auth?.uid;
@@ -165,6 +168,104 @@ async function assertModelEnabled(modelId: string): Promise<void> {
   }
 }
 
+function requireAnonymousAuth(request: CallableRequest): string {
+  const uid = request.auth?.uid;
+  const provider = (request.auth?.token as any)?.firebase?.sign_in_provider;
+  if (!uid || provider !== "anonymous") {
+    throw new HttpsError("failed-precondition", "Your free first image must be created before registration.");
+  }
+  return uid;
+}
+
+function guestRequestIp(request: CallableRequest, uid: string): string {
+  const forwarded = request.rawRequest.headers["x-forwarded-for"];
+  const firstForwarded = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0];
+  return String(firstForwarded || request.rawRequest.ip || `unknown:${uid}`).trim().slice(0, 160);
+}
+
+function guestClaimRefs(uid: string, installId: string, ip: string) {
+  const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+  return {
+    claim: db().doc(`guestGenerationClaims/${digest(uid)}`),
+    device: db().doc(`guestGenerationDevices/${digest(installId)}`),
+    ip: db().doc(`guestGenerationIpBuckets/${dateKey()}-${digest(ip)}`),
+  };
+}
+
+async function reserveGuestClaim(input: {
+  uid: string;
+  installId: string;
+  ip: string;
+  idempotencyKey: string;
+}): Promise<void> {
+  const now = Date.now();
+  const requestHash = createHash("sha256").update(input.idempotencyKey).digest("hex");
+  const refs = guestClaimRefs(input.uid, input.installId, input.ip);
+  await db().runTransaction(async (tx) => {
+    const [claimSnap, deviceSnap, ipSnap] = await Promise.all([
+      tx.get(refs.claim),
+      tx.get(refs.device),
+      tx.get(refs.ip),
+    ]);
+    if (claimSnap.exists) {
+      throw new HttpsError("already-exists", "Your free first image has already been used. Create an account to get 5 more credits.");
+    }
+    if (Number(deviceSnap.data()?.expiresAt ?? 0) > now) {
+      throw new HttpsError("already-exists", "This browser has already created its free first image. Create an account to get 5 more credits.");
+    }
+    const ipCount = Number(ipSnap.data()?.count ?? 0);
+    if (ipCount >= GUEST_IP_DAILY_LIMIT) {
+      throw new HttpsError("resource-exhausted", "The free-image limit for this network has been reached today. Create an account to continue.");
+    }
+    const common = { requestHash, reservedAt: now, status: "reserved" };
+    tx.set(refs.claim, { ...common, uidHash: createHash("sha256").update(input.uid).digest("hex") });
+    tx.set(refs.device, { ...common, expiresAt: now + GUEST_DEVICE_WINDOW_MS });
+    tx.set(refs.ip, { count: ipCount + 1, updatedAt: now, date: dateKey() }, { merge: true });
+  });
+}
+
+async function releaseGuestClaim(input: {
+  uid: string;
+  installId: string;
+  ip: string;
+  idempotencyKey: string;
+}): Promise<void> {
+  const requestHash = createHash("sha256").update(input.idempotencyKey).digest("hex");
+  const refs = guestClaimRefs(input.uid, input.installId, input.ip);
+  await db().runTransaction(async (tx) => {
+    const [claimSnap, deviceSnap, ipSnap] = await Promise.all([
+      tx.get(refs.claim),
+      tx.get(refs.device),
+      tx.get(refs.ip),
+    ]);
+    if (claimSnap.data()?.requestHash === requestHash) tx.delete(refs.claim);
+    if (deviceSnap.data()?.requestHash === requestHash) tx.delete(refs.device);
+    const count = Number(ipSnap.data()?.count ?? 0);
+    if (count > 0) tx.set(refs.ip, { count: count - 1, updatedAt: Date.now() }, { merge: true });
+  });
+}
+
+async function completeGuestClaim(input: {
+  uid: string;
+  installId: string;
+  ip: string;
+  providerRequestId: string | null;
+  actualCostUsd: number;
+}): Promise<void> {
+  const refs = guestClaimRefs(input.uid, input.installId, input.ip);
+  const completedAt = Date.now();
+  const completion = {
+    status: "completed",
+    completedAt,
+    providerRequestId: input.providerRequestId,
+    actualCostUsd: input.actualCostUsd,
+  };
+  await db().runTransaction(async (tx) => {
+    tx.set(refs.claim, completion, { merge: true });
+    tx.set(refs.device, completion, { merge: true });
+  });
+}
+
 async function settleCachedDelivery(delivery: CachedPaidDelivery): Promise<void> {
   if (delivery.reservation.kind === "batch" && delivery.reservation.reservationId && delivery.reservation.itemReservationId) {
     await commitBatchReservationItem({
@@ -212,6 +313,105 @@ export const getPaidAiCatalog = onCall(baseOptions, async (request) => {
     helpers: AI_ASSIST_MILLICREDITS,
   };
 });
+
+export const generateGuestImage = onCall(
+  { ...baseOptions, secrets: [OPENROUTER_API_KEY] },
+  async (request) => {
+    const uid = requireAnonymousAuth(request);
+    const prompt = String(request.data?.prompt ?? "").trim();
+    if (!prompt || prompt.length > 20_000) throw new HttpsError("invalid-argument", "A valid prompt is required.");
+    const installId = String(request.data?.guestInstallId ?? "");
+    if (!/^[A-Za-z0-9._:-]{16,160}$/.test(installId)) {
+      throw new HttpsError("invalid-argument", "A valid guest installation id is required.");
+    }
+    const idempotencyKey = validateIdempotencyKey(request.data?.idempotencyKey);
+    const aspectRatio = String(request.data?.aspectRatio ?? "1:1").slice(0, 12);
+    const cached = await readPaidDelivery(uid, idempotencyKey).catch((error) => {
+      logger.error("Guest delivery lookup failed", { error });
+      throw new HttpsError("unavailable", "PixTaffy could not safely check your first image. Try again.");
+    });
+    if (cached) return cached.payload;
+
+    const pricing = getPaidModelPrice(GUEST_MODEL_ID);
+    if (!pricing) throw new HttpsError("failed-precondition", "The free first-image model is unavailable.");
+    const ip = guestRequestIp(request, uid);
+    const claimInput = { uid, installId, ip, idempotencyKey };
+    await Promise.all([enforceRateLimit(uid, "images"), assertModelEnabled(GUEST_MODEL_ID)]);
+    await reserveGuestClaim(claimInput);
+
+    let spendCapacityHeld = false;
+    let deliveryStored = false;
+    try {
+      await reserveSpendCapacity("openrouter", pricing.costCeilingUsd);
+      spendCapacityHeld = true;
+      const generated = await generateOpenRouterImageCore({
+        apiKey: OPENROUTER_API_KEY.value(),
+        modelSlug: pricing.openRouterModelId,
+        prompt,
+        aspectRatio,
+        user: createHash("sha256").update(`pixtaffy-guest:${uid}`).digest("hex"),
+        title: "PixTaffy First Image",
+      });
+      const payload = {
+        imageUrl: `data:${generated.mimeType};base64,${generated.base64Data}`,
+        base64Data: generated.base64Data,
+        mimeType: generated.mimeType,
+        modelId: GUEST_MODEL_ID,
+        milliCreditsCharged: 0,
+        balanceMilliCredits: 0,
+      };
+      const delivery: CachedPaidDelivery = {
+        version: 1,
+        uid,
+        idempotencyKey,
+        modelId: GUEST_MODEL_ID,
+        createdAt: Date.now(),
+        reservation: { kind: "admin", reservationId: null, itemReservationId: null },
+        payload,
+        providerRequestId: generated.providerRequestId,
+        actualCostUsd: generated.actualCostUsd,
+        usage: generated.usage,
+      };
+      await writePaidDeliveryWithRetry(delivery);
+      deliveryStored = true;
+      await recordSpend("openrouter", generated.actualCostUsd, "guest-first-image", pricing.costCeilingUsd)
+        .then(() => { spendCapacityHeld = false; })
+        .catch((error) => logger.error("Guest image spend settlement deferred", { error }));
+      if (generated.actualCostUsd > pricing.costCeilingUsd) {
+        await disabledModelRef(GUEST_MODEL_ID).set({
+          disabled: true,
+          modelId: GUEST_MODEL_ID,
+          actualCostUsd: generated.actualCostUsd,
+          costCeilingUsd: pricing.costCeilingUsd,
+          disabledAt: Date.now(),
+          reason: "guest_actual_cost_exceeded_ceiling",
+        }).catch((error) => logger.error("Unable to disable the over-ceiling guest model", { error }));
+      }
+      await completeGuestClaim({
+        uid,
+        installId,
+        ip,
+        providerRequestId: generated.providerRequestId,
+        actualCostUsd: generated.actualCostUsd,
+      });
+      return payload;
+    } catch (error) {
+      if (spendCapacityHeld) {
+        await releaseSpendCapacity("openrouter", pricing.costCeilingUsd).catch((releaseError) => {
+          logger.error("Unable to release guest OpenRouter capacity", { releaseError });
+        });
+      }
+      if (!deliveryStored) {
+        await releaseGuestClaim(claimInput).catch((releaseError) => {
+          logger.error("Unable to release failed guest claim", { releaseError });
+        });
+      }
+      throw error instanceof HttpsError
+        ? error
+        : new HttpsError("internal", error instanceof Error ? error.message : "First image generation failed.");
+    }
+  },
+);
 
 export const generateWithCredits = onCall(
   { ...baseOptions, secrets: [OPENROUTER_API_KEY] },
