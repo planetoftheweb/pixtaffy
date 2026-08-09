@@ -2128,7 +2128,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     side="bottom"
                     wide
                     title="AI auto-select"
-                    text="Proposes the frames from the image, in reveal order. Replaces the current frames (⌘Z restores) · one call on your Gemini key · for busy art, run “Clean up image” first."
+                    text="Proposes the frames from the image, in reveal order. Replaces the current frames (⌘Z restores) · costs 0.2 PixTaffy credit · for busy art, run “Clean up image” first."
                   />
                 </button>
 
@@ -2557,7 +2557,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                       className="group/tip relative inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-brand-teal text-[11px] font-semibold hover:bg-brand-teal/10 disabled:opacity-60"
                     >
                       {naming ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />} AI names
-                      <Tip text="AI names each frame from the image (one call on your Gemini key)" side="bottom" align="right" />
+                      <Tip text="AI names each frame from the image · costs 0.1 PixTaffy credit" side="bottom" align="right" />
                     </button>
                   )}
                   {selectedStepId && (

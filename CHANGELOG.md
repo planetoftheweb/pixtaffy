@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-08-09
+
+### Added
+
+- Added the PixTaffy candy crew, a reusable cast of four taffy creatives with transparent and full-scene brand artwork.
+- Added per-pack image estimates for Standard, Pro, and Premium generation bands.
+- Added clear explanations for saved-generation limits, AI helper prices, and which Build Studio frame and export tools are free.
+
+### Changed
+
+- Renamed the credit offers Taffy Twist, Saltwater Taffy, The Big Pull, and Taffy Studio while keeping their prices and credit amounts unchanged.
+- Reworked the Pricing experience around the PixTaffy logo palette with brighter cyan, pink, purple, orange, and coral accents.
+- Corrected Build Studio tooltips so AI frame detection and naming show their PixTaffy credit costs instead of referring to a personal Gemini key.
+
 ## [0.27.0] - 2026-08-09
 
 ### Added

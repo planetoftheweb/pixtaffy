@@ -8,10 +8,13 @@
 @theme {
   --font-sans: "Mona Sans", "Inter", sans-serif;
   
-  --color-brand-teal: #00A9A5;
-  --color-brand-orange: #FF7F50;
-  --color-brand-red: #B93135;
-  --color-brand-dark: #0B4F6C;
+  --color-brand-teal: #009EAA;
+  --color-brand-cyan: #08D5E8;
+  --color-brand-orange: #FF7A18;
+  --color-brand-red: #E72D58;
+  --color-brand-pink: #F22991;
+  --color-brand-purple: #9B35E3;
+  --color-brand-dark: #103653;
 
   --color-dark-bg: #0d1117;
   --color-dark-card: #161b22;

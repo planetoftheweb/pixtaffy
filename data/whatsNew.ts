@@ -23,6 +23,46 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.28.0-taffy-studio-pricing',
+    title: 'Meet the PixTaffy candy crew',
+    summary:
+      'A brighter plans page now shows how many images, AI tools, video-frame assists, and saved generations come with every option.',
+    blurb:
+      'The taffy creatives have moved into the studio. They brought clearer credit math, candy-bright colors, and names that fit PixTaffy. The new plans page spells out the difference between one-time packs and Taffy Studio, estimates how many images each balance can make, and tells you exactly which Build Studio tools are free.',
+    publishedAt: Date.parse('2026-08-10T01:00:00Z'),
+    version: '0.28.0',
+    image: '/brand/pixtaffy-creative-studio.png',
+    featured: true,
+    sections: [
+      {
+        heading: 'See the image count before you buy',
+        body: 'Every credit pack now estimates how many Standard, Pro, or Premium images it can make. The math assumes you spend the whole balance on one model band, so a mixed workflow or a few AI helpers will change the final number.',
+        steps: [
+          { text: 'Taffy Twist makes about 25 Standard, 12 Pro, or 8 Premium images.', icon: 'Image' },
+          { text: 'Saltwater Taffy makes about 100 Standard, 50 Pro, or 33 Premium images.', icon: 'Sparkles' },
+          { text: 'The Big Pull makes about 300 Standard, 150 Pro, or 100 Premium images.', icon: 'Layers' },
+        ],
+      },
+      {
+        heading: 'Know what is free in Build Studio',
+        body: 'Drawing frames, arranging the animation, previewing, and exporting MP4, PowerPoint, or PNG files happen locally and cost nothing. AI frame detection costs 0.2 credit, and AI naming costs 0.1 credit.',
+        steps: [
+          { text: 'Draw and edit frames without spending credits.', icon: 'Edit' },
+          { text: 'Export video and slide files locally for free.', icon: 'Download' },
+          { text: 'Use AI only when you want help finding or naming the frames.', icon: 'Sparkles' },
+        ],
+      },
+      {
+        heading: 'History limits make sense now',
+        body: 'Free accounts keep the latest 100 generation entries. Buying any pack raises that limit to 500, no matter which pack you choose. An active Taffy Studio membership keeps 2,000.',
+        steps: [
+          { text: 'Choose a larger pack for more credits, not more storage.', icon: 'CreditCard' },
+          { text: 'Choose Taffy Studio when you need a larger working history and monthly credits.', icon: 'Archive' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.27.0-feedback-to-github',
     title: 'Tell PixTaffy what needs fixing',
     summary:
@@ -72,9 +112,9 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     id: 'v0.26.0-sustainable-ai-credits',
     title: 'Five credits to start, then pay as you go',
     summary:
-      'PixTaffy now includes starter credits, permanent credit packs, and a monthly Pro plan for site-funded AI.',
+      'PixTaffy now includes starter credits, permanent credit packs, and a monthly Taffy Studio membership for site-funded AI.',
     blurb:
-      'You can still bring your own image-generation key and use PixTaffy for free. When you want PixTaffy to handle the provider bill, verified accounts get five starter credits, credit packs never expire, and PixTaffy Pro adds 100 credits every month with two-month rollover. Every paid model and AI helper shows its credit cost before it runs.',
+      'You can still bring your own image-generation key and use PixTaffy for free. When you want PixTaffy to handle the provider bill, verified accounts get five starter credits, credit packs never expire, and Taffy Studio adds 100 credits every month with two-month rollover. Every paid model and AI helper shows its credit cost before it runs.',
     publishedAt: Date.parse('2026-08-09T20:30:00Z'),
     version: '0.26.0',
     image: '/pixtaffy.png',
@@ -91,10 +131,10 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       },
       {
         heading: 'Buy permanent credits or subscribe to Pro',
-        body: 'Credit packs cost $6 for 25, $18 for 100, or $45 for 300, and purchased credits never expire. PixTaffy Pro costs $15 a month, adds 100 credits each billing period, and lets unused subscription credits roll over for up to two months.',
+        body: 'Credit packs cost $6 for 25, $18 for 100, or $45 for 300, and purchased credits never expire. Taffy Studio costs $15 a month, adds 100 credits each billing period, and lets unused subscription credits roll over for up to two months.',
         steps: [
           { text: 'Choose a pack when you want credits without a subscription.', icon: 'CreditCard' },
-          { text: 'Choose Pro for a fresh monthly balance and 2,000 saved generations.', icon: 'Layers' },
+          { text: 'Choose Taffy Studio for a fresh monthly balance and 2,000 saved generations.', icon: 'Layers' },
           { text: 'Use the billing portal anytime to update payment details or cancel.', icon: 'Settings' },
         ],
       },

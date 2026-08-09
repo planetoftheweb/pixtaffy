@@ -27,7 +27,7 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 *   **👤 User Profiles:** Sign up with Email or Username. Sync preferences across devices.
 *   **⚙️ Full Settings Management:** dedicated page for managing API keys, profile settings, and application preferences.
 *   **🔑 BYOK (Bring Your Own Key):** Multi-model keys for Google Gemini and OpenAI. A single OpenAI key drives three tiers — **GPT Image 2** (flagship, 2K/4K, 3:1 & 1:3 ratios), **GPT Image Mini** (budget), and **GPT Image 1.5** (legacy) — with a per-model **Quality** control (Auto / Low / Medium / High).
-*   **💳 Optional PixTaffy credits:** Verified accounts receive 5 starter credits for 30 days. Credit packs and PixTaffy Pro fund curated OpenRouter image models without exposing shared provider keys to the browser.
+*   **💳 Optional PixTaffy credits:** Verified accounts receive 5 starter credits for 30 days. Credit packs and Taffy Studio fund curated OpenRouter image models without exposing shared provider keys to the browser.
 *   **💬 Feedback to GitHub:** Bugs, ideas, questions, and screenshots can be sent from the footer or account menu. A protected Cloud Function saves the private contact record and opens a labeled issue in `planetoftheweb/pixtaffy`.
 *   **🧠 Refinement Workspace:** Per-image refine model + target size controls, built-in **Run analysis** correction-plan generator (Gemini Flash vision or OpenAI `gpt-4o-mini` vision + JSON, matching your configured keys), and style-reference fallback for difficult recompositions.
 *   **🧬 Versioned Iteration:** Mark-based generation/refinement history with restore, per-refinement deletion, and per-version aspect-ratio tracking so follow-up edits keep the correct size.

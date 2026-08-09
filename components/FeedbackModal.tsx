@@ -162,6 +162,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
 
         {issue ? (
           <div className="px-5 py-8 text-center sm:px-8 sm:py-12">
+            <img
+              src="/brand/pixtaffy-taffy-crew.png"
+              alt="The PixTaffy candy crew celebrates your feedback"
+              className="mx-auto mb-3 w-full max-w-sm"
+            />
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-brand-teal dark:bg-teal-950/40">
               <Send size={24} />
             </div>

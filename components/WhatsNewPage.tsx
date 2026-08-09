@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import {
+  Archive,
   ArrowLeft,
   ArrowRight,
   Bell,
@@ -58,6 +59,7 @@ interface WhatsNewPageProps {
  * help glyph rather than crashing the page.
  */
 const ICON_MAP: Record<string, LucideIcon> = {
+  Archive,
   Bell,
   ArrowRight,
   BookOpen,
