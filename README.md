@@ -28,6 +28,7 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 *   **⚙️ Full Settings Management:** dedicated page for managing API keys, profile settings, and application preferences.
 *   **🔑 BYOK (Bring Your Own Key):** Multi-model keys for Google Gemini and OpenAI. A single OpenAI key drives three tiers — **GPT Image 2** (flagship, 2K/4K, 3:1 & 1:3 ratios), **GPT Image Mini** (budget), and **GPT Image 1.5** (legacy) — with a per-model **Quality** control (Auto / Low / Medium / High).
 *   **💳 Optional PixTaffy credits:** Verified accounts receive 5 starter credits for 30 days. Credit packs and PixTaffy Pro fund curated OpenRouter image models without exposing shared provider keys to the browser.
+*   **💬 Feedback to GitHub:** Bugs, ideas, questions, and screenshots can be sent from the footer or account menu. A protected Cloud Function saves the private contact record and opens a labeled issue in `planetoftheweb/pixtaffy`.
 *   **🧠 Refinement Workspace:** Per-image refine model + target size controls, built-in **Run analysis** correction-plan generator (Gemini Flash vision or OpenAI `gpt-4o-mini` vision + JSON, matching your configured keys), and style-reference fallback for difficult recompositions.
 *   **🧬 Versioned Iteration:** Mark-based generation/refinement history with restore, per-refinement deletion, and per-version aspect-ratio tracking so follow-up edits keep the correct size.
 *   **📝 Better Prompt Editing:** Compact refine textbox with optional **full-screen prompt editor** (opens after Run analysis or via **Open full editor**), **Escape** to close, and keyboard submit shortcut (`Cmd/Ctrl + Enter`).
@@ -96,7 +97,7 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
     ```
     *Note: The app includes a built-in "Configuration Error" screen that will alert you if any of these keys are missing.*
 
-    PixTaffy's shared OpenRouter and Gemini keys must not use `VITE_` variables. Store them as Firebase Function secrets named `OPENROUTER_API_KEY` and `PIXTAFFY_GEMINI_API_KEY`.
+    PixTaffy's shared OpenRouter, Gemini, and GitHub credentials must not use `VITE_` variables. Store them as Firebase Function secrets named `OPENROUTER_API_KEY`, `PIXTAFFY_GEMINI_API_KEY`, and `GITHUB_TOKEN`. The GitHub token needs Issues read/write access to `planetoftheweb/pixtaffy`.
 
 4.  **Configure Firebase Storage CORS:**
     To allow image uploads from localhost and your production domain, you must apply CORS rules to your Storage bucket.
@@ -145,8 +146,7 @@ contract.
 
 ## Deployment
 
-This project is configured for deployment on [Render](https://render.com) as a Static Site.
-Ensure you add all the Environment Variables listed above in your Render service settings.
+PixTaffy is hosted on Firebase Hosting, with Firebase Functions, Firestore, and Storage in the `brandoit` project. Deploy the frontend and protected backend with the Firebase CLI after the production build and test gates pass.
 
 ## License
 

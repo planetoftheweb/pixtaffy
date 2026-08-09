@@ -43,6 +43,19 @@ service firebase.storage {
       allow delete: if isOwner(uid) || isAdmin();
     }
 
+    // A visitor may attach one image to feedback using their current Firebase
+    // identity, including the anonymous identity used by the guest studio.
+    // The resulting download token is intentionally included in the public
+    // GitHub issue after the form warns the submitter about that visibility.
+    match /feedbackUploads/{uid}/{fileName} {
+      allow read: if (isSignedIn() && request.auth.uid == uid) || isAdmin();
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && isImageUpload(5 * 1024 * 1024);
+      allow update: if false;
+      allow delete: if (isSignedIn() && request.auth.uid == uid) || isAdmin();
+    }
+
     // Everything else: admins only.
     match /{allPaths=**} {
       allow read, write: if isAdmin();

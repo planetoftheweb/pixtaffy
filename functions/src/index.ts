@@ -27,3 +27,4 @@ export {
   runAiAssist,
 } from "./paidAi";
 export { enforceHistoryRetention } from "./historyRetention";
+export { submitFeedback } from "./feedback";

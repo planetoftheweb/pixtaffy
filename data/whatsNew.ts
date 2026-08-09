@@ -23,6 +23,29 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.27.0-feedback-to-github',
+    title: 'Tell PixTaffy what needs fixing',
+    summary:
+      'Send a bug, idea, or question from the app and PixTaffy will put it on the GitHub issue board.',
+    blurb:
+      'You shouldn\'t need to hunt down a repository just to say that a menu got stuck. Open Feedback from the footer or your account menu, write the note, and add a screenshot if it helps. PixTaffy creates the GitHub issue and gives you the link so you can follow along.',
+    publishedAt: Date.parse('2026-08-10T00:30:00Z'),
+    version: '0.27.0',
+    image: '/pixtaffy.png',
+    featured: true,
+    sections: [
+      {
+        heading: 'Your note lands where the work happens',
+        body: 'Bugs, ideas, questions, and everything else get their own labels on the PixTaffy issue board. Screenshots are optional, and the form tells you before an image becomes public.',
+        steps: [
+          { text: 'Choose Feedback in the footer or your account menu.', icon: 'Edit' },
+          { text: 'Pick a category, write the note, and add a screenshot if it helps.', icon: 'Image' },
+          { text: 'Open the new GitHub issue from the confirmation screen.', icon: 'ExternalLink' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.26.1-first-image-free',
     title: 'Make your first image before signing up',
     summary:

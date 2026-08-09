@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-08-09
+
+### Added
+
+- Added a mobile-safe feedback form for bugs, ideas, questions, and other notes, available from the account menu and site footer.
+- Added optional screenshot attachments with a clear public-visibility warning and private contact email handling.
+- Added the App Check-protected `submitFeedback` Cloud Function, which saves a private Firebase record and creates a labeled issue in `planetoftheweb/pixtaffy` without exposing GitHub credentials to the browser.
+- Added per-account and network rate limits, idempotent submissions, sanitized page and browser context, and agent-ready labels for administrator feedback.
+
+### Security
+
+- Kept contact emails and raw Firebase user IDs out of public GitHub issues. Issues receive a short one-way account hash for abuse investigation instead.
+- Restricted feedback documents, request state, and rate-limit counters to server or administrator access, while allowing each Firebase identity to upload only bounded image attachments under its own feedback path.
+
 ## [0.26.3] - 2026-08-09
 
 ### Fixed

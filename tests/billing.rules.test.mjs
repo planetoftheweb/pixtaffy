@@ -89,4 +89,23 @@ test('anonymous guests cannot write account history or storage directly', async 
     new Uint8Array([1, 2, 3]),
     { contentType: 'image/webp' },
   ));
+  await assertSucceeds(uploadBytes(
+    ref(guest.storage(`gs://${projectId}.firebasestorage.app`), 'feedbackUploads/guest/screen.webp'),
+    new Uint8Array([1, 2, 3]),
+    { contentType: 'image/webp' },
+  ));
+  await assertFails(uploadBytes(
+    ref(guest.storage(`gs://${projectId}.firebasestorage.app`), 'feedbackUploads/other/screen.webp'),
+    new Uint8Array([1, 2, 3]),
+    { contentType: 'image/webp' },
+  ));
+});
+
+test('feedback documents and rate limits stay server-managed', async () => {
+  const ownerDb = registeredContext('owner').firestore();
+  await assertFails(setDoc(doc(ownerDb, 'feedback/forged'), { message: 'mint an issue' }));
+  await assertFails(setDoc(doc(ownerDb, 'feedbackRequests/forged'), { status: 'created' }));
+  await assertFails(setDoc(doc(ownerDb, 'feedbackRateLimits/forged'), { dayCount: 0 }));
+  const adminDb = registeredContext('admin', { admin: true }).firestore();
+  await assertSucceeds(getDoc(doc(adminDb, 'feedback/forged')));
 });

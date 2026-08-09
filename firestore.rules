@@ -159,6 +159,20 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Feedback is written only by the callable so a browser cannot forge its
+    // GitHub state, rate limits, or private contact fields. Admins may inspect
+    // the records directly when following up with a submitter.
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /feedbackRequests/{requestId} {
+      allow read, write: if false;
+    }
+    match /feedbackRateLimits/{limitId} {
+      allow read, write: if false;
+    }
+
     // Personal API tokens: doc id is the SHA-256 of the token, managed
     // exclusively by the manageApiTokens Cloud Function via the admin SDK.
     // No client may read or write here — a client read would expose which

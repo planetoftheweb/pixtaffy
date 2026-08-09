@@ -90,6 +90,7 @@ import {
   Github,
   ShieldCheck,
   Coins,
+  MessageSquarePlus,
   Minimize2,
   Maximize2
 } from 'lucide-react';
@@ -120,6 +121,9 @@ const SearchModal = lazy(() =>
 );
 const BuildStudio = lazy(() =>
   import('./components/BuildStudio').then((mod) => ({ default: mod.BuildStudio }))
+);
+const FeedbackModal = lazy(() =>
+  import('./components/FeedbackModal').then((mod) => ({ default: mod.FeedbackModal }))
 );
 
 interface ToolbarSelectionCache {
@@ -385,6 +389,8 @@ const App: React.FC = () => {
   >(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const closeFeedback = useCallback(() => setIsFeedbackOpen(false), []);
 
   useEffect(() => {
     if (!user) {
@@ -3760,6 +3766,18 @@ const App: React.FC = () => {
                         <Github size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
                         <span>View on GitHub</span>
                       </a>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsFeedbackOpen(true);
+                        }}
+                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+                      >
+                        <MessageSquarePlus size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
+                        <span>Send feedback</span>
+                      </button>
                     </div>
 
                     {/* Preferences — the whole row is the toggle target; the
@@ -4506,6 +4524,16 @@ const App: React.FC = () => {
             >
               Releases
             </a>
+            <span className="hidden text-slate-300 dark:text-slate-600 sm:inline" aria-hidden="true">
+              |
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsFeedbackOpen(true)}
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
+            >
+              Feedback
+            </button>
           </nav>
         </div>
       </footer>
@@ -4556,6 +4584,16 @@ const App: React.FC = () => {
             onClose={() => setIsAuthModalOpen(false)}
             onLoginSuccess={handleLoginSuccess}
             initialMode={authModalMode}
+          />
+        </Suspense>
+      )}
+
+      {isFeedbackOpen && (
+        <Suspense fallback={<LazyModalFallback />}>
+          <FeedbackModal
+            isOpen={isFeedbackOpen}
+            onClose={closeFeedback}
+            user={user}
           />
         </Suspense>
       )}
