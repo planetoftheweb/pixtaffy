@@ -227,7 +227,9 @@ const MODEL_NAME_BY_ID: Record<string, string> = SUPPORTED_MODELS.reduce<Record<
 const GITHUB_REPO_BASE = 'https://github.com/planetoftheweb/pixtaffy';
 const GITHUB_CHANGELOG_URL = `${GITHUB_REPO_BASE}/blob/main/CHANGELOG.md`;
 const GITHUB_RELEASES_URL = `${GITHUB_REPO_BASE}/releases`;
-const GUEST_FIRST_IMAGE_MODEL_ID = 'openrouter:bytedance-seed/seedream-4.5';
+const DEFAULT_MODEL_ID = 'openai-2';
+const GUEST_GRANT_MILLICREDITS = 3_000;
+const GUEST_MODEL_DEFAULT_MIGRATION_KEY = 'pixtaffy_guest_model_default_gpt2_v1';
 const GUEST_FIRST_IMAGE_USED_KEY = 'pixtaffy_guest_first_image_used_v1';
 const STARTUP_GATE_TIMEOUT_MS = 9_000;
 
@@ -396,6 +398,7 @@ const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
   const [billingState, setBillingState] = useState<BillingState | null>(null);
+  const [guestBalanceMilliCredits, setGuestBalanceMilliCredits] = useState(GUEST_GRANT_MILLICREDITS);
   const [hasUsedGuestGeneration, setHasUsedGuestGeneration] = useState(
     () => localStorage.getItem(GUEST_FIRST_IMAGE_USED_KEY) === 'true'
   );
@@ -442,12 +445,33 @@ const App: React.FC = () => {
     useState<PromptImageStyleReference | null>(null);
   const [guestSelectedModel, setGuestSelectedModel] = useState<string>(() => {
     const cachedSelection = readToolbarSelection() || readLastToolbarSelection();
+    if (localStorage.getItem(GUEST_MODEL_DEFAULT_MIGRATION_KEY) !== 'true') {
+      writeToolbarSelection({ ...(cachedSelection || {}), selectedModel: DEFAULT_MODEL_ID });
+      localStorage.setItem(GUEST_MODEL_DEFAULT_MIGRATION_KEY, 'true');
+      return DEFAULT_MODEL_ID;
+    }
     const cachedModel = cachedSelection?.selectedModel;
     return cachedModel && MODEL_ID_SET.has(cachedModel)
       ? cachedModel
-      : 'gemini-3.1-flash-image-preview';
+      : DEFAULT_MODEL_ID;
   });
   const [hasHydratedToolbarState, setHasHydratedToolbarState] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthResolved || user || welcomeMode) return;
+    let cancelled = false;
+    void authService.ensureAnonymousSession()
+      .then(() => billingService.getGuestCreditState())
+      .then((state) => {
+        if (!cancelled) setGuestBalanceMilliCredits(state.balanceMilliCredits);
+      })
+      .catch((guestCreditError) => {
+        console.warn('[App] Guest credit balance unavailable:', guestCreditError);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthResolved, user?.id, welcomeMode]);
 
   const [currentGeneration, setCurrentGeneration] = useState<Generation | null>(null);
   const [history, setHistory] = useState<Generation[]>([]);
@@ -648,10 +672,7 @@ const App: React.FC = () => {
       cachedSelection?.selectedModel ||
       activeUser?.preferences.selectedModel ||
       (!activeUser ? guestSelectedModel : undefined) ||
-      // Default model for fresh accounts: Nano Banana 2 (Gemini 3.1 Flash).
-      // Chosen because it's the fast Gemini option — users can upgrade to
-      // Pro or switch to GPT from the model dropdown.
-      'gemini-3.1-flash-image-preview';
+      DEFAULT_MODEL_ID;
     if (!activeUser && selectedModelForDefaults !== guestSelectedModel) {
       setGuestSelectedModel(selectedModelForDefaults);
     }
@@ -787,7 +808,7 @@ const App: React.FC = () => {
       if (!active || gateReleased) return;
       setUser(null);
       setHistory(historyService.getFromLocal());
-      setStartupIssue('PixTaffy could not confirm your saved session within 9 seconds. You can keep browsing as a guest while Firebase reconnects.');
+      setStartupIssue("PixTaffy couldn't check for a saved session. You can still browse, but using guest credits needs a temporary secure session. Try again.");
       releaseGate('timeout');
     }, STARTUP_GATE_TIMEOUT_MS);
 
@@ -846,7 +867,7 @@ const App: React.FC = () => {
       console.error('[Startup] Auth gate failed:', authError);
       setUser(null);
       setHistory(historyService.getFromLocal());
-      setStartupIssue('PixTaffy could not check your saved session. You can keep browsing as a guest and retry the connection.');
+      setStartupIssue("PixTaffy couldn't check for a saved session. You can still browse, but using guest credits needs a temporary secure session. Try again.");
       releaseGate('error fallback');
     });
 
@@ -978,7 +999,7 @@ const App: React.FC = () => {
   const context = { brandColors, visualStyles, graphicTypes, aspectRatios };
   const selectedModel = user
     ? (user.preferences.selectedModel || guestSelectedModel)
-    : GUEST_FIRST_IMAGE_MODEL_ID;
+    : guestSelectedModel;
 
   // Newest generation whose settings match the preset's PINNED fields —
   // shown as a sample thumbnail in the hover preview so the user can see
@@ -1049,7 +1070,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     setSelectedModelIds((prev) => {
-      if (!user) return [GUEST_FIRST_IMAGE_MODEL_ID];
+      if (!user) return [selectedModel];
       if (prev.length <= 1) return [selectedModel];
       if (!prev.includes(selectedModel)) return [selectedModel, ...prev];
       return prev;
@@ -1693,12 +1714,14 @@ const App: React.FC = () => {
       }
 
       if (!user) {
-        if (hasUsedGuestGeneration) {
+        const guestModelCost = SITE_FUNDED_MODEL_MILLICREDITS[selectedModel];
+        if (!guestModelCost) throw new Error('Choose a model available with PixTaffy guest credits.');
+        if (guestBalanceMilliCredits < guestModelCost) {
           openAuthModal('signup');
-          throw new Error('Your first image was free. Create an account and verify your email to get 5 more credits.');
+          throw new Error('You do not have enough guest credits for this model. Create an account and verify your email for 10 starter credits.');
         }
         const guestAspectRatio = getSafeAspectRatioForModel(
-          GUEST_FIRST_IMAGE_MODEL_ID,
+          selectedModel,
           config.aspectRatio,
           aspectRatios
         );
@@ -1714,7 +1737,7 @@ const App: React.FC = () => {
         setActiveGenerationJobs((previous) => [{
           id: jobId,
           prompt: guestConfig.prompt,
-          modelIds: [GUEST_FIRST_IMAGE_MODEL_ID],
+          modelIds: [selectedModel],
           total: 1,
           completed: 0,
           failed: 0,
@@ -1723,24 +1746,25 @@ const App: React.FC = () => {
           status: 'running',
           errors: [],
           modelProgress: {
-            [GUEST_FIRST_IMAGE_MODEL_ID]: { total: 1, completed: 0, failed: 0, inFlight: 1 },
+            [selectedModel]: { total: 1, completed: 0, failed: 0, inFlight: 1 },
           },
           currentJobs: [{
             key: `${jobId}:first-image`,
-            modelId: GUEST_FIRST_IMAGE_MODEL_ID,
+            modelId: selectedModel,
             prompt: guestConfig.prompt,
           }],
         }, ...previous]);
 
         await authService.ensureAnonymousSession();
         const result = await billingService.generateGuestImage({
+          modelId: selectedModel,
           prompt: buildStructuredPrompt(guestConfig),
           aspectRatio: guestAspectRatio,
         });
         const generation = await createGeneration(
           result,
           guestConfig,
-          result.modelId || GUEST_FIRST_IMAGE_MODEL_ID,
+          result.modelId || selectedModel,
           undefined,
           INBOX_FOLDER_ID
         );
@@ -1749,6 +1773,7 @@ const App: React.FC = () => {
         historyRef.current = [generation];
         setHistory([generation]);
         setCurrentGeneration(generation);
+        setGuestBalanceMilliCredits(result.balanceMilliCredits);
         try {
           localStorage.setItem(GUEST_FIRST_IMAGE_USED_KEY, 'true');
         } catch {
@@ -1764,10 +1789,10 @@ const App: React.FC = () => {
           status: 'completed',
           finishedAt: Date.now(),
           message: savedInBrowser
-            ? 'Your first image is ready and stored in this browser. Create an account to sync it across browsers and get 5 more credits.'
-            : 'Your first image is ready, but this browser could not store it. Download it now, then create an account to save future work.',
+            ? `Your image is ready and stored in this browser. You have ${result.balanceMilliCredits / 1_000} guest credit${result.balanceMilliCredits === 1_000 ? '' : 's'} left.`
+            : 'Your image is ready, but this browser could not store it. Download it now, then create an account to save future work.',
           modelProgress: {
-            [GUEST_FIRST_IMAGE_MODEL_ID]: { total: 1, completed: 1, failed: 0, inFlight: 0 },
+            [selectedModel]: { total: 1, completed: 1, failed: 0, inFlight: 0 },
           },
         }));
         scheduleGenerationJobDismissal(jobId, 12_000);
@@ -2211,9 +2236,10 @@ const App: React.FC = () => {
       scheduleGenerationJobDismissal(jobId, finalStatus === 'failed' ? 14000 : 9000);
     } catch (err: any) {
       const message = err.message || 'An unexpected error occurred.';
-      if (!user && (err?.code === 'functions/already-exists' || err?.code === 'functions/resource-exhausted')) {
-        localStorage.setItem(GUEST_FIRST_IMAGE_USED_KEY, 'true');
-        setHasUsedGuestGeneration(true);
+      if (!user && err?.code === 'functions/resource-exhausted') {
+        void billingService.getGuestCreditState()
+          .then((state) => setGuestBalanceMilliCredits(state.balanceMilliCredits))
+          .catch(() => undefined);
       }
       setError(message);
       if (jobId) {
@@ -3044,7 +3070,7 @@ const App: React.FC = () => {
     openRouterModelSlugs?: string[]
   ) => {
     if (!user) return;
-    const nextSelectedModel = preferredModel || user.preferences.selectedModel || 'gemini-3.1-flash-image-preview';
+    const nextSelectedModel = preferredModel || user.preferences.selectedModel || DEFAULT_MODEL_ID;
 
     // Use the apiKeys from SettingsPage as-is (it reflects the user's latest
     // edits, including deletions). Falling back to `user.preferences.apiKeys`
@@ -3599,19 +3625,17 @@ const App: React.FC = () => {
   const creditEligibleMissingIds = missingGenerationApiKeyIds.filter((modelId) => SITE_FUNDED_MODEL_MILLICREDITS[modelId]);
   const byokOnlyMissingIds = missingGenerationApiKeyIds.filter((modelId) => !SITE_FUNDED_MODEL_MILLICREDITS[modelId]);
   const canUseCredits = billingState?.isAdmin || (billingState?.balanceMilliCredits ?? 0) > 0;
-  const paidMilliCreditsPerPrompt = user
-    ? generationModelIdsToRun.reduce(
+  const paidMilliCreditsPerPrompt = generationModelIdsToRun.reduce(
         (sum, modelId) => sum + (getApiKeyForModel(modelId) ? 0 : SITE_FUNDED_MODEL_MILLICREDITS[modelId] ?? 0),
         0
-      )
-    : 0;
+      );
   const isGenerateSetupRequired = !user
-    ? hasUsedGuestGeneration
+    ? paidMilliCreditsPerPrompt > guestBalanceMilliCredits
     : byokOnlyMissingIds.length > 0 || (creditEligibleMissingIds.length > 0 && !canUseCredits);
   const firstMissingModelId = missingGenerationApiKeyIds[0] || selectedModel;
-  const generateSetupActionLabel = !user ? 'Get 5 credits' : byokOnlyMissingIds.length > 0 ? 'Add API key' : 'Get credits';
+  const generateSetupActionLabel = !user ? 'Get 10 credits' : byokOnlyMissingIds.length > 0 ? 'Add API key' : 'Get credits';
   const generateSetupActionDescription = !user
-    ? 'Create an account and verify your email to get 5 credits'
+    ? 'Create an account and verify your email to get 10 starter credits'
     : byokOnlyMissingIds.length > 0
       ? `Add an API key for ${byokOnlyMissingIds.map((id) => MODEL_NAME_BY_ID[id] || id).join(', ')}`
       : missingGenerationApiKeyIds.length > 1
@@ -4003,7 +4027,7 @@ const App: React.FC = () => {
           <div className="flex min-w-0 items-start gap-3">
             <AlertCircle size={19} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-300" />
             <div>
-              <p className="text-sm font-black">Session connection issue</p>
+              <p className="text-sm font-black">Guest credits are temporarily unavailable</p>
               <p className="mt-0.5 text-sm leading-6">{startupIssue}</p>
             </div>
           </div>
@@ -4012,7 +4036,7 @@ const App: React.FC = () => {
             onClick={() => setAuthRetryNonce((attempt) => attempt + 1)}
             className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-900 px-4 py-2 text-sm font-black text-white hover:bg-amber-800 dark:bg-amber-300 dark:text-amber-950 dark:hover:bg-amber-200"
           >
-            <RefreshCw size={16} /> Retry connection
+            <RefreshCw size={16} /> Try again
           </button>
         </section>
       )}
@@ -4105,6 +4129,7 @@ const App: React.FC = () => {
             setConfig={setConfig} 
             onGenerate={handleGenerate}
             paidBatchMilliCredits={paidMilliCreditsPerPrompt}
+            guestBalanceMilliCredits={!user ? guestBalanceMilliCredits : undefined}
             isGenerating={hasRunningGenerationJobs}
             options={context}
             setOptions={{ setBrandColors, setVisualStyles, setGraphicTypes, setAspectRatios }}
@@ -4123,8 +4148,9 @@ const App: React.FC = () => {
             setupActionDescription={generateSetupActionDescription}
             onSetupAction={handleGenerateSetupAction}
             generationCap={!user ? 1 : undefined}
-            freeFirstGeneration={!user && !hasUsedGuestGeneration}
-            modelSelectionLocked={!user}
+            freeFirstGeneration={false}
+            modelSelectionLocked={false}
+            allowedModelIds={!user ? Object.keys(SITE_FUNDED_MODEL_MILLICREDITS) : undefined}
             presets={user?.preferences.presets || []}
             onApplyPreset={handleApplyPreset}
             onSavePreset={user ? handleSavePreset : undefined}
@@ -4335,6 +4361,7 @@ const App: React.FC = () => {
                         // (simulated mean error 15-40s, worst >2min; this
                         // formula: 0-19s mean, worst 64s).
                         let remainingSeconds = 0;
+                        let isOverdue = false;
                         if (remainingJobs > 0) {
                           const modelCount = Math.max(1, job.modelIds.length);
                           const effC = Math.max(1, Math.min(DEFAULT_BATCH_CONCURRENCY * modelCount, job.total));
@@ -4358,7 +4385,10 @@ const App: React.FC = () => {
                             perGen = observed * trust + baselinePerGen * (1 - trust);
                           }
                           const projected = Math.ceil(job.total / effC) * perGen;
-                          remainingSeconds = Math.max(Math.round(projected - elapsedSec), 3);
+                          isOverdue = elapsedSec >= projected;
+                          remainingSeconds = isOverdue
+                            ? 0
+                            : Math.max(Math.round(projected - elapsedSec), 1);
                         }
                         const remainingLabel = formatDuration(remainingSeconds);
                         const modelChips = job.modelIds
@@ -4452,7 +4482,9 @@ const App: React.FC = () => {
                             </div>
                             <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
                               <span>{elapsedLabel} elapsed</span>
-                              {running && remainingSeconds > 0 ? (
+                              {running && isOverdue ? (
+                                <span>Taking longer than expected</span>
+                              ) : running && remainingSeconds > 0 ? (
                                 <span>~{remainingLabel} remaining</span>
                               ) : job.message ? (
                                 <span className="truncate">{job.message}</span>
@@ -4581,13 +4613,13 @@ const App: React.FC = () => {
                   <div>
                     <p className="font-bold text-slate-900 dark:text-white">
                       {guestImageSavedInBrowser
-                        ? 'Your first image is stored in this browser.'
-                        : 'This browser could not store your first image.'}
+                        ? 'Your guest image is stored in this browser.'
+                        : 'This browser could not store your guest image.'}
                     </p>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                       {guestImageSavedInBrowser
-                        ? 'Download it now, or create a free account to sync it across browsers. Verify your email and you will also get 5 more credits.'
-                        : 'Download it now so it is not lost. Create a free account to save future work, then verify your email for 5 credits.'}
+                        ? `Download it now, or create a free account to sync it across browsers. Verify your email for 10 starter credits. You have ${guestBalanceMilliCredits / 1_000} guest credit${guestBalanceMilliCredits === 1_000 ? '' : 's'} left.`
+                        : 'Download it now so it is not lost. Create a free account to save future work, then verify your email for 10 starter credits.'}
                     </p>
                   </div>
                 </div>
@@ -4596,7 +4628,7 @@ const App: React.FC = () => {
                   onClick={() => openAuthModal('signup')}
                   className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-red/20 transition-colors hover:bg-red-700"
                 >
-                  {guestImageSavedInBrowser ? 'Sync it and get 5 credits' : 'Create account for future work'}
+                  {guestImageSavedInBrowser ? 'Sync it and get 10 credits' : 'Create account for future work'}
                   <ArrowRight size={15} />
                 </button>
               </div>
@@ -4868,7 +4900,7 @@ const App: React.FC = () => {
                     Start free, your way
                   </h2>
                   <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-300">
-                    Create an account and verify your email for 5 starter credits, or bring your own image-generation key and keep generating free.
+                    Create an account and verify your email for 10 starter credits, or bring your own image-generation key and keep generating free.
                   </p>
                 </>
               ) : (
@@ -4877,7 +4909,7 @@ const App: React.FC = () => {
                     One setup step left
                   </h2>
                   <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-300">
-                    Verify your email to claim 5 starter credits, buy a credit pack, or add your own key in Settings.
+                    Verify your email to claim 10 starter credits, buy a credit pack, or add your own key in Settings.
                   </p>
                 </>
               )}
@@ -4900,7 +4932,7 @@ const App: React.FC = () => {
                 <div className="rounded-2xl border border-slate-200 dark:border-[#30363d] bg-slate-50/80 dark:bg-[#111827]/70 p-4">
                   <div className="flex items-center gap-2 text-slate-900 dark:text-white font-semibold text-sm">
                     <Sparkles size={14} className="text-sky-600 dark:text-sky-300" />
-                    5 starter credits
+                    10 starter credits
                   </div>
                   <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Verify your email, then try paid models and AI workflow tools.</p>
                 </div>

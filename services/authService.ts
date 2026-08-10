@@ -33,7 +33,7 @@ const defaultPreferences: UserPreferences = {
   // Default model for brand-new accounts: Nano Banana 2 (Gemini 3.1 Flash).
   // App.loadResources / guestSelectedModel use the same id as their
   // code-level fallback so the UI matches across guest + first-login.
-  selectedModel: 'gemini-3.1-flash-image-preview',
+  selectedModel: 'openai-2',
   settings: {
     contributeByDefault: false,
     confirmDeleteHistory: true,
@@ -43,6 +43,34 @@ const defaultPreferences: UserPreferences = {
     defaultAspectRatio: '16:9',
     openaiImageQuality: 'auto',
   }
+};
+
+const ANONYMOUS_SESSION_TIMEOUT_MS = 10_000;
+const ANONYMOUS_SESSION_TIMEOUT_MESSAGE =
+  "PixTaffy couldn't start the temporary session needed for guest credits. Try again, or open PixTaffy in another browser.";
+
+const anonymousSessionError = (): Error & { code?: string } => {
+  const error = new Error(ANONYMOUS_SESSION_TIMEOUT_MESSAGE) as Error & { code?: string };
+  error.code = 'guest/session-timeout';
+  return error;
+};
+
+const startAnonymousSession = async (): Promise<string> => {
+  const attempt = signInAnonymously(auth);
+  return new Promise<string>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(anonymousSessionError());
+    }, ANONYMOUS_SESSION_TIMEOUT_MS);
+
+    attempt.then((credential) => {
+      window.clearTimeout(timeoutId);
+      resolve(credential.user.uid);
+    }, (error) => {
+      window.clearTimeout(timeoutId);
+      console.warn('[Guest] Anonymous session could not start:', error);
+      reject(anonymousSessionError());
+    });
+  });
 };
 
 // Helper to remove non-serializable fields (like React components/icons) from preferences.
@@ -223,7 +251,7 @@ const hydratePreferences = (savedPrefs: any): UserPreferences => {
     openRouterModels: Array.isArray(savedPrefs.openRouterModels)
       ? savedPrefs.openRouterModels.filter((s: unknown): s is string => typeof s === 'string')
       : undefined,
-    selectedModel: savedPrefs.selectedModel || 'gemini-3.1-flash-image-preview',
+    selectedModel: savedPrefs.selectedModel || 'openai-2',
     systemPrompt: savedPrefs.systemPrompt,
     settings: {
       contributeByDefault: savedPrefs.settings?.contributeByDefault ?? defaultPreferences.settings?.contributeByDefault ?? false,
@@ -415,8 +443,7 @@ const ensureUsernameReservation = async (
 export const authService = {
   ensureAnonymousSession: async (): Promise<string> => {
     if (auth.currentUser) return auth.currentUser.uid;
-    const credential = await signInAnonymously(auth);
-    return credential.user.uid;
+    return startAnonymousSession();
   },
 
   register: async (name: string, email: string, password: string, username?: string): Promise<User> => {

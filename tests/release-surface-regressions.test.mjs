@@ -21,11 +21,15 @@ const indexSource = read('index.tsx');
 const errorBoundarySource = read('components/ErrorBoundary.tsx');
 const billingServiceSource = read('services/billingService.ts');
 const serverPricingSource = read('functions/src/pricing.ts');
+const billingCoreSource = read('functions/src/billingCore.ts');
+const paidAiSource = read('functions/src/paidAi.ts');
+const guestCreditsSource = read('functions/src/guestCredits.ts');
 const recentSource = read('components/RecentGenerations.tsx');
 const constantsSource = read('constants.ts');
 const cssSource = read('index.css');
 const whatsNewData = read('data/whatsNew.ts');
 const whatsNewScript = read('scripts/whats-new.mjs');
+const guestGenerationSmokeSource = read('scripts/guest-generation-smoke.mjs');
 const whatsNewScriptPath = fileURLToPath(new URL('../scripts/whats-new.mjs', import.meta.url));
 
 const extractPaths = (source, pattern) => [...source.matchAll(pattern)].map((match) => match[1]);
@@ -49,21 +53,21 @@ const runWhatsNewFixture = ({ version, data, files = {} }) => {
 };
 
 test('guest messaging distinguishes browser-local work from free cloud sync', () => {
-  assert.match(appSource, /first image is stored in this browser/);
+  assert.match(appSource, /guest image is stored in this browser/);
   assert.match(appSource, /this browser could not store it\. Download it now/);
-  assert.match(appSource, /This browser could not store your first image\./);
+  assert.match(appSource, /This browser could not store your guest image\./);
   assert.match(appSource, /Create account for future work/);
   assert.match(appSource, /create a free account to sync it across browsers/i);
-  assert.match(landingSource, /It stays in this browser, ready to download/);
+  assert.match(landingSource, /Your work stays in this browser, ready to download/);
   assert.match(pricingSource, /Registration is free and moves the guest image into cloud history/);
-  assert.match(landingSource, /isMember \? 'Back to the studio' : 'Create free image'/);
+  assert.match(landingSource, /isMember \? 'Back to the studio' : 'Create your first image'/);
 });
 
 test('cold visitors see public content before Firebase auth settles', () => {
   assert.match(appSource, /const STARTUP_GATE_TIMEOUT_MS = 9_000/);
   assert.match(appSource, /billingMode \? \([\s\S]*?\) : welcomeMode \? \([\s\S]*?\) : whatsNewMode \? \([\s\S]*?\) : !isAuthResolved \? \(/);
-  assert.match(appSource, /Session connection issue/);
-  assert.match(appSource, /Retry connection/);
+  assert.match(appSource, /Guest credits are temporarily unavailable/);
+  assert.match(appSource, /> Try again/);
   assert.match(appSource, /releaseGate\('guest session'\)/);
   assert.match(appSource, /releaseGate\('authenticated session'\)[\s\S]*?void \(async \(\) =>/);
   assert.doesNotMatch(appSource, /setWelcomeMode\(false\);\s*\}\, \[isAuthResolved, user\?\.id\]\)/);
@@ -74,9 +78,27 @@ test('App Check and Firebase Installations stay off the first-paint path', () =>
   assert.match(firebaseSource, /requestIdleCallback/);
   assert.match(firebaseSource, /Firebase Installations record/);
   assert.match(firebaseSource, /Firebase App Check token/);
+  assert.match(firebaseSource, /VITE_FIREBASE_APPCHECK_DEBUG_TOKEN/);
+  assert.match(firebaseSource, /isLocalDevelopmentPreview && !useEmulators && localAppCheckDebugToken/);
+  assert.match(firebaseSource, /FIREBASE_APPCHECK_DEBUG_TOKEN/);
   assert.match(firebaseSource, /protected endpoints remain server-enforced/);
   assert.match(authServiceSource, /Firebase Auth observer: settled/);
   assert.match(authServiceSource, /onError\?\.\(error\)/);
+});
+
+test('guest generation times out blocked prerequisites and replaces fake countdowns with an overdue state', () => {
+  assert.match(authServiceSource, /const ANONYMOUS_SESSION_TIMEOUT_MS = 10_000/);
+  assert.match(authServiceSource, /guest\/session-timeout/);
+  assert.match(authServiceSource, /temporary session needed for guest credits/);
+  assert.match(billingServiceSource, /const GUEST_GENERATION_TIMEOUT_MS = 120_000/);
+  assert.match(billingServiceSource, /functions\/deadline-exceeded/);
+  assert.match(billingServiceSource, /Firebase rejected this local preview's secure development pass/);
+  assert.doesNotMatch(billingServiceSource, /privacy blocker or VPN/);
+  assert.match(appSource, /Guest credits are temporarily unavailable/);
+  assert.match(appSource, /Taking longer than expected/);
+  assert.doesNotMatch(appSource, /Math\.max\(Math\.round\(projected - elapsedSec\), 3\)/);
+  assert.match(guestGenerationSmokeSource, /Network\.setBlockedURLs/);
+  assert.match(guestGenerationSmokeSource, /PIXTAFFY_EXPECT_BLOCKED_GUEST_SESSION/);
 });
 
 test('top-level render failures surface through the visible error boundary', () => {
@@ -89,7 +111,7 @@ test('top-level render failures surface through the visible error boundary', () 
 test('signup copy only promises to save an image when one is pending', () => {
   assert.match(authModalSource, /hasPendingImage/);
   assert.match(authModalSource, /hasPendingImage[\s\S]*?Save your image, then verify your email/);
-  assert.match(authModalSource, /Create your account, then verify your email to receive 5 starter credits/);
+  assert.match(authModalSource, /Create your account, then verify your email to receive 10 starter credits/);
   assert.match(appSource, /hasPendingImage=\{!user && \(Boolean\(currentGeneration\) \|\| history\.length > 0\)\}/);
 });
 
@@ -138,7 +160,27 @@ test('pricing cards derive estimates from credit bands and use unique artwork', 
   const images = extractPaths(pricingSource, /image:\s*'([^']+pricing-taffy-[^']+)'/g);
   assert.equal(images.length, 3);
   assert.equal(new Set(images).size, 3);
-  assert.match(pricingSource, /Guest first image[\s\S]*Free account[\s\S]*Any credit pack[\s\S]*Taffy Studio/);
+  assert.match(pricingSource, /Guest images[\s\S]*Free account[\s\S]*Any credit pack[\s\S]*Taffy Studio/);
+});
+
+test('unregistered visitors get three credits with GPT Image 2 selected by default', () => {
+  assert.match(appSource, /const DEFAULT_MODEL_ID = 'openai-2'/);
+  assert.match(appSource, /const GUEST_GRANT_MILLICREDITS = 3_000/);
+  assert.match(appSource, /GUEST_MODEL_DEFAULT_MIGRATION_KEY/);
+  assert.match(appSource, /setGuestBalanceMilliCredits\(result\.balanceMilliCredits\)/);
+  assert.match(controlPanelSource, /Guest balance: \{guestBalanceMilliCredits \/ 1_000\} credit/);
+  assert.match(appSource, /allowedModelIds=\{!user \? Object\.keys\(SITE_FUNDED_MODEL_MILLICREDITS\) : undefined\}/);
+  assert.match(guestCreditsSource, /DEFAULT_GUEST_MODEL_ID = "openai-2"/);
+  assert.match(guestCreditsSource, /GUEST_GRANT_MILLICREDITS = 3_000/);
+  assert.match(paidAiSource, /canReserveGuestCredits\(spent, input\.milliCredits\)/);
+  assert.match(billingServiceSource, /localStorage\.removeItem\(GUEST_REQUEST_ID_KEY\)/);
+  assert.match(billingServiceSource, /pixtaffy_guest_request_id_v2/);
+});
+
+test('verified accounts receive ten starter credits', () => {
+  assert.match(billingCoreSource, /STARTER_GRANT_MILLICREDITS = 10_000/);
+  assert.match(authServiceSource, /selectedModel: 'openai-2'/);
+  assert.match(landingSource, /10 starter credits/);
 });
 
 test('client and server model credit catalogs stay in sync', () => {
@@ -184,6 +226,7 @@ test('creative actions and gallery tools keep neutral controls with candy accent
 test('What’s New keeps only substantial public launches with modern distinct artwork', () => {
   const versions = extractPaths(whatsNewData, /version:\s*'([^']+)'/g);
   assert.deepEqual(versions, [
+    '0.30.0',
     '0.29.0',
     '0.26.1',
     '0.26.0',

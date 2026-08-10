@@ -1,7 +1,7 @@
 import { doc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import type { GeneratedImage } from '../types';
-import { auth, db, ensureAppCheckToken, functions } from './firebase';
+import { auth, db, ensureAppCheckToken, functions, isLocalDevelopmentPreview } from './firebase';
 
 export interface BillingState {
   balanceMilliCredits: number;
@@ -22,6 +22,12 @@ export interface PaidModelCatalogEntry {
   milliCredits: number;
 }
 
+export interface GuestCreditState {
+  grantedMilliCredits: number;
+  spentMilliCredits: number;
+  balanceMilliCredits: number;
+}
+
 export interface CreditActivityEntry {
   id: string;
   deltaMilliCredits: number;
@@ -33,7 +39,23 @@ export interface CreditActivityEntry {
 
 let cachedState: { value: BillingState; at: number } | null = null;
 const GUEST_INSTALL_ID_KEY = 'pixtaffy_guest_install_id_v1';
-const GUEST_REQUEST_ID_KEY = 'pixtaffy_guest_request_id_v1';
+const GUEST_REQUEST_ID_KEY = 'pixtaffy_guest_request_id_v2';
+const GUEST_GENERATION_TIMEOUT_MS = 120_000;
+
+const readableGuestGenerationError = (error: unknown): Error => {
+  const code = typeof error === 'object' && error && 'code' in error
+    ? String((error as { code?: unknown }).code || '')
+    : '';
+  if (code === 'functions/deadline-exceeded') {
+    return new Error('PixTaffy did not receive your image within two minutes. Try again with the same prompt.');
+  }
+  if (code === 'functions/unauthenticated' || code === 'functions/permission-denied') {
+    return new Error(isLocalDevelopmentPreview
+      ? "Firebase rejected this local preview's secure development pass. Restart the PixTaffy preview and try again."
+      : "PixTaffy couldn't complete the security check for your guest image. Try again, or open PixTaffy in another browser.");
+  }
+  return error instanceof Error ? error : new Error('Your guest image could not be generated. Try again.');
+};
 
 const persistentGuestId = (key: string, prefix: string): string => {
   const existing = localStorage.getItem(key);
@@ -87,6 +109,18 @@ export const billingService = {
     return (await call({})).data;
   },
 
+  getGuestCreditState: async (): Promise<GuestCreditState> => {
+    if (!auth.currentUser?.isAnonymous) {
+      throw new Error('Start a guest session before checking guest credits.');
+    }
+    const payload = {
+      guestInstallId: persistentGuestId(GUEST_INSTALL_ID_KEY, 'guest-install'),
+    };
+    await ensureAppCheckToken();
+    const call = httpsCallable<typeof payload, GuestCreditState>(functions, 'getGuestCreditState');
+    return (await call(payload)).data;
+  },
+
   generateWithCredits: async (input: {
     modelId: string;
     prompt: string;
@@ -105,11 +139,12 @@ export const billingService = {
   },
 
   generateGuestImage: async (input: {
+    modelId: string;
     prompt: string;
     aspectRatio: string;
-  }): Promise<GeneratedImage & { modelId: string }> => {
+  }): Promise<GeneratedImage & { modelId: string; milliCreditsCharged: number; balanceMilliCredits: number }> => {
     if (!auth.currentUser?.isAnonymous) {
-      throw new Error('Start a guest session before generating your free image.');
+      throw new Error('Start a guest session before using guest credits.');
     }
     const payload = {
       ...input,
@@ -117,12 +152,18 @@ export const billingService = {
       idempotencyKey: persistentGuestId(GUEST_REQUEST_ID_KEY, 'guest-image'),
     };
     await ensureAppCheckToken();
-    const call = httpsCallable<typeof payload, GeneratedImage & { modelId: string }>(
+    const call = httpsCallable<typeof payload, GeneratedImage & { modelId: string; milliCreditsCharged: number; balanceMilliCredits: number }>(
       functions,
       'generateGuestImage',
-      { timeout: 300_000 }
+      { timeout: GUEST_GENERATION_TIMEOUT_MS }
     );
-    return (await call(payload)).data;
+    try {
+      const result = (await call(payload)).data;
+      localStorage.removeItem(GUEST_REQUEST_ID_KEY);
+      return result;
+    } catch (error) {
+      throw readableGuestGenerationError(error);
+    }
   },
 
   reserveImageBatch: async (input: {

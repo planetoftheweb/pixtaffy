@@ -17,6 +17,13 @@ import {
 import { AI_ASSIST_MILLICREDITS, getPaidModelPrice, paidModelPrices, type AiAssistAction } from "./pricing";
 import { generateOpenRouterImageCore } from "./openRouterProvider";
 import {
+  canReserveGuestCredits,
+  DEFAULT_GUEST_MODEL_ID,
+  guestBalanceMilliCredits,
+  guestSpentMilliCredits,
+  GUEST_GRANT_MILLICREDITS,
+} from "./guestCredits";
+import {
   deleteExpiredPaidDeliveries,
   readPaidAssistDelivery,
   readPaidDelivery,
@@ -47,7 +54,6 @@ const baseOptions = {
 };
 
 const db = () => admin.firestore();
-const GUEST_MODEL_ID = "openrouter:bytedance-seed/seedream-4.5";
 const GUEST_DEVICE_WINDOW_MS = 30 * 24 * 60 * 60 * 1_000;
 const GUEST_IP_DAILY_LIMIT = 5;
 
@@ -172,9 +178,14 @@ function requireAnonymousAuth(request: CallableRequest): string {
   const uid = request.auth?.uid;
   const provider = (request.auth?.token as any)?.firebase?.sign_in_provider;
   if (!uid || provider !== "anonymous") {
-    throw new HttpsError("failed-precondition", "Your free first image must be created before registration.");
+    throw new HttpsError("failed-precondition", "Guest credits are available before registration.");
   }
   return uid;
+}
+
+function guestRequests(data: FirebaseFirestore.DocumentData | undefined): Record<string, Record<string, unknown>> {
+  const requests = data?.requests;
+  return requests && typeof requests === "object" ? { ...requests } : {};
 }
 
 function guestRequestIp(request: CallableRequest, uid: string): string {
@@ -197,30 +208,64 @@ async function reserveGuestClaim(input: {
   installId: string;
   ip: string;
   idempotencyKey: string;
-}): Promise<void> {
+  modelId: string;
+  milliCredits: number;
+}): Promise<number> {
   const now = Date.now();
   const requestHash = createHash("sha256").update(input.idempotencyKey).digest("hex");
   const refs = guestClaimRefs(input.uid, input.installId, input.ip);
-  await db().runTransaction(async (tx) => {
+  return db().runTransaction(async (tx) => {
     const [claimSnap, deviceSnap, ipSnap] = await Promise.all([
       tx.get(refs.claim),
       tx.get(refs.device),
       tx.get(refs.ip),
     ]);
-    if (claimSnap.exists) {
-      throw new HttpsError("already-exists", "Your free first image has already been used. Create an account to get 5 more credits.");
+    const claimData = claimSnap.data();
+    const deviceData = deviceSnap.data();
+    const claimRequests = guestRequests(claimData);
+    const deviceRequests = guestRequests(deviceData);
+    const existingRequest = claimRequests[requestHash] ?? deviceRequests[requestHash];
+    const spent = Math.max(
+      guestSpentMilliCredits(claimData, now),
+      guestSpentMilliCredits(deviceData, now),
+    );
+    if (existingRequest?.status === "reserved" || existingRequest?.status === "completed") {
+      if (existingRequest.modelId !== input.modelId || Number(existingRequest.milliCredits) !== input.milliCredits) {
+        throw new HttpsError("already-exists", "This guest request id belongs to a different image request.");
+      }
+      return Math.max(0, GUEST_GRANT_MILLICREDITS - spent);
     }
-    if (Number(deviceSnap.data()?.expiresAt ?? 0) > now) {
-      throw new HttpsError("already-exists", "This browser has already created its free first image. Create an account to get 5 more credits.");
+    if (!canReserveGuestCredits(spent, input.milliCredits)) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "You have used your 3 guest credits. Create an account and verify your email for 10 starter credits.",
+      );
     }
     const ipCount = Number(ipSnap.data()?.count ?? 0);
     if (ipCount >= GUEST_IP_DAILY_LIMIT) {
-      throw new HttpsError("resource-exhausted", "The free-image limit for this network has been reached today. Create an account to continue.");
+      throw new HttpsError("resource-exhausted", "The guest image limit for this network has been reached today. Create an account to continue.");
     }
-    const common = { requestHash, reservedAt: now, status: "reserved" };
-    tx.set(refs.claim, { ...common, uidHash: createHash("sha256").update(input.uid).digest("hex") });
-    tx.set(refs.device, { ...common, expiresAt: now + GUEST_DEVICE_WINDOW_MS });
+    const requestRecord = {
+      modelId: input.modelId,
+      milliCredits: input.milliCredits,
+      reservedAt: now,
+      status: "reserved",
+    };
+    const nextSpent = spent + input.milliCredits;
+    tx.set(refs.claim, {
+      uidHash: createHash("sha256").update(input.uid).digest("hex"),
+      spentMilliCredits: nextSpent,
+      requests: { ...claimRequests, [requestHash]: requestRecord },
+      updatedAt: now,
+    }, { merge: true });
+    tx.set(refs.device, {
+      spentMilliCredits: nextSpent,
+      requests: { ...deviceRequests, [requestHash]: requestRecord },
+      expiresAt: now + GUEST_DEVICE_WINDOW_MS,
+      updatedAt: now,
+    }, { merge: true });
     tx.set(refs.ip, { count: ipCount + 1, updatedAt: now, date: dateKey() }, { merge: true });
+    return GUEST_GRANT_MILLICREDITS - nextSpent;
   });
 }
 
@@ -238,10 +283,27 @@ async function releaseGuestClaim(input: {
       tx.get(refs.device),
       tx.get(refs.ip),
     ]);
-    if (claimSnap.data()?.requestHash === requestHash) tx.delete(refs.claim);
-    if (deviceSnap.data()?.requestHash === requestHash) tx.delete(refs.device);
+    const now = Date.now();
+    const claimData = claimSnap.data();
+    const deviceData = deviceSnap.data();
+    const claimRequests = guestRequests(claimData);
+    const deviceRequests = guestRequests(deviceData);
+    const request = claimRequests[requestHash] ?? deviceRequests[requestHash];
+    if (request?.status !== "reserved") return;
+    const milliCredits = Math.max(0, Number(request.milliCredits ?? 0));
+    const released = { ...request, status: "released", releasedAt: now };
+    tx.set(refs.claim, {
+      spentMilliCredits: Math.max(0, guestSpentMilliCredits(claimData, now) - milliCredits),
+      requests: { ...claimRequests, [requestHash]: released },
+      updatedAt: now,
+    }, { merge: true });
+    tx.set(refs.device, {
+      spentMilliCredits: Math.max(0, guestSpentMilliCredits(deviceData, now) - milliCredits),
+      requests: { ...deviceRequests, [requestHash]: released },
+      updatedAt: now,
+    }, { merge: true });
     const count = Number(ipSnap.data()?.count ?? 0);
-    if (count > 0) tx.set(refs.ip, { count: count - 1, updatedAt: Date.now() }, { merge: true });
+    if (count > 0) tx.set(refs.ip, { count: count - 1, updatedAt: now }, { merge: true });
   });
 }
 
@@ -251,18 +313,32 @@ async function completeGuestClaim(input: {
   ip: string;
   providerRequestId: string | null;
   actualCostUsd: number;
+  idempotencyKey: string;
 }): Promise<void> {
   const refs = guestClaimRefs(input.uid, input.installId, input.ip);
   const completedAt = Date.now();
-  const completion = {
-    status: "completed",
-    completedAt,
-    providerRequestId: input.providerRequestId,
-    actualCostUsd: input.actualCostUsd,
-  };
+  const requestHash = createHash("sha256").update(input.idempotencyKey).digest("hex");
   await db().runTransaction(async (tx) => {
-    tx.set(refs.claim, completion, { merge: true });
-    tx.set(refs.device, completion, { merge: true });
+    const [claimSnap, deviceSnap] = await Promise.all([tx.get(refs.claim), tx.get(refs.device)]);
+    for (const [ref, snap] of [[refs.claim, claimSnap], [refs.device, deviceSnap]] as const) {
+      const data = snap.data();
+      const requests = guestRequests(data);
+      const request = requests[requestHash];
+      if (!request || request.status === "completed") continue;
+      tx.set(ref, {
+        requests: {
+          ...requests,
+          [requestHash]: {
+            ...request,
+            status: "completed",
+            completedAt,
+            providerRequestId: input.providerRequestId,
+            actualCostUsd: input.actualCostUsd,
+          },
+        },
+        updatedAt: completedAt,
+      }, { merge: true });
+    }
   });
 }
 
@@ -314,6 +390,23 @@ export const getPaidAiCatalog = onCall(baseOptions, async (request) => {
   };
 });
 
+export const getGuestCreditState = onCall(baseOptions, async (request) => {
+  const uid = requireAnonymousAuth(request);
+  const installId = String(request.data?.guestInstallId ?? "");
+  if (!/^[A-Za-z0-9._:-]{16,160}$/.test(installId)) {
+    throw new HttpsError("invalid-argument", "A valid guest installation id is required.");
+  }
+  const refs = guestClaimRefs(uid, installId, guestRequestIp(request, uid));
+  const [claimSnap, deviceSnap] = await Promise.all([refs.claim.get(), refs.device.get()]);
+  const now = Date.now();
+  const balanceMilliCredits = guestBalanceMilliCredits(claimSnap.data(), deviceSnap.data(), now);
+  return {
+    grantedMilliCredits: GUEST_GRANT_MILLICREDITS,
+    spentMilliCredits: GUEST_GRANT_MILLICREDITS - balanceMilliCredits,
+    balanceMilliCredits,
+  };
+});
+
 export const generateGuestImage = onCall(
   { ...baseOptions, secrets: [OPENROUTER_API_KEY] },
   async (request) => {
@@ -326,18 +419,24 @@ export const generateGuestImage = onCall(
     }
     const idempotencyKey = validateIdempotencyKey(request.data?.idempotencyKey);
     const aspectRatio = String(request.data?.aspectRatio ?? "1:1").slice(0, 12);
+    const modelId = String(request.data?.modelId ?? DEFAULT_GUEST_MODEL_ID);
     const cached = await readPaidDelivery(uid, idempotencyKey).catch((error) => {
       logger.error("Guest delivery lookup failed", { error });
-      throw new HttpsError("unavailable", "PixTaffy could not safely check your first image. Try again.");
+      throw new HttpsError("unavailable", "PixTaffy could not safely check your guest image. Try again.");
     });
-    if (cached) return cached.payload;
+    if (cached) {
+      if (cached.modelId !== modelId) {
+        throw new HttpsError("already-exists", "This guest request id belongs to a different model.");
+      }
+      return cached.payload;
+    }
 
-    const pricing = getPaidModelPrice(GUEST_MODEL_ID);
-    if (!pricing) throw new HttpsError("failed-precondition", "The free first-image model is unavailable.");
+    const pricing = getPaidModelPrice(modelId);
+    if (!pricing) throw new HttpsError("failed-precondition", "This model is not available with guest credits.");
     const ip = guestRequestIp(request, uid);
-    const claimInput = { uid, installId, ip, idempotencyKey };
-    await Promise.all([enforceRateLimit(uid, "images"), assertModelEnabled(GUEST_MODEL_ID)]);
-    await reserveGuestClaim(claimInput);
+    const claimInput = { uid, installId, ip, idempotencyKey, modelId, milliCredits: pricing.milliCredits };
+    await Promise.all([enforceRateLimit(uid, "images"), assertModelEnabled(modelId)]);
+    const balanceMilliCredits = await reserveGuestClaim(claimInput);
 
     let spendCapacityHeld = false;
     let deliveryStored = false;
@@ -350,21 +449,21 @@ export const generateGuestImage = onCall(
         prompt,
         aspectRatio,
         user: createHash("sha256").update(`pixtaffy-guest:${uid}`).digest("hex"),
-        title: "PixTaffy First Image",
+        title: "PixTaffy Guest Image",
       });
       const payload = {
         imageUrl: `data:${generated.mimeType};base64,${generated.base64Data}`,
         base64Data: generated.base64Data,
         mimeType: generated.mimeType,
-        modelId: GUEST_MODEL_ID,
-        milliCreditsCharged: 0,
-        balanceMilliCredits: 0,
+        modelId,
+        milliCreditsCharged: pricing.milliCredits,
+        balanceMilliCredits,
       };
       const delivery: CachedPaidDelivery = {
         version: 1,
         uid,
         idempotencyKey,
-        modelId: GUEST_MODEL_ID,
+        modelId,
         createdAt: Date.now(),
         reservation: { kind: "admin", reservationId: null, itemReservationId: null },
         payload,
@@ -374,13 +473,13 @@ export const generateGuestImage = onCall(
       };
       await writePaidDeliveryWithRetry(delivery);
       deliveryStored = true;
-      await recordSpend("openrouter", generated.actualCostUsd, "guest-first-image", pricing.costCeilingUsd)
+      await recordSpend("openrouter", generated.actualCostUsd, `guest:${modelId}`, pricing.costCeilingUsd)
         .then(() => { spendCapacityHeld = false; })
         .catch((error) => logger.error("Guest image spend settlement deferred", { error }));
       if (generated.actualCostUsd > pricing.costCeilingUsd) {
-        await disabledModelRef(GUEST_MODEL_ID).set({
+        await disabledModelRef(modelId).set({
           disabled: true,
-          modelId: GUEST_MODEL_ID,
+          modelId,
           actualCostUsd: generated.actualCostUsd,
           costCeilingUsd: pricing.costCeilingUsd,
           disabledAt: Date.now(),
@@ -393,6 +492,7 @@ export const generateGuestImage = onCall(
         ip,
         providerRequestId: generated.providerRequestId,
         actualCostUsd: generated.actualCostUsd,
+        idempotencyKey,
       });
       return payload;
     } catch (error) {
@@ -408,7 +508,7 @@ export const generateGuestImage = onCall(
       }
       throw error instanceof HttpsError
         ? error
-        : new HttpsError("internal", error instanceof Error ? error.message : "First image generation failed.");
+        : new HttpsError("internal", error instanceof Error ? error.message : "Guest image generation failed.");
     }
   },
 );

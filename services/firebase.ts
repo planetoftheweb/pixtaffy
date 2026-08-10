@@ -56,6 +56,26 @@ const useEmulators =
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ||
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === '1';
 
+const localPreviewHostnames = new Set(['localhost', '127.0.0.1', '::1']);
+export const isLocalDevelopmentPreview =
+  typeof window !== 'undefined' &&
+  import.meta.env.DEV &&
+  localPreviewHostnames.has(window.location.hostname);
+
+const localAppCheckDebugToken = String(
+  import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN || '',
+).trim();
+
+// Firebase's production reCAPTCHA attestation intentionally rejects localhost.
+// Local previews that call protected production Functions must use a registered
+// App Check debug token instead. This branch is stripped from production builds,
+// and the token lives only in the ignored local environment file.
+if (isLocalDevelopmentPreview && !useEmulators && localAppCheckDebugToken) {
+  (globalThis as typeof globalThis & { FIREBASE_APPCHECK_DEBUG_TOKEN?: string }).FIREBASE_APPCHECK_DEBUG_TOKEN =
+    localAppCheckDebugToken;
+  console.info('[Startup] Firebase App Check local debug provider: enabled');
+}
+
 const FIREBASE_BACKGROUND_TIMEOUT_MS = 9_000;
 
 const withFirebaseTimeout = async <T,>(label: string, promise: Promise<T>): Promise<T> => {

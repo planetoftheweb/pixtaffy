@@ -22,6 +22,7 @@ export {
   cleanupPaidDeliveries,
   generateGuestImage,
   generateWithCredits,
+  getGuestCreditState,
   getPaidAiCatalog,
   refreshOpenRouterModelCatalog,
   runAiAssist,

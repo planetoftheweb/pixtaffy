@@ -90,8 +90,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {isLogin
                 ? 'Enter your details to access your brand kit.'
                 : hasPendingImage
-                  ? 'Save your image, then verify your email to receive 5 starter credits.'
-                  : 'Create your account, then verify your email to receive 5 starter credits.'}
+                  ? 'Save your image, then verify your email to receive 10 starter credits.'
+                  : 'Create your account, then verify your email to receive 10 starter credits.'}
             </p>
           </div>
 

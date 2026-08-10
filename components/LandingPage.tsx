@@ -25,8 +25,8 @@ const steps = [
   },
   {
     number: '02',
-    title: 'Make the first image free',
-    copy: 'Try a real Standard generation before you register. It stays in this browser, ready to download.',
+    title: 'Start with three guest credits',
+    copy: 'Try GPT Image 2 before you register, then use the remaining credit on a Standard model. Your work stays in this browser, ready to download.',
   },
   {
     number: '03',
@@ -42,7 +42,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onLogin,
   onSignUp,
 }) => {
-  const primaryLabel = isMember ? 'Back to the studio' : 'Create free image';
+  const primaryLabel = isMember ? 'Back to the studio' : 'Create your first image';
 
   return (
     <main className="min-w-0 overflow-hidden bg-brand-cream/45 text-slate-950 dark:bg-[#080d18] dark:text-white">
@@ -98,7 +98,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {!isMember && (
               <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-slate-600 dark:text-slate-400">
                 <span className="inline-flex items-center gap-1.5"><BadgeCheck size={15} className="text-brand-teal" /> No card</span>
-                <span className="inline-flex items-center gap-1.5"><BadgeCheck size={15} className="text-brand-teal" /> No account for image one</span>
+                <span className="inline-flex items-center gap-1.5"><BadgeCheck size={15} className="text-brand-teal" /> No account for guest credits</span>
                 <span className="inline-flex items-center gap-1.5"><Download size={15} className="text-brand-teal" /> Download it immediately</span>
               </div>
             )}
@@ -193,16 +193,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="mx-auto grid max-w-[1500px] gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-red dark:text-brand-cyan">Try the whole idea before you commit</p>
-            <h2 className="pixtaffy-display mt-4 text-balance text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">One image is free. After that, you choose the recipe.</h2>
+            <h2 className="pixtaffy-display mt-4 text-balance text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Three guest credits. No account required.</h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700 dark:text-slate-300">
-              Bring your own image-generation key and keep creating free, or let PixTaffy handle the providers with simple credits. A verified account starts with five credits, enough to try paid models and the AI workflow tools.
+              Start with GPT Image 2, then use the credit left over on a Standard model. Create an account and verify your email for 10 starter credits, or bring your own image-generation key and keep creating free.
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
             {[
-              { label: 'First taste', value: '1 free image', copy: 'No signup required', color: 'from-brand-orange to-brand-red' },
-              { label: 'Starter bag', value: '5 credits', copy: 'After email verification', color: 'from-brand-cyan to-brand-teal' },
+              { label: 'Guest balance', value: '3 credits', copy: 'No signup required', color: 'from-brand-orange to-brand-red' },
+              { label: 'Starter bag', value: '10 credits', copy: 'After email verification', color: 'from-brand-cyan to-brand-teal' },
               { label: 'Your own keys', value: 'Free BYOK', copy: 'You control provider usage', color: 'from-brand-pink to-brand-purple' },
             ].map((item) => (
               <div key={item.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827]">
@@ -222,7 +222,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <p className="text-xs font-black uppercase tracking-[0.2em] text-white/75">The crew saved you a seat</p>
             <h2 className="pixtaffy-display mt-4 text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Give PixTaffy one idea. Watch the crew get to work.</h2>
             <p className="mt-4 max-w-xl text-lg leading-8 text-white/85">
-              Your first real generation is on us and stays in this browser. Download it anytime, or create a free account to save it in the cloud and open it on your other devices.
+              Your three guest credits are ready and anything you make stays in this browser. Download it anytime, or create a free account to save it in the cloud and open it on your other devices.
             </p>
             <button
               type="button"

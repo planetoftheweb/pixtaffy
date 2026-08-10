@@ -23,11 +23,11 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 *   **💾 Cloud History:** Automatically saves your generation history with metadata in Firestore and raster image bytes in Firebase Storage (`users/{uid}/history/{generationId}/{versionId}.{ext}`), so tiles never bump into the 1 MiB Firestore document limit and deletes clean up Storage automatically.
 *   **🖼️ Smart Analysis:** Upload brand guidelines (PDF/Image) to extract colors and styles with an interactive review modal.
 *   **✨ PixTaffy AI tools:** Prompt expansion, naming, image analysis, correction analysis, style extraction, region detection, and brand-guideline analysis run through a server-side Gemini key and consume 0.1 to 0.5 PixTaffy credit. BYOK remains free for image generation only.
-*   **🍬 First image free:** New visitors can create and download one Standard image before registering. Firebase Anonymous Auth, App Check, idempotency, browser and network limits, and the daily provider circuit breaker protect the guest path.
+*   **🍬 Guest credits:** New visitors receive 3 credits before registering. GPT Image 2 is selected by default, leaving one credit for a second Standard image. Firebase Anonymous Auth, App Check, idempotency, browser and network limits, and the daily provider circuit breaker protect the guest path.
 *   **👤 User Profiles:** Sign up with Email or Username. Sync preferences across devices.
 *   **⚙️ Full Settings Management:** dedicated page for managing API keys, profile settings, and application preferences.
 *   **🔑 BYOK (Bring Your Own Key):** Multi-model keys for Google Gemini and OpenAI. A single OpenAI key drives three tiers — **GPT Image 2** (flagship, 2K/4K, 3:1 & 1:3 ratios), **GPT Image Mini** (budget), and **GPT Image 1.5** (legacy) — with a per-model **Quality** control (Auto / Low / Medium / High).
-*   **💳 Optional PixTaffy credits:** Verified accounts receive 5 starter credits for 30 days. Credit packs and Taffy Studio fund curated OpenRouter image models without exposing shared provider keys to the browser.
+*   **💳 Optional PixTaffy credits:** Verified accounts receive 10 starter credits for 30 days. Credit packs and Taffy Studio fund curated OpenRouter image models without exposing shared provider keys to the browser.
 *   **💬 Feedback to GitHub:** Bugs, ideas, questions, and screenshots can be sent from the footer or account menu. A protected Cloud Function saves the private contact record and opens a labeled issue in `planetoftheweb/pixtaffy`.
 *   **🧠 Refinement Workspace:** Per-image refine model + target size controls, built-in **Run analysis** correction-plan generator (Gemini Flash vision or OpenAI `gpt-4o-mini` vision + JSON, matching your configured keys), and style-reference fallback for difficult recompositions.
 *   **🧬 Versioned Iteration:** Mark-based generation/refinement history with restore, per-refinement deletion, and per-version aspect-ratio tracking so follow-up edits keep the correct size.
@@ -96,6 +96,8 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
     VITE_FIREBASE_APPCHECK_SITE_KEY=your_recaptcha_enterprise_site_key
     ```
     *Note: The app includes a built-in "Configuration Error" screen that will alert you if any of these keys are missing.*
+
+    When a local preview calls App Check protected production Functions, add a registered Firebase App Check debug token as `VITE_FIREBASE_APPCHECK_DEBUG_TOKEN`. Keep that token in the ignored `.env` or `.env.local` file. Never commit it or include it in a production build.
 
     PixTaffy's shared OpenRouter, Gemini, and GitHub credentials must not use `VITE_` variables. Store them as Firebase Function secrets named `OPENROUTER_API_KEY`, `PIXTAFFY_GEMINI_API_KEY`, and `GITHUB_TOKEN`. The GitHub token needs Issues read/write access to `planetoftheweb/pixtaffy`.
 

@@ -31,12 +31,44 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.30.0-guest-credits',
+    title: 'Try GPT Image 2 before you sign up',
+    summary:
+      'Every new visitor now starts with three guest credits and GPT Image 2 ready to create their first image.',
+    blurb:
+      'You can now make a meaningful first image before creating an account. PixTaffy starts new visitors with three guest credits and selects GPT Image 2, which uses two credits. Use the remaining credit on a Standard model, then create an account and verify your email whenever you want ten starter credits and cloud-saved work.',
+    publishedAt: Date.parse('2026-08-10T23:13:00Z'),
+    version: '0.30.0',
+    image: '/whats-new/whatsnew-v0.30.0.webp',
+    featured: true,
+    sections: [
+      {
+        heading: 'Start with a stronger first image',
+        body: 'GPT Image 2 is selected when a new visitor opens the studio. The toolbar shows both the two-credit generation cost and the three-credit guest balance before anything runs.',
+        steps: [
+          { text: 'Click Create your first image from the welcome page.', icon: 'Sparkles' },
+          { text: 'Write a prompt and create it with GPT Image 2.', icon: 'Image' },
+          { text: 'Switch to a one-credit Standard model when you want to use the remaining guest credit.', icon: 'ArrowRight' },
+        ],
+      },
+      {
+        heading: 'Keep going when you are ready',
+        body: 'Guest images stay in the current browser. Creating an account moves the work into cloud history, and email verification adds ten starter credits that last for 30 days.',
+        steps: [
+          { text: 'Download guest work immediately or create an account to sync it.', icon: 'Check' },
+          { text: 'Verify your email to receive ten starter credits.', icon: 'Sparkles' },
+          { text: 'Bring your own provider key whenever you want image generation without PixTaffy credits.', icon: 'KeyRound' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.29.0-welcome-to-pixtaffy',
     title: 'Take the new PixTaffy studio tour',
     summary:
-      'First-time visitors now get a proper welcome page, a clear feature tour, and a direct path to their first free image.',
+      'First-time visitors get a proper welcome page, a clear feature tour, and a direct path to creating with guest credits.',
     blurb:
-      'The candy crew finally has a front door. New visitors can see how brand settings, image models, AI helpers, saved versions, and Build Studio fit together before they make anything. One button takes them straight into a real free generation, with no signup form and no second popup in the way. Members still go directly to their workspace and can reopen the tour from the account menu.',
+      'The candy crew finally has a front door. New visitors can see how brand settings, image models, AI helpers, saved versions, and Build Studio fit together before they make anything. One button takes them straight into the studio with three guest credits, no signup form, and no second popup in the way. Members can reopen the tour from the account menu whenever they want.',
     publishedAt: Date.parse('2026-08-10T02:00:00Z'),
     version: '0.29.0',
     image: '/whats-new/whatsnew-v0.29.0.webp',
@@ -47,8 +79,8 @@ export const WHATS_NEW: WhatsNewEntry[] = [
         body: 'The welcome page walks through brand-aware generation, model comparisons, AI workflow helpers, Build Studio, saved versions, and the choice between free BYOK and PixTaffy credits.',
         steps: [
           { text: 'Tour the feature set without creating an account.', icon: 'Eye' },
-          { text: 'Create one real Standard image free, then download it immediately.', icon: 'Sparkles' },
-          { text: 'Create an account when you want to save work and claim five starter credits.', icon: 'ArrowRight' },
+          { text: 'Create with three guest credits, then download the result immediately.', icon: 'Sparkles' },
+          { text: 'Create an account when you want to save work and claim ten starter credits.', icon: 'ArrowRight' },
         ],
       },
       {
@@ -66,9 +98,9 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     id: 'v0.26.1-first-image-free',
     title: 'Make your first image before signing up',
     summary:
-      'New visitors can now create and download one Standard image before PixTaffy asks for an account.',
+      'New visitors can create and download images with guest credits before PixTaffy asks for an account.',
     blurb:
-      'Sometimes you just want to see the thing work. Type a prompt and PixTaffy will make your first Standard image free, with no registration form in the way. Download the result immediately, then create an account to save it to your cloud history and verify your email for five more credits.',
+      'Sometimes you just want to see the thing work. Type a prompt and use three guest credits with no registration form in the way. GPT Image 2 starts selected and uses two credits, leaving one for a Standard model. Download the result immediately, then create an account to save it to your cloud history and verify your email for ten starter credits.',
     publishedAt: Date.parse('2026-08-09T21:00:00Z'),
     version: '0.26.1',
     image: '/whats-new/whatsnew-v0.26.1.webp',
@@ -76,30 +108,30 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     sections: [
       {
         heading: 'Prompt first, account second',
-        body: 'The guest image uses PixTaffy\'s Standard model and the same protected server pipeline as paid generations. It is limited to one image, but the result is yours to download right away.',
+        body: 'Guest images use the same protected server pipeline as paid generations. The toolbar shows the selected model cost and remaining guest balance, and every result is yours to download right away.',
         steps: [
-          { text: 'Write a prompt and click Create your first image free.', icon: 'Sparkles' },
+          { text: 'Write a prompt and click Create your first image.', icon: 'Sparkles' },
           { text: 'Preview or download the finished image without registering.', icon: 'Download' },
-          { text: 'Create an account to save it and verify your email for five additional credits.', icon: 'ArrowRight' },
+          { text: 'Create an account to save it and verify your email for ten starter credits.', icon: 'ArrowRight' },
         ],
       },
     ],
   },
   {
     id: 'v0.26.0-sustainable-ai-credits',
-    title: 'Five credits to start, then pay as you go',
+    title: 'Starter credits, then pay as you go',
     summary:
-      'PixTaffy now includes starter credits, permanent credit packs, and a monthly Taffy Studio membership for site-funded AI.',
+      'PixTaffy includes ten starter credits, permanent credit packs, and a monthly Taffy Studio membership for site-funded AI.',
     blurb:
-      'You can still bring your own image-generation key and use PixTaffy for free. When you want PixTaffy to handle the provider bill, verified accounts get five starter credits, credit packs never expire, and Taffy Studio adds 100 credits every month with two-month rollover. Every paid model and AI helper shows its credit cost before it runs.',
+      'You can still bring your own image-generation key and use PixTaffy for free. When you want PixTaffy to handle the provider bill, verified accounts get ten starter credits, credit packs never expire, and Taffy Studio adds 100 credits every month with two-month rollover. Every paid model and AI helper shows its credit cost before it runs.',
     publishedAt: Date.parse('2026-08-09T20:30:00Z'),
     version: '0.26.0',
     image: '/whats-new/whatsnew-v0.26.0.webp',
     featured: true,
     sections: [
       {
-        heading: 'Try site-funded AI with five starter credits',
-        body: 'Verify your email and PixTaffy adds five credits that are good for 30 days. They work in the web studio for paid image models and AI workflow tools, so you can try the whole experience before buying anything.',
+        heading: 'Try site-funded AI with ten starter credits',
+        body: 'Verify your email and PixTaffy adds ten credits that are good for 30 days. They work in the web studio for paid image models and AI workflow tools, so you can try the whole experience before buying anything.',
         steps: [
           { text: 'Create an account or sign in, then verify your email.', icon: 'Check' },
           { text: 'Open Pricing to see your balance and credit activity.', icon: 'Eye' },

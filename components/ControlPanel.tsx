@@ -93,6 +93,8 @@ interface ControlPanelProps {
   onGenerate: (count: number) => void;
   /** PixTaffy-funded cost for one pass across the selected models. */
   paidBatchMilliCredits?: number;
+  /** Current guest balance, shown beside the generation cost when supplied. */
+  guestBalanceMilliCredits?: number;
   isGenerating: boolean;
   options: {
     brandColors: BrandColor[];
@@ -143,6 +145,8 @@ interface ControlPanelProps {
   freeFirstGeneration?: boolean;
   /** Keeps guests on the server-priced Standard model. */
   modelSelectionLocked?: boolean;
+  /** Restricts the model picker to a server-approved subset, such as guest-credit models. */
+  allowedModelIds?: string[];
   /**
    * Saved toolbar presets the user can recall. When omitted/empty the
    * dropdown shows an empty state inviting the user to save their first
@@ -555,6 +559,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   setConfig,
   onGenerate,
   paidBatchMilliCredits = 0,
+  guestBalanceMilliCredits,
   isGenerating,
   options,
   setOptions,
@@ -575,6 +580,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   generationCap,
   freeFirstGeneration = false,
   modelSelectionLocked = false,
+  allowedModelIds,
   presets = [],
   onApplyPreset,
   onSavePreset,
@@ -1787,7 +1793,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   };
   // Native models + dynamic (OpenRouter) models, and the group headers to
   // render them under. Extra groups always come after the native ones.
-  const allModels = useMemo(() => [...SUPPORTED_MODELS, ...extraModels], [extraModels]);
+  const allowedModelIdSet = useMemo(
+    () => allowedModelIds ? new Set(allowedModelIds) : null,
+    [allowedModelIds]
+  );
+  const allModels = useMemo(
+    () => [...SUPPORTED_MODELS, ...extraModels].filter((model) => !allowedModelIdSet || allowedModelIdSet.has(model.id)),
+    [extraModels, allowedModelIdSet]
+  );
   const modelGroupNames = useMemo(() => {
     const names: string[] = [...MODEL_GROUP_ORDER];
     for (const m of extraModels) {
@@ -2107,7 +2120,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               />
               {activeDropdown === 'model' && (
                 <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
-                  <button
+                  {user && <button
                     type="button"
                     onClick={() => {
                       setCompareModelsMode((prev) => {
@@ -2134,7 +2147,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     <span className={`text-[11px] uppercase tracking-wider font-bold ${compareModelsMode ? 'text-brand-teal' : 'text-slate-400'}`}>
                       {compareModelsMode ? 'On' : 'Off'}
                     </span>
-                  </button>
+                  </button>}
                   {modelGroupNames.map((groupName) => {
                     const groupModels = allModels.filter((m) => m.group === groupName);
                     if (groupModels.length === 0) return null;
@@ -2884,6 +2897,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         {' '}PixTaffy cost: {paidBatchCreditLabel} credit{totalPaidBatchMilliCredits === 1_000 ? '' : 's'}.
                       </span>
                     )}
+                    {guestBalanceMilliCredits !== undefined && (
+                      <span className="font-semibold text-brand-purple dark:text-purple-300">
+                        {' '}Guest balance: {guestBalanceMilliCredits / 1_000} credit{guestBalanceMilliCredits === 1_000 ? '' : 's'}.
+                      </span>
+                    )}
                   </>
                 )}
               </div>
@@ -2979,6 +2997,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       {totalPaidBatchMilliCredits > 0 && (
                         <span className="font-semibold text-brand-teal">
                           {' '}PixTaffy cost: {paidBatchCreditLabel} credit{totalPaidBatchMilliCredits === 1_000 ? '' : 's'}.
+                        </span>
+                      )}
+                      {guestBalanceMilliCredits !== undefined && (
+                        <span className="font-semibold text-brand-purple dark:text-purple-300">
+                          {' '}Guest balance: {guestBalanceMilliCredits / 1_000} credit{guestBalanceMilliCredits === 1_000 ? '' : 's'}.
                         </span>
                       )}
                     </>

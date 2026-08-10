@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-08-10
+
+### Added
+
+- Added a real three-credit balance for unregistered visitors, enforced against both the anonymous Firebase identity and the browser installation instead of a one-time client flag.
+- Added a protected guest-balance callable so the studio can show the remaining allowance without blocking the public welcome page.
+- Added direct guest-ledger coverage for fresh, legacy, expired, and over-budget records, plus a browser smoke path for blocked guest-session dependencies.
+
+### Changed
+
+- Made GPT Image 2 the default for new visitors and new accounts. Its two-credit guest run leaves one credit for a second image with a Standard model.
+- Raised the email-verified starter grant from five credits to ten and updated the welcome, signup, pricing, setup, and saved-image messaging.
+- Opened the guest model picker to PixTaffy-funded models while keeping guest runs single-image and showing both generation cost and guest balance beside the prompt.
+- Replaced the welcome-page credit terminology in the primary action with the clearer “Create your first image.”
+
+### Fixed
+
+- Added bounded anonymous-session and guest-generation waits so a blocked prerequisite becomes a visible error instead of an endless generation state.
+- Added a localhost-only Firebase App Check debug-provider path for registered development tokens, keeping the token out of production bundles while allowing the built-in preview to exercise protected Functions.
+- Rotated guest idempotency keys after successful deliveries and versioned the storage key so visitors cannot receive a cached result from the older one-image flow.
+
 ## [0.29.4] - 2026-08-10
 
 ### Changed

@@ -181,7 +181,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
       const verified = await authService.refreshEmailVerification();
       if (verified) {
         await load();
-        setMessage('Email verified. Your 5 starter credits are ready.');
+        setMessage('Email verified. Your 10 starter credits are ready.');
       } else {
         await authService.resendVerification();
         setMessage('We sent a fresh verification link to ' + user.email + '.');
@@ -257,8 +257,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
         {user && !user.emailVerified && !billing?.starterGranted && (
           <section className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-brand-cyan/30 bg-cyan-50 p-5 dark:bg-brand-cyan/10 sm:flex-row sm:items-center">
             <div>
-              <h2 className="font-bold text-slate-950 dark:text-white">Your first 5 credits are waiting</h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Verify {user.email} to get about 5 Standard, 2 Pro, or 1 Premium image. Starter credits last 30 days.</p>
+              <h2 className="font-bold text-slate-950 dark:text-white">Your 10 starter credits are waiting</h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Verify {user.email} to get about 10 Standard, 5 Pro, or 3 Premium images. Starter credits last 30 days.</p>
             </div>
             <button onClick={() => void verify()} disabled={busy === 'verify'} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-pink px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-brand-pink/20 disabled:opacity-60">
               {busy === 'verify' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Check verification
@@ -376,11 +376,11 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-orange">Save limits, spelled out</p>
             <h2 className="pixtaffy-display mt-2 text-3xl font-extrabold tracking-tight text-slate-950 dark:text-white">Guests stay local. Accounts sync across browsers.</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Your free first image stays in this browser until you register. A free account syncs the latest 100 generation entries. Any credit pack raises that cloud history to 500, and Taffy Studio raises it to 2,000 while active.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Images made with your 3 guest credits stay in this browser until you register. A free account syncs the latest 100 generation entries. Any credit pack raises that cloud history to 500, and Taffy Studio raises it to 2,000 while active.</p>
           </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { name: 'Guest first image', value: 'Local', detail: 'kept only in this browser until you register', color: 'text-brand-orange', bg: 'from-orange-50 to-white dark:from-brand-orange/10 dark:to-white/5' },
+              { name: 'Guest images', value: 'Local', detail: 'kept only in this browser until you register', color: 'text-brand-orange', bg: 'from-orange-50 to-white dark:from-brand-orange/10 dark:to-white/5' },
               { name: 'Free account', value: '100', detail: 'latest cloud-saved entries across browsers', color: 'text-brand-teal', bg: 'from-cyan-50 to-white dark:from-brand-cyan/10 dark:to-white/5' },
               { name: 'Any credit pack', value: '500', detail: 'cloud-saved generation entries', color: 'text-brand-purple', bg: 'from-purple-50 to-white dark:from-brand-purple/10 dark:to-white/5' },
               { name: 'Taffy Studio', value: '2,000', detail: 'cloud-saved entries while active', color: 'text-brand-pink', bg: 'from-pink-50 to-white dark:from-brand-pink/10 dark:to-white/5' },

@@ -6,10 +6,15 @@ import {
   releaseToBuckets,
   reserveFromBuckets,
   subscriptionGrantAmount,
+  STARTER_GRANT_MILLICREDITS,
   type CreditBucket,
 } from "./billingCore";
 
 const now = 1_800_000_000_000;
+
+test("verified accounts start with ten credits", () => {
+  assert.equal(STARTER_GRANT_MILLICREDITS, 10_000);
+});
 
 const bucket = (
   id: string,
