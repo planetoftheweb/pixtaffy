@@ -60,7 +60,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Sparkles size={14} />
               Your brand&apos;s new creative crew
             </div>
-            <h1 className="mt-6 text-balance text-4xl font-black leading-[0.98] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
+            <h1 className="pixtaffy-display mt-6 text-balance text-4xl font-extrabold leading-[0.98] tracking-[-0.045em] sm:text-6xl sm:font-black lg:text-7xl">
               Turn one idea into a whole set of{' '}
               <span className="bg-gradient-to-r from-brand-orange via-brand-red to-brand-purple bg-clip-text text-transparent">
                 <span className="whitespace-nowrap">on-brand</span> visuals.
@@ -74,7 +74,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 type="button"
                 onClick={onEnterStudio}
-                className="group inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-red via-brand-pink to-brand-purple px-6 py-3.5 text-base font-black text-white shadow-xl shadow-brand-pink/25 transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-brand-pink/30 focus:outline-none focus:ring-4 focus:ring-brand-pink/25"
+                className="group inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-red via-brand-pink to-brand-purple px-6 py-3.5 text-base font-black leading-tight text-white shadow-xl shadow-brand-pink/25 transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-brand-pink/30 focus:outline-none focus:ring-4 focus:ring-brand-pink/25"
               >
                 <Play size={18} fill="currentColor" />
                 {primaryLabel}
@@ -82,14 +82,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </button>
               <a
                 href="#features"
-                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold text-slate-800 backdrop-blur transition hover:border-brand-cyan hover:text-brand-teal dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-cyan dark:hover:text-brand-cyan"
+                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition hover:border-brand-cyan hover:text-brand-teal dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-cyan dark:hover:text-brand-cyan"
               >
                 Explore features
               </a>
               <button
                 type="button"
                 onClick={onViewPricing}
-                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold text-slate-800 backdrop-blur transition hover:border-brand-pink hover:text-brand-pink dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-pink"
+                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition hover:border-brand-pink hover:text-brand-pink dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-pink"
               >
                 Pricing
               </button>
@@ -135,7 +135,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             ['A motion workshop', 'Frames, video, slides, and PNG exports'],
           ].map(([title, copy], index) => (
             <div key={title} className={`px-2 py-4 sm:px-6 ${index > 0 ? 'border-t border-orange-100 dark:border-white/10 sm:border-l sm:border-t-0' : ''}`}>
-              <p className="text-sm font-black text-slate-950 dark:text-white">{title}</p>
+              <p className="text-sm font-bold text-slate-950 dark:text-white">{title}</p>
               <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">{copy}</p>
             </div>
           ))}
@@ -151,7 +151,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="mx-auto max-w-[1500px]">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-purple dark:text-brand-cyan">One playful studio, a lot less juggling</p>
-            <h2 className="mt-4 text-balance text-3xl font-black tracking-[-0.035em] sm:text-5xl">Your ideas stay loose. Your brand stays together.</h2>
+            <h2 className="pixtaffy-display mt-4 text-balance text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Your ideas stay loose. Your brand stays together.</h2>
             <p className="mt-5 text-lg leading-8 text-slate-700 dark:text-slate-300">
               The great thing is you can explore without rebuilding the brief every time. PixTaffy keeps the creative decisions close while you try new directions.
             </p>
@@ -170,7 +170,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-cyan">From blank prompt to finished piece</p>
-              <h2 className="mt-4 text-3xl font-black tracking-[-0.035em] sm:text-5xl">Three steps. Plenty of room to play.</h2>
+              <h2 className="pixtaffy-display mt-4 text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Three steps. Plenty of room to play.</h2>
             </div>
             <p className="max-w-2xl text-lg leading-8 text-slate-300 lg:justify-self-end">
               Start with the simplest version of your idea. The studio gives you more control when you want it, but it never makes you fill out a creative brief just to see something happen.
@@ -180,8 +180,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="mt-12 grid gap-4 lg:grid-cols-3">
             {steps.map((step) => (
               <article key={step.number} className="rounded-3xl border border-white/10 bg-white/[0.055] p-6 backdrop-blur sm:p-7">
-                <p className="bg-gradient-to-r from-brand-cyan to-brand-pink bg-clip-text text-4xl font-black text-transparent">{step.number}</p>
-                <h3 className="mt-6 text-xl font-black">{step.title}</h3>
+                <p className="pixtaffy-counter bg-gradient-to-r from-brand-cyan to-brand-pink bg-clip-text text-4xl font-black text-transparent">{step.number}</p>
+                <h3 className="pixtaffy-display mt-6 text-xl font-bold">{step.title}</h3>
                 <p className="mt-3 leading-7 text-slate-300">{step.copy}</p>
               </article>
             ))}
@@ -193,7 +193,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="mx-auto grid max-w-[1500px] gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-red dark:text-brand-cyan">Try the whole idea before you commit</p>
-            <h2 className="mt-4 text-balance text-3xl font-black tracking-[-0.035em] sm:text-5xl">One image is free. After that, you choose the recipe.</h2>
+            <h2 className="pixtaffy-display mt-4 text-balance text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">One image is free. After that, you choose the recipe.</h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700 dark:text-slate-300">
               Bring your own image-generation key and keep creating free, or let PixTaffy handle the providers with simple credits. A verified account starts with five credits, enough to try paid models and the AI workflow tools.
             </p>
@@ -208,7 +208,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div key={item.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827]">
                 <div className={`h-2 w-16 rounded-full bg-gradient-to-r ${item.color}`} />
                 <p className="mt-5 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{item.label}</p>
-                <p className="mt-2 text-2xl font-black">{item.value}</p>
+                <p className="pixtaffy-counter mt-2 text-2xl font-extrabold">{item.value}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{item.copy}</p>
               </div>
             ))}
@@ -220,7 +220,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="relative mx-auto max-w-[1500px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#ff711f] via-[#eb2d65] to-[#8d32df] px-6 py-10 text-white shadow-2xl shadow-brand-pink/20 sm:px-10 sm:py-12 lg:grid lg:grid-cols-[1fr_0.9fr] lg:items-center lg:px-14 lg:py-14">
           <div className="relative z-10 max-w-2xl">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-white/75">The crew saved you a seat</p>
-            <h2 className="mt-4 text-3xl font-black tracking-[-0.035em] sm:text-5xl">Give PixTaffy one idea. Watch the crew get to work.</h2>
+            <h2 className="pixtaffy-display mt-4 text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Give PixTaffy one idea. Watch the crew get to work.</h2>
             <p className="mt-4 max-w-xl text-lg leading-8 text-white/85">
               Your first real generation is on us and stays in this browser. Download it anytime, or create a free account to save it in the cloud and open it on your other devices.
             </p>

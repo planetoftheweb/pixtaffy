@@ -27,6 +27,15 @@
   --text-base: 1.125rem; /* 18px */
 }
 
+/* Tailwind's reset keeps native buttons on the default arrow cursor. Make
+   every enabled click target communicate its behavior consistently. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
 /* PixTaffy's quiet graph-paper texture. Keep the lines faint enough to read
    as structure, not decoration; marketing surfaces can layer restrained
    candy-color glows underneath without reducing text contrast. */
@@ -101,6 +110,20 @@
        url('/fonts/Mona-Sans.woff2') format('woff2-variations');
   font-weight: 200 900;
   font-stretch: 75% 125%;
+  font-display: swap;
+}
+
+/* Keep Mona Sans throughout the product. A slightly wider display cut opens
+   the letterforms, while component classes step the weight down with size. */
+.pixtaffy-display {
+  font-family: var(--font-sans);
+  font-stretch: 105%;
+}
+
+.pixtaffy-counter {
+  font-family: var(--font-sans);
+  font-stretch: 110%;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Custom Scrollbar — auto-hide overlay style. The thumb is invisible

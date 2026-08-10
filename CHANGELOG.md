@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.4] - 2026-08-10
+
+### Changed
+
+- Kept Mona Sans for public-page headlines while stepping down smaller heading weights and widening display and numeric counter styles for clearer letterforms.
+- Lightened pricing-band and supporting card headings so compact labels stay readable instead of filling in at smaller sizes.
+- Tightened wrapped welcome-page button labels and gave enabled buttons a consistent hand cursor.
+
+### Fixed
+
+- Made the signed-out pricing balance a real Sign in button that opens the login flow with mouse, touch, and keyboard input.
+
 ## [0.29.3] - 2026-08-10
 
 ### Added

@@ -100,6 +100,12 @@ test('welcome exposes pricing without requiring an authenticated billing query',
   assert.match(pricingSource, /if \(!user\) \{[\s\S]*?setLoading\(false\)/);
 });
 
+test('the logged-out pricing balance opens the login flow instead of looking inert', () => {
+  assert.match(pricingSource, /onLogin: \(\) => void/);
+  assert.match(pricingSource, /!user \? \([\s\S]*?<button[\s\S]*?onClick=\{onLogin\}[\s\S]*?aria-label="Sign in to view your PixTaffy credit balance"/);
+  assert.match(appSource, /<PricingPage[\s\S]*?onLogin=\{\(\) => openAuthModal\('login'\)\}/);
+});
+
 test('the compact wordmark keeps Pix light and Taffy heavy with the candy gradient', () => {
   assert.match(appSource, /<span>Pix<\/span>/);
   assert.match(appSource, /from-brand-orange via-brand-red to-brand-purple[^\n]+font-black/);

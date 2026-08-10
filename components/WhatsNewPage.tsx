@@ -193,7 +193,7 @@ export const WhatsNewPage: React.FC<WhatsNewPageProps> = ({
               <Sparkles size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              <h2 className="pixtaffy-display text-2xl font-bold text-slate-900 dark:text-white">
                 What&rsquo;s new
               </h2>
               <p className="text-sm text-slate-500">
@@ -288,7 +288,7 @@ const ListView: React.FC<{
                 )}
               </div>
 
-              <h3 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white leading-tight">
+              <h3 className="pixtaffy-display text-2xl md:text-3xl font-bold text-slate-900 dark:text-white leading-tight">
                 {hero.title}
               </h3>
               <p className="mt-4 text-base text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -359,7 +359,7 @@ const ListView: React.FC<{
                       </span>
                     </div>
 
-                    <h4 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
+                    <h4 className="pixtaffy-display text-base font-semibold text-slate-900 dark:text-white leading-snug">
                       {entry.title}
                     </h4>
                     <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed flex-1">
@@ -435,7 +435,7 @@ const DetailView: React.FC<{
           </span>
         </div>
 
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white leading-tight">
+        <h1 className="pixtaffy-display text-3xl md:text-4xl font-bold text-slate-900 dark:text-white leading-tight">
           {entry.title}
         </h1>
 
@@ -449,7 +449,7 @@ const DetailView: React.FC<{
         <div className="mt-10 space-y-10">
           {entry.sections.map((section, idx) => (
             <section key={`${entry.id}-section-${idx}`}>
-              <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+              <h2 className="pixtaffy-display text-xl md:text-2xl font-bold text-slate-900 dark:text-white leading-tight">
                 {section.heading}
               </h2>
               {section.body && (

@@ -4026,6 +4026,7 @@ const App: React.FC = () => {
               setBillingMode(false);
               setWelcomeMode(true);
             }}
+            onLogin={() => openAuthModal('login')}
             onSignUp={() => openAuthModal('signup')}
           />
         </Suspense>
