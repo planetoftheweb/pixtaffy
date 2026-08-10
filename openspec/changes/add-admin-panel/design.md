@@ -117,7 +117,7 @@ Hard block. A signed-in suspended user sees a full-screen notice identifying the
 
 ## Security Considerations
 - `setAdminRole` is the only path that can mint the claim. The bootstrap OR-clause is deliberately narrow (single literal username, checked server-side against Firestore).
-- `deleteUserAccount` does not accept a caller-supplied `callerUid`; authorization is pulled from `context.auth.token.admin`.
+- `deleteUserAccount` does not accept a caller-supplied `callerUid`; authorization comes from `context.auth.token.admin`.
 - Destructive frontend actions require an inline confirm even for admins.
 - `isAdmin` is stripped from every write path so a malicious frontend cannot persist the field.
 - Rules deny all writes to `users/{uid}.lastSignInAt` except server-trusted writes via the client SDK when the caller owns the doc (the value is `serverTimestamp()` so users cannot forge it).

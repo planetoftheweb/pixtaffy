@@ -260,7 +260,7 @@ export const statsService = {
     const startedAt = Date.now();
 
     // --- 1. Users ---------------------------------------------------------
-    // Pull all user docs so we can resolve uid -> name/email for the
+    // Load all user docs so we can resolve uid -> name/email for the
     // leaderboard AND compute user-level stats (admins, active, etc.).
     const usersSnap = await getDocs(collection(db, "users"));
     const userById = new Map<string, any>();

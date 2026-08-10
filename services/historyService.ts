@@ -353,7 +353,7 @@ const upsertUserRemoteCache = (userId: string, generation: Generation, isAdmin: 
 
 // Remove a single generation from the per-user remote cache so it cannot
 // resurrect itself the next time `getHistory` merges remote + cache. Without
-// this scrub a deleted item is removed from Firestore but pulled back in from
+// this scrub a deleted item is removed from Firestore but restored from
 // the cache and re-written, making delete look like a no-op to the user.
 const removeFromUserRemoteCache = (userId: string, generationId: string, isAdmin: boolean) => {
   const filtered = readUserRemoteCache(userId, isAdmin).filter((gen) => gen.id !== generationId);
@@ -693,7 +693,7 @@ const migrateLegacyHistory = async (): Promise<Generation[] | null> => {
 
 export const historyService = {
   
-  saveGeneration: async (user: User | null, generation: Generation): Promise<void> => {
+  saveGeneration: async (user: User | null, generation: Generation): Promise<boolean> => {
     const normalized = normalizeGeneration(generation);
     if (user) {
       try {
@@ -712,13 +712,14 @@ export const historyService = {
           user.isAdmin === true
         );
         historyService.deleteFromLocal(normalized.id);
+        return true;
       } catch (e) {
         // Preserve locally if remote write fails so data is not lost on refresh.
         historyService.saveToLocal(normalized);
         throw e;
       }
     } else {
-      historyService.saveToLocal(normalized);
+      return historyService.saveToLocal(normalized);
     }
   },
 
@@ -809,7 +810,7 @@ export const historyService = {
         isAdmin ? undefined : Math.max(historyLimit, LOCAL_LIMIT)
       );
       writeUserRemoteCache(user.id, merged, isAdmin);
-      // Best-effort: pull every history image into IndexedDB so VPN-blocked
+      // Best-effort: load every history image into IndexedDB so VPN-blocked
       // sessions still have raster bytes to render. Also drop stale cache
       // entries for items that no longer exist in history. Both are
       // fire-and-forget — they must not delay the UI.
@@ -894,17 +895,20 @@ export const historyService = {
 
   // --- Local Storage Logic ---
 
-  saveToLocal: (generation: Generation) => {
+  saveToLocal: (generation: Generation): boolean => {
     const history = historyService.getFromLocal();
     const merged = mergeGenerationCollections([history, [generation]], LOCAL_LIMIT);
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+      return true;
     } catch (e) {
       console.error("Failed to save to local storage (likely quota exceeded):", e);
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([normalizeGeneration(generation)]));
+        return true;
       } catch {
         // Storage completely full
+        return false;
       }
     }
   },

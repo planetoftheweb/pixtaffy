@@ -63,7 +63,7 @@ export function feedbackIssueBody(input: FeedbackIssueInput): string {
     lines.push(
       "",
       "## Agent handoff",
-      "This came from a PixTaffy administrator. Reproduce the problem or scope the request, make the smallest useful change, verify it on mobile and desktop when UI is involved, and open a pull request.",
+      "This came from a PixTaffy administrator. Reproduce the problem or scope the request, make the smallest useful change, verify it on mobile and desktop when UI is involved, and open a GitHub PR.",
     );
   }
 

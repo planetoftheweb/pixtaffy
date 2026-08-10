@@ -2,17 +2,12 @@ import React from 'react';
 import {
   ArrowRight,
   BadgeCheck,
-  Clapperboard,
   Download,
-  Images,
-  KeyRound,
-  Layers3,
-  Palette,
   Play,
   Sparkles,
-  WandSparkles,
   Zap,
 } from 'lucide-react';
+import { FeatureDemoGrid } from './FeatureDemoGrid';
 
 interface LandingPageProps {
   isMember: boolean;
@@ -20,51 +15,6 @@ interface LandingPageProps {
   onLogin: () => void;
   onSignUp: () => void;
 }
-
-const features = [
-  {
-    icon: Palette,
-    accent: 'text-brand-pink',
-    wash: 'from-brand-pink/20 to-brand-purple/5',
-    title: 'Keep your brand in the room',
-    copy: 'Save colors, styles, graphic types, and art direction so every new image starts with the same creative brief.',
-  },
-  {
-    icon: Images,
-    accent: 'text-brand-cyan',
-    wash: 'from-brand-cyan/20 to-brand-teal/5',
-    title: 'Compare the best image models',
-    copy: 'Run one prompt through multiple models, compare the results side by side, and keep the version that earns its spot.',
-  },
-  {
-    icon: WandSparkles,
-    accent: 'text-brand-orange',
-    wash: 'from-brand-orange/20 to-brand-red/5',
-    title: 'Get help where it matters',
-    copy: 'Expand prompts, analyze references, extract styles, name assets, and make corrections without leaving the workspace.',
-  },
-  {
-    icon: Clapperboard,
-    accent: 'text-brand-purple',
-    wash: 'from-brand-purple/20 to-brand-pink/5',
-    title: 'Turn a still into a story',
-    copy: 'Build animation frames from your artwork, preview the sequence, then export video, PowerPoint, or individual PNG files.',
-  },
-  {
-    icon: Layers3,
-    accent: 'text-brand-red',
-    wash: 'from-brand-red/20 to-brand-orange/5',
-    title: 'Keep every good version',
-    copy: 'Your generations, refinements, presets, and folders stay together, ready when a campaign comes back around.',
-  },
-  {
-    icon: KeyRound,
-    accent: 'text-brand-teal',
-    wash: 'from-brand-teal/20 to-brand-cyan/5',
-    title: 'Choose how you pay',
-    copy: 'Bring your own image-generation key for free, or use PixTaffy credits when you want us to handle the provider bill.',
-  },
-];
 
 const steps = [
   {
@@ -75,12 +25,12 @@ const steps = [
   {
     number: '02',
     title: 'Make the first image free',
-    copy: 'Try a real Standard generation before you register. No card and no account form in the way.',
+    copy: 'Try a real Standard generation before you register. It stays in this browser, ready to download.',
   },
   {
     number: '03',
     title: 'Shape it into a system',
-    copy: 'Create an account to save your work, refine versions, use AI helpers, and build the next frame.',
+    copy: 'Create a free account to sync your work across browsers, refine versions, use AI helpers, and build the next frame.',
   },
 ];
 
@@ -90,16 +40,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onLogin,
   onSignUp,
 }) => {
-  const primaryLabel = isMember ? 'Back to the studio' : 'Create your first image free';
+  const primaryLabel = isMember ? 'Back to the studio' : 'Create free image';
 
   return (
-    <main className="min-w-0 overflow-hidden bg-[#fff8f0] text-slate-950 dark:bg-[#080d18] dark:text-white">
+    <main className="min-w-0 overflow-hidden bg-brand-cream/45 text-slate-950 dark:bg-[#080d18] dark:text-white">
       <section className="relative isolate border-b border-orange-100 dark:border-white/10">
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
           <div className="absolute -left-36 top-24 h-96 w-96 rounded-full bg-brand-orange/25 blur-3xl" />
           <div className="absolute -right-24 -top-20 h-[30rem] w-[30rem] rounded-full bg-brand-pink/25 blur-3xl" />
           <div className="absolute bottom-0 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-brand-cyan/20 blur-3xl" />
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(155,53,227,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(8,213,232,0.055)_1px,transparent_1px)] bg-[size:42px_42px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
+          <div className="pixtaffy-grid pixtaffy-grid-fade absolute inset-0" />
         </div>
 
         <div className="mx-auto grid max-w-[1500px] items-center gap-10 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[0.88fr_1.12fr] lg:px-12 lg:py-24 xl:gap-16">
@@ -111,7 +61,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <h1 className="mt-6 text-balance text-4xl font-black leading-[0.98] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
               Turn one idea into a whole set of{' '}
               <span className="bg-gradient-to-r from-brand-orange via-brand-red to-brand-purple bg-clip-text text-transparent">
-                on-brand visuals.
+                <span className="whitespace-nowrap">on-brand</span> visuals.
               </span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-8 text-slate-700 dark:text-slate-300 sm:text-xl">
@@ -132,7 +82,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 href="#features"
                 className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold text-slate-800 backdrop-blur transition hover:border-brand-cyan hover:text-brand-teal dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-cyan dark:hover:text-brand-cyan"
               >
-                See what PixTaffy can do
+                Explore features
               </a>
             </div>
 
@@ -167,7 +117,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      <section className="border-b border-orange-100 bg-white/65 dark:border-white/10 dark:bg-white/[0.025]">
+      <section className="relative border-b border-orange-100 bg-white/65 dark:border-white/10 dark:bg-white/[0.025]">
+        <div className="pixtaffy-spectrum absolute inset-x-0 top-0 h-1" aria-hidden="true" />
         <div className="mx-auto grid max-w-[1500px] gap-px px-5 py-4 sm:grid-cols-3 sm:px-8 lg:px-12">
           {[
             ['A brand system', 'Colors, styles, presets, and art direction'],
@@ -182,7 +133,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      <section id="features" className="scroll-mt-24 px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
+      <section id="features" className="relative isolate scroll-mt-24 px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+          <div className="pixtaffy-grid absolute inset-0 opacity-55 [mask-image:linear-gradient(to_bottom,transparent,black_16%,black_84%,transparent)]" />
+          <div className="absolute -left-40 top-24 h-80 w-80 rounded-full bg-brand-cyan/10 blur-3xl" />
+          <div className="absolute -right-32 bottom-16 h-80 w-80 rounded-full bg-brand-pink/10 blur-3xl" />
+        </div>
         <div className="mx-auto max-w-[1500px]">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-purple dark:text-brand-cyan">One playful studio, a lot less juggling</p>
@@ -192,23 +148,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {features.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <article key={feature.title} className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-[#111827] sm:p-7">
-                  <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${feature.wash} opacity-70`} />
-                  <div className="relative">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200/70 bg-white/80 shadow-sm dark:border-white/10 dark:bg-black/20">
-                      <Icon size={23} className={feature.accent} />
-                    </div>
-                    <h3 className="mt-5 text-xl font-black tracking-tight">{feature.title}</h3>
-                    <p className="mt-3 leading-7 text-slate-700 dark:text-slate-300">{feature.copy}</p>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+          <FeatureDemoGrid className="mt-12" />
         </div>
       </section>
 
@@ -271,9 +211,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="relative mx-auto max-w-[1500px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#ff711f] via-[#eb2d65] to-[#8d32df] px-6 py-10 text-white shadow-2xl shadow-brand-pink/20 sm:px-10 sm:py-12 lg:grid lg:grid-cols-[1fr_0.9fr] lg:items-center lg:px-14 lg:py-14">
           <div className="relative z-10 max-w-2xl">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-white/75">The crew saved you a seat</p>
-            <h2 className="mt-4 text-3xl font-black tracking-[-0.035em] sm:text-5xl">Give PixTaffy one idea. See where it pulls.</h2>
+            <h2 className="mt-4 text-3xl font-black tracking-[-0.035em] sm:text-5xl">Give PixTaffy one idea. Watch the crew get to work.</h2>
             <p className="mt-4 max-w-xl text-lg leading-8 text-white/85">
-              Your first real generation is on us. Download it, keep it, and decide what you want to make next.
+              Your first real generation is on us and stays in this browser. Download it anytime, or create a free account to save it in the cloud and open it on your other devices.
             </p>
             <button
               type="button"

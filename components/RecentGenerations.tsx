@@ -2449,7 +2449,11 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
                 }`}
               >
-                <FileText size={16} aria-hidden />
+                <FileText
+                  size={16}
+                  aria-hidden
+                  className={viewFolderEffectiveInstructions ? 'text-brand-teal' : 'text-orange-700 dark:text-brand-orange'}
+                />
                 <span
                   role="tooltip"
                   className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-instructions:opacity-100 group-focus-visible/tip-instructions:opacity-100 transition-opacity z-20"
@@ -2468,7 +2472,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
                 }`}
               >
-                {showDetails ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
+                {showDetails
+                  ? <EyeOff size={16} aria-hidden className="text-brand-teal" />
+                  : <Eye size={16} aria-hidden className="text-brand-teal dark:text-brand-cyan" />}
                 <span
                   role="tooltip"
                   className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-details:opacity-100 group-focus-visible/tip-details:opacity-100 transition-opacity z-20"
@@ -2488,7 +2494,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 // its section header. Without this, DownloadMenu's own
                 // fallback would render `allLabel` as a visible span.
                 triggerLabelClassName="hidden"
-                icon={<Archive size={16} aria-hidden />}
+                icon={<Archive size={16} aria-hidden className="text-brand-pink" />}
                 triggerClassName="inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition disabled:opacity-50 disabled:pointer-events-none shrink-0"
                 disabled={visibleHistory.length === 0}
                 onNotify={showToast}
@@ -2500,7 +2506,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 aria-label="Select items to move, export, or delete in bulk"
                 className="group/tip-select relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0"
               >
-                <CheckSquare size={16} aria-hidden />
+                <CheckSquare size={16} aria-hidden className="text-brand-purple" />
                 <span
                   role="tooltip"
                   className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-select:opacity-100 group-focus-visible/tip-select:opacity-100 transition-opacity z-20"

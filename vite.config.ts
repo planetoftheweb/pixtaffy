@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
       build: {
         rollupOptions: {
           output: {
-            // Do not pull Rollup's shared preload helper into whichever manual
+            // Do not bundle Rollup's shared preload helper into whichever manual
             // vendor chunk first references it; that would make lazy exporters
             // appear as eager modulepreloads in the app shell.
             onlyExplicitManualChunks: true,

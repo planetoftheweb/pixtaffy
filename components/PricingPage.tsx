@@ -16,7 +16,13 @@ import {
 } from 'lucide-react';
 import type { User } from '../types';
 import { authService } from '../services/authService';
-import { billingService, type BillingState, type CreditActivityEntry } from '../services/billingService';
+import {
+  billingService,
+  SITE_FUNDED_MODEL_MILLICREDITS,
+  type BillingState,
+  type CreditActivityEntry,
+} from '../services/billingService';
+import { FeatureDemoGrid } from './FeatureDemoGrid';
 
 interface PricingPageProps {
   user: User;
@@ -28,6 +34,16 @@ const formatCredits = (milliCredits: number): string => {
   return Number.isInteger(credits) ? String(credits) : credits.toFixed(1);
 };
 
+const [standardCreditCost, proCreditCost, premiumCreditCost] = [
+  ...new Set(Object.values(SITE_FUNDED_MODEL_MILLICREDITS).map((milliCredits) => milliCredits / 1_000)),
+].sort((a, b) => a - b);
+
+const estimateImages = (credits: number) => ({
+  standard: Math.floor(credits / standardCreditCost),
+  pro: Math.floor(credits / proCreditCost),
+  premium: Math.floor(credits / premiumCreditCost),
+});
+
 const products = [
   {
     id: 'credits_25' as const,
@@ -35,8 +51,9 @@ const products = [
     eyebrow: '25-credit pack',
     price: '$6',
     note: '24 cents per credit',
-    estimates: { standard: 25, pro: 12, premium: 8 },
-    position: '0%',
+    estimates: estimateImages(25),
+    image: '/brand/pricing-taffy-illustrator.webp',
+    imageAlt: 'An orange taffy illustrator drawing a colorful image on a tablet',
     accent: 'from-orange-400 via-brand-orange to-brand-red',
   },
   {
@@ -45,19 +62,21 @@ const products = [
     eyebrow: '100-credit pack',
     price: '$18',
     note: '18 cents per credit',
-    estimates: { standard: 100, pro: 50, premium: 33 },
-    position: '29%',
+    estimates: estimateImages(100),
+    image: '/brand/pricing-taffy-art-director.webp',
+    imageAlt: 'A saltwater taffy art director comparing three colorful image concepts',
     accent: 'from-brand-cyan via-brand-pink to-brand-purple',
     featured: true,
   },
   {
     id: 'credits_300' as const,
-    name: 'The Big Pull',
+    name: 'Taffy Variety Box',
     eyebrow: '300-credit pack',
     price: '$45',
     note: '15 cents per credit',
-    estimates: { standard: 300, pro: 150, premium: 100 },
-    position: '62%',
+    estimates: estimateImages(300),
+    image: '/brand/pricing-taffy-photographer.webp',
+    imageAlt: 'A yellow, coral, and purple taffy photographer creating a candy image',
     accent: 'from-brand-purple via-brand-pink to-brand-orange',
   },
 ];
@@ -223,7 +242,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-pink">One-time credit packs</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Buy a bag. Use it whenever you want.</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Every pack opens the same PixTaffy-funded models and AI tools. A bigger pack gives you more credits and a lower price per credit. All packs keep up to 500 saved generation entries.
+              Every pack opens the same PixTaffy-funded models and AI tools. A bigger pack gives you more credits and a lower price per credit. All packs keep up to 500 cloud-saved generation entries.
             </p>
           </div>
 
@@ -231,8 +250,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
             {products.map((product) => (
               <article key={product.id} className={'relative overflow-hidden rounded-3xl border bg-white shadow-lg transition-transform hover:-translate-y-1 dark:bg-[#141a29] ' + (product.featured ? 'border-brand-cyan ring-2 ring-brand-cyan/30' : 'border-slate-200 dark:border-white/10')}>
                 <div className={'h-2 bg-gradient-to-r ' + product.accent} />
-                <div className="relative h-36 overflow-hidden bg-gradient-to-br from-[#fff0dd] via-[#ffe5f3] to-[#dffbff] dark:from-white/10 dark:via-brand-pink/10 dark:to-brand-cyan/10">
-                  <MascotWindow position={product.position} label={product.name + ' taffy character'} className="absolute inset-0" />
+                <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#fff0dd] via-[#ffe5f3] to-[#dffbff] dark:from-white/10 dark:via-brand-pink/10 dark:to-brand-cyan/10 sm:h-52">
+                  <img src={product.image} alt={product.imageAlt} loading="lazy" className="h-full w-full object-cover object-center" />
                   {product.featured && <span className="absolute right-4 top-4 rounded-full bg-[#11172a] px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-brand-cyan">Most popular</span>}
                 </div>
                 <div className="p-6">
@@ -250,7 +269,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
                   </div>
                   <ul className="mt-5 space-y-2.5 text-sm text-slate-700 dark:text-slate-200">
                     <li className="flex gap-2"><Check size={17} className="mt-0.5 shrink-0 text-brand-teal" /> Credits never expire</li>
-                    <li className="flex gap-2"><Archive size={17} className="mt-0.5 shrink-0 text-brand-orange" /> 500 saved generation entries</li>
+                    <li className="flex gap-2"><Archive size={17} className="mt-0.5 shrink-0 text-brand-orange" /> 500 cloud-saved generation entries</li>
                     <li className="flex gap-2"><WandSparkles size={17} className="mt-0.5 shrink-0 text-brand-pink" /> Images, analysis, naming, and prompt tools</li>
                   </ul>
                   <button onClick={() => void checkout(product.id)} disabled={busy != null} className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#11172a] px-4 py-3 text-sm font-black text-white shadow-lg transition-colors hover:bg-brand-pink disabled:opacity-60 dark:bg-white dark:text-[#11172a] dark:hover:bg-brand-cyan">
@@ -273,7 +292,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
                 Get 100 credits every month, enough for about 100 Standard, 50 Pro, or 33 Premium images. Unused subscription credits can roll over to a 200-credit balance.
               </p>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl bg-white/10 p-3"><p className="text-2xl font-black text-brand-cyan">2,000</p><p className="text-xs text-slate-300">saved generations</p></div>
+                <div className="rounded-xl bg-white/10 p-3"><p className="text-2xl font-black text-brand-cyan">2,000</p><p className="text-xs text-slate-300">cloud-saved generations</p></div>
                 <div className="rounded-xl bg-white/10 p-3"><p className="text-2xl font-black text-brand-orange">100</p><p className="text-xs text-slate-300">credits each month</p></div>
                 <div className="rounded-xl bg-white/10 p-3"><p className="text-2xl font-black text-brand-pink">200</p><p className="text-xs text-slate-300">maximum rollover</p></div>
               </div>
@@ -286,6 +305,15 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
               </button>
             </div>
           </div>
+        </section>
+
+        <section className="mt-10">
+          <div className="max-w-3xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-cyan">What the studio can do</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">See what your credits and keys actually power.</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">These are the creative jobs PixTaffy keeps together, from the first brand board through model comparison, AI assistance, animation frames, and version history.</p>
+          </div>
+          <FeatureDemoGrid className="mt-6" />
         </section>
 
         <section className="mt-10 grid gap-5 lg:grid-cols-2">
@@ -318,14 +346,15 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
         <section className="mt-10 rounded-3xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-[#141a29] sm:p-8">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-orange">Save limits, spelled out</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">The pack size does not change your history size.</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Buying any credit pack raises your history from 100 to 500 saved generation entries. Taffy Studio raises it to 2,000 while your subscription is active.</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Guests stay local. Accounts sync across browsers.</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Your free first image stays in this browser until you register. A free account syncs the latest 100 generation entries. Any credit pack raises that cloud history to 500, and Taffy Studio raises it to 2,000 while active.</p>
           </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { name: 'Free BYOK or starter', value: '100', detail: 'latest saved generation entries', color: 'text-brand-teal', bg: 'from-cyan-50 to-white dark:from-brand-cyan/10 dark:to-white/5' },
-              { name: 'Any credit pack', value: '500', detail: 'saved generation entries', color: 'text-brand-purple', bg: 'from-purple-50 to-white dark:from-brand-purple/10 dark:to-white/5' },
-              { name: 'Taffy Studio', value: '2,000', detail: 'saved generation entries while active', color: 'text-brand-pink', bg: 'from-pink-50 to-white dark:from-brand-pink/10 dark:to-white/5' },
+              { name: 'Guest first image', value: 'Local', detail: 'kept only in this browser until you register', color: 'text-brand-orange', bg: 'from-orange-50 to-white dark:from-brand-orange/10 dark:to-white/5' },
+              { name: 'Free account', value: '100', detail: 'latest cloud-saved entries across browsers', color: 'text-brand-teal', bg: 'from-cyan-50 to-white dark:from-brand-cyan/10 dark:to-white/5' },
+              { name: 'Any credit pack', value: '500', detail: 'cloud-saved generation entries', color: 'text-brand-purple', bg: 'from-purple-50 to-white dark:from-brand-purple/10 dark:to-white/5' },
+              { name: 'Taffy Studio', value: '2,000', detail: 'cloud-saved entries while active', color: 'text-brand-pink', bg: 'from-pink-50 to-white dark:from-brand-pink/10 dark:to-white/5' },
             ].map((tier) => (
               <div key={tier.name} className={'rounded-2xl border border-slate-200 bg-gradient-to-br p-5 dark:border-white/10 ' + tier.bg}>
                 <p className="text-sm font-black text-slate-950 dark:text-white">{tier.name}</p>
@@ -334,7 +363,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
               </div>
             ))}
           </div>
-          <p className="mt-5 flex gap-2 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:bg-amber-400/10 dark:text-amber-100"><Archive size={16} className="mt-0.5 shrink-0" /> A saved generation is one entry in your History. A batch entry can contain several images or versions. When the limit is reached, PixTaffy removes the oldest complete entry and its related files.</p>
+          <p className="mt-5 flex gap-2 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:bg-amber-400/10 dark:text-amber-100"><Archive size={16} className="mt-0.5 shrink-0" /> Guest work uses local browser storage and can disappear if site data is cleared. Registration is free and moves the guest image into cloud history, so credits are not required just to save. A batch entry can contain several images or versions.</p>
         </section>
 
         <section className="mt-10 grid gap-5 md:grid-cols-2">

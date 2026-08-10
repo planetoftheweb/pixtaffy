@@ -186,7 +186,7 @@ export interface BuildStep {
   durationMs?: number;
   /**
    * Per-step camera origin. 'smart' pans from the previous item; 'center'
-   * pulls back to the whole image, then zooms in. Falls back to the build's
+   * zooms out to the whole image, then zooms in. Falls back to the build's
    * global default when unset.
    */
   zoomFrom?: BuildZoomFrom;
