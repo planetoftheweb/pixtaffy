@@ -9,6 +9,7 @@ import {
   CheckSquare,
   ChevronLeft,
   Clipboard,
+  CreditCard,
   Edit,
   Eye,
   EyeOff,
@@ -22,6 +23,7 @@ import {
   KeyRound,
   Layers,
   Pencil,
+  Palette,
   Plus,
   Save,
   Search,
@@ -66,6 +68,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Check,
   CheckSquare,
   Clipboard,
+  CreditCard,
   Edit,
   Eye,
   EyeOff,
@@ -77,6 +80,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Info,
   KeyRound,
   Layers,
+  Palette,
   Pencil,
   Plus,
   Save,
@@ -142,7 +146,7 @@ const StepMarker: React.FC<{ step: WhatsNewStep }> = ({ step }) => {
  *      Cards are clickable and call `onSelectEntry(id)`.
  *
  *   2. Detail view (`selectedEntryId === <id>`): a single release rendered
- *      as a step-by-step guide. Pulls the hero image, blurb, then walks
+ *      as a step-by-step guide. Loads the hero image, blurb, then walks
  *      through each `section` with numbered `steps`, optional icon pills,
  *      and optional keyboard-shortcut chips.
  *

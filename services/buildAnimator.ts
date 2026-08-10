@@ -275,7 +275,7 @@ export const frameStateAt = (build: ImageBuild, timeMs: number): FrameState => {
   const p = reveal > 0 ? clamp(localT / reveal, 0, 1) : 1;
   const eased = easeInOut(p);
 
-  // Where the camera starts this step's move. 'center' pulls back to the whole
+  // Where the camera starts this step's move. 'center' zooms out to the whole
   // image first; 'smart' pans straight from the previous item. Step 0 always
   // starts from the full image (there is no previous item).
   const zoomFrom = build.steps[i].zoomFrom ?? build.defaultZoomFrom;
@@ -527,7 +527,7 @@ export const renderFrameFromState = (
   }
 
   // `endStyle: 'image'` tail: the entire unmasked image fades in over the
-  // revealed items as the camera pulls back to full.
+  // revealed items as the camera zooms out to full.
   if (state.fullImageAlpha > 0) {
     ctx.save();
     ctx.globalAlpha = clamp(state.fullImageAlpha, 0, 1);

@@ -19,10 +19,26 @@ import {
   Hexagon,
   CircleDot,
   Workflow,
-  Shapes
+  Shapes,
+  Candy,
+  UsersRound
 } from 'lucide-react';
 
 export const BRAND_COLORS: BrandColor[] = [
+  {
+    id: 'pixtaffy-candy',
+    name: 'PixTaffy Candy',
+    colors: [
+      '#009EAA', // Logo teal
+      '#08D5E8', // Electric cyan
+      '#FF7A18', // Taffy orange
+      '#E72D58', // Candy coral
+      '#F22991', // Hot pink
+      '#9B35E3', // Grape purple
+      '#103653', // Deep navy
+      '#FFF2E3'  // Cream highlight
+    ]
+  },
   {
     id: 'tech-blue',
     name: 'Tech Enterprise',
@@ -46,6 +62,13 @@ export const BRAND_COLORS: BrandColor[] = [
 ];
 
 export const VISUAL_STYLES: VisualStyle[] = [
+  {
+    id: 'pixtaffy-candy-3d',
+    name: 'PixTaffy Candy 3D',
+    description: 'Polished 3D cartoon art with glossy soft-taffy characters, twisted candy stripes, oversized expressive eyes, tiny white-gloved hands, colorful sneakers, rounded toy-like proportions, smooth studio lighting, tactile surfaces, soft shadows, candy-shop curves, and playful sparkles. Keep each character distinct and readable, with no logos, watermarks, or realistic humans.',
+    icon: Candy,
+    supportedFormats: ['raster']
+  },
   {
     id: 'minimalist-vector',
     name: 'Minimalist Vector',
@@ -119,6 +142,7 @@ export const VISUAL_STYLES: VisualStyle[] = [
 ];
 
 export const GRAPHIC_TYPES: GraphicType[] = [
+  { id: 'pixtaffy-character-scene', name: 'PixTaffy Character Scene', icon: UsersRound },
   { id: 'infographic', name: 'Infographic', icon: FileChartColumn },
   { id: 'illustration', name: 'Spot Illustration', icon: Image },
   { id: 'chart', name: 'Data Chart', icon: PieChart },

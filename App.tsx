@@ -1696,11 +1696,15 @@ const App: React.FC = () => {
           undefined,
           INBOX_FOLDER_ID
         );
-        await historyService.saveGeneration(null, generation);
+        const savedInBrowser = await historyService.saveGeneration(null, generation);
         historyRef.current = [generation];
         setHistory([generation]);
         setCurrentGeneration(generation);
-        localStorage.setItem(GUEST_FIRST_IMAGE_USED_KEY, 'true');
+        try {
+          localStorage.setItem(GUEST_FIRST_IMAGE_USED_KEY, 'true');
+        } catch {
+          // The server still enforces the one-time guest generation if browser storage is unavailable.
+        }
         setHasUsedGuestGeneration(true);
         updateGenerationJob(jobId, (job) => ({
           ...job,
@@ -1710,7 +1714,9 @@ const App: React.FC = () => {
           latest: generation,
           status: 'completed',
           finishedAt: Date.now(),
-          message: 'Your first image is ready. Download it, or create an account to save it and get 5 more credits.',
+          message: savedInBrowser
+            ? 'Your first image is ready and stored in this browser. Create an account to sync it across browsers and get 5 more credits.'
+            : 'Your first image is ready, but this browser could not store it. Download it now, then create an account to save future work.',
           modelProgress: {
             [GUEST_FIRST_IMAGE_MODEL_ID]: { total: 1, completed: 1, failed: 0, inFlight: 0 },
           },
@@ -3653,7 +3659,15 @@ const App: React.FC = () => {
               alt="PixTaffy logo"
               className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 object-contain drop-shadow-lg"
             />
-            <h1 className="hidden min-[360px]:block whitespace-nowrap font-bold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-white">PixTaffy</h1>
+            <h1
+              aria-label="PixTaffy"
+              className="hidden min-[360px]:block whitespace-nowrap text-lg font-normal tracking-[-0.035em] text-slate-900 dark:text-white sm:text-xl"
+            >
+              <span>Pix</span>
+              <span className="bg-gradient-to-r from-brand-orange via-brand-red to-brand-purple bg-clip-text font-black text-transparent">
+                Taffy
+              </span>
+            </h1>
           </button>
         </div>
 
@@ -3876,7 +3890,7 @@ const App: React.FC = () => {
               )}
              </div>
           ) : (
-            <div className="flex items-center">
+            <div className="flex items-center gap-3 sm:gap-4">
               <button 
                 onClick={() => openAuthModal('login')}
                 className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:hover:border-brand-teal dark:hover:text-brand-teal"
@@ -4056,7 +4070,7 @@ const App: React.FC = () => {
           />
 
           {/* Main Content Area */}
-          <main className="flex-1 relative flex flex-col min-w-0 bg-gray-50 dark:bg-[#0d1117] transition-colors duration-200">
+          <main className="pixtaffy-studio-surface flex-1 relative flex flex-col min-w-0 transition-colors duration-200">
             
             {/* Error Toast */}
             {error && (
@@ -4471,9 +4485,9 @@ const App: React.FC = () => {
                     <Sparkles size={18} />
                   </div>
                   <div>
-                    <p className="font-bold text-slate-900 dark:text-white">Your first image is on us.</p>
+                    <p className="font-bold text-slate-900 dark:text-white">Your first image is stored in this browser.</p>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                      Download it now, or save it to your account and verify your email to get 5 more credits.
+                      Download it now, or create a free account to sync it across browsers. Verify your email and you will also get 5 more credits.
                     </p>
                   </div>
                 </div>
@@ -4482,7 +4496,7 @@ const App: React.FC = () => {
                   onClick={() => openAuthModal('signup')}
                   className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-red/20 transition-colors hover:bg-red-700"
                 >
-                  Save it and get 5 credits
+                  Sync it and get 5 credits
                   <ArrowRight size={15} />
                 </button>
               </div>

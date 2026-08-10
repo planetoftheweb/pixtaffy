@@ -15,6 +15,7 @@
   --color-brand-pink: #F22991;
   --color-brand-purple: #9B35E3;
   --color-brand-dark: #103653;
+  --color-brand-cream: #FFF2E3;
 
   --color-dark-bg: #0d1117;
   --color-dark-card: #161b22;
@@ -24,6 +25,74 @@
   --text-xs: 0.875rem; /* 14px */
   --text-sm: 1rem; /* 16px */
   --text-base: 1.125rem; /* 18px */
+}
+
+/* PixTaffy's quiet graph-paper texture. Keep the lines faint enough to read
+   as structure, not decoration; marketing surfaces can layer restrained
+   candy-color glows underneath without reducing text contrast. */
+.pixtaffy-grid {
+  background-image:
+    linear-gradient(rgba(16, 54, 83, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 54, 83, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.dark .pixtaffy-grid {
+  background-image:
+    linear-gradient(rgba(8, 213, 232, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(8, 213, 232, 0.055) 1px, transparent 1px);
+}
+
+.pixtaffy-grid-fade {
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 58%, transparent 92%);
+  mask-image: linear-gradient(to bottom, black 0%, black 58%, transparent 92%);
+}
+
+.pixtaffy-spectrum {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-brand-teal),
+    var(--color-brand-cyan),
+    var(--color-brand-orange),
+    var(--color-brand-red),
+    var(--color-brand-pink),
+    var(--color-brand-purple)
+  );
+}
+
+/* Product workspace treatment. This borrows the welcome page's graph paper
+   and opposing candy-color glows at a much lower intensity so generated
+   artwork stays visually dominant. */
+.pixtaffy-studio-surface {
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(circle at 4% 4%, rgba(242, 41, 145, 0.055), transparent 26rem),
+    radial-gradient(circle at 96% 14%, rgba(8, 213, 232, 0.055), transparent 30rem),
+    linear-gradient(rgba(16, 54, 83, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 54, 83, 0.035) 1px, transparent 1px);
+  background-size: auto, auto, 42px 42px, 42px 42px;
+}
+
+.dark .pixtaffy-studio-surface {
+  background-color: var(--color-dark-bg);
+  background-image:
+    radial-gradient(circle at 4% 4%, rgba(242, 41, 145, 0.07), transparent 27rem),
+    radial-gradient(circle at 96% 14%, rgba(8, 213, 232, 0.06), transparent 32rem),
+    linear-gradient(rgba(8, 213, 232, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(155, 53, 227, 0.035) 1px, transparent 1px);
+}
+
+/* The sticky control bar remains a neutral glass surface. These faint edge
+   washes connect it to the workspace without turning every control into a
+   rainbow. */
+.pixtaffy-toolbar-surface {
+  background-image:
+    linear-gradient(110deg, rgba(255, 122, 24, 0.045), transparent 25%, transparent 74%, rgba(8, 213, 232, 0.045));
+}
+
+.dark .pixtaffy-toolbar-surface {
+  background-image:
+    linear-gradient(110deg, rgba(242, 41, 145, 0.055), transparent 25%, transparent 74%, rgba(8, 213, 232, 0.05));
 }
 
 @font-face {

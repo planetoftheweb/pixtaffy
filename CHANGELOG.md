@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-08-09
+
+### Changed
+
+- Compacted model-picker credit badges to a single number, with the full PixTaffy credit and own-key explanation moved into the model rollover.
+- Renamed the 300-credit pack to Taffy Variety Box and generated its image estimates from the published 1, 2, and 3-credit generation bands.
+- Clarified that the guest image stays in local browser storage, while free registration enables cross-browser cloud history without requiring a credit purchase.
+- Replaced the cropped pricing mascots with taller scenes of three varied taffy creatives illustrating, art-directing, and photographing images.
+- Added six generated feature demonstrations for brand setup, model comparison, AI assistance, Build Studio, version history, and flexible billing to both the welcome and pricing pages.
+- Removed suggestive taffy metaphors from customer-facing copy and used direct creative language instead.
+- Added clear spacing between the guest Log In and Sign Up actions in the main header.
+- Kept “on-brand” together as a single phrase when the welcome-page headline wraps.
+- Replaced the repeated v0.28 and v0.29 What’s New thumbnail with two release-specific candy scenes.
+- Made the What’s New prebuild gate reject missing or reused artwork for the current release, including exact copies saved under a new filename.
+- Added PixTaffy Candy system presets for the logo palette, glossy 3D candy-character style, and character-scene graphic type so the release-art look can be reused in future generations.
+- Shortened the welcome-page actions to “Create free image” and “Explore features” so both stay compact at narrower widths.
+- Updated the PixTaffy design system with the complete candy palette, restrained spectrum-usage rules, reusable grid treatment, and the canonical candy-character generation style.
+- Extended the welcome-page grid into the feature area, added a slim candy-spectrum divider, and warmed the light background without changing the page structure.
+- Updated the compact header wordmark so “Pix” stays neutral while the heavier “Taffy” carries the homepage orange-to-purple gradient.
+- Made feature-card text panels fill their equal-height grid cells so their background gradients always reach the rounded bottom edge.
+- Lightened “Pix” to regular weight in the header wordmark while keeping the gradient “Taffy” heavy.
+- Replaced the remaining generic-logo What’s New thumbnails with distinct candy-character scenes for feedback, the first free image, credits, and the PixTaffy rename.
+- Connected the studio to the welcome-page design with a faint grid, restrained pink and cyan background glows, candy-color toolbar icons, and a spectrum Generate button.
+
+### Fixed
+
+- Made model credit explanations available to touch, mouse, and keyboard users, and darkened light-mode icon accents for accessible control contrast.
+- Reported when a guest image could not be saved in browser storage so visitors know to download it immediately.
+- Made the release gate require an exact version entry and distinct artwork, including patch releases and entries with reordered fields.
+
 ## [0.29.0] - 2026-08-09
 
 ### Added
@@ -30,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Renamed the credit offers Taffy Twist, Saltwater Taffy, The Big Pull, and Taffy Studio while keeping their prices and credit amounts unchanged.
+- Renamed the credit offers Taffy Twist, Saltwater Taffy, Taffy Variety Box, and Taffy Studio while keeping their prices and credit amounts unchanged.
 - Reworked the Pricing experience around the PixTaffy logo palette with brighter cyan, pink, purple, orange, and coral accents.
 - Corrected Build Studio tooltips so AI frame detection and naming show their PixTaffy credit costs instead of referring to a personal Gemini key.
 
@@ -368,7 +398,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.11.0] - 2026-05-04
 ### Added
 - **Focus mode for the main preview.** When a generation is loaded into the main viewer, the entire toolbar options row (Type / Style / Colors / Size / Model) **and** the prompt input collapse together so the image gets the full vertical real estate. A new `Minimize2` / `Maximize2` button in the page header pins the choice manually, the toolbar auto-collapses on every scroll-down past a tiny 16px threshold (and only restores when the user comes back to the top), and selecting a new generation tile auto-collapses the toolbar by id so even an image that fits inside the viewport without scrolling triggers the focus mode. Auto-collapse is suppressed while any `<input>` / `<textarea>` / `contenteditable` element is focused so the toolbar can't yank itself away mid-keystroke. Persistent `<button>` for the toggle in the header is hidden in admin / settings / catalog modes where the toolbar isn't mounted (`App.tsx`, `components/ControlPanel.tsx`).
-- **Mark dropdown moved inside the large image preview.** The version selector now lives as a small in-image chip (`Layers` icon + Roman numeral + `ChevronDown`) at `top-4 left-4`, hidden by default and revealed on hover/focus over the preview area. Hovering the chip exposes a rich popover with current/total count, the full label, the refinement prompt (when present), and a "Click to switch versions" hint. The dropdown menu itself was tightened: removed the redundant "Original" / "Refinement" type label, replaced with a small amber dot next to refinement entries, restored the full "Mark I" wording, and pulled the delete affordance closer to the label so spacing reads as one row instead of three columns (`components/ImageDisplay.tsx`).
+- **Mark dropdown moved inside the large image preview.** The version selector now lives as a small in-image chip (`Layers` icon + Roman numeral + `ChevronDown`) at `top-4 left-4`, hidden by default and revealed on hover/focus over the preview area. Hovering the chip exposes a rich popover with current/total count, the full label, the refinement prompt (when present), and a "Click to switch versions" hint. The dropdown menu itself was tightened: removed the redundant "Original" / "Refinement" type label, replaced with a small amber dot next to refinement entries, restored the full "Mark I" wording, and moved the delete affordance closer to the label so spacing reads as one row instead of three columns (`components/ImageDisplay.tsx`).
 - **All preview chrome auto-hides until you hover the image.** Action buttons (compare / refine / download / info), the version chip, the carousel arrows, the position counter, and the compare overlay now use `opacity-0` at rest and `group-hover:opacity-100` / `group-focus-within:opacity-100` against the preview row, on every screen size. Rolling onto the image surfaces all chrome at once; rolling off lets the image speak for itself. The thumbnail rail now also docks to invisible (still occupying its 124px slot in layout so the image doesn't reflow) and reveals on the same hover; in compare-pick / comparing mode the rail stays at full opacity so the user can drive the two-mark flow without babysitting the image (`components/ImageDisplay.tsx`).
 - **One-click "Add a new Mark" on the rail.** The `+` slot at the bottom of the thumbnail rail now re-runs the last prompt through the refinement pipeline instead of opening the prompt editor — `Shift-click` keeps the editor for users who want to tweak. The button glyph swaps to a spinning `RefreshCw` while a refinement is in flight, and the tooltip / `aria-label` reflect the new behavior. The prompt source falls back through `version.refinementPrompt` → `generation.config.prompt` (`components/ImageDisplay.tsx`).
 - **Compare section docks.** The "pick two marks" picker banner and the "Comparing Mark I vs Mark II" header are now rendered as a single absolutely-positioned overlay inside the image card and follow the same hover-reveal rule as the rest of the chrome. Labels were shortened to just `Mark I vs Mark II` so they don't crowd the image; the full `<model> · Mark I` text remains available via the `title` tooltip. While the comparison slider is being dragged the overlay (and every other piece of chrome — rail, version chip, action buttons, carousel arrows, position counter) hides via a `data-dragging` attribute on the row and `group-data-[dragging=true]:!opacity-0` rules, so the user has a clean two-image surface while scrubbing the divider, then everything fades back in on `pointerup` (`components/ImageDisplay.tsx`, `components/JuxtaposeSlider.tsx`).

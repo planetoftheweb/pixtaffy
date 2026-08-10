@@ -2662,7 +2662,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                             <div data-no-row-drag className="ml-auto flex shrink-0 rounded-md border border-[#30363d] overflow-hidden">
                               {([
                                 ['smart', Route, 'Smart — camera pans in from the previous frame'],
-                                ['center', Crosshair, 'Center — pull back to the full image, then zoom in'],
+                                ['center', Crosshair, 'Center — zoom out to the full image, then zoom in'],
                               ] as const).map(([zf, Icon, tip]) => {
                                 const active = (s.zoomFrom ?? build.defaultZoomFrom) === zf;
                                 return (
@@ -2828,7 +2828,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 <div className="inline-flex rounded-md border border-[#30363d]">
                   {([
                     ['smart', Route, 'Smart — camera pans in from the previous frame'],
-                    ['center', Crosshair, 'Center — pull back to the full image, then zoom in'],
+                    ['center', Crosshair, 'Center — zoom out to the full image, then zoom in'],
                   ] as const).map(([zf, Icon, tip]) => {
                     const active = build.defaultZoomFrom === zf;
                     return (

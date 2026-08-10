@@ -1,7 +1,7 @@
 // MP4 export for a build (reveal animation). Renders the timeline offscreen at
 // the build's fps and encodes H.264 via WebCodecs, muxed to MP4 with Mediabunny.
 //
-// This module statically imports `mediabunny`, so it is ONLY ever pulled in via
+// This module statically imports `mediabunny`, so it is ONLY ever loaded via
 // a dynamic `import()` (see BuildStudio.handleExport) — that keeps mediabunny +
 // the WebCodecs glue out of the main bundle until the user actually exports.
 

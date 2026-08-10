@@ -14,6 +14,9 @@ import type { WhatsNewEntry } from '../types';
  *     heading + body + numbered steps with optional icon / kbd markers.
  *   - Entries stay sorted descending by `publishedAt`; the first is the
  *     "hero" on the discovery page.
+ *   - Every release gets its own artwork and image path. Never reuse a
+ *     thumbnail from another entry; the prebuild check enforces this for
+ *     the current release.
  *   - One entry per release; mark the headline release with
  *     `featured: true` to trigger the one-time spotlight modal.
  *
@@ -23,6 +26,28 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.29.1-candy-colors-in-the-studio',
+    title: 'Candy colors come to the studio',
+    summary:
+      'The PixTaffy palette now carries from the welcome page into the creative workspace without getting in the way.',
+    blurb:
+      'The studio now feels like it belongs to the same candy crew as the welcome page. A faint grid and soft color glow sit behind the workspace, useful toolbar controls carry restrained PixTaffy accents, and the Generate button gets the full candy gradient. Model prices stay compact, with a plain-language credit key that works on touch, mouse, and keyboard.',
+    publishedAt: Date.parse('2026-08-10T00:15:00-04:00'),
+    version: '0.29.1',
+    image: '/whats-new/whatsnew-v0.29.1.webp',
+    sections: [
+      {
+        heading: 'A little more candy, right where it helps',
+        body: 'The studio keeps its dark, focused workspace while borrowing the grid, glows, and accent colors from the welcome page. Color marks meaning and action instead of decorating every surface.',
+        steps: [
+          { text: 'Use the colored toolbar icons to scan brand, size, model, and quality controls faster.', icon: 'Palette' },
+          { text: 'Spot the Generate action immediately through the orange-to-purple candy gradient.', icon: 'Sparkles' },
+          { text: 'Read model credit costs from a compact key on touch, mouse, or keyboard.', icon: 'CreditCard' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.29.0-welcome-to-pixtaffy',
     title: 'Take the new PixTaffy studio tour',
     summary:
@@ -31,7 +56,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'The candy crew finally has a front door. New visitors can see how brand settings, image models, AI helpers, saved versions, and Build Studio fit together before they make anything. One button takes them straight into a real free generation, with no signup form and no second popup in the way. Members still go directly to their workspace and can reopen the tour from the account menu.',
     publishedAt: Date.parse('2026-08-10T02:00:00Z'),
     version: '0.29.0',
-    image: '/brand/pixtaffy-creative-studio.png',
+    image: '/whats-new/whatsnew-v0.29.0.webp',
     featured: true,
     sections: [
       {
@@ -63,7 +88,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'The taffy creatives have moved into the studio. They brought clearer credit math, candy-bright colors, and names that fit PixTaffy. The new plans page spells out the difference between one-time packs and Taffy Studio, estimates how many images each balance can make, and tells you exactly which Build Studio tools are free.',
     publishedAt: Date.parse('2026-08-10T01:00:00Z'),
     version: '0.28.0',
-    image: '/brand/pixtaffy-creative-studio.png',
+    image: '/whats-new/whatsnew-v0.28.0.webp',
     featured: true,
     sections: [
       {
@@ -72,7 +97,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
         steps: [
           { text: 'Taffy Twist makes about 25 Standard, 12 Pro, or 8 Premium images.', icon: 'Image' },
           { text: 'Saltwater Taffy makes about 100 Standard, 50 Pro, or 33 Premium images.', icon: 'Sparkles' },
-          { text: 'The Big Pull makes about 300 Standard, 150 Pro, or 100 Premium images.', icon: 'Layers' },
+          { text: 'Taffy Variety Box makes about 300 Standard, 150 Pro, or 100 Premium images.', icon: 'Layers' },
         ],
       },
       {
@@ -103,7 +128,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'You shouldn\'t need to hunt down a repository just to say that a menu got stuck. Open Feedback from the footer or your account menu, write the note, and add a screenshot if it helps. PixTaffy creates the GitHub issue and gives you the link so you can follow along.',
     publishedAt: Date.parse('2026-08-10T00:30:00Z'),
     version: '0.27.0',
-    image: '/pixtaffy.png',
+    image: '/whats-new/whatsnew-v0.27.0.webp',
     featured: true,
     sections: [
       {
@@ -126,7 +151,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'Sometimes you just want to see the thing work. Type a prompt and PixTaffy will make your first Standard image free, with no registration form in the way. Download the result immediately, then create an account to save it to your cloud history and verify your email for five more credits.',
     publishedAt: Date.parse('2026-08-09T21:00:00Z'),
     version: '0.26.1',
-    image: '/pixtaffy.png',
+    image: '/whats-new/whatsnew-v0.26.1.webp',
     featured: true,
     sections: [
       {
@@ -149,7 +174,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'You can still bring your own image-generation key and use PixTaffy for free. When you want PixTaffy to handle the provider bill, verified accounts get five starter credits, credit packs never expire, and Taffy Studio adds 100 credits every month with two-month rollover. Every paid model and AI helper shows its credit cost before it runs.',
     publishedAt: Date.parse('2026-08-09T20:30:00Z'),
     version: '0.26.0',
-    image: '/pixtaffy.png',
+    image: '/whats-new/whatsnew-v0.26.0.webp',
     featured: true,
     sections: [
       {
@@ -189,7 +214,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       'BranDoIt is now PixTaffy. Your account, gallery, presets, API tokens, and saved settings are still right where you left them. The app has a new transparent brandmark and a new home at pixtaffy.com, while the tools and workflows you already know keep working.',
     publishedAt: Date.parse('2026-08-09T16:00:00Z'),
     version: '0.25.0',
-    image: '/pixtaffy.png',
+    image: '/whats-new/whatsnew-v0.25.0.webp',
     featured: true,
     sections: [
       {

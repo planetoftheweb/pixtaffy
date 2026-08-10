@@ -1,12 +1,13 @@
 {
   "name": "pixtaffy",
   "private": true,
-  "version": "0.29.0",
+  "version": "0.29.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/whats-new.mjs check",
+    "prebuild": "npm test && node scripts/whats-new.mjs check",
     "build": "vite build",
+    "test": "node --test tests/ui-interaction-regressions.test.mjs tests/release-surface-regressions.test.mjs && npm --prefix functions test",
     "test:rules": "firebase emulators:exec --only firestore,storage \"node --test tests/billing.rules.test.mjs\"",
     "preview": "vite preview",
     "whats-new": "node scripts/whats-new.mjs add",

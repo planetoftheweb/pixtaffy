@@ -43,10 +43,14 @@ class strategy (`<html class="dark">` is currently hard-set).
 
 | Token | Hex | Meaning |
 |---|---|---|
-| `brand-teal` | `#00A9A5` | THE accent: primary actions, active/selected, focus rings, links, "on" toggles, drop indicators, count badges |
-| `brand-red` | `#B93135` | Destructive fired state, errors, failed runs, AI-busy pulse |
-| `brand-orange` | `#FF7F50` | Rare secondary accent (badges); use sparingly |
-| `brand-dark` | `#0B4F6C` | Brand navy; mostly lives in generated-image palettes |
+| `brand-teal` | `#009EAA` | Primary product accent: actions, active/selected states, links, focus rings, toggles, and drop indicators |
+| `brand-cyan` | `#08D5E8` | Bright highlight for creative tools, sparkle details, active imagery, and grid lines on dark brand surfaces |
+| `brand-orange` | `#FF7A18` | Warm creative accent for starts, badges, and one end of the candy spectrum |
+| `brand-red` | `#E72D58` | Candy coral on marketing surfaces; destructive fired state, errors, failed runs, and AI-busy pulse in product chrome |
+| `brand-pink` | `#F22991` | Playful accent for primary marketing actions and selected promotional moments |
+| `brand-purple` | `#9B35E3` | Supporting brand accent for editorial labels, plans, and the far end of spectrum gradients |
+| `brand-dark` | `#103653` | Deep navy foundation for dark artwork, readable contrast, and grid lines on light surfaces |
+| `brand-cream` | `#FFF2E3` | Warm light-mode brand surface; use as a wash, not as body text or a control state |
 | `dark-bg` | `#0d1117` | Page background (dark) |
 | `dark-card` | `#161b22` | Card / panel surface (dark) |
 | `dark-border` | `#30363d` | Hairline borders (dark) |
@@ -55,6 +59,23 @@ class strategy (`<html class="dark">` is currently hard-set).
 Semantic states: **teal** = active/primary · **amber-500** = armed
 (destructive confirm) and warnings · **red** = destructive/error ·
 **green/emerald** = success (rare) · **slate** = neutral/stopped/dim.
+
+### Candy-spectrum discipline
+
+- Product chrome stays mostly dark navy, slate, white, and teal. The full
+  spectrum belongs on marketing pages, generated artwork, and deliberate
+  celebratory moments.
+- Use at most one multicolor gradient per major section. Individual cards get
+  one accent color or a very faint two-color wash, never the entire palette.
+- The graph-paper background uses a 42px grid at roughly 5–6% opacity. Fade or
+  mask it near section boundaries so it provides structure without becoming
+  visual noise.
+- Light marketing surfaces may use `brand-cream` as a translucent wash. Keep
+  content cards white and text slate for dependable contrast.
+- The studio workspace may reuse the 42px grid with one pink edge glow and one
+  cyan edge glow at 3–7% opacity. Keep control fills neutral, use category
+  colors on toolbar icons, and reserve the orange-to-purple gradient for the
+  primary Generate action. Secondary and gallery controls remain neutral.
 
 Light/dark pairs (the house combinations — use these, don't invent new ones):
 
@@ -103,6 +124,17 @@ back to Inter. The Tailwind text scale is **remapped one step up** in
   digits don't jitter as values change.
 - `font-mono` appears ONLY inside `<kbd>` chips.
 - Timestamps: `MM-DD HH:MM AM/PM`.
+
+### Wordmark
+
+- In the compact logo lockup, keep **Pix** neutral (`slate-900` in light mode,
+  white in dark mode) and set **Taffy** in the homepage orange → coral → purple
+  gradient. This keeps the name readable while connecting it to the candy
+  artwork.
+- **Pix** uses `font-normal`; **Taffy** uses `font-black`. Keep the pair tight at
+  `tracking-[-0.035em]` and never split the wordmark across lines.
+- Do not apply the text gradient to the circular brandmark. It already carries
+  the complete palette and needs a quiet wordmark beside it.
 
 ## 4. Iconography
 
@@ -316,6 +348,15 @@ the user is typing in an input/textarea/contenteditable, Esc only blurs.
 
 ## 15. Generated-image house style
 
+- The canonical generation set is **PixTaffy Character Scene** + **PixTaffy
+  Candy 3D** + **PixTaffy Candy**. Its paint palette is teal `#009EAA`, cyan
+  `#08D5E8`, orange `#FF7A18`, coral `#E72D58`, pink `#F22991`, purple
+  `#9B35E3`, navy `#103653`, and cream `#FFF2E3`.
+- Characters are glossy soft-taffy creatives with twisted stripes, expressive
+  eyes, small white-gloved hands, colorful sneakers, toy-like proportions,
+  smooth studio light, soft shadows, tactile surfaces, and playful sparkles.
+  Keep silhouettes and tools varied so a group reads as a creative team rather
+  than duplicated mascots.
 - Every What's New release ships a **16:9 brand-palette hero illustration**
   (`public/whats-new/`), generated via the "What's New Hero" preset —
   an unskippable step of the release flow.

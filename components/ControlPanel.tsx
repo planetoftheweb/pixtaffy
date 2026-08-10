@@ -596,6 +596,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [modelTip, setModelTip] = useState<{
     name: string;
     description: string;
+    creditCost?: number;
     x: number;
     y: number;
     flipLeft: boolean;
@@ -1680,7 +1681,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     confirmCatalogDelete.trigger(`${type}:${idOrValue}`);
   };
 
-  const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false }: any) => {
+  const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false, accentClass }: any) => {
     // Menu-style item (no per-button border). Five responsive tiers driven by pure CSS:
     //   - base  (< md):   icon-only 44x44 tap target (tooltip shows label)
     //   - md+  (>=768):   icon + UPPERCASE category label (TYPE, STYLE, ...)
@@ -1716,7 +1717,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <Icon
           size={20}
           className={`shrink-0 ${
-            isActive ? 'text-brand-teal' : 'text-slate-500 dark:text-slate-400 group-hover:text-brand-teal'
+            isActive
+              ? 'text-brand-teal'
+              : `${accentClass || 'text-slate-500 dark:text-slate-400'} group-hover:text-brand-teal`
           }`}
         />
         {/* Compact category label — only md..lg (when there's no room for the full value). */}
@@ -1895,7 +1898,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             // — together with the header's own border — reads as a weird
             // "double line" with dead space where the prompt used to be.
             ? 'p-0 border-b-0'
-            : 'p-4 bg-white/95 dark:bg-[#0d1117]/95 backdrop-blur-md border-b border-gray-200 dark:border-[#30363d]'
+            : 'pixtaffy-toolbar-surface p-4 bg-white/95 dark:bg-[#0d1117]/95 backdrop-blur-md border-b border-gray-200 dark:border-[#30363d]'
         }`}
         ref={containerRef}
         data-toolbar-region
@@ -1932,6 +1935,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 label={currentType?.name || 'Select'} 
                 isActive={activeDropdown === 'type'} 
                 onClick={() => toggleDropdown('type')} 
+                accentClass="text-brand-teal dark:text-brand-cyan"
               />
               {activeDropdown === 'type' && (
                 <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
@@ -1958,6 +1962,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 label={currentStyle?.name || 'Select'} 
                 isActive={activeDropdown === 'style'} 
                 onClick={() => toggleDropdown('style')} 
+                accentClass="text-brand-purple"
               />
                {activeDropdown === 'style' && (
                 <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
@@ -1985,6 +1990,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   label={config.svgMode === 'animated' ? 'Animated' : config.svgMode === 'interactive' ? 'Interactive' : 'Static'} 
                   isActive={activeDropdown === 'svgmode'} 
                   onClick={() => toggleDropdown('svgmode')} 
+                  accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'svgmode' && (
                   <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
@@ -2031,6 +2037,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 isActive={activeDropdown === 'color'} 
                 onClick={() => toggleDropdown('color')}
                 colors={currentColor?.colors}
+                accentClass="text-brand-pink"
               />
               {activeDropdown === 'color' && (
                 <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
@@ -2057,6 +2064,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 label={currentRatio?.label.split(' ')[0] || config.aspectRatio} 
                 isActive={activeDropdown === 'size'} 
                 onClick={() => toggleDropdown('size')} 
+                accentClass="text-brand-teal dark:text-brand-cyan"
               />
               {activeDropdown === 'size' && (
                 <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
@@ -2087,6 +2095,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 isActive={activeDropdown === 'model'} 
                 onClick={() => toggleDropdown('model')} 
                 disabled={modelSelectionLocked}
+                accentClass="text-brand-pink"
               />
               {activeDropdown === 'model' && (
                 <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
@@ -2192,12 +2201,30 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                 setModelTip({
                                   name: modelLabelMap[model.id] || model.name,
                                   description: model.description,
+                                  creditCost: SITE_FUNDED_MODEL_MILLICREDITS[model.id]
+                                    ? SITE_FUNDED_MODEL_MILLICREDITS[model.id] / 1_000
+                                    : undefined,
                                   x: flipLeft ? r.left - 8 : r.right + 8,
                                   y: r.top + r.height / 2,
                                   flipLeft
                                 });
                               }}
                               onMouseLeave={() => setModelTip(null)}
+                              onFocus={(e) => {
+                                const r = e.currentTarget.getBoundingClientRect();
+                                const flipLeft = r.right + 296 > window.innerWidth;
+                                setModelTip({
+                                  name: modelLabelMap[model.id] || model.name,
+                                  description: model.description,
+                                  creditCost: SITE_FUNDED_MODEL_MILLICREDITS[model.id]
+                                    ? SITE_FUNDED_MODEL_MILLICREDITS[model.id] / 1_000
+                                    : undefined,
+                                  x: flipLeft ? r.left - 8 : r.right + 8,
+                                  y: r.top + r.height / 2,
+                                  flipLeft
+                                });
+                              }}
+                              onBlur={() => setModelTip(null)}
                               aria-selected={compareModelsMode ? isChecked : isPrimary}
                               className={`w-full text-left pl-5 pr-3 py-2 text-[15px] flex items-center gap-2 transition-colors border-l-2 ${
                                 (compareModelsMode ? isChecked : isPrimary)
@@ -2220,8 +2247,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               )}
                               <span className="font-medium">{modelLabelMap[model.id] || model.name}</span>
                               {SITE_FUNDED_MODEL_MILLICREDITS[model.id] && (
-                                <span className="ml-auto shrink-0 rounded-full bg-fuchsia-50 px-2 py-0.5 text-[10px] font-bold text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200">
-                                  {SITE_FUNDED_MODEL_MILLICREDITS[model.id] / 1_000} cr or BYOK
+                                <span
+                                  className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-fuchsia-50 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200"
+                                  aria-label={`${SITE_FUNDED_MODEL_MILLICREDITS[model.id] / 1_000} PixTaffy credits`}
+                                >
+                                  {SITE_FUNDED_MODEL_MILLICREDITS[model.id] / 1_000}
                                 </span>
                               )}
                             </button>
@@ -2237,6 +2267,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         : `Each Generate click will run ${effectiveSelectedModelIds.length} times — once per model.`}
                     </div>
                   )}
+                  <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-[11px] text-slate-600 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-400">
+                    Number = PixTaffy credits. No number = use your own key.
+                  </div>
                 </div>
               )}
               {activeDropdown === 'model' && modelTip && createPortal(
@@ -2253,6 +2286,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <div className="rounded-lg bg-black/90 px-3 py-2 text-[13px] leading-snug text-white shadow-xl">
                     <div className="font-semibold">{modelTip.name}</div>
                     <div className="mt-0.5 text-white/70">{modelTip.description}</div>
+                    {modelTip.creditCost !== undefined && (
+                      <div className="mt-2 border-t border-white/15 pt-2 text-[11px] font-semibold text-fuchsia-200">
+                        {modelTip.creditCost} PixTaffy {modelTip.creditCost === 1 ? 'credit' : 'credits'} with PixTaffy billing. Free with your own key.
+                      </div>
+                    )}
                   </div>
                 </div>,
                 document.body
@@ -2272,6 +2310,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   }
                   isActive={activeDropdown === 'quality'}
                   onClick={() => toggleDropdown('quality')}
+                  accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'quality' && (
                   <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
@@ -2320,6 +2359,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   label={presets.length === 0 ? 'None saved' : `${presets.length} saved`}
                   isActive={activeDropdown === 'presets'}
                   onClick={() => toggleDropdown('presets')}
+                  accentClass="text-brand-purple"
                 />
                 {activeDropdown === 'presets' && (
                   // right-0: Presets is the toolbar's right-most control, so a
@@ -2736,7 +2776,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border font-semibold transition-all group ${
                     !config.prompt || isExpandingPrompt
                       ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
-                      : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
+                      : 'bg-white dark:bg-[#161b22] text-brand-purple dark:text-brand-cyan border-gray-200 dark:border-[#30363d] hover:bg-brand-purple hover:border-brand-purple hover:text-white shadow-sm'
                   }`}
                   aria-label="Expand prompt with additional creative detail"
                 >
@@ -2760,7 +2800,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-bold shadow-md transition-all active:translate-y-0.5 group ${
                     generateButtonDisabled
                       ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                      : 'bg-brand-red hover:bg-red-700 text-white shadow-brand-red/20'
+                      : 'bg-gradient-to-br from-brand-orange via-brand-red to-brand-purple hover:saturate-125 text-white shadow-brand-pink/25'
                   }`}
                   aria-label={generateButtonTitle}
                 >

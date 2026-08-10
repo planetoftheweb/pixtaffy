@@ -4,15 +4,11 @@
  * release surface in sync with the package version.
  *
  *   node scripts/whats-new.mjs add     # interactive scaffold → data/whatsNew.ts
- *   node scripts/whats-new.mjs check   # non-zero exit when current minor has no entry
+ *   node scripts/whats-new.mjs check   # validates current entry + unique release artwork
  *
  * The `check` subcommand runs as `prebuild`, so both local
  * `npm run build` and Render's production build refuse to ship a
- * feature release without an accompanying user-facing announcement.
- *
- * Patch bumps (0.17.0 → 0.17.1) automatically pass because the 0.17.0
- * entry covers the whole 0.17.x line. Only new major / minor releases
- * need a new entry.
+ * release without an accompanying user-facing announcement and unique art.
  *
  * Escape hatch for genuine one-offs (hotfix on an old branch, etc.):
  *   SKIP_WHATS_NEW_CHECK=1 npm run build
@@ -23,6 +19,7 @@
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import readline from 'node:readline/promises';
@@ -58,10 +55,30 @@ function extractVersions(source) {
   return out;
 }
 
-function majorMinor(v) {
-  const parts = String(v).split('.');
-  if (parts.length < 2) return String(v);
-  return `${parts[0]}.${parts[1]}`;
+function extractEntryImages(source) {
+  // Pair each version with the first image before the next version. This keeps
+  // the parser tolerant of fields such as `featured` being added in between.
+  const versionRe = /version:\s*['"]([^'"]+)['"]/g;
+  const matches = [...source.matchAll(versionRe)];
+  const out = [];
+  for (let index = 0; index < matches.length; index += 1) {
+    const match = matches[index];
+    const start = (match.index ?? 0) + match[0].length;
+    const end = matches[index + 1]?.index ?? source.length;
+    const image = source.slice(start, end).match(/image:\s*['"]([^'"]+)['"]/);
+    if (image) out.push({ version: match[1], image: image[1] });
+  }
+  return out;
+}
+
+async function imageFingerprint(image) {
+  if (!image.startsWith('/')) return null;
+  try {
+    const bytes = await readFile(resolve(ROOT, 'public', image.slice(1)));
+    return createHash('sha256').update(bytes).digest('hex');
+  } catch {
+    return null;
+  }
 }
 
 // --- `check` subcommand ------------------------------------------------------
@@ -74,17 +91,60 @@ async function cmdCheck() {
   const pkgVer = await readPkgVersion();
   const source = await readDataSource();
   const versions = extractVersions(source);
-  const target = majorMinor(pkgVer);
-  const matched = versions.some((v) => majorMinor(v) === target);
+  const entries = extractEntryImages(source);
+  const matched = versions.includes(pkgVer);
 
   if (matched) {
-    console.log(`[whats-new] OK — entry exists for v${target}.x (package.json is v${pkgVer})`);
+    const fingerprinted = await Promise.all(
+      entries.map(async (entry) => ({ ...entry, fingerprint: await imageFingerprint(entry.image) })),
+    );
+    const currentEntries = fingerprinted.filter((entry) => entry.version === pkgVer);
+    const problems = [];
+
+    if (currentEntries.length === 0) {
+      problems.push(`v${pkgVer} has no image field`);
+    } else if (currentEntries.length > 1) {
+      problems.push(`v${pkgVer} has ${currentEntries.length} image entries; expected exactly one`);
+    }
+
+    for (const entry of currentEntries) {
+      if (!entry.fingerprint) {
+        problems.push(`v${entry.version} image is missing: ${entry.image}`);
+        continue;
+      }
+      const reusedBy = fingerprinted.filter(
+        (other) =>
+          other.version !== entry.version &&
+          (other.image === entry.image ||
+            (other.fingerprint && other.fingerprint === entry.fingerprint)),
+      );
+      if (reusedBy.length > 0) {
+        problems.push(
+          `v${entry.version} reuses release artwork from ${reusedBy
+            .map((other) => `v${other.version}`)
+            .join(', ')}: ${entry.image}`,
+        );
+      }
+    }
+
+    if (problems.length > 0) {
+      console.error('');
+      console.error('[whats-new] Every release needs its own thumbnail artwork.');
+      for (const problem of problems) console.error(`[whats-new] ${problem}`);
+      console.error('[whats-new] Generate a distinct 16:9 image and update the entry before building.');
+      console.error('');
+      exit(1);
+    }
+
+    console.log(
+      `[whats-new] OK — entry and unique artwork exist for v${pkgVer}`,
+    );
     return;
   }
 
   console.error('');
-  console.error(`[whats-new] No entry found for v${target}.x in data/whatsNew.ts.`);
-  console.error(`[whats-new] package.json is at v${pkgVer} — feature releases require a user-facing entry.`);
+  console.error(`[whats-new] No exact entry found for v${pkgVer} in data/whatsNew.ts.`);
+  console.error(`[whats-new] package.json is at v${pkgVer} — every release requires a user-facing entry.`);
   console.error('[whats-new] Run:  npm run whats-new');
   console.error('[whats-new] (Last-resort bypass: SKIP_WHATS_NEW_CHECK=1 npm run build)');
   console.error('');
@@ -186,6 +246,7 @@ async function cmdAdd() {
     const pkgVer = await readPkgVersion();
     const source = await readDataSource();
     const existingVersions = new Set(extractVersions(source));
+    const existingImages = new Set(extractEntryImages(source).map((entry) => entry.image));
 
     console.log('');
     console.log("Let's add a What's New entry.");
@@ -209,7 +270,11 @@ async function cmdAdd() {
     const id = `v${version}-${slug}`;
 
     const imageDefault = `/whats-new/whatsnew-v${version}.png`;
-    const image = await ask(rl, 'Image path (under public/)', imageDefault);
+    let image = await ask(rl, 'Unique image path (under public/)', imageDefault);
+    while (existingImages.has(image)) {
+      console.log('  (already used by another release — every entry needs its own artwork)');
+      image = await askRequired(rl, 'Unique image path (under public/)');
+    }
     const featured = await askBool(rl, 'Featured? (one-time spotlight modal)', false);
 
     const sections = [];
@@ -291,7 +356,7 @@ try {
   } else {
     console.error('Usage:');
     console.error('  node scripts/whats-new.mjs add     # interactive scaffold');
-    console.error('  node scripts/whats-new.mjs check   # validate package.json minor has an entry');
+    console.error('  node scripts/whats-new.mjs check   # validate current entry + unique artwork');
     exit(2);
   }
 } catch (err) {

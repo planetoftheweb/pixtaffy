@@ -1,6 +1,6 @@
 ---
 name: whats-new
-description: Author and ship a What's New entry for PixTaffy, the user-facing release surface that drives the header bell dropdown, the spotlight modal, the discovery page, and per-release detail guides. Use when adding a user-visible feature, bumping the minor or major version, or when `npm run build` fails the `whats-new:check` prebuild gate. The companion script `scripts/whats-new.mjs` scaffolds the entry; this skill explains the conventions, fields, and verify checklist around it. The agent is responsible for generating the brand-matched 16:9 hero image via `GenerateImage` and saving it at `public/whats-new/whatsnew-v<version>.png`; do not punt this step to the user.
+description: Author and ship a What's New entry for PixTaffy, the user-facing release surface that drives the header bell dropdown, the spotlight modal, the discovery page, and per-release detail guides. Use when adding a user-visible feature, bumping any version, or when `npm run build` fails the `whats-new:check` prebuild gate. The companion script `scripts/whats-new.mjs` scaffolds the entry; this skill explains the conventions, fields, and verify checklist around it. The agent is responsible for generating the brand-matched 16:9 hero image via `GenerateImage` and saving it at `public/whats-new/whatsnew-v<version>.png`; do not punt this step to the user.
 ---
 
 # Skill: Author a What's New entry
@@ -15,9 +15,8 @@ Open this skill when ANY of these is true:
 
 - You're shipping a user-visible feature, behavior change, or UX polish that
   a returning user would want to know about.
-- You're about to bump `package.json` from a `.0` patch to a new minor or
-  major (e.g. `0.15.x` → `0.16.0`).
-- `npm run build` failed with `[whats-new] No entry found for vX.Y.x` — that's
+- You're about to bump `package.json` to a new version, including a patch.
+- `npm run build` failed with `[whats-new] No exact entry found for vX.Y.Z` — that's
   the deploy gate kicking in.
 - Someone asked "how do I add a What's New entry" or "where does the bell
   content come from".
@@ -100,9 +99,8 @@ array in `data/whatsNew.ts` (entries are newest-first). Use this shape:
   required.
 - **`publishedAt`** — the deep-link router and "last seen" comparison rely
   on this being a real `Date.parse(...)`-able ISO string. Use UTC.
-- **`version`** — the `major.minor` half MUST match `package.json` for the
-  deploy gate to pass. Patch differences (`0.17.0` covers `0.17.x`) are
-  fine.
+- **`version`** — MUST exactly match `package.json` for the deploy gate to
+  pass. Patch releases get their own entry and artwork too.
 - **`featured`** — omit for default. Only set `true` when the change is
   worth interrupting the home screen with a spotlight modal. Most entries
   should NOT be featured.
@@ -120,6 +118,10 @@ array in `data/whatsNew.ts` (entries are newest-first). Use this shape:
 
 ### Image rules
 
+- Every release needs visibly different artwork and a unique image path.
+  Never reuse an earlier thumbnail, even when two releases share a theme.
+  The prebuild gate checks the current release against older image paths and
+  exact file contents, so copying old art under a new filename also fails.
 - Aspect ratio: 16:9 (the bell thumbnails, spotlight hero, and grid cards
   all assume this).
 - Resolution: ~1024×576 is plenty; the bell thumbnail is rendered at
@@ -174,10 +176,9 @@ Workflow when authoring an entry:
    art, not the Sparkles fallback. If it shows Sparkles, the path in
    `data/whatsNew.ts` doesn't match the file on disk.
 
-The deploy gate validates the *entry exists*, not that the image is
-present, so missing art will silently ship to production. Don't rely on
-the gate to catch this — generate the image as part of authoring or the
-work isn't done.
+The deploy gate validates that the current entry exists, its image is present,
+and its artwork is not reused from an older release. Generate the image as part
+of authoring or the work isn't done.
 
 ## How the deploy gate works
 
@@ -185,8 +186,10 @@ work isn't done.
 `node scripts/whats-new.mjs check`. The check:
 
 1. Reads `version` from `package.json`.
-2. Reads all `version: '...'` entries from `data/whatsNew.ts`.
-3. Fails with a non-zero exit if no entry shares the current `major.minor`.
+2. Reads the paired `version` and `image` fields from `data/whatsNew.ts`.
+3. Fails with a non-zero exit if no entry exactly matches the current version.
+4. Fails when the current release image is missing, reuses an older path, or
+   contains the exact same artwork bytes as an older release image.
 
 This runs both locally (catches you before push) and on Render (catches
 you before deploy). If you genuinely need to bypass for a one-off (e.g.
@@ -197,10 +200,9 @@ hotfix on an old branch), set `SKIP_WHATS_NEW_CHECK=1` for that build.
 Before considering the entry "done":
 
 - [ ] `npm run build` passes (gate + bundle).
-- [ ] **Hero image generated and saved** at
+- [ ] **Unique hero image generated and saved** at
       `public/whats-new/whatsnew-v<version>.png` — see "Generate the
-      image yourself" above. The deploy gate does NOT catch a missing
-      image, so this is a manual step you can't skip.
+      image yourself" above. Do not reuse artwork from another entry.
 - [ ] In `npm run dev`, the bell shows the new row at the top with the
       thumbnail rendered (not the Sparkles fallback).
 - [ ] Hovering the new row floats the larger preview to the left of the

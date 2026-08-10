@@ -44,6 +44,21 @@ test("issue copy stays bounded and keeps private contact details out", () => {
   });
   assert.match(body, /Contact details.*private Firebase record/);
   assert.doesNotMatch(body, /@/);
+
+  const adminBody = feedbackIssueBody({
+    category: "idea",
+    message: "Add a faster way to compare model results.",
+    screenshotUrl: null,
+    feedbackId: "feedback-2",
+    accountHash: "acct_admin",
+    signedIn: true,
+    isAdmin: true,
+    pageUrl: "https://pixtaffy.com/",
+    userAgent: "Example Browser",
+    viewport: "1440x900",
+    appVersion: "0.29.0",
+  });
+  assert.match(adminBody, /open a GitHub PR/);
 });
 
 test("page context only accepts PixTaffy and local development origins", () => {
