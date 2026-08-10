@@ -165,21 +165,21 @@ try {
     10_000,
     'the welcome screen',
   );
-  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('Create free image'))?.click()`);
+  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('Create your first image'))?.click()`);
   await waitFor(`Boolean(document.querySelector('textarea'))`, 10_000, 'the guest studio prompt');
   await evaluate(`document.querySelector('textarea')?.focus()`);
   await session.send('Input.insertText', {
     text: 'A friendly robot mascot holding a paintbrush, flat vector style, teal and orange',
   });
   await waitFor(
-    `Boolean(document.querySelector('button[aria-label="Create your first image free"]:not(:disabled)'))`,
+    `Boolean(document.querySelector('button[aria-label="Generate image"]:not(:disabled)'))`,
     5_000,
     'the enabled Generate button',
   );
 
   const requestStartIndex = requests.length;
   const clickedAt = Date.now();
-  await evaluate(`document.querySelector('button[aria-label="Create your first image free"]:not(:disabled)')?.click()`);
+  await evaluate(`document.querySelector('button[aria-label="Generate image"]:not(:disabled)')?.click()`);
 
   const phaseDeadline = clickedAt + phaseDeadlineMs;
   while (Date.now() < phaseDeadline) {
