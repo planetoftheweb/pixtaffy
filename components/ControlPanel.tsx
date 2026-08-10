@@ -2226,7 +2226,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               }}
                               onBlur={() => setModelTip(null)}
                               aria-selected={compareModelsMode ? isChecked : isPrimary}
-                              className={`w-full text-left pl-5 pr-3 py-2 text-[15px] flex items-center gap-2 transition-colors border-l-2 ${
+                              className={`flex min-h-11 w-full items-center gap-2 border-l-2 py-2 pl-5 pr-3 text-left text-[15px] transition-colors ${
                                 (compareModelsMode ? isChecked : isPrimary)
                                   ? 'bg-brand-teal/10 text-brand-teal font-semibold border-brand-teal hover:bg-brand-teal/15'
                                   : 'text-slate-700 dark:text-slate-200 border-transparent hover:bg-gray-100 dark:hover:bg-[#21262d]'
@@ -2268,7 +2268,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     </div>
                   )}
                   <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-[11px] text-slate-600 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-400">
-                    Number = PixTaffy credits. No number = use your own key.
+                    Number = PixTaffy credit cost; your own key is free. No number = own key required.
                   </div>
                 </div>
               )}

@@ -46,6 +46,8 @@ const runWhatsNewFixture = ({ version, data, files = {} }) => {
 test('guest messaging distinguishes browser-local work from free cloud sync', () => {
   assert.match(appSource, /first image is stored in this browser/);
   assert.match(appSource, /this browser could not store it\. Download it now/);
+  assert.match(appSource, /This browser could not store your first image\./);
+  assert.match(appSource, /Create account for future work/);
   assert.match(appSource, /create a free account to sync it across browsers/i);
   assert.match(landingSource, /It stays in this browser, ready to download/);
   assert.match(pricingSource, /Registration is free and moves the guest image into cloud history/);
@@ -108,9 +110,15 @@ test('model costs stay compact in the menu and detailed in the rollover', () => 
   assert.match(controlPanelSource, /aria-label=\{`\$\{SITE_FUNDED_MODEL_MILLICREDITS\[model\.id\] \/ 1_000\} PixTaffy credits`\}/);
   assert.match(controlPanelSource, /PixTaffy billing\. Free with your own key\./);
   assert.match(controlPanelSource, /modelTip\.creditCost === 1 \? 'credit' : 'credits'/);
-  assert.match(controlPanelSource, /Number = PixTaffy credits\. No number = use your own key\./);
+  assert.match(controlPanelSource, /Number = PixTaffy credit cost; your own key is free\. No number = own key required\./);
+  assert.match(controlPanelSource, /min-h-11 w-full items-center/);
   assert.match(controlPanelSource, /onFocus=\{\(e\) => \{/);
   assert.match(controlPanelSource, /\{SITE_FUNDED_MODEL_MILLICREDITS\[model\.id\] && \(/);
+});
+
+test('non-clickable feature cards do not imitate links with hover movement', () => {
+  assert.doesNotMatch(featureGridSource, /hover:-translate-y/);
+  assert.doesNotMatch(featureGridSource, /group-hover:scale/);
 });
 
 test('creative actions and gallery tools keep neutral controls with candy accents', () => {

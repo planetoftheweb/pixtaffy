@@ -392,6 +392,7 @@ const App: React.FC = () => {
   const [hasUsedGuestGeneration, setHasUsedGuestGeneration] = useState(
     () => localStorage.getItem(GUEST_FIRST_IMAGE_USED_KEY) === 'true'
   );
+  const [guestImageSavedInBrowser, setGuestImageSavedInBrowser] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   // Build Studio (reveal animator) target — the generation+version to animate.
   const [buildStudioTarget, setBuildStudioTarget] = useState<
@@ -1697,6 +1698,7 @@ const App: React.FC = () => {
           INBOX_FOLDER_ID
         );
         const savedInBrowser = await historyService.saveGeneration(null, generation);
+        setGuestImageSavedInBrowser(savedInBrowser);
         historyRef.current = [generation];
         setHistory([generation]);
         setCurrentGeneration(generation);
@@ -3652,7 +3654,7 @@ const App: React.FC = () => {
               setWhatsNewEntryId(null);
               setWelcomeMode(false);
             }}
-            className="flex min-w-0 items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity focus:outline-none"
+            className="flex min-w-0 items-center gap-2 rounded-xl sm:gap-3 hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d1117]"
           >
             <img 
               src="/pixtaffy.png"
@@ -4485,9 +4487,15 @@ const App: React.FC = () => {
                     <Sparkles size={18} />
                   </div>
                   <div>
-                    <p className="font-bold text-slate-900 dark:text-white">Your first image is stored in this browser.</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {guestImageSavedInBrowser
+                        ? 'Your first image is stored in this browser.'
+                        : 'This browser could not store your first image.'}
+                    </p>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                      Download it now, or create a free account to sync it across browsers. Verify your email and you will also get 5 more credits.
+                      {guestImageSavedInBrowser
+                        ? 'Download it now, or create a free account to sync it across browsers. Verify your email and you will also get 5 more credits.'
+                        : 'Download it now so it is not lost. Create a free account to save future work, then verify your email for 5 credits.'}
                     </p>
                   </div>
                 </div>
@@ -4496,7 +4504,7 @@ const App: React.FC = () => {
                   onClick={() => openAuthModal('signup')}
                   className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-red/20 transition-colors hover:bg-red-700"
                 >
-                  Sync it and get 5 credits
+                  {guestImageSavedInBrowser ? 'Sync it and get 5 credits' : 'Create account for future work'}
                   <ArrowRight size={15} />
                 </button>
               </div>

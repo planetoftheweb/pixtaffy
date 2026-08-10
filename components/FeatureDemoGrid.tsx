@@ -76,14 +76,14 @@ export const FeatureDemoGrid: React.FC<FeatureDemoGridProps> = ({ className = ''
       return (
         <article
           key={feature.title}
-          className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-[#111827]"
+          className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#111827]"
         >
           <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-[#10172a]">
             <img
               src={feature.image}
               alt={feature.imageAlt}
               loading="lazy"
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+              className="h-full w-full object-cover"
             />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#080d18]/75 to-transparent" />
             <div className="absolute bottom-4 left-4 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-[#080d18]/75 shadow-lg backdrop-blur">
