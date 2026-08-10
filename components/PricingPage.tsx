@@ -25,8 +25,9 @@ import {
 import { FeatureDemoGrid } from './FeatureDemoGrid';
 
 interface PricingPageProps {
-  user: User;
+  user: User | null;
   onBack: () => void;
+  onSignUp: () => void;
 }
 
 const formatCredits = (milliCredits: number): string => {
@@ -124,14 +125,20 @@ const Estimate: React.FC<{ value: number; label: string; color: string }> = ({ v
   </div>
 );
 
-export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
+export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onSignUp }) => {
   const [billing, setBilling] = useState<BillingState | null>(null);
   const [activity, setActivity] = useState<CreditActivityEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(user));
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!user) {
+      setBilling(null);
+      setActivity([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setMessage(null);
     try {
@@ -146,11 +153,15 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => { void load(); }, [load]);
 
   const checkout = async (productId: 'credits_25' | 'credits_100' | 'credits_300' | 'pro_monthly') => {
+    if (!user) {
+      onSignUp();
+      return;
+    }
     setBusy(productId);
     setMessage(null);
     try {
@@ -162,6 +173,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
   };
 
   const verify = async () => {
+    if (!user) return;
     setBusy('verify');
     setMessage(null);
     try {
@@ -187,9 +199,11 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
           <button onClick={onBack} className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-slate-700 hover:text-brand-pink dark:text-slate-200">
             <ArrowLeft size={17} /> Back to studio
           </button>
-          <button onClick={() => void load()} disabled={loading} className="rounded-xl p-3 text-slate-500 hover:bg-white hover:text-brand-pink dark:hover:bg-[#161b22]" aria-label="Refresh billing">
-            <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
-          </button>
+          {user && (
+            <button onClick={() => void load()} disabled={loading} className="rounded-xl p-3 text-slate-500 hover:bg-white hover:text-brand-pink dark:hover:bg-[#161b22]" aria-label="Refresh billing">
+              <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
+            </button>
+          )}
         </div>
 
         <section className="relative overflow-hidden rounded-[2rem] border border-white/30 bg-[#11172a] px-6 pb-0 pt-7 text-white shadow-2xl shadow-brand-purple/15 sm:px-10 sm:pt-10">
@@ -210,9 +224,9 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
               <div className="mt-6 inline-flex items-center gap-4 rounded-2xl border border-white/10 bg-white/10 px-5 py-3 backdrop-blur">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Your balance</p>
-                  <p className="mt-0.5 text-3xl font-black">{billing?.isAdmin ? 'Unlimited' : billing ? formatCredits(billing.balanceMilliCredits) : '...'}</p>
+                  <p className="mt-0.5 text-3xl font-black">{!user ? 'Sign in' : billing?.isAdmin ? 'Unlimited' : billing ? formatCredits(billing.balanceMilliCredits) : '...'}</p>
                 </div>
-                {!billing?.isAdmin && <span className="rounded-full bg-brand-orange px-2.5 py-1 text-xs font-black text-[#261307]">credits</span>}
+                {user && !billing?.isAdmin && <span className="rounded-full bg-brand-orange px-2.5 py-1 text-xs font-black text-[#261307]">credits</span>}
               </div>
             </div>
             <img
@@ -225,7 +239,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
 
         {message && <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200">{message}</div>}
 
-        {!user.emailVerified && !billing?.starterGranted && (
+        {user && !user.emailVerified && !billing?.starterGranted && (
           <section className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-brand-cyan/30 bg-cyan-50 p-5 dark:bg-brand-cyan/10 sm:flex-row sm:items-center">
             <div>
               <h2 className="font-black text-slate-950 dark:text-white">Your first 5 credits are waiting</h2>
@@ -273,7 +287,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
                     <li className="flex gap-2"><WandSparkles size={17} className="mt-0.5 shrink-0 text-brand-pink" /> Images, analysis, naming, and prompt tools</li>
                   </ul>
                   <button onClick={() => void checkout(product.id)} disabled={busy != null} className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#11172a] px-4 py-3 text-sm font-black text-white shadow-lg transition-colors hover:bg-brand-pink disabled:opacity-60 dark:bg-white dark:text-[#11172a] dark:hover:bg-brand-cyan">
-                    {busy === product.id ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} Get {product.eyebrow.replace('-credit pack', '')} credits
+                    {busy === product.id ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} {user ? `Get ${product.eyebrow.replace('-credit pack', '')} credits` : 'Create an account to buy'}
                   </button>
                 </div>
               </article>
@@ -301,7 +315,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
               <p className="text-4xl font-black">$15<span className="text-base font-semibold text-slate-400">/month</span></p>
               <p className="mt-2 text-xs leading-5 text-slate-300">All credit-powered image models and AI helpers are included. They spend from your monthly balance at the published rates.</p>
               <button onClick={() => void checkout('pro_monthly')} disabled={busy != null || billing?.plan === 'pro'} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-purple via-brand-pink to-brand-red px-4 py-3 text-sm font-black text-white shadow-lg disabled:opacity-60">
-                {busy === 'pro_monthly' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {billing?.plan === 'pro' ? 'Current plan' : 'Join Taffy Studio'}
+                {busy === 'pro_monthly' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {billing?.plan === 'pro' ? 'Current plan' : user ? 'Join Taffy Studio' : 'Create an account to join'}
               </button>
             </div>
           </div>
@@ -377,7 +391,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
           </div>
         </section>
 
-        <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-[#141a29]">
+        {user && <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-[#141a29]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-black text-slate-950 dark:text-white">Recent credit activity</h2>
             {billing?.stripeCustomerId && <button onClick={() => void billingService.openCustomerPortal()} className="text-sm font-bold text-brand-pink hover:underline">Manage billing</button>}
@@ -392,7 +406,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack }) => {
               ))}
             </div>
           )}
-        </section>
+        </section>}
       </div>
     </main>
   );

@@ -198,8 +198,8 @@ export const WhatsNewPage: React.FC<WhatsNewPageProps> = ({
               </h2>
               <p className="text-sm text-slate-500">
                 {selectedEntry
-                  ? 'Step-by-step guide for this release.'
-                  : 'Every recent release highlight, in one place.'}
+                  ? 'Step-by-step guide for this launch.'
+                  : 'The biggest PixTaffy launches, all in one place.'}
               </p>
             </div>
           </div>
@@ -210,7 +210,7 @@ export const WhatsNewPage: React.FC<WhatsNewPageProps> = ({
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {entries.length === 0 ? (
           <div className="text-center py-24 text-slate-500">
-            <p className="mb-2">No updates yet.</p>
+            <p className="mb-2">No launches yet.</p>
             <p className="text-xs">
               Check back soon — new highlights land here as we ship them.
             </p>
@@ -274,7 +274,7 @@ const ListView: React.FC<{
               <div className="flex items-center gap-2 flex-wrap mb-4">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-teal/10 text-brand-teal text-[11px] font-bold uppercase tracking-wide">
                   <Sparkles size={12} />
-                  Latest release
+                  Latest launch
                 </span>
                 {hero.version && (
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -310,11 +310,11 @@ const ListView: React.FC<{
         </button>
       )}
 
-      {/* Earlier updates — image-top card grid for the long tail. */}
+      {/* Earlier launches use the same image-top card grid. */}
       {rest.length > 0 && (
         <div>
           <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-4 px-1">
-            Earlier updates
+            Earlier launches
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {rest.map((entry) => {
@@ -406,7 +406,7 @@ const DetailView: React.FC<{
         className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-teal dark:hover:text-brand-teal transition-colors mb-4"
       >
         <ChevronLeft size={14} />
-        All updates
+        All launches
       </button>
 
       {/* Hero image */}
@@ -480,7 +480,7 @@ const DetailView: React.FC<{
         </div>
       ) : (
         <div className="mt-10 p-5 rounded-xl border border-dashed border-gray-300 dark:border-[#30363d] text-sm text-slate-500 dark:text-slate-400">
-          A detailed walkthrough hasn&rsquo;t been written for this release yet.
+          A detailed walkthrough hasn&rsquo;t been written for this launch yet.
         </div>
       )}
 
@@ -492,7 +492,7 @@ const DetailView: React.FC<{
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-teal/90 text-white text-sm font-semibold shadow-sm shadow-brand-teal/30 transition-colors"
         >
           <ChevronLeft size={14} />
-          Back to all updates
+          Back to all launches
         </button>
         {entry.learnMoreHref && (
           <a

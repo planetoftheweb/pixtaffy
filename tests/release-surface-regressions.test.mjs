@@ -14,6 +14,11 @@ const controlPanelSource = read('components/ControlPanel.tsx');
 const featureGridSource = read('components/FeatureDemoGrid.tsx');
 const landingSource = read('components/LandingPage.tsx');
 const pricingSource = read('components/PricingPage.tsx');
+const authModalSource = read('components/AuthModal.tsx');
+const authServiceSource = read('services/authService.ts');
+const firebaseSource = read('services/firebase.ts');
+const indexSource = read('index.tsx');
+const errorBoundarySource = read('components/ErrorBoundary.tsx');
 const billingServiceSource = read('services/billingService.ts');
 const serverPricingSource = read('functions/src/pricing.ts');
 const recentSource = read('components/RecentGenerations.tsx');
@@ -52,6 +57,47 @@ test('guest messaging distinguishes browser-local work from free cloud sync', ()
   assert.match(landingSource, /It stays in this browser, ready to download/);
   assert.match(pricingSource, /Registration is free and moves the guest image into cloud history/);
   assert.match(landingSource, /isMember \? 'Back to the studio' : 'Create free image'/);
+});
+
+test('cold visitors see public content before Firebase auth settles', () => {
+  assert.match(appSource, /const STARTUP_GATE_TIMEOUT_MS = 9_000/);
+  assert.match(appSource, /billingMode \? \([\s\S]*?\) : welcomeMode \? \([\s\S]*?\) : whatsNewMode \? \([\s\S]*?\) : !isAuthResolved \? \(/);
+  assert.match(appSource, /Session connection issue/);
+  assert.match(appSource, /Retry connection/);
+  assert.match(appSource, /releaseGate\('guest session'\)/);
+  assert.match(appSource, /releaseGate\('authenticated session'\)[\s\S]*?void \(async \(\) =>/);
+  assert.doesNotMatch(appSource, /setWelcomeMode\(false\);\s*\}\, \[isAuthResolved, user\?\.id\]\)/);
+});
+
+test('App Check and Firebase Installations stay off the first-paint path', () => {
+  assert.match(firebaseSource, /scheduleFirebaseBackgroundWork\(\(\) => \{[\s\S]*?initializeAppCheck/);
+  assert.match(firebaseSource, /requestIdleCallback/);
+  assert.match(firebaseSource, /Firebase Installations record/);
+  assert.match(firebaseSource, /Firebase App Check token/);
+  assert.match(firebaseSource, /protected endpoints remain server-enforced/);
+  assert.match(authServiceSource, /Firebase Auth observer: settled/);
+  assert.match(authServiceSource, /onError\?\.\(error\)/);
+});
+
+test('top-level render failures surface through the visible error boundary', () => {
+  assert.match(indexSource, /<ErrorBoundary>[\s\S]*?<App \/>[\s\S]*?<\/ErrorBoundary>/);
+  assert.match(errorBoundarySource, /componentDidCatch/);
+  assert.match(errorBoundarySource, /role="alert"/);
+  assert.match(errorBoundarySource, /Reload PixTaffy/);
+});
+
+test('signup copy only promises to save an image when one is pending', () => {
+  assert.match(authModalSource, /hasPendingImage/);
+  assert.match(authModalSource, /hasPendingImage[\s\S]*?Save your image, then verify your email/);
+  assert.match(authModalSource, /Create your account, then verify your email to receive 5 starter credits/);
+  assert.match(appSource, /hasPendingImage=\{!user && \(Boolean\(currentGeneration\) \|\| history\.length > 0\)\}/);
+});
+
+test('welcome exposes pricing without requiring an authenticated billing query', () => {
+  assert.match(landingSource, /onViewPricing/);
+  assert.match(landingSource, />\s*Pricing\s*<\/button>/);
+  assert.match(pricingSource, /user: User \| null/);
+  assert.match(pricingSource, /if \(!user\) \{[\s\S]*?setLoading\(false\)/);
 });
 
 test('the compact wordmark keeps Pix light and Taffy heavy with the candy gradient', () => {
@@ -129,45 +175,64 @@ test('creative actions and gallery tools keep neutral controls with candy accent
   assert.match(recentSource, /Archive size=\{16\} aria-hidden className="text-brand-pink"/);
 });
 
-test('What’s New release entries use existing files with distinct image bytes', () => {
-  const images = extractPaths(whatsNewData, /image:\s*'([^']+)'/g).filter((image) =>
-    /whatsnew-v0\.2[5-9]\./.test(image),
-  );
-  assert.ok(images.length >= 8, 'recent releases must keep their unique artwork');
+test('What’s New keeps only substantial public launches with modern distinct artwork', () => {
+  const versions = extractPaths(whatsNewData, /version:\s*'([^']+)'/g);
+  assert.deepEqual(versions, [
+    '0.29.0',
+    '0.26.1',
+    '0.26.0',
+    '0.25.0',
+    '0.24.0',
+    '0.22.0',
+    '0.21.0',
+    '0.15.0',
+    '0.8.0',
+    '0.6.0',
+    '0.5.0',
+    '0.1.0',
+  ]);
+  assert.doesNotMatch(whatsNewData, /version:\s*'0\.29\.3'/);
+
+  const images = extractPaths(whatsNewData, /image:\s*'([^']+)'/g);
+  assert.equal(images.length, versions.length);
+  assert.ok(images.every((image) => image.endsWith('.webp')), 'launch artwork should use optimized WebP files');
   const hashes = images.map((image) => {
     const bytes = readFileSync(new URL(`../public${image}`, import.meta.url));
     return createHash('sha256').update(bytes).digest('hex');
   });
-  assert.equal(new Set(images).size, images.length, 'release image paths must be unique');
-  assert.equal(new Set(hashes).size, hashes.length, 'release image bytes must be unique');
+  assert.equal(new Set(images).size, images.length, 'launch image paths must be unique');
+  assert.equal(new Set(hashes).size, hashes.length, 'launch image bytes must be unique');
+  assert.match(appSource, /params\.has\('whatsnewpage'\) \|\| params\.has\('whatsnew'\)/);
+  assert.match(appSource, /new URLSearchParams\(window\.location\.search\)\.get\('whatsnew'\)/);
 });
 
-test('What’s New validation requires an exact patch-version entry', () => {
+test('What’s New validation allows changelog-only patch releases', () => {
   const result = runWhatsNewFixture({
     version: '2.4.1',
-    data: "export const WHATS_NEW = [{ version: '2.4.0', image: '/missing.webp' }];\n",
+    data: "export const WHATS_NEW = [{ version: '2.4.0', image: '/launch.webp' }];\n",
+    files: { '/launch.webp': 'launch artwork' },
   });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /No exact entry found for v2\.4\.1/);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /v2\.4\.1 stays changelog-only/);
 });
 
-test('What’s New validation accepts fields between version and unique artwork', () => {
+test('What’s New validation recognizes a curated launch for the current version', () => {
   const result = runWhatsNewFixture({
     version: '2.4.1',
     data: "export const WHATS_NEW = [{ version: '2.4.1', featured: true, image: '/current.webp' }];\n",
     files: { '/current.webp': 'current artwork' },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /unique artwork exist for v2\.4\.1/);
+  assert.match(result.stdout, /v2\.4\.1 has a public launch card/);
 });
 
-test('What’s New validation rejects an exact-version entry without artwork', () => {
+test('What’s New validation rejects any curated launch without artwork', () => {
   const result = runWhatsNewFixture({
     version: '2.4.1',
     data: "export const WHATS_NEW = [{ version: '2.4.1', featured: true }];\n",
   });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /v2\.4\.1 has no image field/);
+  assert.match(result.stderr, /1 launch card\(s\) have no image field/);
 });
 
 test('What’s New validation rejects reused paths and identical image bytes', () => {
@@ -177,7 +242,7 @@ test('What’s New validation rejects reused paths and identical image bytes', (
     files: { '/same.webp': 'current artwork' },
   });
   assert.equal(reusedPath.status, 1);
-  assert.match(reusedPath.stderr, /v2\.4\.1 reuses release artwork from v2\.3\.0/);
+  assert.match(reusedPath.stderr, /v2\.4\.1 reuses launch artwork from v2\.3\.0/);
 
   const reusedBytes = runWhatsNewFixture({
     version: '2.4.1',
@@ -185,7 +250,17 @@ test('What’s New validation rejects reused paths and identical image bytes', (
     files: { '/current.webp': 'same artwork bytes', '/older.webp': 'same artwork bytes' },
   });
   assert.equal(reusedBytes.status, 1);
-  assert.match(reusedBytes.stderr, /v2\.4\.1 reuses release artwork from v2\.3\.0/);
+  assert.match(reusedBytes.stderr, /v2\.4\.1 reuses launch artwork from v2\.3\.0/);
+});
+
+test('What’s New validation rejects duplicate launch versions', () => {
+  const result = runWhatsNewFixture({
+    version: '2.4.1',
+    data: "export const WHATS_NEW = [{ version: '2.4.0', image: '/one.webp' }, { version: '2.4.0', image: '/two.webp' }];\n",
+    files: { '/one.webp': 'first artwork', '/two.webp': 'second artwork' },
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /v2\.4\.0 appears 2 times/);
 });
 
 test('What’s New validation bypass exits successfully with a clear diagnostic', () => {
@@ -195,13 +270,4 @@ test('What’s New validation bypass exits successfully with a clear diagnostic'
   });
   assert.equal(result.status, 0);
   assert.match(result.stdout, /check skipped via SKIP_WHATS_NEW_CHECK=1/);
-});
-
-test('What’s New validation fails when the package version has no exact release entry', () => {
-  const result = runWhatsNewFixture({
-    version: '9.9.0',
-    data: "export const WHATS_NEW = [{ version: '1.0.0', image: '/older.webp' }];\n",
-  });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /No exact entry found for v9\.9\.0/);
 });

@@ -27,67 +27,31 @@ and pick one based on what's actually in the diff:
 Patch ≈ "I'd write 'fix:' commits about this." Minor/major ≈ "I'd want a
 returning user to know about this on next load."
 
-**This decision drives the rest of the flow.** A minor or major bump means
-authoring a What's New entry (step 2). A patch bump skips it.
+Semver and What's New are separate decisions. A minor bump can remain
+changelog-only, while an unusually large public launch in a patch can still
+deserve a card.
 
-## 2. (Minor / major bumps only) Author the What's New entry
+## 2. Decide whether this is public product news
 
-The build is gated on this — `npm run prebuild` runs `scripts/whats-new.mjs
-check` and refuses to build when the new `package.json` `major.minor` has no
-matching entry in `data/whatsNew.ts`. Skipping this step now just means the
-build in step 4 fails later.
+Read `.cursor/skills/whats-new/SKILL.md` and apply its publication standard.
+Create a card only for a substantial public launch that introduces a meaningful
+new user capability, workflow, commercial model, or product identity.
 
-Read the full skill at `.cursor/skills/whats-new/SKILL.md` and follow it
-end-to-end. **Both substeps below are mandatory; the image substep is the
-one most often skipped, so do not move past this section until both are
-done.**
+Bug fixes, reliability work, interface polish, admin features, support plumbing,
+provider updates, dependency changes, and infrastructure stay in `CHANGELOG.md`
+without a What's New entry or image. This is the normal path for most releases.
 
-### 2a. Write the entry
+If the release qualifies:
 
-Run `npm run whats-new` to scaffold interactively, OR append to the top of
-`WHATS_NEW` in `data/whatsNew.ts` by hand using the shape documented in the
-skill. Notes:
+1. Run `npm run whats-new` or add the entry to the top of `data/whatsNew.ts`.
+2. Mark `featured: true` only when the launch is worth opening a one-time spotlight.
+3. Use only icons supported by `WhatsNewPage.tsx`.
+4. Generate one unique 16:9 WebP in the current glossy 3D PixTaffy candy-character style.
+5. Save it under `public/whats-new/` and verify the bell and detail page render it.
 
-- Mark `featured: true` only for headline releases worth interrupting the
-  home screen with a spotlight modal. Most entries should NOT be featured.
-- The `version` field's `major.minor` MUST match the `package.json` bump
-  you'll do in step 3.
-- If a step's `icon` references a Lucide name not in `WhatsNewPage.tsx`'s
-  `ICON_MAP` allowlist, either pick an allowlisted icon or extend
-  `ICON_MAP` (and its imports). Unknown names fall back to `HelpCircle`,
-  which looks broken — extending the map is the right move when the icon
-  genuinely fits the release theme.
-
-### 2b. Generate the hero image yourself — do not skip this
-
-The deploy gate does NOT validate that the image exists. If you skip this,
-the bell + spotlight + discovery card will all render a broken-image
-placeholder in production. **The agent shipping the release is responsible
-for the art**, every time:
-
-1. Read an existing entry's image (e.g. `public/whats-new/whatsnew-panel.png`)
-   to anchor the style — soft horizontal teal→orange gradient, flat vector,
-   no text, sparkles + motion-line dashes scattered around the central
-   subject.
-2. Call `GenerateImage` with: 16:9 aspect ratio (~1024×576), brand palette
-   only (teal `#00A9A5`, orange `#FF7F50`, red `#B93135` accent, dark navy),
-   no embedded text or letters anywhere, soft drop shadows only, a central
-   subject that reflects the release's headline noun (a slideshow frame, a
-   key, a folder, etc.). Pass an existing `public/whats-new/*.png` as
-   `reference_image_paths` so the model has a concrete style anchor.
-3. `GenerateImage` writes to `~/.cursor/projects/.../assets/...` rather than
-   the workspace, so `cp` the result to the canonical path:
-
-   ```bash
-   cp "<generated-path>" "public/whats-new/whatsnew-v<version>.png"
-   ```
-
-4. Verify by re-reading the public path — if `ls public/whats-new/` doesn't
-   show a file matching the version, the entry's `image` field will 404 in
-   prod.
-
-Patch releases skip this entire section — the parent minor's entry already
-covers `x.y.*`.
+If the release does not qualify, skip the card and image. The prebuild validator
+will validate the existing curated catalog and report that this version stays
+changelog-only.
 
 ## 3. Update version metadata
 
@@ -105,8 +69,8 @@ npm run build
 ```
 
 `npm run build` runs `prebuild` first, which is `node scripts/whats-new.mjs
-check` — that's the deploy gate that fails the build if step 2 was skipped on
-a minor/major. The build itself is the production bundle Render will also
+check`. That gate validates every published launch card and its unique artwork,
+without requiring a card for the current version. The build itself is the production bundle Render will also
 produce, so a clean local build is your strongest "this will succeed in CI"
 signal.
 

@@ -12,6 +12,7 @@ import { FeatureDemoGrid } from './FeatureDemoGrid';
 interface LandingPageProps {
   isMember: boolean;
   onEnterStudio: () => void;
+  onViewPricing: () => void;
   onLogin: () => void;
   onSignUp: () => void;
 }
@@ -37,6 +38,7 @@ const steps = [
 export const LandingPage: React.FC<LandingPageProps> = ({
   isMember,
   onEnterStudio,
+  onViewPricing,
   onLogin,
   onSignUp,
 }) => {
@@ -84,6 +86,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               >
                 Explore features
               </a>
+              <button
+                type="button"
+                onClick={onViewPricing}
+                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold text-slate-800 backdrop-blur transition hover:border-brand-pink hover:text-brand-pink dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-pink"
+              >
+                Pricing
+              </button>
             </div>
 
             {!isMember && (

@@ -229,7 +229,7 @@ const GITHUB_CHANGELOG_URL = `${GITHUB_REPO_BASE}/blob/main/CHANGELOG.md`;
 const GITHUB_RELEASES_URL = `${GITHUB_REPO_BASE}/releases`;
 const GUEST_FIRST_IMAGE_MODEL_ID = 'openrouter:bytedance-seed/seedream-4.5';
 const GUEST_FIRST_IMAGE_USED_KEY = 'pixtaffy_guest_first_image_used_v1';
-const WELCOME_SEEN_KEY = 'pixtaffy_welcome_seen_v1';
+const STARTUP_GATE_TIMEOUT_MS = 9_000;
 
 const getToolbarSelectionKey = (userId?: string | null) =>
   `${TOOLBAR_SELECTION_KEY_PREFIX}:${userId || 'guest'}`;
@@ -342,18 +342,23 @@ const App: React.FC = () => {
   // Reachable from the bell footer "View all updates" link, the bell rows
   // (which open the per-entry detail), the spotlight's "Read the guide"
   // button, or `?whatsnewpage=1` deep links.
-  const [whatsNewMode, setWhatsNewMode] = useState(false);
+  const [whatsNewMode, setWhatsNewMode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('whatsnewpage') || params.has('whatsnew');
+  });
   // When non-null, the page renders the detail walkthrough for that entry
   // instead of the discovery list. Reset when the user clicks "All updates"
   // inside the page or fully exits the page.
-  const [whatsNewEntryId, setWhatsNewEntryId] = useState<string | null>(null);
-  // New browsers start on the welcome page. Entering the studio records the
-  // choice locally so returning guests go straight back to their workspace.
-  // Signed-in members always bypass it during session restoration, but can
-  // reopen it from the account menu whenever they want the tour.
-  const [welcomeMode, setWelcomeMode] = useState(() =>
-    typeof window !== 'undefined' && window.localStorage.getItem(WELCOME_SEEN_KEY) !== 'true'
+  const [whatsNewEntryId, setWhatsNewEntryId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get('whatsnew')
   );
+  // The public welcome page is the first paint for both guests and returning
+  // members. Firebase session restoration happens beside it, never in front of
+  // it. Explicit billing deep links are the one exception.
+  const [welcomeMode, setWelcomeMode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return !params.has('billing') && !params.has('checkout') && !params.has('whatsnewpage') && !params.has('whatsnew');
+  });
   
   // Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -386,6 +391,8 @@ const App: React.FC = () => {
   // new visitor", otherwise returning users see a flash of the onboarding
   // screen on every page load.
   const [isAuthResolved, setIsAuthResolved] = useState(false);
+  const [startupIssue, setStartupIssue] = useState<string | null>(null);
+  const [authRetryNonce, setAuthRetryNonce] = useState(0);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
   const [billingState, setBillingState] = useState<BillingState | null>(null);
@@ -756,9 +763,36 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  // Restore user session on page load
+  // Restore user session on page load. Only the Firebase Auth observer belongs
+  // to the startup gate. Account history synchronization starts after identity
+  // settles and never delays the public page or releases the gate itself.
   useEffect(() => {
-    const unsubscribe = authService.onAuthStateChange(async (restoredUser) => {
+    let active = true;
+    let gateReleased = false;
+    const gateStartedAt = performance.now();
+
+    setIsAuthResolved(false);
+    setStartupIssue(null);
+    console.info(`[Startup] Auth gate attempt ${authRetryNonce + 1}: started`);
+
+    const releaseGate = (reason: string) => {
+      if (!active || gateReleased) return;
+      gateReleased = true;
+      window.clearTimeout(timeoutId);
+      setIsAuthResolved(true);
+      console.info(`[Startup] Auth gate: settled via ${reason} in ${Math.round(performance.now() - gateStartedAt)}ms`);
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      if (!active || gateReleased) return;
+      setUser(null);
+      setHistory(historyService.getFromLocal());
+      setStartupIssue('PixTaffy could not confirm your saved session within 9 seconds. You can keep browsing as a guest while Firebase reconnects.');
+      releaseGate('timeout');
+    }, STARTUP_GATE_TIMEOUT_MS);
+
+    const unsubscribe = authService.onAuthStateChange((restoredUser) => {
+      if (!active) return;
       if (restoredUser) {
         // The account preference is the source of truth for the model. The
         // local toolbar cache only fills in when the account has none —
@@ -778,31 +812,50 @@ const App: React.FC = () => {
               }
             : restoredUser;
         setUser(hydratedUser);
-        try {
-          const mergeResult = await historyService.mergeLocalToRemote(hydratedUser.id, hydratedUser.isAdmin === true);
-          if (mergeResult.failed > 0) {
-            setError(`Synced ${mergeResult.synced} item(s), but ${mergeResult.failed} local item(s) are still pending sync.`);
+        setStartupIssue(null);
+        releaseGate('authenticated session');
+
+        void (async () => {
+          const syncStartedAt = performance.now();
+          try {
+            const mergeResult = await historyService.mergeLocalToRemote(hydratedUser.id, hydratedUser.isAdmin === true);
+            console.info(`[Startup] Local history merge: settled in ${Math.round(performance.now() - syncStartedAt)}ms`);
+            if (mergeResult.failed > 0 && active) {
+              setError(`Synced ${mergeResult.synced} item(s), but ${mergeResult.failed} local item(s) are still pending sync.`);
+            }
+          } catch (mergeErr) {
+            console.error('[Startup] Local history merge failed:', mergeErr);
           }
-        } catch (mergeErr) {
-          console.error("Failed to merge pending local history on session restore:", mergeErr);
-        }
-        // Load history for restored user
-        const updatedHistory = await historyService.getHistory(hydratedUser);
-        setHistory(updatedHistory);
+
+          const historyStartedAt = performance.now();
+          const updatedHistory = await historyService.getHistory(hydratedUser);
+          console.info(`[Startup] Cloud history: settled in ${Math.round(performance.now() - historyStartedAt)}ms`);
+          if (active) setHistory(updatedHistory);
+        })().catch((historyError) => {
+          console.error('[Startup] Cloud history hydration failed:', historyError);
+          if (active) setError('Your studio is ready, but cloud history could not be loaded yet.');
+        });
       } else {
         setUser(null);
         setHistory(historyService.getFromLocal());
+        setStartupIssue(null);
+        releaseGate('guest session');
       }
-      setIsAuthResolved(true);
+    }, (authError) => {
+      if (!active) return;
+      console.error('[Startup] Auth gate failed:', authError);
+      setUser(null);
+      setHistory(historyService.getFromLocal());
+      setStartupIssue('PixTaffy could not check your saved session. You can keep browsing as a guest and retry the connection.');
+      releaseGate('error fallback');
     });
 
-    return () => unsubscribe();
-  }, []); // Run once on mount
-
-  useEffect(() => {
-    if (!isAuthResolved || !user) return;
-    setWelcomeMode(false);
-  }, [isAuthResolved, user?.id]);
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+      unsubscribe();
+    };
+  }, [authRetryNonce]);
 
   useEffect(() => {
     if (!user?.id || !user.photoURL || user.photoDataUrl) return;
@@ -1554,12 +1607,6 @@ const App: React.FC = () => {
   };
 
   const enterStudioFromWelcome = useCallback(() => {
-    try {
-      window.localStorage.setItem(WELCOME_SEEN_KEY, 'true');
-    } catch {
-      // Private browsing can reject storage writes. The current session can
-      // still continue into the studio normally.
-    }
     setWelcomeMode(false);
     setSettingsMode(false);
     setBillingMode(false);
@@ -3948,26 +3995,83 @@ const App: React.FC = () => {
         </div>
       </header>
 
+      {startupIssue && (
+        <section
+          role="alert"
+          className="mx-3 mt-3 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/35 dark:text-amber-100 sm:mx-6 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex min-w-0 items-start gap-3">
+            <AlertCircle size={19} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-300" />
+            <div>
+              <p className="text-sm font-black">Session connection issue</p>
+              <p className="mt-0.5 text-sm leading-6">{startupIssue}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAuthRetryNonce((attempt) => attempt + 1)}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-900 px-4 py-2 text-sm font-black text-white hover:bg-amber-800 dark:bg-amber-300 dark:text-amber-950 dark:hover:bg-amber-200"
+          >
+            <RefreshCw size={16} /> Retry connection
+          </button>
+        </section>
+      )}
+
       {/* 2. Content Switching */}
-      {!isAuthResolved ? (
-        <LazyPageFallback label="Loading PixTaffy..." />
+      {billingMode ? (
+        <Suspense fallback={<LazyPageFallback label="Loading pricing..." />}>
+          <PricingPage
+            user={user}
+            onBack={() => {
+              setBillingMode(false);
+              setWelcomeMode(true);
+            }}
+            onSignUp={() => openAuthModal('signup')}
+          />
+        </Suspense>
       ) : welcomeMode ? (
         <LandingPage
           isMember={Boolean(user)}
           onEnterStudio={enterStudioFromWelcome}
+          onViewPricing={() => {
+            setBillingMode(true);
+            setWelcomeMode(false);
+          }}
           onLogin={() => openAuthModal('login')}
           onSignUp={() => openAuthModal('signup')}
         />
+      ) : whatsNewMode ? (
+        <Suspense fallback={<LazyPageFallback label="Loading updates..." />}>
+          <WhatsNewPage
+            entries={whatsNew.entries}
+            unseenIds={whatsNew.unseenIds}
+            selectedEntryId={whatsNewEntryId}
+            onSelectEntry={(id) => setWhatsNewEntryId(id)}
+            onBack={() => {
+              setWhatsNewMode(false);
+              setWhatsNewEntryId(null);
+            }}
+          />
+        </Suspense>
+      ) : !isAuthResolved ? (
+        <main className="flex-1 bg-brand-cream/45 px-5 py-16 dark:bg-[#080d18] sm:px-8">
+          <div className="mx-auto max-w-3xl rounded-[2rem] border border-brand-cyan/25 bg-white/85 p-8 text-center shadow-xl backdrop-blur dark:border-white/10 dark:bg-[#111827]/90 sm:p-12">
+            <img src="/pixtaffy.png" alt="" className="mx-auto h-20 w-20 object-contain" />
+            <h1 className="mt-5 text-3xl font-black text-slate-950 dark:text-white">Opening your studio</h1>
+            <p className="mx-auto mt-3 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">
+              PixTaffy is checking for a saved session. The public welcome and pricing pages stay available while this finishes.
+            </p>
+            <div className="mx-auto mt-6 h-2 max-w-md overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-gradient-to-r from-brand-orange via-brand-pink to-brand-cyan" />
+            </div>
+          </div>
+        </main>
       ) : adminMode && user ? (
         <Suspense fallback={<LazyPageFallback label="Loading admin..." />}>
           <AdminPage
             onBack={() => setAdminMode(false)}
             currentUser={user}
           />
-        </Suspense>
-      ) : billingMode && user ? (
-        <Suspense fallback={<LazyPageFallback label="Loading credits..." />}>
-          <PricingPage user={user} onBack={() => setBillingMode(false)} />
         </Suspense>
       ) : settingsMode ? (
         user && (
@@ -3990,19 +4094,6 @@ const App: React.FC = () => {
             onBack={() => setCatalogMode(null)}
             onImport={handleImportFromCatalog}
             userId={user?.id}
-          />
-        </Suspense>
-      ) : whatsNewMode ? (
-        <Suspense fallback={<LazyPageFallback label="Loading updates..." />}>
-          <WhatsNewPage
-            entries={whatsNew.entries}
-            unseenIds={whatsNew.unseenIds}
-            selectedEntryId={whatsNewEntryId}
-            onSelectEntry={(id) => setWhatsNewEntryId(id)}
-            onBack={() => {
-              setWhatsNewMode(false);
-              setWhatsNewEntryId(null);
-            }}
           />
         </Suspense>
       ) : (
@@ -4665,6 +4756,7 @@ const App: React.FC = () => {
             onClose={() => setIsAuthModalOpen(false)}
             onLoginSuccess={handleLoginSuccess}
             initialMode={authModalMode}
+            hasPendingImage={!user && (Boolean(currentGeneration) || history.length > 0)}
           />
         </Suspense>
       )}

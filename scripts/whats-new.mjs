@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 /**
- * What's New tooling: twin subcommands that keep PixTaffy's user-facing
- * release surface in sync with the package version.
+ * What's New tooling for PixTaffy's curated public product-news surface.
  *
  *   node scripts/whats-new.mjs add     # interactive scaffold → data/whatsNew.ts
- *   node scripts/whats-new.mjs check   # validates current entry + unique release artwork
+ *   node scripts/whats-new.mjs check   # validates the curated catalog + unique artwork
  *
- * The `check` subcommand runs as `prebuild`, so both local
- * `npm run build` and Render's production build refuse to ship a
- * release without an accompanying user-facing announcement and unique art.
+ * The `check` subcommand runs as `prebuild`. It validates every published
+ * launch card, but it deliberately does not require every package version to
+ * have one. Bug fixes and routine patches belong in CHANGELOG.md only.
  *
  * Escape hatch for genuine one-offs (hotfix on an old branch, etc.):
  *   SKIP_WHATS_NEW_CHECK=1 npm run build
  *
  * The companion authoring rules live in
- * `.cursor/skills/whats-new/SKILL.md` — read that first if you're
+ * `.cursor/skills/whats-new/SKILL.md`; read that first if you're
  * editing this script.
  */
 
@@ -46,7 +45,7 @@ async function readDataSource() {
 function extractVersions(source) {
   // Matches  version: 'x.y.z'  (and the double-quote variant) anywhere in
   // the file. We assume entries are the only place a TS property called
-  // `version` is declared — true today, and a refactor would surface this
+  // `version` is declared. This is true today, and a refactor would surface this
   // quickly via failing checks.
   const re = /version:\s*['"]([^'"]+)['"]/g;
   const out = [];
@@ -92,63 +91,56 @@ async function cmdCheck() {
   const source = await readDataSource();
   const versions = extractVersions(source);
   const entries = extractEntryImages(source);
-  const matched = versions.includes(pkgVer);
+  const fingerprinted = await Promise.all(
+    entries.map(async (entry) => ({ ...entry, fingerprint: await imageFingerprint(entry.image) })),
+  );
+  const problems = [];
+  const versionCounts = new Map();
 
-  if (matched) {
-    const fingerprinted = await Promise.all(
-      entries.map(async (entry) => ({ ...entry, fingerprint: await imageFingerprint(entry.image) })),
-    );
-    const currentEntries = fingerprinted.filter((entry) => entry.version === pkgVer);
-    const problems = [];
-
-    if (currentEntries.length === 0) {
-      problems.push(`v${pkgVer} has no image field`);
-    } else if (currentEntries.length > 1) {
-      problems.push(`v${pkgVer} has ${currentEntries.length} image entries; expected exactly one`);
-    }
-
-    for (const entry of currentEntries) {
-      if (!entry.fingerprint) {
-        problems.push(`v${entry.version} image is missing: ${entry.image}`);
-        continue;
-      }
-      const reusedBy = fingerprinted.filter(
-        (other) =>
-          other.version !== entry.version &&
-          (other.image === entry.image ||
-            (other.fingerprint && other.fingerprint === entry.fingerprint)),
-      );
-      if (reusedBy.length > 0) {
-        problems.push(
-          `v${entry.version} reuses release artwork from ${reusedBy
-            .map((other) => `v${other.version}`)
-            .join(', ')}: ${entry.image}`,
-        );
-      }
-    }
-
-    if (problems.length > 0) {
-      console.error('');
-      console.error('[whats-new] Every release needs its own thumbnail artwork.');
-      for (const problem of problems) console.error(`[whats-new] ${problem}`);
-      console.error('[whats-new] Generate a distinct 16:9 image and update the entry before building.');
-      console.error('');
-      exit(1);
-    }
-
-    console.log(
-      `[whats-new] OK — entry and unique artwork exist for v${pkgVer}`,
-    );
-    return;
+  for (const version of versions) {
+    versionCounts.set(version, (versionCounts.get(version) || 0) + 1);
+  }
+  for (const [version, count] of versionCounts) {
+    if (count > 1) problems.push(`v${version} appears ${count} times; each launch needs one card`);
   }
 
-  console.error('');
-  console.error(`[whats-new] No exact entry found for v${pkgVer} in data/whatsNew.ts.`);
-  console.error(`[whats-new] package.json is at v${pkgVer} — every release requires a user-facing entry.`);
-  console.error('[whats-new] Run:  npm run whats-new');
-  console.error('[whats-new] (Last-resort bypass: SKIP_WHATS_NEW_CHECK=1 npm run build)');
-  console.error('');
-  exit(1);
+  if (entries.length !== versions.length) {
+    problems.push(`${versions.length - entries.length} launch card(s) have no image field`);
+  }
+
+  for (const entry of fingerprinted) {
+    if (!entry.fingerprint) problems.push(`v${entry.version} image is missing: ${entry.image}`);
+  }
+
+  for (let index = 0; index < fingerprinted.length; index += 1) {
+    const entry = fingerprinted[index];
+    const reusedBy = fingerprinted.slice(index + 1).filter(
+      (other) =>
+        other.image === entry.image ||
+        (entry.fingerprint && other.fingerprint && other.fingerprint === entry.fingerprint),
+    );
+    if (reusedBy.length > 0) {
+      problems.push(
+        `v${entry.version} reuses launch artwork from ${reusedBy
+          .map((other) => `v${other.version}`)
+          .join(', ')}: ${entry.image}`,
+      );
+    }
+  }
+
+  if (problems.length > 0) {
+    console.error('');
+    console.error('[whats-new] Curated launch catalog is invalid.');
+    for (const problem of problems) console.error(`[whats-new] ${problem}`);
+    console.error('[whats-new] Every published launch card needs one distinct 16:9 image.');
+    console.error('');
+    exit(1);
+  }
+
+  const releaseStatus = versions.includes(pkgVer)
+    ? `v${pkgVer} has a public launch card`
+    : `v${pkgVer} stays changelog-only`;
+  console.log(`[whats-new] OK: ${entries.length} curated launches with distinct artwork; ${releaseStatus}`);
 }
 
 // --- `add` subcommand --------------------------------------------------------
@@ -166,7 +158,7 @@ async function askRequired(rl, prompt, def = '') {
   for (;;) {
     const v = await ask(rl, prompt, def);
     if (v) return v;
-    console.log('  (required — please enter a value)');
+    console.log('  (required; please enter a value)');
   }
 }
 
@@ -179,7 +171,7 @@ async function askBool(rl, prompt, def = false) {
 
 function tsEscape(s) {
   // Escapes single quotes + backslashes for embedding inside a TS single-quoted
-  // string literal. Curly punctuation (em-dash, smart quotes) is fine as-is —
+  // string literal. Curly punctuation and smart quotes are fine as-is;
   // the rest of data/whatsNew.ts already mixes them in freely.
   return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
@@ -269,10 +261,10 @@ async function cmdAdd() {
     const slug = await ask(rl, 'Slug for id (kebab-case)', slugDefault);
     const id = `v${version}-${slug}`;
 
-    const imageDefault = `/whats-new/whatsnew-v${version}.png`;
+    const imageDefault = `/whats-new/whatsnew-v${version}.webp`;
     let image = await ask(rl, 'Unique image path (under public/)', imageDefault);
     while (existingImages.has(image)) {
-      console.log('  (already used by another release — every entry needs its own artwork)');
+      console.log('  (already used by another launch; every entry needs its own artwork)');
       image = await askRequired(rl, 'Unique image path (under public/)');
     }
     const featured = await askBool(rl, 'Featured? (one-time spotlight modal)', false);
@@ -324,7 +316,7 @@ async function cmdAdd() {
     if (!source.includes(ARRAY_OPEN)) {
       console.error('');
       console.error(`[whats-new] Could not locate "${ARRAY_OPEN.trim()}" in data/whatsNew.ts.`);
-      console.error('[whats-new] The file may have been refactored — aborting to avoid corrupting it.');
+      console.error('[whats-new] The file may have been refactored; aborting to avoid corrupting it.');
       exit(1);
     }
     const next = source.replace(ARRAY_OPEN, ARRAY_OPEN + entryCode);
@@ -333,7 +325,7 @@ async function cmdAdd() {
     console.log('');
     console.log(`[whats-new] Added v${version} entry to data/whatsNew.ts`);
     console.log('[whats-new] Next steps:');
-    console.log(`  1. Drop the hero image at  public${image}  (16:9, ~1024x576)`);
+    console.log(`  1. Save the hero image at  public${image}  (16:9 WebP, 1200x675 or 1280x720)`);
     console.log('  2. Run  npm run build  to verify the prebuild gate is green');
     console.log('  3. Update CHANGELOG.md with the same release in engineering voice');
     if (featured) {
@@ -356,7 +348,7 @@ try {
   } else {
     console.error('Usage:');
     console.error('  node scripts/whats-new.mjs add     # interactive scaffold');
-    console.error('  node scripts/whats-new.mjs check   # validate current entry + unique artwork');
+    console.error('  node scripts/whats-new.mjs check   # validate curated entries + unique artwork');
     exit(2);
   }
 } catch (err) {

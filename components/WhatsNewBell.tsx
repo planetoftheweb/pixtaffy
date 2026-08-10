@@ -182,7 +182,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
 
             {entries.length === 0 ? (
               <p className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-500">
-                No updates yet.
+                No launches yet.
               </p>
             ) : (
               <ul
@@ -289,7 +289,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
                 onClick={onOpenPage}
                 className="shrink-0 w-full flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-semibold text-brand-teal hover:bg-brand-teal/5 dark:hover:bg-brand-teal/10 border-t border-gray-200 dark:border-[#30363d] transition-colors"
               >
-                View all updates
+                View all launches
                 <ArrowRight size={12} />
               </button>
             )}

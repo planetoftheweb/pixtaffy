@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.3] - 2026-08-10
+
+### Added
+
+- Added a clean-profile browser smoke test that requires the welcome screen to render within 10 seconds with extensions disabled and no stored browser data.
+- Added a React error boundary and a visible startup recovery state with a retry action.
+
+### Changed
+
+- Made the welcome and pricing pages available to both guests and returning members instead of skipping the welcome page after sign-in.
+- Moved Firebase App Check and installation diagnostics off the first-paint path, with bounded timeouts and settle logs for startup dependencies.
+- Released the anonymous welcome path before loading account data or generation history in the background.
+- Curated What’s New down to 12 substantial public launches, removing patch notes, polish, admin work, support plumbing, branding-only refreshes, and infrastructure announcements from the product-news feed.
+- Changed the What’s New release gate to validate the curated catalog without requiring every package version or bug-fix patch to have a card and custom artwork.
+- Replaced eight surviving pre-PixTaffy launch illustrations with unique 16:9 scenes in the current 3D candy-character style.
+- Made `?whatsnewpage=1` and `?whatsnew=<id>` open the public launch catalog directly without waiting for authentication.
+
+### Fixed
+
+- Prevented cold, logged-out visits from waiting forever on the “Loading PixTaffy...” gate by timing out authentication startup after nine seconds and rendering the app in a degraded state.
+- Made signup copy mention saving an image only when the visitor actually has a pending image.
+
 ## [0.29.2] - 2026-08-09
 
 ### Added
@@ -208,7 +230,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **"Items" → "Frames"** across all Build Studio UI copy (sidebar, toolbar, transport, settings, status flashes); stored data keys unchanged.
-- **`package.json` bumped to `0.22.0`** with a featured What's New entry and hero image (`data/whatsNew.ts`, `public/whats-new/whatsnew-v0.22.0.png`).
+- **`package.json` bumped to `0.22.0`** with a featured What's New entry and hero image (`data/whatsNew.ts`, `public/whats-new/whatsnew-v0.22.0.webp`).
 
 ## [0.21.0] - 2026-07-04
 
@@ -221,7 +243,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **`package.json` bumped to `0.21.0`** with a featured What's New entry, hero image, and walkthrough sections for Build Studio (`data/whatsNew.ts`, `public/whats-new/whatsnew-v0.21.0.png`).
+- **`package.json` bumped to `0.21.0`** with a featured What's New entry, hero image, and walkthrough sections for Build Studio (`data/whatsNew.ts`, `public/whats-new/whatsnew-v0.21.0.webp`).
 
 ## [0.20.0] - 2026-05-21
 

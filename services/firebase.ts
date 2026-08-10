@@ -5,6 +5,7 @@ import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken, type AppCheck } from "firebase/app-check";
+import { getId as getInstallationId, getInstallations } from "firebase/installations";
 import {
   getAnalytics,
   isSupported as isAnalyticsSupported,
@@ -55,6 +56,46 @@ const useEmulators =
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ||
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === '1';
 
+const FIREBASE_BACKGROUND_TIMEOUT_MS = 9_000;
+
+const withFirebaseTimeout = async <T,>(label: string, promise: Promise<T>): Promise<T> => {
+  let timeoutId: number | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = window.setTimeout(
+          () => reject(new Error(`${label} did not settle within ${FIREBASE_BACKGROUND_TIMEOUT_MS / 1000} seconds.`)),
+          FIREBASE_BACKGROUND_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+  }
+};
+
+const observeFirebasePromise = async <T,>(label: string, promise: Promise<T>): Promise<T | null> => {
+  const startedAt = performance.now();
+  console.info(`[Startup] ${label}: started`);
+  try {
+    const result = await withFirebaseTimeout(label, promise);
+    console.info(`[Startup] ${label}: settled in ${Math.round(performance.now() - startedAt)}ms`);
+    return result;
+  } catch (error) {
+    console.warn(`[Startup] ${label}: failed after ${Math.round(performance.now() - startedAt)}ms`, error);
+    return null;
+  }
+};
+
+const scheduleFirebaseBackgroundWork = (work: () => void) => {
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(work, { timeout: 1_500 });
+    return;
+  }
+  window.setTimeout(work, 0);
+};
+
 // App Check protects paid callable endpoints from scripts that bypass the web
 // app. Enforcement is enabled server-side only after this site key is present
 // in production so local development never gets locked out accidentally.
@@ -62,20 +103,52 @@ const appCheckSiteKey =
   import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY ||
   '6LcPunwtAAAAAH_6Lae-Kt5DyXIsZIY2xxK2Po4u';
 let appCheck: AppCheck | null = null;
+let appCheckInitialization: Promise<AppCheck | null> = Promise.resolve(null);
+
 if (typeof window !== 'undefined' && !useEmulators && appCheckSiteKey) {
-  appCheck = initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
-    isTokenAutoRefreshEnabled: true,
+  // App Check is deliberately kept off the render/auth critical path. A cold
+  // browser must first create its Firebase Installations record, and privacy
+  // tools can delay either that operation or reCAPTCHA indefinitely. Starting
+  // both jobs during browser idle time lets React paint the public experience
+  // first.
+  appCheckInitialization = new Promise<AppCheck | null>((resolve) => {
+    scheduleFirebaseBackgroundWork(() => {
+      try {
+        appCheck = initializeAppCheck(app, {
+          provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+          isTokenAutoRefreshEnabled: true,
+        });
+        console.info('[Startup] Firebase App Check initialization: settled');
+        resolve(appCheck);
+      } catch (error) {
+        console.warn('[Startup] Firebase App Check initialization: failed; protected endpoints remain server-enforced.', error);
+        resolve(null);
+      }
+    });
+  });
+
+  scheduleFirebaseBackgroundWork(() => {
+    void observeFirebasePromise(
+      'Firebase Installations record',
+      getInstallationId(getInstallations(app)),
+    );
+    void appCheckInitialization.then((instance) => {
+      if (!instance) return null;
+      return observeFirebasePromise('Firebase App Check token', getToken(instance, false));
+    });
   });
 }
 
-// Functions must be initialized after App Check so callable requests receive
-// the token provider. The first protected request also awaits token creation,
-// avoiding a cold-page race where Auth is ready but App Check is still empty.
+// Functions can initialize immediately. The SDK discovers App Check through
+// Firebase's component registry once the background initializer runs.
 export const functions = getFunctions(app);
 export const ensureAppCheckToken = async (): Promise<void> => {
-  if (!appCheck) return;
-  await getToken(appCheck, false);
+  // Client actions may wait briefly for a token, but page rendering never does.
+  // If App Check is unavailable, continue and let the callable's server-side
+  // `enforceAppCheck: true` policy make the authorization decision.
+  const instance = await observeFirebasePromise('Firebase App Check availability', appCheckInitialization);
+  if (!instance) return;
+  await observeFirebasePromise('Firebase App Check action token', getToken(instance, false));
 };
 
 // ---- Google Analytics (GA4) ------------------------------------------------

@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="p-8 flex flex-col items-center justify-center min-h-screen bg-gray-50 text-slate-900">
+        <div role="alert" aria-live="assertive" className="p-8 flex flex-col items-center justify-center min-h-screen bg-gray-50 text-slate-900">
           <h1 className="text-2xl font-bold mb-4">Something went wrong.</h1>
           <pre className="bg-red-50 p-4 rounded border border-red-200 text-red-700 text-sm overflow-auto max-w-full">
             {this.state.error?.message}
@@ -35,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
             onClick={() => window.location.reload()}
             className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            Reload Page
+            Reload PixTaffy
           </button>
         </div>
       );

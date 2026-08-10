@@ -640,16 +640,33 @@ export const authService = {
     }
   },
   
-  onAuthStateChange: (callback: (user: User | null) => void) => {
+  onAuthStateChange: (
+    callback: (user: User | null) => void,
+    onError?: (error: unknown) => void,
+  ) => {
+    console.info('[Startup] Firebase Auth observer: subscribed');
     return onAuthStateChanged(auth, async (user) => {
-      if (user && !user.isAnonymous) {
-        const userData = await ensureUserDocument(user.uid);
-        const isAdmin = await readAdminClaim(user);
-        void recordSignIn(user.uid);
-        callback(transformUser(user, userData, isAdmin));
-      } else {
-        callback(null);
+      console.info(`[Startup] Firebase Auth observer: settled (${user && !user.isAnonymous ? 'member' : 'guest'})`);
+      try {
+        if (user && !user.isAnonymous) {
+          const profileStartedAt = performance.now();
+          const userData = await ensureUserDocument(user.uid);
+          console.info(`[Startup] User profile: settled in ${Math.round(performance.now() - profileStartedAt)}ms`);
+          const claimStartedAt = performance.now();
+          const isAdmin = await readAdminClaim(user);
+          console.info(`[Startup] Auth claims: settled in ${Math.round(performance.now() - claimStartedAt)}ms`);
+          void recordSignIn(user.uid);
+          callback(transformUser(user, userData, isAdmin));
+        } else {
+          callback(null);
+        }
+      } catch (error) {
+        console.error('[Startup] Auth profile hydration failed:', error);
+        onError?.(error);
       }
+    }, (error) => {
+      console.error('[Startup] Firebase Auth observer failed:', error);
+      onError?.(error);
     });
   }
 };

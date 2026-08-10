@@ -8,9 +8,16 @@ interface AuthModalProps {
   onClose: () => void;
   onLoginSuccess: (user: User) => void;
   initialMode?: 'login' | 'signup';
+  hasPendingImage?: boolean;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess, initialMode = 'login' }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  onLoginSuccess,
+  initialMode = 'login',
+  hasPendingImage = false,
+}) => {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   
   // Reset mode when modal opens with a new initialMode
@@ -80,7 +87,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
               {isLogin ? 'Welcome back' : 'Create your account'}
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">
-              {isLogin ? 'Enter your details to access your brand kit.' : 'Save your image, then verify your email to receive 5 starter credits.'}
+              {isLogin
+                ? 'Enter your details to access your brand kit.'
+                : hasPendingImage
+                  ? 'Save your image, then verify your email to receive 5 starter credits.'
+                  : 'Create your account, then verify your email to receive 5 starter credits.'}
             </p>
           </div>
 
