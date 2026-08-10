@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.2] - 2026-08-09
+
+### Added
+
+- Added collection-group indexing for billing reservation state so stale reservations can be reconciled reliably.
+- Added MCP wire-level tests for both the 2026-07-28 protocol and legacy clients.
+
+### Changed
+
+- Migrated the PixTaffy MCP server to the stable TypeScript SDK v2, JSON Schema 2020-12 tool definitions, dual-era stdio negotiation, and Node.js 20 or newer.
+- Restricted the publishable MCP package to its server entry point and documentation so local environment files and workspace copies cannot enter an npm release.
+
+### Fixed
+
+- Made toolbar, gallery, download, history, rich-select, color-picker, and administrator menus close consistently when the user clicks or taps outside them.
+- Preserved menu triggers and related popovers as part of their active widget so outside-click handling does not interfere with normal menu actions.
+
 ## [0.29.1] - 2026-08-09
 
 ### Changed

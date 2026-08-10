@@ -4,6 +4,9 @@ Generate PixTaffy infographics from Claude Code, Claude Desktop, Codex, or any
 MCP client as your own PixTaffy account, with your saved styles, presets,
 and model keys.
 
+This package supports the MCP 2026-07-28 protocol and older 2025-era MCP
+clients over the same stdio command. Node.js 20 or newer is required.
+
 ## 1. Get a token
 
 PixTaffy → **Settings → API access** → name a token (e.g. "Claude MCP") →
@@ -13,7 +16,15 @@ once. Revoke it from the same screen any time.
 Existing `BRANDOIT_API_TOKEN` and `BRANDOIT_API_URL` environment variables
 still work as compatibility aliases.
 
-## 2. Configure your client
+## 2. Install the MCP server dependencies
+
+From the PixTaffy repository root:
+
+```bash
+npm --prefix mcp install
+```
+
+## 3. Configure your client
 
 **Claude Code**
 
@@ -46,7 +57,7 @@ args = ["/path/to/pixtaffy/mcp/index.js"]
 env = { PIXTAFFY_API_TOKEN = "bdi_YOUR_TOKEN" }
 ```
 
-## 3. Use it
+## 4. Use it
 
 Ask your assistant things like:
 

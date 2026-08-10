@@ -246,13 +246,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
   // Close the row-action menu on outside click.
   useEffect(() => {
     if (!openRowMenu) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest?.(`[data-admin-row-menu-trigger="${openRowMenu}"]`)) return;
       if (rowMenuRef.current && !rowMenuRef.current.contains(e.target as Node)) {
         setOpenRowMenu(null);
       }
     };
-    window.addEventListener('mousedown', handler);
-    return () => window.removeEventListener('mousedown', handler);
+    window.addEventListener('pointerdown', handler, true);
+    return () => window.removeEventListener('pointerdown', handler, true);
   }, [openRowMenu]);
 
   const filteredRows = useMemo(() => {
@@ -729,6 +731,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                         >
                           <button
                             type="button"
+                            data-admin-row-menu-trigger={row.id}
                             onClick={() =>
                               setOpenRowMenu((prev) => (prev === row.id ? null : row.id))
                             }

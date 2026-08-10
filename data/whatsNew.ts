@@ -26,6 +26,29 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.29.2-menus-close-cleanly',
+    title: 'Menus know when you’re done',
+    summary:
+      'Click or tap anywhere else and open menus now close cleanly across the PixTaffy studio.',
+    blurb:
+      'The candy crew cleaned up the workspace. Model choices, presets, downloads, gallery actions, history folders, color pickers, and administrator menus now get out of the way as soon as you move on. Their triggers and related popovers remain interactive, so the fix feels natural instead of making menus fragile.',
+    publishedAt: Date.parse('2026-08-10T00:45:00-04:00'),
+    version: '0.29.2',
+    image: '/whats-new/whatsnew-v0.29.2.webp',
+    featured: true,
+    sections: [
+      {
+        heading: 'A cleaner studio between actions',
+        body: 'Outside clicks and taps are now detected before nested controls can swallow them, which keeps menus from lingering over the canvas or gallery.',
+        steps: [
+          { text: 'Choose a model, preset, quality, size, or brand setting and continue working without a stranded menu.', icon: 'Sparkles' },
+          { text: 'Dismiss download, folder, row-action, and administrator menus with one tap outside.', icon: 'Check' },
+          { text: 'Keep using related popovers and the active trigger without closing the menu too early.', icon: 'Eye' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.29.1-candy-colors-in-the-studio',
     title: 'Candy colors come to the studio',
     summary:

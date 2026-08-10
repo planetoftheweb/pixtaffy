@@ -133,7 +133,7 @@ test('What’s New release entries use existing files with distinct image bytes'
   const images = extractPaths(whatsNewData, /image:\s*'([^']+)'/g).filter((image) =>
     /whatsnew-v0\.2[5-9]\./.test(image),
   );
-  assert.equal(images.length, 7);
+  assert.ok(images.length >= 8, 'recent releases must keep their unique artwork');
   const hashes = images.map((image) => {
     const bytes = readFileSync(new URL(`../public${image}`, import.meta.url));
     return createHash('sha256').update(bytes).digest('hex');

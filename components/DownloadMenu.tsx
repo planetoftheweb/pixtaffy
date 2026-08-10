@@ -83,13 +83,13 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("pointerdown", handler, true);
+    return () => document.removeEventListener("pointerdown", handler, true);
   }, [isOpen]);
 
   const version = currentGeneration ? getCurrentVersion(currentGeneration) : null;

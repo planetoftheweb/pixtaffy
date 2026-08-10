@@ -947,29 +947,30 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     }
   }, [user]);
 
-  // Close dropdowns when clicking outside the toolbar. Portaled satellites
-  // (the preset action popover / hover preview) live outside `containerRef`
-  // but should not count as "outside" — they belong to the same widget.
+  // Close dropdowns when the pointer leaves the active menu. This listener is
+  // captured so controls that stop bubbling cannot strand a menu on screen.
+  // Portaled satellites belong to the same widget and remain interactive.
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    if (!activeDropdown) return;
+
+    const handlePointerOutside = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
       const insidePortal = target.closest?.('[data-preset-popover], [data-batch-count-popover]');
       if (insidePortal) return;
-      // The variations dropdown is portaled OUT of the toolbar, so a click
-      // anywhere else in the toolbar (empty space, the adjacent send/expand
-      // buttons) is genuinely outside it — only its own trigger keeps it
-      // open. The in-toolbar dropdowns (type/style/…) keep the broad
-      // container exemption since their panels live inside `containerRef`.
+
       if (activeDropdown === 'batch-count') {
         if (batchCountTriggerRef.current?.contains(target)) return;
         setActiveDropdown(null);
         return;
       }
-      if (containerRef.current?.contains(target)) return;
+
+      if (target.closest?.('.mobile-dropdown-panel')) return;
+      if (target.closest?.(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`)) return;
       setActiveDropdown(null);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    document.addEventListener('pointerdown', handlePointerOutside, true);
+    return () => document.removeEventListener('pointerdown', handlePointerOutside, true);
   }, [activeDropdown]);
 
   // Clear search when dropdown changes
@@ -1389,14 +1390,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   useEffect(() => {
     if (activeColorIndex === null) return;
 
-    const handlePickerOutsideClick = (event: MouseEvent) => {
+    const handlePickerOutsideClick = (event: PointerEvent) => {
       if (pickerPanelRef.current && !pickerPanelRef.current.contains(event.target as Node)) {
         setActiveColorIndex(null);
       }
     };
 
-    document.addEventListener('mousedown', handlePickerOutsideClick);
-    return () => document.removeEventListener('mousedown', handlePickerOutsideClick);
+    document.addEventListener('pointerdown', handlePickerOutsideClick, true);
+    return () => document.removeEventListener('pointerdown', handlePickerOutsideClick, true);
   }, [activeColorIndex]);
 
   useEffect(() => {
@@ -1681,7 +1682,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     confirmCatalogDelete.trigger(`${type}:${idOrValue}`);
   };
 
-  const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false, accentClass }: any) => {
+  const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false, accentClass, dropdownName }: any) => {
     // Menu-style item (no per-button border). Five responsive tiers driven by pure CSS:
     //   - base  (< md):   icon-only 44x44 tap target (tooltip shows label)
     //   - md+  (>=768):   icon + UPPERCASE category label (TYPE, STYLE, ...)
@@ -1699,6 +1700,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     return (
       <button
         onClick={onClick}
+        data-toolbar-dropdown-trigger={dropdownName}
         disabled={disabled}
         title={titleText}
         aria-label={titleText}
@@ -1935,6 +1937,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 label={currentType?.name || 'Select'} 
                 isActive={activeDropdown === 'type'} 
                 onClick={() => toggleDropdown('type')} 
+                dropdownName="type"
                 accentClass="text-brand-teal dark:text-brand-cyan"
               />
               {activeDropdown === 'type' && (
@@ -1962,6 +1965,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 label={currentStyle?.name || 'Select'} 
                 isActive={activeDropdown === 'style'} 
                 onClick={() => toggleDropdown('style')} 
+                dropdownName="style"
                 accentClass="text-brand-purple"
               />
                {activeDropdown === 'style' && (
@@ -1990,6 +1994,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   label={config.svgMode === 'animated' ? 'Animated' : config.svgMode === 'interactive' ? 'Interactive' : 'Static'} 
                   isActive={activeDropdown === 'svgmode'} 
                   onClick={() => toggleDropdown('svgmode')} 
+                  dropdownName="svgmode"
                   accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'svgmode' && (
@@ -2036,6 +2041,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 label={currentColor?.name || 'Select'} 
                 isActive={activeDropdown === 'color'} 
                 onClick={() => toggleDropdown('color')}
+                dropdownName="color"
                 colors={currentColor?.colors}
                 accentClass="text-brand-pink"
               />
@@ -2064,6 +2070,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 label={currentRatio?.label.split(' ')[0] || config.aspectRatio} 
                 isActive={activeDropdown === 'size'} 
                 onClick={() => toggleDropdown('size')} 
+                dropdownName="size"
                 accentClass="text-brand-teal dark:text-brand-cyan"
               />
               {activeDropdown === 'size' && (
@@ -2094,6 +2101,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 label={modelLabel} 
                 isActive={activeDropdown === 'model'} 
                 onClick={() => toggleDropdown('model')} 
+                dropdownName="model"
                 disabled={modelSelectionLocked}
                 accentClass="text-brand-pink"
               />
@@ -2310,6 +2318,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   }
                   isActive={activeDropdown === 'quality'}
                   onClick={() => toggleDropdown('quality')}
+                  dropdownName="quality"
                   accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'quality' && (
@@ -2359,6 +2368,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   label={presets.length === 0 ? 'None saved' : `${presets.length} saved`}
                   isActive={activeDropdown === 'presets'}
                   onClick={() => toggleDropdown('presets')}
+                  dropdownName="presets"
                   accentClass="text-brand-purple"
                 />
                 {activeDropdown === 'presets' && (

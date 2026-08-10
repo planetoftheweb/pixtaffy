@@ -141,8 +141,9 @@ Signed-in users can generate through the HTTPS API or the bundled MCP server
 (Claude Code / Claude Desktop / Codex) using personal `bdi_…` tokens created
 in **Settings → API access**. Tokens are hashed at rest, generate-only, and
 rate-limited per account; generation always uses the account's own BYOK model
-keys. See [`mcp/README.md`](./mcp/README.md) for setup and the raw HTTP
-contract.
+keys. The bundled server supports MCP 2026-07-28 and legacy clients, and
+requires Node.js 20 or newer. See [`mcp/README.md`](./mcp/README.md) for setup
+and the raw HTTP contract.
 
 ## Deployment
 

@@ -574,7 +574,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
     ) {
       return;
     }
-    const onClick = (e: MouseEvent) => {
+    const onClick = (e: PointerEvent) => {
       const target = e.target as HTMLElement | null;
       // `data-folder-menu` is a misnomer at this point — it's the generic
       // "popover guard" marker for any in-row popover (folder picker,
@@ -607,10 +607,10 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         setNewFolderDraft('');
       }
     };
-    window.addEventListener('mousedown', onClick);
+    window.addEventListener('pointerdown', onClick, true);
     window.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('mousedown', onClick);
+      window.removeEventListener('pointerdown', onClick, true);
       window.removeEventListener('keydown', onKey);
     };
   }, [
@@ -1376,6 +1376,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   {hasChildren ? (
                     <button
                       type="button"
+                      data-folder-menu
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleFolderCollapsed(folder.id);

@@ -55,7 +55,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: PointerEvent) => {
       const target = event.target as HTMLElement;
       const insideContainer = containerRef.current?.contains(target);
       const insidePortal = target.closest?.('[data-preset-popover]');
@@ -75,10 +75,10 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
       setIsNamingPreset(false);
       setPresetError(null);
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside, true);
     document.addEventListener('keydown', handleEscape);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside, true);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen, actionMenuPresetId]);
