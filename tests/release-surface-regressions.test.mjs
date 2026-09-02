@@ -115,6 +115,18 @@ test('signup copy only promises to save an image when one is pending', () => {
   assert.match(appSource, /hasPendingImage=\{!user && \(Boolean\(currentGeneration\) \|\| history\.length > 0\)\}/);
 });
 
+test('login throttling is explained and offers a password reset recovery path', () => {
+  assert.match(authServiceSource, /code === 'auth\/too-many-requests'/);
+  assert.match(authServiceSource, /Sign-in is temporarily blocked on this browser after too many attempts/);
+  assert.doesNotMatch(authServiceSource, /throw new Error\(error\.message \|\| "Failed to login\."\)/);
+  assert.match(authServiceSource, /requestPasswordReset:[\s\S]*?sendPasswordResetEmail/);
+  assert.match(authModalSource, /isSubmittingRef\.current/);
+  assert.match(authModalSource, /Forgot password\?/);
+  assert.match(authModalSource, /Check your email for a password reset link\./);
+  assert.match(authModalSource, /role="alert"/);
+  assert.match(authModalSource, /role="status"/);
+});
+
 test('welcome exposes pricing without requiring an authenticated billing query', () => {
   assert.match(landingSource, /onViewPricing/);
   assert.match(landingSource, />\s*Pricing\s*<\/button>/);
