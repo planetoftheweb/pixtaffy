@@ -9,6 +9,7 @@
     "build": "vite build",
     "test": "node --test tests/ui-interaction-regressions.test.mjs tests/release-surface-regressions.test.mjs && npm --prefix functions test",
     "test:cold-start": "node scripts/cold-start-smoke.mjs",
+    "test:render": "node scripts/render-smoke.mjs",
     "test:rules": "firebase emulators:exec --only firestore,storage \"node --test tests/billing.rules.test.mjs\"",
     "preview": "vite preview",
     "whats-new": "node scripts/whats-new.mjs add",

@@ -34,6 +34,25 @@ const whatsNewScriptPath = fileURLToPath(new URL('../scripts/whats-new.mjs', imp
 
 const extractPaths = (source, pattern) => [...source.matchAll(pattern)].map((match) => match[1]);
 
+test('production builds reject missing Firebase configuration before bundling', () => {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'pixtaffy-build-config-'));
+  const required = ['API_KEY', 'AUTH_DOMAIN', 'PROJECT_ID', 'STORAGE_BUCKET', 'MESSAGING_SENDER_ID', 'APP_ID'];
+  const cleanEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('VITE_FIREBASE_')));
+  try {
+    const result = spawnSync(process.execPath, [
+      fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)),
+      'build', '--config', fileURLToPath(new URL('../vite.config.ts', import.meta.url)),
+    ], { cwd: fixtureRoot, env: cleanEnv, encoding: 'utf8' });
+    assert.notEqual(result.status, 0);
+    const output = result.stdout + result.stderr;
+    assert.match(output, /Production build blocked: missing Firebase configuration/);
+    for (const key of required) assert.ok(output.includes(`VITE_FIREBASE_${key}`));
+    assert.equal(existsSync(join(fixtureRoot, 'dist')), false);
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
 const runWhatsNewFixture = ({ version, data, files = {} }) => {
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'pixtaffy-whats-new-'));
   const fixtureScript = join(fixtureRoot, 'scripts', 'whats-new.mjs');

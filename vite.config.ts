@@ -2,8 +2,24 @@ import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
     const env = loadEnv(mode, '.', '');
+    // Firebase initializes before React mounts. Missing build-time settings
+    // otherwise produce a valid bundle that crashes into a blank page.
+    if (command === 'build') {
+      const requiredFirebaseKeys = [
+        'VITE_FIREBASE_API_KEY',
+        'VITE_FIREBASE_AUTH_DOMAIN',
+        'VITE_FIREBASE_PROJECT_ID',
+        'VITE_FIREBASE_STORAGE_BUCKET',
+        'VITE_FIREBASE_MESSAGING_SENDER_ID',
+        'VITE_FIREBASE_APP_ID',
+      ];
+      const missing = requiredFirebaseKeys.filter((key) => !env[key]?.trim());
+      if (missing.length) {
+        throw new Error(`Production build blocked: missing Firebase configuration: ${missing.join(', ')}. Supply the deployment environment before building. No configuration values are logged.`);
+      }
+    }
     return {
       server: {
         port: 3000,
