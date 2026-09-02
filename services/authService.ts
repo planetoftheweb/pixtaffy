@@ -10,6 +10,7 @@ import {
   User as FirebaseUser,
   onAuthStateChanged,
   sendEmailVerification,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { 
   doc, 
@@ -399,6 +400,47 @@ const normalizeUsernameKey = (username: string): string => username.trim().toLow
 
 const usernameDocRef = (username: string) => doc(db, "usernames", normalizeUsernameKey(username));
 
+const resolveEmailForSignIn = async (emailOrUsername: string): Promise<string> => {
+  const identifier = emailOrUsername.trim();
+  if (identifier.includes('@')) return identifier;
+
+  const usernameSnap = await getDoc(usernameDocRef(identifier));
+  if (!usernameSnap.exists()) {
+    throw new Error('Username not found.');
+  }
+  const resolvedEmail = usernameSnap.data()?.email;
+  if (typeof resolvedEmail !== 'string' || !resolvedEmail.includes('@')) {
+    throw new Error('Username not found.');
+  }
+  return resolvedEmail.trim();
+};
+
+const loginErrorMessage = (error: unknown): string => {
+  const code = (error as { code?: string } | null)?.code;
+  if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
+    return 'Invalid email or password.';
+  }
+  if (code === 'auth/invalid-email') {
+    return 'Enter a valid email address.';
+  }
+  if (code === 'auth/too-many-requests') {
+    return 'Sign-in is temporarily blocked on this browser after too many attempts. Wait a few minutes, then try once, or reset your password.';
+  }
+  if (code === 'auth/user-disabled') {
+    return 'This account has been disabled. Contact PixTaffy support for help.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Email sign-in is temporarily unavailable. Try again later.';
+  }
+  if (code === 'auth/network-request-failed') {
+    return 'PixTaffy could not reach the sign-in service. Check your connection and try again.';
+  }
+  if (code?.startsWith('auth/')) {
+    return 'PixTaffy could not sign you in. Try again in a moment.';
+  }
+  return (error as { message?: string } | null)?.message || 'Failed to login.';
+};
+
 // Public `get` on `usernames/{key}` (see firestore.rules). Replaces querying
 // `users` by username, which is admin-list-only and fails during signup/login.
 const checkUsernameUnique = async (username: string, excludeUserId?: string): Promise<void> => {
@@ -502,20 +544,7 @@ export const authService = {
 
   login: async (emailOrUsername: string, password: string): Promise<User> => {
     try {
-      let email = emailOrUsername;
-      
-      // If input doesn't look like an email, try to find the email by username
-      if (!emailOrUsername.includes('@')) {
-        const usernameSnap = await getDoc(usernameDocRef(emailOrUsername));
-        if (!usernameSnap.exists()) {
-          throw new Error('Username not found.');
-        }
-        const resolvedEmail = usernameSnap.data()?.email;
-        if (typeof resolvedEmail !== 'string' || !resolvedEmail.includes('@')) {
-          throw new Error('Username not found.');
-        }
-        email = resolvedEmail;
-      }
+      const email = await resolveEmailForSignIn(emailOrUsername);
 
       // Existing-account login cannot link an anonymous identity. The guest
       // image is already stored locally and App merges it after login, so end
@@ -545,10 +574,29 @@ export const authService = {
       return transformUser(user, userData, isAdmin);
     } catch (error: any) {
       console.error("Login Error:", error);
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        throw new Error('Invalid email or password.');
+      throw new Error(loginErrorMessage(error));
+    }
+  },
+
+  requestPasswordReset: async (emailOrUsername: string): Promise<void> => {
+    try {
+      const email = await resolveEmailForSignIn(emailOrUsername);
+      await sendPasswordResetEmail(auth, email);
+    } catch (error: any) {
+      console.error("Password Reset Error:", error);
+      if (error.code === 'auth/too-many-requests') {
+        throw new Error('Password reset is temporarily blocked on this browser. Wait a few minutes and try again.');
       }
-      throw new Error(error.message || "Failed to login.");
+      if (error.code === 'auth/invalid-email') {
+        throw new Error('Enter a valid email address.');
+      }
+      if (error.code === 'auth/network-request-failed') {
+        throw new Error('PixTaffy could not reach the password reset service. Check your connection and try again.');
+      }
+      if (typeof error.code === 'string' && error.code.startsWith('auth/')) {
+        throw new Error('Could not send the password reset email. Try again in a moment.');
+      }
+      throw new Error(error.message || 'Could not send the password reset email.');
     }
   },
 

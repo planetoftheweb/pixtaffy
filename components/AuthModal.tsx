@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { X, Mail, Lock, User as UserIcon, Loader2, ArrowRight, Layers } from 'lucide-react';
 import { authService } from '../services/authService';
 import { User } from '../types';
@@ -19,14 +19,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   hasPendingImage = false,
 }) => {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
   
   // Reset mode when modal opens with a new initialMode
   React.useEffect(() => {
     setIsLogin(initialMode === 'login');
+    setError(null);
+    setStatus(null);
+    setIsLoading(false);
+    setIsResetting(false);
+    isSubmittingRef.current = false;
   }, [initialMode, isOpen]);
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -38,7 +45,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setError(null);
+    setStatus(null);
     setIsLoading(true);
 
     try {
@@ -55,13 +65,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: any) {
       setError(err.message || "Authentication failed");
     } finally {
+      isSubmittingRef.current = false;
       setIsLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (isResetting || isLoading) return;
+    if (!email.trim()) {
+      setError('Enter your email or username first.');
+      setStatus(null);
+      return;
+    }
+
+    setError(null);
+    setStatus(null);
+    setIsResetting(true);
+    try {
+      await authService.requestPasswordReset(email);
+      setStatus('Check your email for a password reset link.');
+    } catch (err: any) {
+      setError(err.message || 'Could not send the password reset email.');
+    } finally {
+      setIsResetting(false);
     }
   };
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
     setError(null);
+    setStatus(null);
     setPassword('');
   };
 
@@ -97,8 +130,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 text-sm text-center font-medium animate-in fade-in">
+              <div role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 text-sm text-center font-medium animate-in fade-in">
                 {error}
+              </div>
+            )}
+
+            {status && (
+              <div role="status" className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/50 text-cyan-700 dark:text-cyan-200 text-sm text-center font-medium animate-in fade-in">
+                {status}
               </div>
             )}
 
@@ -150,6 +189,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   required
                 />
               </div>
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  disabled={isResetting || isLoading}
+                  className="ml-auto block text-xs font-semibold text-brand-red dark:text-brand-orange hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isResetting ? 'Sending reset link…' : 'Forgot password?'}
+                </button>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -169,7 +218,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isResetting}
               className="w-full bg-brand-red hover:bg-red-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-brand-red/25 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]"
             >
               {isLoading ? (

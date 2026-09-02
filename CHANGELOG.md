@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-09-02
+
+### Fixed
+
+- Replaced Firebase's raw sign-in throttle error with a clear temporary-block message, added password-reset recovery to the login modal, and prevented rapid duplicate submissions from extending the lockout.
+
 ## [0.30.0] - 2026-08-10
 
 ### Added
