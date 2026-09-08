@@ -180,9 +180,23 @@ export const SUPPORTED_MODELS = [
     group: 'Gemini' as const
   },
   {
+    id: 'openai-2.5',
+    name: 'GPT Image 2.5',
+    description: 'OpenAI gpt-image-2.5-sunburst \u2014 flagship editing and generation (2.5)',
+    format: 'raster' as const,
+    group: 'OpenAI' as const
+  },
+  {
+    id: 'openai-flare',
+    name: 'GPT Image 2.5 Flare',
+    description: 'OpenAI gpt-image-2.5-flare \u2014 fast high-quality everyday 2.5',
+    format: 'raster' as const,
+    group: 'OpenAI' as const
+  },
+  {
     id: 'openai-2',
     name: 'GPT Image 2',
-    description: 'OpenAI gpt-image-2 \u2014 flagship image model (2K/4K, wide ratios)',
+    description: 'OpenAI gpt-image-2 \u2014 previous flagship image model (2K/4K, wide ratios)',
     format: 'raster' as const,
     group: 'OpenAI' as const
   },
@@ -292,6 +306,8 @@ export const MODEL_COST_PER_IMAGE_USD: Record<string, number> = {
   'gemini-3.1-flash-image-preview': 0.067,  // Nano Banana 2 (1K)
   'gemini-3.1-flash-lite-image': 0.03,      // Nano Banana 2 Lite (est.)
   'gemini-svg': 0.01,                       // Gemini SVG — token-based text output (est.)
+  'openai-2.5': 0.053,                      // GPT Image 2.5 Sunburst (same rates as Image 2)
+  'openai-flare': 0.053,                    // GPT Image 2.5 Flare (same rates as Image 2)
   'openai-2': 0.053,                        // GPT Image 2 (1024², medium)
   'openai-mini': 0.01,                      // GPT Image Mini (est.)
   'openai': 0.06,                           // GPT Image 1.5 (medium, est.)

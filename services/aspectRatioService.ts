@@ -199,7 +199,7 @@ export const getAspectRatiosForModel = (
     return buildFilteredRatios(GEMINI_ALLOWED_ASPECT_RATIOS, GEMINI_LABELS, source);
   }
 
-  if (modelId === 'openai-2') {
+  if (modelId === 'openai-2' || modelId === 'openai-2.5' || modelId === 'openai-flare') {
     return buildFilteredRatios(OPENAI_2_ALLOWED_ASPECT_RATIOS, OPENAI_2_LABELS, source);
   }
 

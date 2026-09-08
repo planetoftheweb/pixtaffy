@@ -75,6 +75,8 @@ export const SITE_FUNDED_MODEL_MILLICREDITS: Record<string, number> = {
   gemini: 2_000,
   'gemini-3.1-flash-image-preview': 2_000,
   'gemini-3.1-flash-lite-image': 2_000,
+  'openai-2.5': 2_000,
+  'openai-flare': 2_000,
   'openai-2': 2_000,
 };
 

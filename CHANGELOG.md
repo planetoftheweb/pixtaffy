@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-09-08
+
+### Added
+
+- Added OpenAI **GPT Image 2.5** (`openai-2.5` → `gpt-image-2.5-sunburst`) as the new native flagship for editing and generation.
+- Added OpenAI **GPT Image 2.5 Flare** (`openai-flare` → `gpt-image-2.5-flare`) for fast, high-quality everyday generation.
+- Extended OpenAI quality options with `xhigh` and `max` for GPT Image 2.5 models.
+
+### Changed
+
+- Made GPT Image 2.5 the default model for new visitors and new accounts. Guest cost stays two credits, so the three-credit guest grant still leaves one Standard credit.
+- Kept GPT Image 2 (`openai-2`) available as the previous flagship. OpenRouter curated entries stay on `openai/gpt-image-2` until OpenRouter publishes 2.5 slugs.
+- Updated Settings, MCP, README, and What's New copy for the 2.5 lineup.
+
 ## [0.30.1] - 2026-09-02
 
 ### Fixed

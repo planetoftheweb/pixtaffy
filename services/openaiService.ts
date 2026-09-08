@@ -45,7 +45,7 @@ ${colors ? `- Brand palette (hex — colors to paint WITH, never to be drawn as 
 `.trim();
 };
 
-export type OpenAIImageQuality = 'low' | 'medium' | 'high' | 'auto';
+export type OpenAIImageQuality = 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
 
 /**
  * Error thrown when OpenAI's /v1/images/generations endpoint rejects a call.
@@ -141,6 +141,8 @@ const describeOpenAIError = (
 // Map our UI model IDs to OpenAI API model identifiers.
 // Everything under this OpenAI family shares one API key slot (`apiKeys.openai`).
 const API_MODEL_BY_UI_ID: Record<string, string> = {
+  'openai-2.5': 'gpt-image-2.5-sunburst',
+  'openai-flare': 'gpt-image-2.5-flare',
   'openai-2': 'gpt-image-2',
   'openai-mini': 'gpt-image-1-mini',
   openai: 'gpt-image-1.5'
@@ -171,8 +173,14 @@ const GPT_IMAGE_2_SIZE_BY_RATIO: Record<string, string> = {
   '1:3': '768x2304'
 };
 
+const usesWideOpenAISizes = (apiModel: string): boolean =>
+  apiModel === 'gpt-image-2' ||
+  apiModel === 'gpt-image-2.5-sunburst' ||
+  apiModel === 'gpt-image-2.5-flare' ||
+  apiModel.startsWith('gpt-image-2.5-');
+
 const aspectToSize = (apiModel: string, aspect: string): string => {
-  if (apiModel === 'gpt-image-2') {
+  if (usesWideOpenAISizes(apiModel)) {
     return GPT_IMAGE_2_SIZE_BY_RATIO[aspect] || '1024x1024';
   }
   return LEGACY_SIZE_BY_RATIO[aspect] || '1024x1024';
@@ -188,9 +196,9 @@ const fetchToBase64 = async (url: string): Promise<{ base64: string; mime: strin
 };
 
 export interface OpenAIGenerateOptions {
-  /** UI model id: 'openai-2' | 'openai-mini' | 'openai'. Defaults to 'openai'. */
+  /** UI model id: 'openai-2.5' | 'openai-flare' | 'openai-2' | 'openai-mini' | 'openai'. Defaults to 'openai'. */
   modelId?: string;
-  /** low | medium | high | auto. Defaults to 'auto'. */
+  /** low | medium | high | xhigh | max | auto. Defaults to 'auto'. */
   quality?: OpenAIImageQuality;
   systemPrompt?: string;
 }

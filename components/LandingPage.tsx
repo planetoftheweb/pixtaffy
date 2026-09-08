@@ -26,7 +26,7 @@ const steps = [
   {
     number: '02',
     title: 'Start with three guest credits',
-    copy: 'Try GPT Image 2 before you register, then use the remaining credit on a Standard model. Your work stays in this browser, ready to download.',
+    copy: 'Try GPT Image 2.5 before you register, then use the remaining credit on a Standard model. Your work stays in this browser, ready to download.',
   },
   {
     number: '03',
@@ -195,7 +195,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-red dark:text-brand-cyan">Try the whole idea before you commit</p>
             <h2 className="pixtaffy-display mt-4 text-balance text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Three guest credits. No account required.</h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700 dark:text-slate-300">
-              Start with GPT Image 2, then use the credit left over on a Standard model. Create an account and verify your email for 10 starter credits, or bring your own image-generation key and keep creating free.
+              Start with GPT Image 2.5, then use the credit left over on a Standard model. Create an account and verify your email for 10 starter credits, or bring your own image-generation key and keep creating free.
             </p>
           </div>
 

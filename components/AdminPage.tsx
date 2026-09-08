@@ -116,6 +116,8 @@ const MODEL_LABELS: Record<string, string> = {
   gemini: 'Nano Banana Pro',
   'gemini-3.1-flash-image-preview': 'Nano Banana 2',
   'gemini-svg': 'Gemini SVG',
+  'openai-2.5': 'GPT Image 2.5',
+  'openai-flare': 'GPT Image 2.5 Flare',
   'openai-2': 'GPT Image 2',
   'openai-mini': 'GPT Image Mini',
   openai: 'GPT Image 1.5'

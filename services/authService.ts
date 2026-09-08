@@ -34,7 +34,7 @@ const defaultPreferences: UserPreferences = {
   // Default model for brand-new accounts: Nano Banana 2 (Gemini 3.1 Flash).
   // App.loadResources / guestSelectedModel use the same id as their
   // code-level fallback so the UI matches across guest + first-login.
-  selectedModel: 'openai-2',
+  selectedModel: 'openai-2.5',
   settings: {
     contributeByDefault: false,
     confirmDeleteHistory: true,
@@ -252,7 +252,7 @@ const hydratePreferences = (savedPrefs: any): UserPreferences => {
     openRouterModels: Array.isArray(savedPrefs.openRouterModels)
       ? savedPrefs.openRouterModels.filter((s: unknown): s is string => typeof s === 'string')
       : undefined,
-    selectedModel: savedPrefs.selectedModel || 'openai-2',
+    selectedModel: savedPrefs.selectedModel || 'openai-2.5',
     systemPrompt: savedPrefs.systemPrompt,
     settings: {
       contributeByDefault: savedPrefs.settings?.contributeByDefault ?? defaultPreferences.settings?.contributeByDefault ?? false,

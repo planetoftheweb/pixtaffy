@@ -1,4 +1,4 @@
-export const DEFAULT_GUEST_MODEL_ID = "openai-2";
+export const DEFAULT_GUEST_MODEL_ID = "openai-2.5";
 export const GUEST_GRANT_MILLICREDITS = 3_000;
 export const LEGACY_GUEST_SPEND_MILLICREDITS = 1_000;
 

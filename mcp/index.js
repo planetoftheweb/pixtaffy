@@ -82,7 +82,7 @@ const buildServer = () => {
           .string()
           .optional()
           .describe(
-            "Model id override, e.g. 'gemini' (Nano Banana Pro), 'gemini-3.1-flash-image-preview' (Nano Banana 2), 'openai-2' (GPT Image 2), 'openai-mini', or 'openrouter:<vendor/slug>' like 'openrouter:bytedance-seed/seedream-4.5'. Omit to use the account's default.",
+            "Model id override, e.g. 'gemini' (Nano Banana Pro), 'gemini-3.1-flash-image-preview' (Nano Banana 2), 'openai-2.5' (GPT Image 2.5), 'openai-flare' (GPT Image 2.5 Flare), 'openai-2' (GPT Image 2), 'openai-mini', or 'openrouter:<vendor/slug>' like 'openrouter:bytedance-seed/seedream-4.5'. Omit to use the account's default.",
           ),
         aspectRatio: z
           .string()
