@@ -26,6 +26,8 @@ const paidAiSource = read('functions/src/paidAi.ts');
 const guestCreditsSource = read('functions/src/guestCredits.ts');
 const recentSource = read('components/RecentGenerations.tsx');
 const constantsSource = read('constants.ts');
+const correctionAnalysisRouterSource = read('services/correctionAnalysisRouter.ts');
+const imageDisplaySource = read('components/ImageDisplay.tsx');
 const cssSource = read('index.css');
 const whatsNewData = read('data/whatsNew.ts');
 const whatsNewScript = read('scripts/whats-new.mjs');
@@ -285,6 +287,43 @@ test('What’s New keeps only substantial public launches with modern distinct a
   assert.equal(new Set(hashes).size, hashes.length, 'launch image bytes must be unique');
   assert.match(appSource, /params\.has\('whatsnewpage'\) \|\| params\.has\('whatsnew'\)/);
   assert.match(appSource, /new URLSearchParams\(window\.location\.search\)\.get\('whatsnew'\)/);
+});
+
+
+test('GPT Image 2.5 provider resolution and model snap-back guards stay wired', () => {
+  // Client BYOK must treat openai-2.5 / openai-flare as OpenAI-family models.
+  // Missing them made getApiKeyForModel return undefined, and App's no-key
+  // fallback then snapped the toolbar to the first model with a key (gemini).
+  assert.match(
+    correctionAnalysisRouterSource,
+    /modelId === 'openai-2\.5'[\s\S]*?modelId === 'openai-flare'[\s\S]*?return 'openai'/
+  );
+  assert.match(
+    correctionAnalysisRouterSource,
+    /selectedModel === 'openai-2\.5'[\s\S]*?selectedModel === 'openai-flare'/
+  );
+
+  // Credit-funded selections must not be auto-switched away when another
+  // provider key exists.
+  assert.match(
+    appSource,
+    /SITE_FUNDED_MODEL_MILLICREDITS\[selectedModel\] && hasUsableCredits\)\s*return/
+  );
+
+  // Refine sync must prefer keeping selectedModel over SUPPORTED_MODELS[0]
+  // when version/tile model ids are unrecognized.
+  assert.match(
+    imageDisplaySource,
+    /Keep a valid toolbar selection when version\/tile model ids are unknown/
+  );
+  assert.match(
+    imageDisplaySource,
+    /return selectedModel \|\| refineModelOptions\[0\]\?\.id \|\| ''/
+  );
+  assert.doesNotMatch(
+    imageDisplaySource,
+    /return refineModelOptions\[0\]\?\.id \|\| selectedModel;/
+  );
 });
 
 test('What’s New validation allows changelog-only patch releases', () => {

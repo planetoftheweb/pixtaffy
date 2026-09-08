@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.1] - 2026-09-08
+
+### Fixed
+
+- Stopped GPT Image 2.5 / Flare from snapping the MODEL menu back to Nano Banana Pro after generate. Client BYOK provider resolution now recognizes `openai-2.5` and `openai-flare` (so a shared OpenAI key counts), credit-funded picks are no longer auto-switched away when another provider key exists, and ImageDisplay refine sync keeps a valid toolbar selection instead of falling through to `gemini`.
+
 ## [0.31.0] - 2026-09-08
 
 ### Added
