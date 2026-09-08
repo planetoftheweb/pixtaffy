@@ -15,7 +15,13 @@ const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
   ) {
     return 'gemini';
   }
-  if (modelId === 'openai' || modelId === 'openai-2' || modelId === 'openai-mini') {
+  if (
+    modelId === 'openai' ||
+    modelId === 'openai-2' ||
+    modelId === 'openai-2.5' ||
+    modelId === 'openai-flare' ||
+    modelId === 'openai-mini'
+  ) {
     return 'openai';
   }
   if (modelId.startsWith(OPENROUTER_MODEL_PREFIX)) {
@@ -122,6 +128,8 @@ export function resolveAuxiliaryByokProvider(
   const openaiToolbar =
     selectedModel === 'openai' ||
     selectedModel === 'openai-2' ||
+    selectedModel === 'openai-2.5' ||
+    selectedModel === 'openai-flare' ||
     selectedModel === 'openai-mini';
   const geminiToolbar =
     selectedModel === 'gemini' ||

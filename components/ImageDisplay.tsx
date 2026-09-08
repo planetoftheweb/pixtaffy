@@ -1656,7 +1656,10 @@ ${version.svgCode}
     if (tileModelId && refineModelOptions.some((m) => m.id === tileModelId)) {
       return tileModelId;
     }
-    return refineModelOptions[0]?.id || selectedModel;
+    // Keep a valid toolbar selection when version/tile model ids are unknown
+    // (API slug, missing stamp, etc.). Falling through to refineModelOptions[0]
+    // (Nano Banana Pro / gemini) snapped GPT Image 2.5 picks after generate.
+    return selectedModel || refineModelOptions[0]?.id || '';
   })();
   const safeRefineModelId = preferredRefineModelId;
 

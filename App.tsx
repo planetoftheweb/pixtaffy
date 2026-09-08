@@ -1425,9 +1425,13 @@ const App: React.FC = () => {
   // configured a key for some other supported model, auto-switch to that
   // model so the user can start generating immediately instead of being
   // stuck behind the "One setup step left" banner.
+  // Skip credit-funded models when the account can pay with PixTaffy credits
+  // — otherwise picking GPT Image 2.5 with a Gemini BYOK key snapped the
+  // toolbar back to Nano Banana Pro after every generate.
   useEffect(() => {
     if (!user) return;
     if (activeApiKey) return;
+    if (SITE_FUNDED_MODEL_MILLICREDITS[selectedModel] && hasUsableCredits) return;
     const fallbackModel = [...SUPPORTED_MODELS, ...openRouterModels].find(
       (model) => model.id !== selectedModel && !!getApiKeyForModel(model.id)
     );
@@ -1441,7 +1445,7 @@ const App: React.FC = () => {
     };
     setUser(updatedUser);
     authService.updateUserPreferences(user.id, updatedUser.preferences).catch(console.error);
-  }, [user?.id, user?.preferences.apiKeys, user?.preferences.geminiApiKey, selectedModel, activeApiKey]);
+  }, [user?.id, user?.preferences.apiKeys, user?.preferences.geminiApiKey, selectedModel, activeApiKey, hasUsableCredits]);
 
   // Keep the generation monitor's elapsed/remaining display live by nudging a
   // tick once per second while at least one background generation is running.
