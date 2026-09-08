@@ -1091,6 +1091,8 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   const modelLabelMap: Record<string, string> = {
     gemini: 'Nano Banana Pro',
     'gemini-3.1-flash-image-preview': 'Nano Banana 2',
+    'openai-2.5': 'GPT Image 2.5',
+    'openai-flare': 'GPT Image 2.5 Flare',
     'openai-2': 'GPT Image 2',
     'openai-mini': 'GPT Image Mini',
     openai: 'GPT Image 1.5',
@@ -1101,6 +1103,8 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   const modelShortLabelMap: Record<string, string> = {
     gemini: 'Nano Pro',
     'gemini-3.1-flash-image-preview': 'Nano 2',
+    'openai-2.5': 'GPT 2.5',
+    'openai-flare': 'GPT Flare',
     'openai-2': 'GPT 2',
     'openai-mini': 'GPT Mini',
     openai: 'GPT 1.5',

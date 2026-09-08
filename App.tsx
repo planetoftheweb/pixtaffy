@@ -134,11 +134,11 @@ interface ToolbarSelectionCache {
   graphicTypeId?: string;
   aspectRatio?: string;
   selectedModel?: string;
-  openaiImageQuality?: 'low' | 'medium' | 'high' | 'auto';
+  openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
 }
 
-type OpenAIImageQuality = 'low' | 'medium' | 'high' | 'auto';
-const OPENAI_QUALITY_SET = new Set<OpenAIImageQuality>(['low', 'medium', 'high', 'auto']);
+type OpenAIImageQuality = 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
+const OPENAI_QUALITY_SET = new Set<OpenAIImageQuality>(['low', 'medium', 'high', 'xhigh', 'max', 'auto']);
 
 /**
  * Reference to a single mark (version) in the app's history, used as A/B
@@ -227,9 +227,9 @@ const MODEL_NAME_BY_ID: Record<string, string> = SUPPORTED_MODELS.reduce<Record<
 const GITHUB_REPO_BASE = 'https://github.com/planetoftheweb/pixtaffy';
 const GITHUB_CHANGELOG_URL = `${GITHUB_REPO_BASE}/blob/main/CHANGELOG.md`;
 const GITHUB_RELEASES_URL = `${GITHUB_REPO_BASE}/releases`;
-const DEFAULT_MODEL_ID = 'openai-2';
+const DEFAULT_MODEL_ID = 'openai-2.5';
 const GUEST_GRANT_MILLICREDITS = 3_000;
-const GUEST_MODEL_DEFAULT_MIGRATION_KEY = 'pixtaffy_guest_model_default_gpt2_v1';
+const GUEST_MODEL_DEFAULT_MIGRATION_KEY = 'pixtaffy_guest_model_default_gpt25_v1';
 const GUEST_FIRST_IMAGE_USED_KEY = 'pixtaffy_guest_first_image_used_v1';
 const STARTUP_GATE_TIMEOUT_MS = 9_000;
 
@@ -2012,7 +2012,7 @@ const App: React.FC = () => {
               modelSlug: modelId.slice(OPENROUTER_MODEL_PREFIX.length),
               systemPrompt: runSystemPrompt
             });
-          } else if (modelId === 'openai' || modelId === 'openai-2' || modelId === 'openai-mini') {
+          } else if (modelId === 'openai' || modelId === 'openai-2' || modelId === 'openai-2.5' || modelId === 'openai-flare' || modelId === 'openai-mini') {
             result = await generateOpenAIImage(structuredPrompt, requestConfig, modelKey, {
               modelId,
               quality: runOpenAIQuality,
@@ -2322,6 +2322,8 @@ const App: React.FC = () => {
       } else if (
         selectedModel === 'openai' ||
         selectedModel === 'openai-2' ||
+        selectedModel === 'openai-2.5' ||
+        selectedModel === 'openai-flare' ||
         selectedModel === 'openai-mini'
       ) {
         if (!customKey) throw new Error('OpenAI API key is required for image generation.');
@@ -2499,6 +2501,8 @@ const App: React.FC = () => {
         } else if (
           selectedModel === 'openai' ||
           selectedModel === 'openai-2' ||
+          selectedModel === 'openai-2.5' ||
+          selectedModel === 'openai-flare' ||
           selectedModel === 'openai-mini'
         ) {
           result = await generateOpenAIImage(structuredPrompt, rerunConfig, customKey, {
@@ -3194,7 +3198,7 @@ const App: React.FC = () => {
     queuePreferencesWrite();
   };
 
-  const handleOpenAIQualityChange = (quality: 'low' | 'medium' | 'high' | 'auto') => {
+  const handleOpenAIQualityChange = (quality: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto') => {
     if (!user) return;
     // Functional update + queued persist — see handleModelChange for why.
     setUser(prev => prev ? {

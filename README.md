@@ -23,10 +23,10 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 *   **💾 Cloud History:** Automatically saves your generation history with metadata in Firestore and raster image bytes in Firebase Storage (`users/{uid}/history/{generationId}/{versionId}.{ext}`), so tiles never bump into the 1 MiB Firestore document limit and deletes clean up Storage automatically.
 *   **🖼️ Smart Analysis:** Upload brand guidelines (PDF/Image) to extract colors and styles with an interactive review modal.
 *   **✨ PixTaffy AI tools:** Prompt expansion, naming, image analysis, correction analysis, style extraction, region detection, and brand-guideline analysis run through a server-side Gemini key and consume 0.1 to 0.5 PixTaffy credit. BYOK remains free for image generation only.
-*   **🍬 Guest credits:** New visitors receive 3 credits before registering. GPT Image 2 is selected by default, leaving one credit for a second Standard image. Firebase Anonymous Auth, App Check, idempotency, browser and network limits, and the daily provider circuit breaker protect the guest path.
+*   **🍬 Guest credits:** New visitors receive 3 credits before registering. GPT Image 2.5 is selected by default, leaving one credit for a second Standard image. Firebase Anonymous Auth, App Check, idempotency, browser and network limits, and the daily provider circuit breaker protect the guest path.
 *   **👤 User Profiles:** Sign up with Email or Username. Sync preferences across devices.
 *   **⚙️ Full Settings Management:** dedicated page for managing API keys, profile settings, and application preferences.
-*   **🔑 BYOK (Bring Your Own Key):** Multi-model keys for Google Gemini and OpenAI. A single OpenAI key drives three tiers — **GPT Image 2** (flagship, 2K/4K, 3:1 & 1:3 ratios), **GPT Image Mini** (budget), and **GPT Image 1.5** (legacy) — with a per-model **Quality** control (Auto / Low / Medium / High).
+*   **🔑 BYOK (Bring Your Own Key):** Multi-model keys for Google Gemini and OpenAI. A single OpenAI key drives GPT Image 2.5, GPT Image 2.5 Flare, GPT Image 2, GPT Image Mini, and GPT Image 1.5 — with a per-model **Quality** control (Auto / Low / Medium / High / XHigh / Max).
 *   **💳 Optional PixTaffy credits:** Verified accounts receive 10 starter credits for 30 days. Credit packs and Taffy Studio fund curated OpenRouter image models without exposing shared provider keys to the browser.
 *   **💬 Feedback to GitHub:** Bugs, ideas, questions, and screenshots can be sent from the footer or account menu. A protected Cloud Function saves the private contact record and opens a labeled issue in `planetoftheweb/pixtaffy`.
 *   **🧠 Refinement Workspace:** Per-image refine model + target size controls, built-in **Run analysis** correction-plan generator (Gemini Flash vision or OpenAI `gpt-4o-mini` vision + JSON, matching your configured keys), and style-reference fallback for difficult recompositions.
@@ -57,7 +57,7 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
     *   **Authentication:** Email/Password & Profile Management
     *   **Firestore:** Real-time NoSQL Database (Normalized Structure)
     *   **Storage:** Profile photos & Asset storage
-*   **AI:** Google Gemini (`gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`, `gemini-flash-latest`) and OpenAI (`gpt-image-2`, `gpt-image-1-mini`, `gpt-image-1.5`)
+*   **AI:** Google Gemini (`gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`, `gemini-flash-latest`) and OpenAI (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1-mini`, `gpt-image-1.5`)
 *   **Icons:** Lucide React
 *   **Font:** Mona Sans & Inter
 

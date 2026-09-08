@@ -108,6 +108,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       key !== 'openai' &&
       key !== 'openrouter' &&
       key !== 'openai-2' &&
+      key !== 'openai-2.5' &&
+      key !== 'openai-flare' &&
       key !== 'openai-mini' &&
       !!value
   );
@@ -140,6 +142,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           modelId !== 'openai' &&
           modelId !== 'openrouter' &&
           modelId !== 'openai-2' &&
+          modelId !== 'openai-2.5' &&
+          modelId !== 'openai-flare' &&
           modelId !== 'openai-mini' &&
           !!value
       )
@@ -247,7 +251,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     {
       keyId: 'openai',
       label: 'OpenAI API Key',
-      description: 'Used by GPT Image 2, GPT Image Mini, and GPT Image 1.5.',
+      description: 'Used by GPT Image 2.5, GPT Image 2.5 Flare, GPT Image 2, GPT Image Mini, and GPT Image 1.5.',
       placeholder: 'sk-...',
       helpText: 'Create one at platform.openai.com/api-keys.'
     },
@@ -265,6 +269,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       model.id !== 'gemini' &&
       model.id !== 'openai' &&
       model.id !== 'openai-2' &&
+      model.id !== 'openai-2.5' &&
+      model.id !== 'openai-flare' &&
       model.id !== 'openai-mini'
   );
 
@@ -989,8 +995,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       hideOptionDescriptions
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      {selectedModel === 'openai-2'
-                        ? 'GPT Image 2: supports 2K/4K and ratios from 3:1 to 1:3.'
+                      {selectedModel === 'openai-2' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare'
+                        ? 'GPT Image 2 / 2.5: supports 2K/4K and ratios from 3:1 to 1:3.'
                         : selectedModel === 'openai' || selectedModel === 'openai-mini'
                           ? 'Showing only ratios GPT Image outputs natively.'
                           : selectedModel === 'gemini-svg'

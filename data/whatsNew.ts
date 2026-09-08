@@ -31,6 +31,38 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.31.0-gpt-image-2.5',
+    title: 'Create with GPT Image 2.5',
+    summary:
+      'PixTaffy now ships OpenAI GPT Image 2.5 Sunburst and Flare, with Sunburst selected by default.',
+    blurb:
+      'OpenAI GPT Image 2.5 is live in PixTaffy. Sunburst is the new flagship for precise editing and generation, and Flare is the fast everyday option. Both support low through max quality. Guests still get three credits, and the default Sunburst run costs two credits so one Standard credit remains.',
+    publishedAt: Date.parse('2026-09-08T20:00:00Z'),
+    version: '0.31.0',
+    image: '/whats-new/whatsnew-v0.31.0.webp',
+    featured: true,
+    sections: [
+      {
+        heading: 'Pick the 2.5 model that fits the job',
+        body: 'GPT Image 2.5 is selected for new visitors and new accounts. Switch to Flare when you want faster everyday output, or keep GPT Image 2 when you need the previous flagship.',
+        steps: [
+          { text: 'Open the model menu and choose GPT Image 2.5 or GPT Image 2.5 Flare.', icon: 'Sparkles' },
+          { text: 'Use the Quality control for Auto, Low, Medium, High, XHigh, or Max.', icon: 'Gauge' },
+          { text: 'Bring your own OpenAI key for native 2.5 API calls, or use PixTaffy credits.', icon: 'KeyRound' },
+        ],
+      },
+      {
+        heading: 'Guest credits stay the same shape',
+        body: 'New visitors still start with three guest credits. A GPT Image 2.5 run uses two credits, leaving one credit for a Standard model.',
+        steps: [
+          { text: 'Create your first image with GPT Image 2.5.', icon: 'Image' },
+          { text: 'Spend the remaining credit on a one-credit Standard model if you want a second try.', icon: 'ArrowRight' },
+          { text: 'Create an account to move work into cloud history and unlock starter credits.', icon: 'Check' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'v0.30.0-guest-credits',
     title: 'Try GPT Image 2 before you sign up',
     summary:

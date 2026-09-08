@@ -418,7 +418,7 @@ export interface ToolbarPreset {
   aspectRatio?: string;
   svgMode?: SvgMode;
   selectedModel?: string;
-  openaiImageQuality?: 'low' | 'medium' | 'high' | 'auto';
+  openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
   /** Free-text art direction this preset carries — applied to the toolbar's
    * active instructions when the preset is applied (see
    * GenerationConfig.customInstructions). */
@@ -434,10 +434,10 @@ export interface UserSettings {
   confirmDeleteHistory?: boolean;
   confirmDeleteCurrent?: boolean;
   /**
-   * OpenAI GPT Image quality setting: 'low' | 'medium' | 'high' | 'auto'.
-   * Only consumed by gpt-image-2 and gpt-image-1-mini; gpt-image-1.5 ignores it.
+   * OpenAI GPT Image quality setting: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto'.
+   * Consumed by GPT Image 2 / 2.5 and gpt-image-1-mini; gpt-image-1.5 ignores it.
    */
-  openaiImageQuality?: 'low' | 'medium' | 'high' | 'auto';
+  openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
 }
 
 export interface User {

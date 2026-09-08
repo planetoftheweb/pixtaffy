@@ -194,14 +194,14 @@ test('pricing cards derive estimates from credit bands and use unique artwork', 
   assert.match(pricingSource, /Guest images[\s\S]*Free account[\s\S]*Any credit pack[\s\S]*Taffy Studio/);
 });
 
-test('unregistered visitors get three credits with GPT Image 2 selected by default', () => {
-  assert.match(appSource, /const DEFAULT_MODEL_ID = 'openai-2'/);
+test('unregistered visitors get three credits with GPT Image 2.5 selected by default', () => {
+  assert.match(appSource, /const DEFAULT_MODEL_ID = 'openai-2\.5'/);
   assert.match(appSource, /const GUEST_GRANT_MILLICREDITS = 3_000/);
   assert.match(appSource, /GUEST_MODEL_DEFAULT_MIGRATION_KEY/);
   assert.match(appSource, /setGuestBalanceMilliCredits\(result\.balanceMilliCredits\)/);
   assert.match(controlPanelSource, /Guest balance: \{guestBalanceMilliCredits \/ 1_000\} credit/);
   assert.match(appSource, /allowedModelIds=\{!user \? Object\.keys\(SITE_FUNDED_MODEL_MILLICREDITS\) : undefined\}/);
-  assert.match(guestCreditsSource, /DEFAULT_GUEST_MODEL_ID = "openai-2"/);
+  assert.match(guestCreditsSource, /DEFAULT_GUEST_MODEL_ID = "openai-2\.5"/);
   assert.match(guestCreditsSource, /GUEST_GRANT_MILLICREDITS = 3_000/);
   assert.match(paidAiSource, /canReserveGuestCredits\(spent, input\.milliCredits\)/);
   assert.match(billingServiceSource, /localStorage\.removeItem\(GUEST_REQUEST_ID_KEY\)/);
@@ -210,14 +210,14 @@ test('unregistered visitors get three credits with GPT Image 2 selected by defau
 
 test('verified accounts receive ten starter credits', () => {
   assert.match(billingCoreSource, /STARTER_GRANT_MILLICREDITS = 10_000/);
-  assert.match(authServiceSource, /selectedModel: 'openai-2'/);
+  assert.match(authServiceSource, /selectedModel: 'openai-2\.5'/);
   assert.match(landingSource, /10 starter credits/);
 });
 
 test('client and server model credit catalogs stay in sync', () => {
   const clientPairs = [...billingServiceSource.matchAll(/['"]?([^'"\n:]+(?::[^'"\n]+)?)['"]?:\s*([123]_000)/g)]
     .map(([, model, cost]) => `${model.trim()}=${cost}`)
-    .filter((pair) => pair.startsWith('openrouter:') || pair.startsWith('gemini=') || pair.startsWith('gemini-') || pair.startsWith('openai-2='));
+    .filter((pair) => pair.startsWith('openrouter:') || pair.startsWith('gemini=') || pair.startsWith('gemini-') || pair.startsWith('openai-2=') || pair.startsWith('openai-2.5=') || pair.startsWith('openai-flare='));
   const serverPairs = [...serverPricingSource.matchAll(/['"]([^'"]+)['"]:\s*\{[\s\S]*?milliCredits:\s*([123]_000)/g)]
     .map(([, model, cost]) => `${model}=${cost}`);
   assert.deepEqual(new Set(clientPairs), new Set(serverPairs));
@@ -257,6 +257,7 @@ test('creative actions and gallery tools keep neutral controls with candy accent
 test('What’s New keeps only substantial public launches with modern distinct artwork', () => {
   const versions = extractPaths(whatsNewData, /version:\s*'([^']+)'/g);
   assert.deepEqual(versions, [
+    '0.31.0',
     '0.30.0',
     '0.29.0',
     '0.26.1',

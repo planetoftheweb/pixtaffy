@@ -9,8 +9,8 @@ import {
 
 const now = 1_800_000_000_000;
 
-test("guest credits start at three with GPT Image 2 as the default", () => {
-  assert.equal(DEFAULT_GUEST_MODEL_ID, "openai-2");
+test("guest credits start at three with GPT Image 2.5 as the default", () => {
+  assert.equal(DEFAULT_GUEST_MODEL_ID, "openai-2.5");
   assert.equal(GUEST_GRANT_MILLICREDITS, 3_000);
   assert.equal(guestBalanceMilliCredits(undefined, undefined, now), 3_000);
 });

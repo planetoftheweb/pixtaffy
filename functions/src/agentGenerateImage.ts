@@ -49,6 +49,8 @@ const OPENAI_2_ALLOWED_ASPECT_RATIOS = [
 ] as const;
 
 const API_MODEL_BY_UI_ID: Record<string, string> = {
+  "openai-2.5": "gpt-image-2.5-sunburst",
+  "openai-flare": "gpt-image-2.5-flare",
   "openai-2": "gpt-image-2",
   "openai-mini": "gpt-image-1-mini",
   openai: "gpt-image-1.5",
@@ -136,7 +138,7 @@ const getAspectRatiosForModel = (modelId: string, source: AspectRatioRow[]): Asp
     modelId === NANO_BANANA_2_LITE_MODEL
   ) {
     allowed = GEMINI_ALLOWED_ASPECT_RATIOS;
-  } else if (modelId === "openai-2") {
+  } else if (modelId === "openai-2" || modelId === "openai-2.5" || modelId === "openai-flare") {
     allowed = OPENAI_2_ALLOWED_ASPECT_RATIOS;
   } else if (modelId === "openai" || modelId === "openai-mini") {
     allowed = OPENAI_ALLOWED_ASPECT_RATIOS;
@@ -194,7 +196,13 @@ const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
   ) {
     return "gemini";
   }
-  if (modelId === "openai" || modelId === "openai-2" || modelId === "openai-mini") {
+  if (
+    modelId === "openai" ||
+    modelId === "openai-2" ||
+    modelId === "openai-2.5" ||
+    modelId === "openai-flare" ||
+    modelId === "openai-mini"
+  ) {
     return "openai";
   }
   if (modelId.startsWith("openrouter:")) {
@@ -242,7 +250,7 @@ interface PreferencesShape {
     defaultVisualStyleId?: string;
     defaultColorSchemeId?: string;
     defaultAspectRatio?: string;
-    openaiImageQuality?: "low" | "medium" | "high" | "auto";
+    openaiImageQuality?: "low" | "medium" | "high" | "xhigh" | "max" | "auto";
   };
   presets?: Array<{
     id: string;
@@ -253,7 +261,7 @@ interface PreferencesShape {
     aspectRatio?: string;
     svgMode?: string;
     selectedModel?: string;
-    openaiImageQuality?: "low" | "medium" | "high" | "auto";
+    openaiImageQuality?: "low" | "medium" | "high" | "xhigh" | "max" | "auto";
   }>;
 }
 
@@ -433,8 +441,17 @@ const resolveOpenAiApiModel = (uiModelId?: string): string => {
   return API_MODEL_BY_UI_ID.openai;
 };
 
+function usesWideOpenAISizes(apiModel: string): boolean {
+  return (
+    apiModel === "gpt-image-2" ||
+    apiModel === "gpt-image-2.5-sunburst" ||
+    apiModel === "gpt-image-2.5-flare" ||
+    apiModel.startsWith("gpt-image-2.5-")
+  );
+}
+
 function aspectToOpenAISize(apiModel: string, aspect: string): string {
-  if (apiModel === "gpt-image-2") {
+  if (usesWideOpenAISizes(apiModel)) {
     return GPT_IMAGE_2_SIZE_BY_RATIO[aspect] || "1024x1024";
   }
   return LEGACY_SIZE_BY_RATIO[aspect] || "1024x1024";
@@ -444,7 +461,7 @@ async function generateOpenAIImage(
   structuredPrompt: string,
   cfg: GenerationConfig,
   apiKey: string,
-  opts: { modelId?: string; quality?: "low" | "medium" | "high" | "auto"; systemPrompt?: string },
+  opts: { modelId?: string; quality?: "low" | "medium" | "high" | "xhigh" | "max" | "auto"; systemPrompt?: string },
 ): Promise<{ base64Data: string; mimeType: string }> {
   const apiModel = resolveOpenAiApiModel(opts.modelId);
   const size = aspectToOpenAISize(apiModel, normalizeAspectRatio(cfg.aspectRatio));
@@ -789,7 +806,7 @@ interface AgentBody {
     aspectRatio: string;
     selectedModel: string;
     svgMode: string;
-    openaiImageQuality: "low" | "medium" | "high" | "auto";
+    openaiImageQuality: "low" | "medium" | "high" | "xhigh" | "max" | "auto";
     /** Delivered file format; defaults to "webp" (lossless, same resolution, smaller). */
     outputFormat: OutputFormat;
   }>;
@@ -1257,6 +1274,8 @@ export const agentGenerateImage = onRequest(
           if (
             selectedModel === "openai" ||
             selectedModel === "openai-2" ||
+            selectedModel === "openai-2.5" ||
+            selectedModel === "openai-flare" ||
             selectedModel === "openai-mini"
           ) {
             const structured = buildStructuredOpenAIPrompt(config, ctx, selectedModel);
