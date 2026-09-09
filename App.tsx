@@ -23,6 +23,12 @@ import {
   generateOpenAIImage,
   refineOpenAIImage,
 } from './services/openaiService';
+import {
+  supportsOpenAIBackground,
+  normalizeOpenAIImageBackground,
+  type OpenAIImageBackground,
+  OPENAI_BACKGROUND_SET,
+} from './utils/openaiImageBackground';
 import { getApiKeyForModelFromUser, getOpenRouterKeyFromUser } from './services/correctionAnalysisRouter';
 import { generateOpenRouterImage } from './services/openRouterService';
 import { generateSvg, refineSvg } from './services/svgService';
@@ -135,6 +141,7 @@ interface ToolbarSelectionCache {
   aspectRatio?: string;
   selectedModel?: string;
   openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
+  openaiImageBackground?: OpenAIImageBackground;
 }
 
 type OpenAIImageQuality = 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
@@ -253,6 +260,12 @@ const normalizeToolbarSelection = (value: unknown): ToolbarSelectionCache | null
     OPENAI_QUALITY_SET.has(source.openaiImageQuality as OpenAIImageQuality)
   ) {
     normalized.openaiImageQuality = source.openaiImageQuality as OpenAIImageQuality;
+  }
+  if (
+    typeof source.openaiImageBackground === 'string' &&
+    OPENAI_BACKGROUND_SET.has(source.openaiImageBackground as OpenAIImageBackground)
+  ) {
+    normalized.openaiImageBackground = source.openaiImageBackground as OpenAIImageBackground;
   }
 
   return Object.keys(normalized).length > 0 ? normalized : null;
@@ -1056,6 +1069,11 @@ const App: React.FC = () => {
           ? MODEL_NAME_BY_ID[preset.selectedModel] || preset.selectedModel
           : undefined,
         quality: preset.openaiImageQuality,
+        background:
+          preset.openaiImageBackground && preset.openaiImageBackground !== 'auto'
+            ? preset.openaiImageBackground.charAt(0).toUpperCase() +
+              preset.openaiImageBackground.slice(1)
+            : undefined,
         instructions: preset.customInstructions,
       };
     },
@@ -1303,7 +1321,8 @@ const App: React.FC = () => {
         graphicTypeId: config.graphicTypeId,
         aspectRatio: config.aspectRatio,
         selectedModel,
-        openaiImageQuality: user?.preferences.settings?.openaiImageQuality
+        openaiImageQuality: user?.preferences.settings?.openaiImageQuality,
+        openaiImageBackground: user?.preferences.settings?.openaiImageBackground
       },
       user?.id
     );
@@ -1315,6 +1334,7 @@ const App: React.FC = () => {
     config.aspectRatio,
     selectedModel,
     user?.preferences.settings?.openaiImageQuality,
+    user?.preferences.settings?.openaiImageBackground,
     user?.id
   ]);
 
@@ -1882,6 +1902,9 @@ const App: React.FC = () => {
         user.preferences.systemPrompt
       );
       const runOpenAIQuality = user.preferences.settings?.openaiImageQuality || 'auto';
+      const runOpenAIBackground = normalizeOpenAIImageBackground(
+        user.preferences.settings?.openaiImageBackground
+      );
       // Snapshot the open gallery folder at click time so every tile from
       // this Generate run lands together, even if the user switches folders
       // while the batch is in flight.
@@ -2003,6 +2026,7 @@ const App: React.FC = () => {
               modelId,
               prompt: structuredPrompt,
               aspectRatio: requestConfig.aspectRatio,
+              background: supportsOpenAIBackground(modelId) ? runOpenAIBackground : undefined,
               idempotencyKey: makeRequestId(`${jobId}-${modelId}-${job.globalIndex}`),
               batchReservationId,
             });
@@ -2020,6 +2044,7 @@ const App: React.FC = () => {
             result = await generateOpenAIImage(structuredPrompt, requestConfig, modelKey, {
               modelId,
               quality: runOpenAIQuality,
+              background: supportsOpenAIBackground(modelId) ? runOpenAIBackground : undefined,
               systemPrompt: runSystemPrompt
             });
           } else if (activeStyleReference && modelSupportsStyleReferenceImage(modelId)) {
@@ -2340,6 +2365,9 @@ const App: React.FC = () => {
           {
             modelId: selectedModel,
             quality: user?.preferences.settings?.openaiImageQuality || 'auto',
+            background: supportsOpenAIBackground(selectedModel)
+              ? normalizeOpenAIImageBackground(user?.preferences.settings?.openaiImageBackground)
+              : undefined,
             systemPrompt: refineSystemPrompt,
           }
         );
@@ -2493,6 +2521,9 @@ const App: React.FC = () => {
         );
         const structuredPrompt = buildStructuredPrompt(rerunConfig);
         const runQuality = user.preferences.settings?.openaiImageQuality || 'auto';
+        const runBackground = normalizeOpenAIImageBackground(
+          user.preferences.settings?.openaiImageBackground
+        );
 
         let result: GeneratedImage;
         if (selectedModel === 'gemini-svg') {
@@ -2512,6 +2543,7 @@ const App: React.FC = () => {
           result = await generateOpenAIImage(structuredPrompt, rerunConfig, customKey, {
             modelId: selectedModel,
             quality: runQuality,
+            background: supportsOpenAIBackground(selectedModel) ? runBackground : undefined,
             systemPrompt: rerunSystemPrompt,
           });
         } else {
@@ -3218,6 +3250,21 @@ const App: React.FC = () => {
     queuePreferencesWrite();
   };
 
+  const handleOpenAIBackgroundChange = (background: OpenAIImageBackground) => {
+    if (!user) return;
+    setUser(prev => prev ? {
+      ...prev,
+      preferences: {
+        ...prev.preferences,
+        settings: {
+          ...(prev.preferences.settings || { contributeByDefault: false }),
+          openaiImageBackground: background
+        }
+      }
+    } : prev);
+    queuePreferencesWrite();
+  };
+
   // ----- Toolbar preset handlers -----
   // A preset captures a snapshot of the most-tweaked toolbar fields so users
   // can recall a frequently-used combination in one click. Persisted on the
@@ -3233,6 +3280,7 @@ const App: React.FC = () => {
       svgMode: config.svgMode,
       selectedModel,
       openaiImageQuality: user.preferences.settings?.openaiImageQuality,
+      openaiImageBackground: user.preferences.settings?.openaiImageBackground,
       customInstructions: instructions || undefined
     };
     const { presets } = await presetService.savePreset(user, name, snapshot);
@@ -3277,6 +3325,9 @@ const App: React.FC = () => {
     if (preset.openaiImageQuality && user) {
       handleOpenAIQualityChange(preset.openaiImageQuality);
     }
+    if (preset.openaiImageBackground && user) {
+      handleOpenAIBackgroundChange(preset.openaiImageBackground);
+    }
   };
 
   // Edit a preset's art direction in place (⋯ menu). If the preset's old
@@ -3313,6 +3364,7 @@ const App: React.FC = () => {
       svgMode: config.svgMode,
       selectedModel,
       openaiImageQuality: user.preferences.settings?.openaiImageQuality,
+      openaiImageBackground: user.preferences.settings?.openaiImageBackground,
       customInstructions: config.customInstructions?.trim() || undefined
     };
     const presets = await presetService.updatePreset(user, presetId, snapshot);
@@ -3328,6 +3380,7 @@ const App: React.FC = () => {
     svgMode: config.svgMode,
     selectedModel,
     openaiImageQuality: user?.preferences.settings?.openaiImageQuality,
+    openaiImageBackground: user?.preferences.settings?.openaiImageBackground,
   }), [
     config.customInstructions,
     config.graphicTypeId,
@@ -3337,6 +3390,7 @@ const App: React.FC = () => {
     config.svgMode,
     selectedModel,
     user?.preferences.settings?.openaiImageQuality,
+    user?.preferences.settings?.openaiImageBackground,
   ]);
 
   const galleryViewFolder = useMemo(
@@ -4149,6 +4203,8 @@ const App: React.FC = () => {
             extraModels={openRouterModels}
             openaiQuality={user?.preferences.settings?.openaiImageQuality || 'auto'}
             onOpenAIQualityChange={user ? handleOpenAIQualityChange : undefined}
+            openaiBackground={user?.preferences.settings?.openaiImageBackground || 'auto'}
+            onOpenAIBackgroundChange={user ? handleOpenAIBackgroundChange : undefined}
             selectedModelIds={selectedModelIds}
             onModelIdsChange={setSelectedModelIds}
             setupRequired={isGenerateSetupRequired}

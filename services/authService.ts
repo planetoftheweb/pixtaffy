@@ -43,6 +43,7 @@ const defaultPreferences: UserPreferences = {
     defaultVisualStyleId: 'hand-drawn',
     defaultAspectRatio: '16:9',
     openaiImageQuality: 'auto',
+    openaiImageBackground: 'auto',
   }
 };
 
@@ -121,6 +122,7 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
     if (s.confirmDeleteHistory !== undefined) settingsClean.confirmDeleteHistory = s.confirmDeleteHistory;
     if (s.confirmDeleteCurrent !== undefined) settingsClean.confirmDeleteCurrent = s.confirmDeleteCurrent;
     if (s.openaiImageQuality) settingsClean.openaiImageQuality = s.openaiImageQuality;
+    if (s.openaiImageBackground) settingsClean.openaiImageBackground = s.openaiImageBackground;
     if (Object.keys(settingsClean).length > 0) clean.settings = settingsClean;
   }
 
@@ -139,6 +141,7 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
       if (preset.svgMode) p.svgMode = preset.svgMode;
       if (preset.selectedModel) p.selectedModel = preset.selectedModel;
       if (preset.openaiImageQuality) p.openaiImageQuality = preset.openaiImageQuality;
+      if (preset.openaiImageBackground) p.openaiImageBackground = preset.openaiImageBackground;
       if (preset.customInstructions?.trim()) p.customInstructions = preset.customInstructions.trim().slice(0, 2000);
       return p;
     });
@@ -190,6 +193,7 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
             if (preset.svgMode) p.svgMode = preset.svgMode;
             if (preset.selectedModel) p.selectedModel = preset.selectedModel;
             if (preset.openaiImageQuality) p.openaiImageQuality = preset.openaiImageQuality;
+      if (preset.openaiImageBackground) p.openaiImageBackground = preset.openaiImageBackground;
             if (preset.customInstructions?.trim()) p.customInstructions = preset.customInstructions.trim().slice(0, 2000);
             return p;
           });
@@ -262,7 +266,8 @@ const hydratePreferences = (savedPrefs: any): UserPreferences => {
       defaultAspectRatio: savedPrefs.settings?.defaultAspectRatio,
       confirmDeleteHistory: savedPrefs.settings?.confirmDeleteHistory ?? true,
       confirmDeleteCurrent: savedPrefs.settings?.confirmDeleteCurrent ?? true,
-      openaiImageQuality: savedPrefs.settings?.openaiImageQuality
+      openaiImageQuality: savedPrefs.settings?.openaiImageQuality,
+      openaiImageBackground: savedPrefs.settings?.openaiImageBackground
     },
     presets: Array.isArray(savedPrefs.presets)
       ? (savedPrefs.presets as any[]).filter(p => p && typeof p.id === 'string' && typeof p.name === 'string') as ToolbarPreset[]

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-09-08
+
+### Added
+
+- Added an OpenAI **Background** toolbar control (Auto / Opaque / Transparent) for GPT Image 2, GPT Image 2.5 Sunburst, and GPT Image 2.5 Flare. Transparent requests send `background=transparent` and prefer PNG output so alpha is preserved.
+
+### Changed
+
+- Wired background through BYOK OpenAI generation and refine, credit-funded OpenRouter fulfillment, and the agent generate endpoint via a shared `supportsOpenAIBackground` helper (not limited to `openai-2` alone).
+
 ## [0.31.1] - 2026-09-08
 
 ### Fixed

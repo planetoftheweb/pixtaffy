@@ -1,3 +1,10 @@
+import {
+  supportsOpenAIBackgroundOpenRouterSlug,
+  TRANSPARENCY_PROMPT_HINT,
+  normalizeOpenAIImageBackground,
+  type OpenAIImageBackground,
+} from "./openaiImageBackground";
+
 export interface OpenRouterImageResult {
   base64Data: string;
   mimeType: string;
@@ -30,14 +37,25 @@ export async function generateOpenRouterImageCore(input: {
   aspectRatio?: string;
   user?: string;
   title?: string;
+  /** GPT Image 2 / 2.5 via OpenRouter — maps to images API `background`. */
+  background?: OpenAIImageBackground;
 }): Promise<OpenRouterImageResult> {
   const aspect = (input.aspectRatio || "").trim().replace(/_/g, ":").replace(/\s+/g, "");
+  let prompt = input.prompt;
+  const background = normalizeOpenAIImageBackground(input.background);
+  const supportsTransparency = supportsOpenAIBackgroundOpenRouterSlug(input.modelSlug);
+  if (supportsTransparency && background === "transparent") {
+    prompt = `${TRANSPARENCY_PROMPT_HINT}\n\n${prompt}`;
+  }
   const baseBody: Record<string, unknown> = {
     model: input.modelSlug,
-    prompt: input.prompt,
+    prompt,
     output_format: "png",
     ...(input.user ? { user: input.user } : {}),
   };
+  if (supportsTransparency && background !== "auto") {
+    baseBody.background = background;
+  }
   const sizes = SIZES_BY_ASPECT[aspect];
   const attempts: Array<Record<string, unknown>> = sizes
     ? [{ ...baseBody, size: sizes[0] }, { ...baseBody, size: sizes[1] }, { ...baseBody, aspect_ratio: aspect }]

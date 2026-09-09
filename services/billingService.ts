@@ -127,6 +127,7 @@ export const billingService = {
     modelId: string;
     prompt: string;
     aspectRatio: string;
+    background?: 'auto' | 'opaque' | 'transparent';
     idempotencyKey: string;
     batchReservationId?: string | null;
   }): Promise<GeneratedImage & { milliCreditsCharged: number; balanceMilliCredits: number }> => {
@@ -144,6 +145,7 @@ export const billingService = {
     modelId: string;
     prompt: string;
     aspectRatio: string;
+    background?: 'auto' | 'opaque' | 'transparent';
   }): Promise<GeneratedImage & { modelId: string; milliCreditsCharged: number; balanceMilliCredits: number }> => {
     if (!auth.currentUser?.isAnonymous) {
       throw new Error('Start a guest session before using guest credits.');

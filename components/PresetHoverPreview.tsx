@@ -10,6 +10,7 @@ export interface PresetLabels {
   svgMode?: string;
   model?: string;
   quality?: string;
+  background?: string;
   /** Free-text art direction the preset carries (customInstructions). */
   instructions?: string;
   /** Newest generation made with matching settings — the "what you'll get"
@@ -79,6 +80,7 @@ export const PresetHoverPreview: React.FC<PresetHoverPreviewProps> = ({
     { key: 'svgMode', label: 'SVG mode', value: labels.svgMode || '' },
     { key: 'model', label: 'Model', value: labels.model || '' },
     { key: 'quality', label: 'Quality', value: labels.quality || '' },
+    { key: 'background', label: 'Background', value: labels.background || '' },
   ].filter((r) => !!r.value);
   const instructions = labels.instructions?.trim() || '';
   const [sampleFailed, setSampleFailed] = useState(false);

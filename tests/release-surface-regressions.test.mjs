@@ -290,6 +290,30 @@ test('What’s New keeps only substantial public launches with modern distinct a
 });
 
 
+test('OpenAI background control covers GPT Image 2 and 2.5 family', () => {
+  const helper = read('utils/openaiImageBackground.ts');
+  const controlPanel = read('components/ControlPanel.tsx');
+  const openaiService = read('services/openaiService.ts');
+  const agent = read('functions/src/agentGenerateImage.ts');
+  const paidAi = read('functions/src/paidAi.ts');
+  const openRouter = read('functions/src/openRouterProvider.ts');
+
+  assert.match(helper, /export const supportsOpenAIBackground/);
+  assert.match(helper, /openai-2\.5/);
+  assert.match(helper, /openai-flare/);
+  assert.doesNotMatch(helper, /openai-mini'\)\s*\|\|/);
+
+  assert.match(controlPanel, /supportsOpenAIBackground\(selectedModel\)/);
+  assert.match(controlPanel, /subLabel="Background"/);
+  assert.match(openaiService, /applyOpenAIBackgroundParams/);
+  assert.match(openaiService, /body\.background = background/);
+  assert.match(openaiService, /output_format = 'png'/);
+
+  assert.match(agent, /background: supportsOpenAIBackground\(selectedModel\)/);
+  assert.match(paidAi, /background: supportsOpenAIBackground\(modelId\)/);
+  assert.match(openRouter, /baseBody\.background = background/);
+});
+
 test('GPT Image 2.5 provider resolution and model snap-back guards stay wired', () => {
   // Client BYOK must treat openai-2.5 / openai-flare as OpenAI-family models.
   // Missing them made getApiKeyForModel return undefined, and App's no-key

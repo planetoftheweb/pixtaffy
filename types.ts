@@ -419,6 +419,11 @@ export interface ToolbarPreset {
   svgMode?: SvgMode;
   selectedModel?: string;
   openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
+  /**
+   * OpenAI GPT Image background: 'auto' | 'opaque' | 'transparent'.
+   * Consumed by openai-2 / openai-2.5 / openai-flare (gpt-image-2 and 2.5 family).
+   */
+  openaiImageBackground?: 'auto' | 'opaque' | 'transparent';
   /** Free-text art direction this preset carries — applied to the toolbar's
    * active instructions when the preset is applied (see
    * GenerationConfig.customInstructions). */
@@ -438,6 +443,12 @@ export interface UserSettings {
    * Consumed by GPT Image 2 / 2.5 and gpt-image-1-mini; gpt-image-1.5 ignores it.
    */
   openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
+  /**
+   * OpenAI GPT Image background: 'auto' | 'opaque' | 'transparent'.
+   * Maps to images.generate `background`. Transparent requires PNG/WebP output.
+   * Supported on openai-2 / openai-2.5 / openai-flare.
+   */
+  openaiImageBackground?: 'auto' | 'opaque' | 'transparent';
 }
 
 export interface User {
