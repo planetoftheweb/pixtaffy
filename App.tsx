@@ -29,6 +29,11 @@ import {
   type OpenAIImageBackground,
   OPENAI_BACKGROUND_SET,
 } from './utils/openaiImageBackground';
+import {
+  readPreferStudioFlag,
+  shouldStartInWelcomeMode,
+  writePreferStudioFlag,
+} from './utils/welcomeMode';
 import { getApiKeyForModelFromUser, getOpenRouterKeyFromUser } from './services/correctionAnalysisRouter';
 import { generateOpenRouterImage } from './services/openRouterService';
 import { generateSvg, refineSvg } from './services/svgService';
@@ -367,13 +372,16 @@ const App: React.FC = () => {
   const [whatsNewEntryId, setWhatsNewEntryId] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get('whatsnew')
   );
-  // The public welcome page is the first paint for both guests and returning
-  // members. Firebase session restoration happens beside it, never in front of
-  // it. Explicit billing deep links are the one exception.
-  const [welcomeMode, setWelcomeMode] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return !params.has('billing') && !params.has('checkout') && !params.has('whatsnewpage') && !params.has('whatsnew');
-  });
+  // The public welcome page is the first paint for first-time visitors.
+  // After the user enters the studio (or starts a generation), prefer studio
+  // on refresh via localStorage. Billing / checkout / what's new deep links
+  // still skip welcome. Firebase session restoration happens beside it.
+  const [welcomeMode, setWelcomeMode] = useState(() =>
+    shouldStartInWelcomeMode({
+      search: window.location.search,
+      preferStudio: readPreferStudioFlag(),
+    })
+  );
   
   // Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -1652,6 +1660,7 @@ const App: React.FC = () => {
   };
 
   const enterStudioFromWelcome = useCallback(() => {
+    writePreferStudioFlag();
     setWelcomeMode(false);
     setSettingsMode(false);
     setBillingMode(false);
@@ -1736,6 +1745,10 @@ const App: React.FC = () => {
       if (!config.prompt.trim()) {
         throw new Error('Enter a prompt before generating.');
       }
+
+      // Mid-run refresh cannot restore in-flight jobs, but the view should
+      // still open the studio instead of the welcome page.
+      writePreferStudioFlag();
 
       if (!user) {
         const guestModelCost = SITE_FUNDED_MODEL_MILLICREDITS[selectedModel];
