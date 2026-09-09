@@ -7,6 +7,10 @@ const normalizeOpenAIImageQuality = (
   q: ToolbarPreset['openaiImageQuality']
 ): NonNullable<ToolbarPreset['openaiImageQuality']> => q ?? 'auto';
 
+const normalizeOpenAIImageBackground = (
+  b: ToolbarPreset['openaiImageBackground']
+): NonNullable<ToolbarPreset['openaiImageBackground']> => b ?? 'auto';
+
 /**
  * True when the live toolbar would write a different snapshot than `preset`
  * currently stores.
@@ -24,6 +28,8 @@ export const presetToolbarDiffersFromSnapshot = (
     (preset.selectedModel || undefined) !== (current.selectedModel || undefined) ||
     normalizeOpenAIImageQuality(preset.openaiImageQuality) !==
       normalizeOpenAIImageQuality(current.openaiImageQuality) ||
+    normalizeOpenAIImageBackground(preset.openaiImageBackground) !==
+      normalizeOpenAIImageBackground(current.openaiImageBackground) ||
     (preset.customInstructions?.trim() || undefined) !==
       (current.customInstructions?.trim() || undefined)
   );
@@ -47,6 +53,7 @@ export const sanitizeToolbarPreset = (raw: unknown): ToolbarPreset | null => {
   if (p.svgMode) preset.svgMode = p.svgMode;
   if (p.selectedModel) preset.selectedModel = p.selectedModel;
   if (p.openaiImageQuality) preset.openaiImageQuality = p.openaiImageQuality;
+  if (p.openaiImageBackground) preset.openaiImageBackground = p.openaiImageBackground;
   if (typeof p.customInstructions === 'string' && p.customInstructions.trim()) {
     preset.customInstructions = p.customInstructions.trim().slice(0, 2000);
   }

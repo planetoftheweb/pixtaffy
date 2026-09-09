@@ -1,0 +1,35 @@
+/**
+ * OpenAI Images API `background` for GPT Image models that support alpha.
+ * Docs: gpt-image-2 and gpt-image-2.5-* accept auto | opaque | transparent.
+ * Transparent output must use png or webp (not jpeg).
+ */
+
+export type OpenAIImageBackground = 'auto' | 'opaque' | 'transparent';
+
+export const OPENAI_BACKGROUND_VALUES: readonly OpenAIImageBackground[] = [
+  'auto',
+  'opaque',
+  'transparent',
+] as const;
+
+export const OPENAI_BACKGROUND_SET = new Set<OpenAIImageBackground>(OPENAI_BACKGROUND_VALUES);
+
+/** UI model ids that expose Background and may send `background` to the API. */
+export const supportsOpenAIBackground = (modelId: string): boolean =>
+  modelId === 'openai-2' ||
+  modelId === 'openai-2.5' ||
+  modelId === 'openai-flare' ||
+  modelId === 'openrouter:openai/gpt-image-2' ||
+  /(?:^|\/)gpt-image-2(?:$|[.-])/.test(modelId);
+
+/** Native OpenAI API model ids that accept `background`. */
+export const supportsOpenAIBackgroundApiModel = (apiModel: string): boolean =>
+  apiModel === 'gpt-image-2' || apiModel.startsWith('gpt-image-2.5-');
+
+export const normalizeOpenAIImageBackground = (
+  value: string | null | undefined
+): OpenAIImageBackground =>
+  value === 'opaque' || value === 'transparent' ? value : 'auto';
+
+export const TRANSPARENCY_PROMPT_HINT =
+  'Use a fully transparent background (alpha). Do not paint a backdrop, scene, floor, sky, or solid fill behind the subject.';

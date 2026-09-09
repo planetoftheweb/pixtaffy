@@ -17,6 +17,10 @@ import {
 import { AI_ASSIST_MILLICREDITS, getPaidModelPrice, paidModelPrices, type AiAssistAction } from "./pricing";
 import { generateOpenRouterImageCore } from "./openRouterProvider";
 import {
+  normalizeOpenAIImageBackground,
+  supportsOpenAIBackground,
+} from "./openaiImageBackground";
+import {
   canReserveGuestCredits,
   DEFAULT_GUEST_MODEL_ID,
   guestBalanceMilliCredits,
@@ -419,6 +423,9 @@ export const generateGuestImage = onCall(
     }
     const idempotencyKey = validateIdempotencyKey(request.data?.idempotencyKey);
     const aspectRatio = String(request.data?.aspectRatio ?? "1:1").slice(0, 12);
+    const background = normalizeOpenAIImageBackground(
+      String(request.data?.background ?? "auto").toLowerCase(),
+    );
     const modelId = String(request.data?.modelId ?? DEFAULT_GUEST_MODEL_ID);
     const cached = await readPaidDelivery(uid, idempotencyKey).catch((error) => {
       logger.error("Guest delivery lookup failed", { error });
@@ -448,6 +455,7 @@ export const generateGuestImage = onCall(
         modelSlug: pricing.openRouterModelId,
         prompt,
         aspectRatio,
+        background: supportsOpenAIBackground(modelId) ? background : "auto",
         user: createHash("sha256").update(`pixtaffy-guest:${uid}`).digest("hex"),
         title: "PixTaffy Guest Image",
       });
@@ -532,6 +540,9 @@ export const generateWithCredits = onCall(
       throw new HttpsError("invalid-argument", "Invalid batch reservation id.");
     }
     const aspectRatio = String(request.data?.aspectRatio ?? "1:1");
+    const background = normalizeOpenAIImageBackground(
+      String(request.data?.background ?? "auto").toLowerCase(),
+    );
     const cached = await readPaidDelivery(uid, idempotencyKey).catch((error) => {
       logger.error("Paid delivery lookup failed", { uidHash: createHash("sha256").update(uid).digest("hex").slice(0, 12), error });
       throw new HttpsError("unavailable", "PixTaffy could not safely check this request. Try again with the same request id.");
@@ -574,6 +585,7 @@ export const generateWithCredits = onCall(
         modelSlug: pricing.openRouterModelId,
         prompt,
         aspectRatio,
+        background: supportsOpenAIBackground(modelId) ? background : "auto",
         user: createHash("sha256").update(`pixtaffy:${uid}`).digest("hex"),
         title: "PixTaffy",
       });

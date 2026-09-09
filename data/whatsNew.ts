@@ -36,7 +36,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     summary:
       'PixTaffy now ships OpenAI GPT Image 2.5 Sunburst and Flare, with Sunburst selected by default.',
     blurb:
-      'OpenAI GPT Image 2.5 is live in PixTaffy. Sunburst is the new flagship for precise editing and generation, and Flare is the fast everyday option. Both support low through max quality. Guests still get three credits, and the default Sunburst run costs two credits so one Standard credit remains.',
+      'OpenAI GPT Image 2.5 is live in PixTaffy. Sunburst is the new flagship for precise editing and generation, and Flare is the fast everyday option. Both support low through max quality, plus Auto/Opaque/Transparent backgrounds for alpha cutouts. Guests still get three credits, and the default Sunburst run costs two credits so one Standard credit remains.',
     publishedAt: Date.parse('2026-09-08T20:00:00Z'),
     version: '0.31.0',
     image: '/whats-new/whatsnew-v0.31.0.webp',
@@ -47,7 +47,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
         body: 'GPT Image 2.5 is selected for new visitors and new accounts. Switch to Flare when you want faster everyday output, or keep GPT Image 2 when you need the previous flagship.',
         steps: [
           { text: 'Open the model menu and choose GPT Image 2.5 or GPT Image 2.5 Flare.', icon: 'Sparkles' },
-          { text: 'Use the Quality control for Auto, Low, Medium, High, XHigh, or Max.', icon: 'Gauge' },
+          { text: 'Use Quality for Auto through Max, and Background for Auto, Opaque, or Transparent cutouts on 2 and 2.5 models.', icon: 'Gauge' },
           { text: 'Bring your own OpenAI key for native 2.5 API calls, or use PixTaffy credits.', icon: 'KeyRound' },
         ],
       },

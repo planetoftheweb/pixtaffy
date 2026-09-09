@@ -15,6 +15,13 @@ import sharp from "sharp";
 import { getStorage } from "firebase-admin/storage";
 import type { Firestore, DocumentReference } from "firebase-admin/firestore";
 import { generateOpenRouterImageCore } from "./openRouterProvider";
+import {
+  normalizeOpenAIImageBackground,
+  supportsOpenAIBackground,
+  supportsOpenAIBackgroundApiModel,
+  TRANSPARENCY_PROMPT_HINT,
+  type OpenAIImageBackground,
+} from "./openaiImageBackground";
 
 const REGION = "us-central1";
 const MAX_BATCH_PROMPTS = 15;
@@ -251,6 +258,7 @@ interface PreferencesShape {
     defaultColorSchemeId?: string;
     defaultAspectRatio?: string;
     openaiImageQuality?: "low" | "medium" | "high" | "xhigh" | "max" | "auto";
+    openaiImageBackground?: OpenAIImageBackground;
   };
   presets?: Array<{
     id: string;
@@ -262,6 +270,7 @@ interface PreferencesShape {
     svgMode?: string;
     selectedModel?: string;
     openaiImageQuality?: "low" | "medium" | "high" | "xhigh" | "max" | "auto";
+    openaiImageBackground?: OpenAIImageBackground;
   }>;
 }
 
@@ -461,17 +470,28 @@ async function generateOpenAIImage(
   structuredPrompt: string,
   cfg: GenerationConfig,
   apiKey: string,
-  opts: { modelId?: string; quality?: "low" | "medium" | "high" | "xhigh" | "max" | "auto"; systemPrompt?: string },
+  opts: {
+    modelId?: string;
+    quality?: "low" | "medium" | "high" | "xhigh" | "max" | "auto";
+    background?: OpenAIImageBackground;
+    systemPrompt?: string;
+  },
 ): Promise<{ base64Data: string; mimeType: string }> {
   const apiModel = resolveOpenAiApiModel(opts.modelId);
   const size = aspectToOpenAISize(apiModel, normalizeAspectRatio(cfg.aspectRatio));
 
   const quality = opts.quality || "auto";
+  const background = normalizeOpenAIImageBackground(opts.background);
   const systemPrompt = opts.systemPrompt?.trim();
 
-  let fullPrompt = structuredPrompt;
+  let effectivePrompt = structuredPrompt;
+  if (supportsOpenAIBackgroundApiModel(apiModel) && background === "transparent") {
+    effectivePrompt = `${TRANSPARENCY_PROMPT_HINT}\n\n${structuredPrompt}`;
+  }
+
+  let fullPrompt = effectivePrompt;
   if (systemPrompt) {
-    fullPrompt = `${systemPrompt}\n\n${structuredPrompt}`;
+    fullPrompt = `${systemPrompt}\n\n${effectivePrompt}`;
   }
 
   const body: Record<string, unknown> = {
@@ -481,6 +501,12 @@ async function generateOpenAIImage(
   };
   if (apiModel !== "gpt-image-1.5" && quality !== "auto") {
     body.quality = quality;
+  }
+  if (supportsOpenAIBackgroundApiModel(apiModel) && background !== "auto") {
+    body.background = background;
+    if (background === "transparent") {
+      body.output_format = "png";
+    }
   }
 
   const response = await fetch("https://api.openai.com/v1/images/generations", {
@@ -807,6 +833,7 @@ interface AgentBody {
     selectedModel: string;
     svgMode: string;
     openaiImageQuality: "low" | "medium" | "high" | "xhigh" | "max" | "auto";
+    openaiImageBackground: OpenAIImageBackground;
     /** Delivered file format; defaults to "webp" (lossless, same resolution, smaller). */
     outputFormat: OutputFormat;
   }>;
@@ -1216,7 +1243,18 @@ export const agentGenerateImage = onRequest(
         prefs?.settings?.openaiImageQuality ||
         "auto";
 
-      const outputFormatRaw = String(ov.outputFormat || "webp").toLowerCase();
+      const openAIBackground = normalizeOpenAIImageBackground(
+        ov.openaiImageBackground ||
+          presetMatch?.openaiImageBackground ||
+          prefs?.settings?.openaiImageBackground ||
+          "auto",
+      );
+
+      let outputFormatRaw = String(ov.outputFormat || "webp").toLowerCase();
+      // JPEG cannot carry alpha; force an alpha-capable format when transparent.
+      if (openAIBackground === "transparent" && outputFormatRaw === "jpeg") {
+        outputFormatRaw = "png";
+      }
       if (!OUTPUT_FORMATS.includes(outputFormatRaw as OutputFormat)) {
         sendJson(out, 400, {
           error: `Unsupported outputFormat "${ov.outputFormat}". Use "webp", "png", or "jpeg".`,
@@ -1282,6 +1320,7 @@ export const agentGenerateImage = onRequest(
             resultImage = await generateOpenAIImage(structured, config, apiKey, {
               modelId: selectedModel,
               quality: openAIQuality,
+              background: supportsOpenAIBackground(selectedModel) ? openAIBackground : "auto",
               systemPrompt: systemCombined,
             });
           } else if (

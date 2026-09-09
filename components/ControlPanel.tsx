@@ -46,6 +46,7 @@ import {
   Pause,
   MousePointer2,
   Gauge,
+  SquareDashed,
   GitCompare,
   Check as CheckIcon,
   KeyRound,
@@ -54,6 +55,7 @@ import {
   BookmarkPlus,
   MoreHorizontal,
 } from 'lucide-react';
+import { supportsOpenAIBackground } from '../utils/openaiImageBackground';
 import { RichSelect } from './RichSelect';
 import { useConfirmAction } from '../hooks/useConfirmAction';
 import { AnchorRect, PresetActionPopover } from './PresetActionPopover';
@@ -66,10 +68,15 @@ const normalizeOpenAIImageQuality = (
   q: ToolbarPreset['openaiImageQuality']
 ): NonNullable<ToolbarPreset['openaiImageQuality']> => q ?? 'auto';
 
+const normalizeOpenAIImageBackground = (
+  b: ToolbarPreset['openaiImageBackground']
+): NonNullable<ToolbarPreset['openaiImageBackground']> => b ?? 'auto';
+
 /**
  * True when the live toolbar would write a different snapshot than `preset`
- * currently stores. OpenAI quality treats missing preset value like `auto`
- * so older presets without that field don't look perpetually "modified".
+ * currently stores. OpenAI quality/background treat missing preset values
+ * like `auto` so older presets without those fields don't look perpetually
+ * "modified".
  */
 const presetToolbarDiffersFromSnapshot = (
   preset: ToolbarPreset,
@@ -83,7 +90,9 @@ const presetToolbarDiffersFromSnapshot = (
     preset.svgMode !== current.svgMode ||
     (preset.selectedModel || undefined) !== (current.selectedModel || undefined) ||
     normalizeOpenAIImageQuality(preset.openaiImageQuality) !==
-      normalizeOpenAIImageQuality(current.openaiImageQuality)
+      normalizeOpenAIImageQuality(current.openaiImageQuality) ||
+    normalizeOpenAIImageBackground(preset.openaiImageBackground) !==
+      normalizeOpenAIImageBackground(current.openaiImageBackground)
   );
 };
 
@@ -127,6 +136,9 @@ interface ControlPanelProps {
   }>;
   openaiQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
   onOpenAIQualityChange?: (quality: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto') => void;
+  /** GPT Image 2 / 2.5 family (not mini / 1.5). */
+  openaiBackground?: 'auto' | 'opaque' | 'transparent';
+  onOpenAIBackgroundChange?: (background: 'auto' | 'opaque' | 'transparent') => void;
   /**
    * Full set of models picked for the next Generate click. When length > 1,
    * the app fans out the batch generation across every selected model and
@@ -571,6 +583,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   extraModels = [],
   openaiQuality = 'auto',
   onOpenAIQualityChange,
+  openaiBackground = 'auto',
+  onOpenAIBackgroundChange,
   selectedModelIds,
   onModelIdsChange,
   setupRequired = false,
@@ -807,6 +821,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       svgMode: config.svgMode,
       selectedModel,
       openaiImageQuality: openaiQuality,
+      openaiImageBackground: openaiBackground,
     }),
     [
       config.graphicTypeId,
@@ -816,6 +831,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       config.svgMode,
       selectedModel,
       openaiQuality,
+      openaiBackground,
     ]
   );
 
@@ -2369,6 +2385,60 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         <div className="flex flex-col flex-1">
                           <span className="font-medium">{q.label}</span>
                           <span className={`text-xs ${isSel ? 'text-brand-teal/80' : 'text-slate-500 dark:text-slate-400'}`}>{q.desc}</span>
+                        </div>
+                        {isSel && <CheckIcon size={14} className="text-brand-teal shrink-0" />}
+                      </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Background (GPT Image 2 / 2.5 family — transparent PNG/WebP alpha) */}
+            {supportsOpenAIBackground(selectedModel) && onOpenAIBackgroundChange && (
+              <div className="relative">
+                <DropdownButton
+                  icon={SquareDashed}
+                  subLabel="Background"
+                  label={
+                    openaiBackground === 'auto'
+                      ? 'Auto'
+                      : openaiBackground === 'transparent'
+                        ? 'Transparent'
+                        : 'Opaque'
+                  }
+                  isActive={activeDropdown === 'background'}
+                  onClick={() => toggleDropdown('background')}
+                  dropdownName="background"
+                  accentClass="text-orange-700 dark:text-brand-orange"
+                />
+                {activeDropdown === 'background' && (
+                  <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                    {([
+                      { id: 'auto' as const, label: 'Auto', desc: 'Model picks the best' },
+                      { id: 'opaque' as const, label: 'Opaque', desc: 'Solid filled background' },
+                      { id: 'transparent' as const, label: 'Transparent', desc: 'Alpha PNG / WebP' }
+                    ]).map((b) => {
+                      const isSel = openaiBackground === b.id;
+                      return (
+                      <button
+                        key={b.id}
+                        onClick={() => {
+                          onOpenAIBackgroundChange(b.id);
+                          setActiveDropdown(null);
+                        }}
+                        aria-selected={isSel}
+                        className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 transition-colors ${
+                          isSel
+                            ? 'bg-brand-teal/10 text-brand-teal font-semibold border-l-2 border-brand-teal'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] border-l-2 border-transparent'
+                        }`}
+                      >
+                        <SquareDashed size={14} className={isSel ? 'text-brand-teal' : 'text-slate-500 dark:text-slate-400'} />
+                        <div className="flex flex-col flex-1">
+                          <span className="font-medium">{b.label}</span>
+                          <span className={`text-xs ${isSel ? 'text-brand-teal/80' : 'text-slate-500 dark:text-slate-400'}`}>{b.desc}</span>
                         </div>
                         {isSel && <CheckIcon size={14} className="text-brand-teal shrink-0" />}
                       </button>

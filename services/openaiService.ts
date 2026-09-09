@@ -8,6 +8,11 @@ import {
   type CorrectionAnalysisContext,
   type ExpandPromptContext,
 } from './correctionAnalysisShared';
+import {
+  supportsOpenAIBackgroundApiModel,
+  TRANSPARENCY_PROMPT_HINT,
+  type OpenAIImageBackground as SharedOpenAIImageBackground,
+} from '../utils/openaiImageBackground';
 
 const base64ToImageBlob = (base64Data: string, mimeType: string): Blob => {
   const normalized = base64Data.replace(/\s+/g, '');
@@ -46,6 +51,23 @@ ${colors ? `- Brand palette (hex — colors to paint WITH, never to be drawn as 
 };
 
 export type OpenAIImageQuality = 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
+export type OpenAIImageBackground = SharedOpenAIImageBackground;
+
+const applyOpenAIBackgroundParams = (
+  body: Record<string, unknown>,
+  apiModel: string,
+  background?: OpenAIImageBackground
+): void => {
+  if (!supportsOpenAIBackgroundApiModel(apiModel) || !background || background === 'auto') {
+    return;
+  }
+  body.background = background;
+  if (background === 'transparent') {
+    // JPEG rejects transparency (400). Prefer PNG; omit output_compression.
+    body.output_format = 'png';
+  }
+};
+
 
 /**
  * Error thrown when OpenAI's /v1/images/generations endpoint rejects a call.
@@ -200,6 +222,11 @@ export interface OpenAIGenerateOptions {
   modelId?: string;
   /** low | medium | high | xhigh | max | auto. Defaults to 'auto'. */
   quality?: OpenAIImageQuality;
+  /**
+   * auto | opaque | transparent. Defaults to 'auto'.
+   * Only sent for gpt-image-2 / gpt-image-2.5-*; transparent forces output_format png.
+   */
+  background?: OpenAIImageBackground;
   systemPrompt?: string;
 }
 
@@ -221,11 +248,17 @@ export const generateOpenAIImage = async (
 
   const size = aspectToSize(apiModel, config.aspectRatio);
   const quality: OpenAIImageQuality = options.quality || 'auto';
+  const background: OpenAIImageBackground = options.background || 'auto';
   const systemPrompt = options.systemPrompt;
 
+  let effectivePrompt = prompt;
+  if (supportsOpenAIBackgroundApiModel(apiModel) && background === 'transparent') {
+    effectivePrompt = `${TRANSPARENCY_PROMPT_HINT}\n\n${prompt}`;
+  }
+
   const fullPrompt = systemPrompt && systemPrompt.trim()
-    ? `${systemPrompt.trim()}\n\n${prompt}`
-    : prompt;
+    ? `${systemPrompt.trim()}\n\n${effectivePrompt}`
+    : effectivePrompt;
 
   const body: Record<string, unknown> = {
     model: apiModel,
@@ -238,6 +271,7 @@ export const generateOpenAIImage = async (
   if (apiModel !== 'gpt-image-1.5' && quality !== 'auto') {
     body.quality = quality;
   }
+  applyOpenAIBackgroundParams(body, apiModel, background);
 
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
@@ -322,9 +356,13 @@ export const refineOpenAIImage = async (
   const sourceImage = await resolveImageInputForRefinement(currentImage);
   const size = aspectToSize(apiModel, config.aspectRatio);
   const quality: OpenAIImageQuality = options.quality || 'auto';
+  const background: OpenAIImageBackground = options.background || 'auto';
   const systemPrompt = options.systemPrompt?.trim();
 
-  const editInstructions = buildOpenAiRefineEditPrompt(refinementText, config, context);
+  let editInstructions = buildOpenAiRefineEditPrompt(refinementText, config, context);
+  if (supportsOpenAIBackgroundApiModel(apiModel) && background === 'transparent') {
+    editInstructions = `${TRANSPARENCY_PROMPT_HINT}\n\n${editInstructions}`;
+  }
   const prompt =
     systemPrompt && systemPrompt.length > 0
       ? `${systemPrompt}\n\n${editInstructions}`
@@ -338,6 +376,13 @@ export const refineOpenAIImage = async (
 
   if (apiModel !== 'gpt-image-1.5' && quality !== 'auto') {
     formData.append('quality', quality);
+  }
+
+  if (supportsOpenAIBackgroundApiModel(apiModel) && background && background !== 'auto') {
+    formData.append('background', background);
+    if (background === 'transparent') {
+      formData.append('output_format', 'png');
+    }
   }
 
   if (apiModel === 'gpt-image-1.5' || apiModel === 'gpt-image-1-mini') {
