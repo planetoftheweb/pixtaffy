@@ -76,7 +76,7 @@ export const FeatureDemoGrid: React.FC<FeatureDemoGridProps> = ({ className = ''
       return (
         <article
           key={feature.title}
-          className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#111827]"
+          className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-none dark:border-white/10 dark:bg-[#111827]"
         >
           <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-[#10172a]">
             <img
@@ -86,7 +86,7 @@ export const FeatureDemoGrid: React.FC<FeatureDemoGridProps> = ({ className = ''
               className="h-full w-full object-cover"
             />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#080d18]/75 to-transparent" />
-            <div className="absolute bottom-4 left-4 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-[#080d18]/75 shadow-lg backdrop-blur">
+            <div className="absolute bottom-4 left-4 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-[#080d18]/75 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.45)] backdrop-blur">
               <Icon size={21} className={feature.accent} />
             </div>
           </div>
