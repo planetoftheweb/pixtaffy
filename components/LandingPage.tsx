@@ -56,7 +56,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         <div className="mx-auto grid max-w-[1500px] items-center gap-10 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[0.88fr_1.12fr] lg:px-12 lg:py-24 xl:gap-16">
           <div className="relative z-10 max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand-purple/25 bg-white/75 px-3.5 py-2 text-xs font-black uppercase tracking-[0.16em] text-brand-purple shadow-sm backdrop-blur dark:border-brand-cyan/30 dark:bg-white/5 dark:text-brand-cyan">
+            <div className="inline-flex items-center gap-2 rounded-full border border-brand-purple/25 bg-white/75 px-3.5 py-2 text-xs font-black uppercase tracking-[0.16em] text-brand-purple shadow-none backdrop-blur dark:border-brand-cyan/30 dark:bg-white/5 dark:text-brand-cyan">
               <Sparkles size={14} />
               Your brand&apos;s new creative crew
             </div>
@@ -74,7 +74,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 type="button"
                 onClick={onEnterStudio}
-                className="group inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-red via-brand-pink to-brand-purple px-6 py-3.5 text-base font-black leading-tight text-white shadow-xl shadow-brand-pink/25 transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-brand-pink/30 focus:outline-none focus:ring-4 focus:ring-brand-pink/25"
+                className="group inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-red via-brand-pink to-brand-purple px-6 py-3.5 text-base font-black leading-tight text-white shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#080d18]"
               >
                 <Play size={18} fill="currentColor" />
                 {primaryLabel}
@@ -82,14 +82,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </button>
               <a
                 href="#features"
-                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition hover:border-brand-cyan hover:text-brand-teal dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-cyan dark:hover:text-brand-cyan"
+                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition-colors duration-150 hover:border-brand-cyan hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-cyan dark:hover:text-brand-cyan dark:focus-visible:ring-offset-[#080d18]"
               >
                 Explore features
               </a>
               <button
                 type="button"
                 onClick={onViewPricing}
-                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition hover:border-brand-pink hover:text-brand-pink dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-pink"
+                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition-colors duration-150 hover:border-brand-pink hover:text-brand-pink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-pink dark:focus-visible:ring-offset-[#080d18]"
               >
                 Pricing
               </button>
@@ -106,7 +106,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           <div className="relative mx-auto w-full max-w-4xl lg:mx-0">
             <div className="absolute inset-x-[10%] bottom-[2%] h-[18%] rounded-[50%] bg-slate-950/25 blur-2xl dark:bg-black/60" />
-            <div className="relative overflow-hidden rounded-[2rem] border-4 border-white/75 bg-[#10182b] shadow-2xl shadow-brand-purple/20 dark:border-white/10 sm:rounded-[2.75rem]">
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/75 bg-[#10182b] shadow-2xl shadow-brand-purple/20 dark:border-white/10 sm:rounded-[2.75rem]">
               <img
                 src="/brand/pixtaffy-creative-studio.png"
                 alt="The PixTaffy candy crew making colorful artwork in their creative studio"
@@ -117,7 +117,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <p className="text-[10px] font-black uppercase tracking-[0.17em] text-brand-cyan sm:text-xs">Creative crew at work</p>
                   <p className="truncate text-sm font-bold sm:text-base">Prompt. Generate. Refine. Build.</p>
                 </div>
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-orange to-brand-pink shadow-lg">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-orange to-brand-pink shadow-[0_10px_15px_-3px_rgba(0,0,0,0.35)]">
                   <Zap size={19} fill="currentColor" />
                 </div>
               </div>
@@ -205,7 +205,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               { label: 'Starter bag', value: '10 credits', copy: 'After email verification', color: 'from-brand-cyan to-brand-teal' },
               { label: 'Your own keys', value: 'Free BYOK', copy: 'You control provider usage', color: 'from-brand-pink to-brand-purple' },
             ].map((item) => (
-              <div key={item.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827]">
+              <div key={item.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-none dark:border-white/10 dark:bg-[#111827]">
                 <div className={`h-2 w-16 rounded-full bg-gradient-to-r ${item.color}`} />
                 <p className="mt-5 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{item.label}</p>
                 <p className="pixtaffy-counter mt-2 text-2xl font-extrabold">{item.value}</p>
@@ -227,7 +227,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button
               type="button"
               onClick={onEnterStudio}
-              className="group mt-7 inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-base font-black text-[#751c69] shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/35"
+              className="group mt-7 inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-base font-black text-[#751c69] shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#ff711f]"
             >
               <Sparkles size={18} />
               {primaryLabel}
@@ -236,9 +236,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {!isMember && (
               <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-white/80">
                 <span>Already made something?</span>
-                <button type="button" onClick={onLogin} className="font-black text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">Log in</button>
+                <button type="button" onClick={onLogin} className="inline-flex min-h-[44px] items-center font-black text-white underline decoration-white/40 underline-offset-4 transition-colors duration-150 hover:decoration-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#eb2d65]">Log in</button>
                 <span aria-hidden="true">or</span>
-                <button type="button" onClick={onSignUp} className="font-black text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">create an account</button>
+                <button type="button" onClick={onSignUp} className="inline-flex min-h-[44px] items-center font-black text-white underline decoration-white/40 underline-offset-4 transition-colors duration-150 hover:decoration-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#eb2d65]">create an account</button>
               </div>
             )}
           </div>

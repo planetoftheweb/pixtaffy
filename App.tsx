@@ -345,12 +345,8 @@ const ConfigurationErrorScreen: React.FC<{ keys: string[] }> = ({ keys }) => (
 
 const App: React.FC = () => {
   // Theme State
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return true; // Default to dark
-  });
+  // Hard-set dark (DESIGN D-01). index.html ships class="dark"; do not follow OS light preference on boot.
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [settingsMode, setSettingsMode] = useState(false);
   const [catalogMode, setCatalogMode] = useState<'style' | 'color' | null>(null);
   const [adminMode, setAdminMode] = useState(false);
@@ -3800,7 +3796,7 @@ const App: React.FC = () => {
               setWhatsNewEntryId(null);
               setWelcomeMode(false);
             }}
-            className="flex min-w-0 items-center gap-2 rounded-xl sm:gap-3 hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d1117]"
+            className="flex min-h-[44px] min-w-0 items-center gap-2 rounded-xl sm:gap-3 transition-opacity duration-150 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d1117]"
           >
             <img 
               src="/pixtaffy.png"
@@ -3809,7 +3805,7 @@ const App: React.FC = () => {
             />
             <h1
               aria-label="PixTaffy"
-              className="hidden min-[360px]:block whitespace-nowrap text-lg font-normal tracking-[-0.035em] text-slate-900 dark:text-white sm:text-xl"
+              className="whitespace-nowrap text-lg font-normal tracking-[-0.035em] text-slate-900 dark:text-white sm:text-xl"
             >
               <span>Pix</span>
               <span className="bg-gradient-to-r from-brand-orange via-brand-red to-brand-purple bg-clip-text font-black text-transparent">
@@ -4041,13 +4037,13 @@ const App: React.FC = () => {
             <div className="flex items-center gap-3 sm:gap-4">
               <button 
                 onClick={() => openAuthModal('login')}
-                className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:hover:border-brand-teal dark:hover:text-brand-teal"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-[0_10px_15px_-3px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:border-brand-teal hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.45)] dark:hover:border-brand-teal dark:hover:text-brand-teal dark:focus-visible:ring-offset-[#0d1117]"
               >
                 Log In
               </button>
               <button 
                 onClick={() => openAuthModal('signup')}
-                className="text-sm font-bold text-white bg-brand-red hover:bg-red-700 px-4 py-2 rounded-lg shadow-lg shadow-brand-red/20 transition-all active:scale-95 hidden sm:block"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg bg-brand-red px-4 py-2 text-sm font-bold text-white shadow-[0_10px_15px_-3px_rgba(220,38,38,0.35)] transition-all duration-150 hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-[#0d1117]"
               >
                 Sign Up
               </button>
@@ -4791,7 +4787,7 @@ const App: React.FC = () => {
               href={GITHUB_CHANGELOG_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal transition-colors duration-150 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
             >
               Changelog
             </a>
@@ -4802,7 +4798,7 @@ const App: React.FC = () => {
               href={GITHUB_RELEASES_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal transition-colors duration-150 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
             >
               Releases
             </a>
@@ -4812,7 +4808,7 @@ const App: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsFeedbackOpen(true)}
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal transition-colors duration-150 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
             >
               Feedback
             </button>
