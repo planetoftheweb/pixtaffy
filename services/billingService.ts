@@ -218,9 +218,15 @@ export const billingService = {
   },
 
   startCheckout: async (productId: 'credits_25' | 'credits_100' | 'credits_300' | 'pro_monthly'): Promise<void> => {
-    const call = httpsCallable<{ productId: string; origin: string }, { sessionId: string }>(functions, 'createCheckout');
+    const call = httpsCallable<{ productId: string; origin: string }, { sessionId: string; url?: string }>(functions, 'createCheckout');
     const response = await call({ productId, origin: window.location.origin });
-    const sessionId = response.data.sessionId;
+    const { sessionId, url } = response.data;
+
+    if (url) {
+      window.location.assign(url);
+      return;
+    }
+
     await new Promise<void>((resolve, reject) => {
       const timer = window.setTimeout(() => {
         unsubscribe();
@@ -253,7 +259,7 @@ export const billingService = {
   openCustomerPortal: async (): Promise<void> => {
     const call = httpsCallable<{ returnUrl: string }, { url: string }>(
       functions,
-      'ext-firestore-stripe-payments-createPortalLink'
+      'createPortalLink'
     );
     const response = await call({ returnUrl: `${window.location.origin}/?billing=1` });
     if (!response.data.url) throw new Error('Stripe customer portal is unavailable.');

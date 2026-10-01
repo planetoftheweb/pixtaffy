@@ -1,6 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest, type CallableRequest } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
@@ -19,6 +18,7 @@ import {
 } from "./billingCore";
 import { getPaidModelPrice } from "./pricing";
 import { readPaidAssistDelivery, readPaidDelivery } from "./paidDelivery";
+import { createCheckoutSession } from "./stripeSync";
 
 const REGION = "us-central1";
 const ALLOWED_ORIGINS: Array<string | RegExp> = [
@@ -38,6 +38,7 @@ const callableOptions = {
 };
 
 const stripeBillingEventsSecret = defineSecret("PIXTAFFY_STRIPE_EVENTS_WEBHOOK_SECRET");
+const stripeApiKeySecret = defineSecret("STRIPE_API_KEY");
 
 const db = () => admin.firestore();
 const billingRef = (uid: string) => db().doc(`users/${uid}/private/billing`);
@@ -935,7 +936,9 @@ async function findStripePriceId(productId: string): Promise<string | null> {
   return null;
 }
 
-export const createCheckout = onCall(callableOptions, async (request) => {
+export const createCheckout = onCall(
+  { ...callableOptions, secrets: [stripeApiKeySecret] },
+  async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to purchase credits.");
   const productId = String(request.data?.productId ?? "");
@@ -948,17 +951,20 @@ export const createCheckout = onCall(callableOptions, async (request) => {
     throw new HttpsError("invalid-argument", "Invalid checkout return origin.");
   }
   const mode = productId === "pro_monthly" ? "subscription" : "payment";
-  const session = db().collection(`customers/${uid}/checkout_sessions`).doc();
-  await session.set({
+  const firestoreSessionId = db().collection(`customers/${uid}/checkout_sessions`).doc().id;
+
+  const { url } = await createCheckoutSession({
+    uid,
+    firestoreSessionId,
+    priceId: price,
     mode,
-    price,
-    success_url: `${origin}/?checkout=success`,
-    cancel_url: `${origin}/?checkout=canceled`,
-    allow_promotion_codes: true,
+    successUrl: `${origin}/?checkout=success`,
+    cancelUrl: `${origin}/?checkout=canceled`,
+    allowPromotionCodes: true,
     metadata: { pixtaffyProductId: productId },
-    created: FieldValue.serverTimestamp(),
   });
-  return { sessionId: session.id };
+
+  return { sessionId: firestoreSessionId, url };
 });
 
 export const getCreditActivity = onCall(callableOptions, async (request) => {
