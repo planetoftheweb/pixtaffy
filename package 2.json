@@ -1,0 +1,35 @@
+{
+  "name": "brandoit",
+  "private": true,
+  "version": "0.24.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "prebuild": "node scripts/whats-new.mjs check",
+    "build": "vite build",
+    "preview": "vite preview",
+    "whats-new": "node scripts/whats-new.mjs add",
+    "whats-new:check": "node scripts/whats-new.mjs check",
+    "check:no-native-selects": "if grep -R --line-number --include='*.tsx' --include='*.ts' '<select' App.tsx components 2>/dev/null | grep -q .; then echo \"Native <select> found. Use RichSelect.\" && exit 1; else echo \"No native <select> tags found.\"; fi"
+  },
+  "dependencies": {
+    "@google/genai": "^1.33.0",
+    "firebase": "^12.6.0",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.560.0",
+    "mediabunny": "^1.50.0",
+    "mona-sans": "^1.0.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

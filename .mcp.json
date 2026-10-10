@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "brandoit": {
+      "command": "node",
+      "args": [
+        "--env-file=/Users/rayvillalobos/Desktop/Working/coding/Brandoit/mcp/.env",
+        "/Users/rayvillalobos/Desktop/Working/coding/Brandoit/mcp/index.js"
+      ]
+    }
+  }
+}

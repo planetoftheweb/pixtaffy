@@ -1,0 +1,8 @@
+{
+  "at": "2026-08-24T13:00:00Z",
+  "realUi": ["hero-studio-web.png","card-scale-byok.png","benefit-scale-byok.png","card-presets-brand.png","benefit-presets-brand.png","card-animation.png (kept)","card-batch-compare.png (kept)","card-follow-ups.png (kept)"],
+  "fallback": ["card-folders.png <- card-batch-compare.png","benefit-folder-instructions.png <- card-batch-compare.png"],
+  "missing": ["Quality/Background open menus (guest)","Presets bookmark menu (guest; used Colors)","Folder/Inbox dropdown open (needs signed-in gallery)"],
+  "junkDeleted": ["_auth-*.png","_dbg-*.png"],
+  "notes": ["Hero LandingPage title left untouched","No git push","Replaced all ~189KB Opening your studio frames"]
+}
