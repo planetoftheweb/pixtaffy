@@ -5,7 +5,7 @@
       "name": "Frontend (Vite)",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "port": 5230
     },
     {
       "name": "Firebase Emulators",
