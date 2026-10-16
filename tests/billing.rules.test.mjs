@@ -8,7 +8,7 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
 
-const projectId = 'brandoit';
+const projectId = 'demo-pixtaffy';
 let testEnv;
 const registeredContext = (uid, claims = {}) => testEnv.authenticatedContext(uid, {
   firebase: { sign_in_provider: 'password' },

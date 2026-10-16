@@ -271,10 +271,9 @@ export const submitFeedback = onCall(
     const registered = isRegistered(request);
     const contactEmail = validateEmail(request.data?.contactEmail) || (registered ? cleanText(request.auth?.token?.email, 320) : null);
     const screenshotUrl = validateScreenshotUrl(request.data?.screenshotUrl, uid);
-    const profile = request.auth?.token?.admin === true
-      ? null
-      : await db().doc(`users/${uid}`).get().catch(() => null);
-    const isAdmin = request.auth?.token?.admin === true || profile?.data()?.username === "planetoftheweb";
+    // Admin status comes only from the custom claim. The profile `username`
+    // is user-editable, so it must never grant admin behavior.
+    const isAdmin = request.auth?.token?.admin === true;
     const accountHash = `acct_${sha(uid).slice(0, 12)}`;
     const feedback = {
       category: category as FeedbackCategory,
