@@ -77,11 +77,25 @@ service cloud.firestore {
     // ---- Users ------------------------------------------------------------
     // Owner can read/write their own doc. Admins can read/write any user doc.
     // Admins can also list (enables paginated user table on the admin page).
+    // Fields the browser writes on its own profile (authService.ts:
+    // register, ensureUserDocument, recordSignIn, updateUserPreferences,
+    // updateUserProfile). Everything else on the doc (isDisabled, teamIds,
+    // and any future role or billing field) is admin or server only, because
+    // Cloud Functions trust those values.
+    function ownerProfileFields() {
+      return ['name', 'username', 'email', 'preferences', 'createdAt',
+              'lastSignInAt', 'photoURL', 'photoDataUrl'];
+    }
+
     match /users/{uid} {
       allow get:    if isOwner(uid) || isAdmin();
       allow list:   if isAdmin();
-      allow create: if isOwner(uid);
-      allow update: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(ownerProfileFields());
+      allow update: if isAdmin()
+        || (isOwner(uid)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(ownerProfileFields()));
       allow delete: if isAdmin();
 
       // History subcollection is owner-private; admins override.
