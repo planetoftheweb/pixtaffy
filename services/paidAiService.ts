@@ -2,9 +2,9 @@ import type {
   BrandGuidelinesAnalysis,
   GeneratedImage,
   GenerationConfig,
-  GraphicType,
-  VisualStyle,
-  BrandColor,
+  GraphicTypeDefinition,
+  VisualStyleDefinition,
+  BrandColorDefinition,
 } from '../types';
 import type { ImageCorrectionPlan } from './geminiService';
 import type { AutoRegion } from './buildAutoSelect';
@@ -42,14 +42,14 @@ const resolveGeneratedImage = async (image: GeneratedImage): Promise<{ imageBase
 
 const contextText = (
   config?: GenerationConfig,
-  options?: { graphicTypes?: GraphicType[]; visualStyles?: VisualStyle[]; brandColors?: BrandColor[] },
+  options?: { graphicTypes?: GraphicTypeDefinition[]; visualStyles?: VisualStyleDefinition[]; brandColors?: BrandColorDefinition[] },
   systemPrompt?: string,
 ): string => JSON.stringify({ config, options, systemPrompt: systemPrompt?.slice(0, 4_000) });
 
 export const expandPromptPaid = async (
   text: string,
   config?: GenerationConfig,
-  options?: { graphicTypes?: GraphicType[]; visualStyles?: VisualStyle[]; brandColors?: BrandColor[] },
+  options?: { graphicTypes?: GraphicTypeDefinition[]; visualStyles?: VisualStyleDefinition[]; brandColors?: BrandColorDefinition[] },
   systemPrompt?: string,
 ): Promise<string> => billingService.runAiAssist<string>({
   action: 'expand_prompt',
@@ -67,7 +67,7 @@ export const describeImagePaid = async (
 export const analyzeImageForCorrectionPaid = async (
   image: GeneratedImage,
   config?: GenerationConfig,
-  options?: { graphicTypes?: GraphicType[]; visualStyles?: VisualStyle[]; brandColors?: BrandColor[] },
+  options?: { graphicTypes?: GraphicTypeDefinition[]; visualStyles?: VisualStyleDefinition[]; brandColors?: BrandColorDefinition[] },
   systemPrompt?: string,
 ): Promise<ImageCorrectionPlan> => {
   const resolved = await resolveGeneratedImage(image);

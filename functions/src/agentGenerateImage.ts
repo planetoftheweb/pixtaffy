@@ -1122,7 +1122,7 @@ export const agentGenerateImage = onRequest(
           folderNameBody: body.folderName,
           createFolderWithNameBody: body.createFolderWithName,
         });
-        if (!folderRes.ok) {
+        if (folderRes.ok === false) {
           sendJson(out, folderRes.status, folderRes.body);
           return;
         }

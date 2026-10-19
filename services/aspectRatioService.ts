@@ -1,5 +1,5 @@
 import { ASPECT_RATIOS } from '../constants';
-import { AspectRatioOption } from '../types';
+import { AspectRatioDefinition } from '../types';
 
 // Gemini natively supports exactly these 10 ratios (documented by Google).
 export const GEMINI_ALLOWED_ASPECT_RATIOS = [
@@ -111,8 +111,8 @@ const findClosestAspectRatio = (target: string, candidates: string[]): string | 
   return closest;
 };
 
-const dedupeByValue = (ratios: AspectRatioOption[]): AspectRatioOption[] => {
-  const map = new Map<string, AspectRatioOption>();
+const dedupeByValue = (ratios: AspectRatioDefinition[]): AspectRatioDefinition[] => {
+  const map = new Map<string, AspectRatioDefinition>();
   for (const ratio of ratios) {
     const normalized = normalizeAspectRatio(ratio.value);
     if (!normalized || map.has(normalized)) continue;
@@ -124,8 +124,8 @@ const dedupeByValue = (ratios: AspectRatioOption[]): AspectRatioOption[] => {
 const buildFilteredRatios = (
   allowedRatios: readonly string[],
   labels: Record<string, string>,
-  source: AspectRatioOption[]
-): AspectRatioOption[] => {
+  source: AspectRatioDefinition[]
+): AspectRatioDefinition[] => {
   const sourceByValue = new Map(source.map(r => [normalizeAspectRatio(r.value), r]));
   return allowedRatios.map((value) => {
     const existing = sourceByValue.get(value);
@@ -150,14 +150,14 @@ const buildFilteredRatios = (
       voters: [],
       createdAt: 0,
       isSystem: true
-    } as AspectRatioOption;
+    } as AspectRatioDefinition;
   });
 };
 
 export const extractAspectRatioFromText = (
   text: string,
   modelId: string,
-  allRatios: AspectRatioOption[]
+  allRatios: AspectRatioDefinition[]
 ): string | null => {
   const value = (text || '').trim();
   if (!value) return null;
@@ -187,8 +187,8 @@ export const extractAspectRatioFromText = (
  */
 export const getAspectRatiosForModel = (
   modelId: string,
-  allRatios: AspectRatioOption[]
-): AspectRatioOption[] => {
+  allRatios: AspectRatioDefinition[]
+): AspectRatioDefinition[] => {
   const source = dedupeByValue(allRatios?.length ? allRatios : ASPECT_RATIOS);
 
   if (
@@ -218,7 +218,7 @@ export const getAspectRatiosForModel = (
 export const getSafeAspectRatioForModel = (
   modelId: string,
   requestedAspectRatio: string,
-  allRatios: AspectRatioOption[]
+  allRatios: AspectRatioDefinition[]
 ): string => {
   const normalizedRequested = normalizeAspectRatio(requestedAspectRatio);
   const modelRatios = getAspectRatiosForModel(modelId, allRatios);

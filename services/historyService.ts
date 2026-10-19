@@ -935,13 +935,9 @@ export const historyService = {
         );
       }
 
-      const migrated = migrateLegacyHistory();
-      if (migrated instanceof Promise) {
-        return [];
-      }
-      return migrated
-        ? mergeGenerationCollections([migrated.map((item) => normalizeGeneration(item))], LOCAL_LIMIT)
-        : [];
+      // Migration is asynchronous. Synchronous reads stay empty until it finishes.
+      void migrateLegacyHistory();
+      return [];
     } catch (e) {
       console.error("Failed to parse local history:", e);
       return [];

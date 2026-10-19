@@ -34,6 +34,15 @@ export interface AspectRatioOption extends BaseResource {
   value: string; // "1:1", "16:9", etc.
 }
 
+// Built-in definitions and UI choices do not carry Firestore ownership or social metadata.
+export type ResourceDefinition = Pick<BaseResource, 'id' | 'name' | 'icon'> &
+  Partial<Pick<BaseResource, 'scope'>>;
+export type BrandColorDefinition = ResourceDefinition & Pick<BrandColor, 'colors'>;
+export type VisualStyleDefinition = ResourceDefinition & Pick<VisualStyle, 'description' | 'supportedFormats'>;
+export type GraphicTypeDefinition = ResourceDefinition;
+export type AspectRatioDefinition = Pick<AspectRatioOption, 'label' | 'value' | 'icon'> &
+  Partial<Pick<AspectRatioOption, 'id' | 'name'>>;
+
 export type SvgMode = 'static' | 'animated' | 'interactive';
 
 export interface GenerationConfig {
@@ -284,6 +293,11 @@ export interface BrandGuidelinesAnalysis {
 }
 
 export interface UserPreferences {
+  // Legacy in-memory defaults. These arrays are not persisted in preferences.
+  brandColors?: BrandColorDefinition[];
+  visualStyles?: VisualStyleDefinition[];
+  graphicTypes?: GraphicTypeDefinition[];
+  aspectRatios?: AspectRatioDefinition[];
   // References only, actual data stored in resource collections
   geminiApiKey?: string; // Legacy support
   apiKeys?: {

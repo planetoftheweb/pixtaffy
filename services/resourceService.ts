@@ -11,7 +11,7 @@ import {
   and,
   updateDoc
 } from "firebase/firestore";
-import { BrandColor, VisualStyle, GraphicType, AspectRatioOption } from "../types";
+import { BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition } from "../types";
 import { 
   BRAND_COLORS, 
   VISUAL_STYLES, 
@@ -107,10 +107,10 @@ export const resourceService = {
       const brandColors = dbColors.map(d => attachIcon(d, BRAND_COLORS));
 
       return {
-        graphicTypes: graphicTypes as GraphicType[],
-        aspectRatios: aspectRatios as AspectRatioOption[],
-        visualStyles: visualStyles as VisualStyle[],
-        brandColors: brandColors as BrandColor[]
+        graphicTypes: graphicTypes as GraphicTypeDefinition[],
+        aspectRatios: aspectRatios as AspectRatioDefinition[],
+        visualStyles: visualStyles as VisualStyleDefinition[],
+        brandColors: brandColors as BrandColorDefinition[]
       };
 
     } catch (error) {

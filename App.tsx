@@ -4,7 +4,7 @@ import { ImageDisplay } from './components/ImageDisplay';
 import { RecentGenerations } from './components/RecentGenerations';
 import type { GalleryPresetSource } from './components/GalleryPresetMenu';
 import { ToolbarPresetSnapshot } from './utils/toolbarPresetUtils';
-import { GenerationConfig, GeneratedImage, BrandColor, VisualStyle, GraphicType, AspectRatioOption, User, Generation, GenerationVersion, UserSettings, BrandGuidelinesAnalysis, ToolbarPreset, Folder, INBOX_FOLDER_ID, PromptImageStyleReference } from './types';
+import { GenerationConfig, GeneratedImage, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, User, Generation, GenerationVersion, UserSettings, BrandGuidelinesAnalysis, ToolbarPreset, Folder, INBOX_FOLDER_ID, PromptImageStyleReference } from './types';
 import { 
   BRAND_COLORS,
   VISUAL_STYLES,
@@ -442,10 +442,10 @@ const App: React.FC = () => {
   }, [user?.id, user?.emailVerified]);
 
   // Application State for Options (allows adding/removing)
-  const [brandColors, setBrandColors] = useState<BrandColor[]>([]);
-  const [visualStyles, setVisualStyles] = useState<VisualStyle[]>([]);
-  const [graphicTypes, setGraphicTypes] = useState<GraphicType[]>([]);
-  const [aspectRatios, setAspectRatios] = useState<AspectRatioOption[]>([]);
+  const [brandColors, setBrandColors] = useState<BrandColorDefinition[]>([]);
+  const [visualStyles, setVisualStyles] = useState<VisualStyleDefinition[]>([]);
+  const [graphicTypes, setGraphicTypes] = useState<GraphicTypeDefinition[]>([]);
+  const [aspectRatios, setAspectRatios] = useState<AspectRatioDefinition[]>([]);
 
   // Configuration State
   const [config, setConfig] = useState<GenerationConfig>(() => {
@@ -3044,7 +3044,7 @@ const App: React.FC = () => {
 
   const handleConfirmAnalysis = async (selected: BrandGuidelinesAnalysis, scope: 'public' | 'private') => {
     // 1. Prepare items with temporary IDs for immediate UI update
-    const tempColors: BrandColor[] = selected.brandColors.map((c, i) => ({
+    const tempColors: BrandColorDefinition[] = selected.brandColors.map((c, i) => ({
         ...c,
         id: `analyzed-color-${Date.now()}-${i}`,
         authorId: user?.id || 'temp',
@@ -3053,9 +3053,9 @@ const App: React.FC = () => {
         votes: 0,
         voters: [],
         createdAt: Date.now()
-    })) as BrandColor[];
+    })) as BrandColorDefinition[];
 
-    const tempStyles: VisualStyle[] = selected.visualStyles.map((s, i) => ({
+    const tempStyles: VisualStyleDefinition[] = selected.visualStyles.map((s, i) => ({
         ...s,
         id: `analyzed-style-${Date.now()}-${i}`,
         authorId: user?.id || 'temp',
@@ -3064,9 +3064,9 @@ const App: React.FC = () => {
         votes: 0,
         voters: [],
         createdAt: Date.now()
-    })) as VisualStyle[];
+    })) as VisualStyleDefinition[];
 
-    const tempTypes: GraphicType[] = selected.graphicTypes.map((t, i) => ({
+    const tempTypes: GraphicTypeDefinition[] = selected.graphicTypes.map((t, i) => ({
         ...t,
         id: `analyzed-type-${Date.now()}-${i}`,
         authorId: user?.id || 'temp',
@@ -3075,7 +3075,7 @@ const App: React.FC = () => {
         votes: 0,
         voters: [],
         createdAt: Date.now()
-    })) as GraphicType[];
+    })) as GraphicTypeDefinition[];
 
     // 2. Update local state
     if (tempColors.length) setBrandColors(prev => [...tempColors, ...prev]);
@@ -3177,19 +3177,19 @@ const App: React.FC = () => {
 
   const handleImportFromCatalog = (item: any) => {
     if (item.type === 'style') {
-      const newStyle = item.data as VisualStyle;
+      const newStyle = item.data as VisualStyleDefinition;
       if (!visualStyles.find(s => s.id === newStyle.id)) {
         setVisualStyles(prev => [...prev, newStyle]);
       }
       setConfig(prev => ({ ...prev, visualStyleId: newStyle.id }));
     } else if (item.type === 'color') {
-      const newColor = item.data as BrandColor;
+      const newColor = item.data as BrandColorDefinition;
       if (!brandColors.find(c => c.id === newColor.id)) {
         setBrandColors(prev => [...prev, newColor]);
       }
       setConfig(prev => ({ ...prev, colorSchemeId: newColor.id }));
     } else if (item.type === 'type') {
-      const newType = item.data as GraphicType;
+      const newType = item.data as GraphicTypeDefinition;
       if (!graphicTypes.find(t => t.id === newType.id)) {
         setGraphicTypes(prev => [...prev, newType]);
       }
