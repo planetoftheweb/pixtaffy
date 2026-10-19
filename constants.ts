@@ -1,4 +1,4 @@
-import { BrandColor, VisualStyle, GraphicType, AspectRatioOption } from './types';
+import { BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition } from './types';
 import { 
   FileChartColumn, 
   Image, 
@@ -24,7 +24,7 @@ import {
   UsersRound
 } from 'lucide-react';
 
-export const BRAND_COLORS: BrandColor[] = [
+export const BRAND_COLORS: BrandColorDefinition[] = [
   {
     id: 'pixtaffy-candy',
     name: 'PixTaffy Candy',
@@ -61,7 +61,7 @@ export const BRAND_COLORS: BrandColor[] = [
   }
 ];
 
-export const VISUAL_STYLES: VisualStyle[] = [
+export const VISUAL_STYLES: VisualStyleDefinition[] = [
   {
     id: 'pixtaffy-candy-3d',
     name: 'PixTaffy Candy 3D',
@@ -141,7 +141,7 @@ export const VISUAL_STYLES: VisualStyle[] = [
   }
 ];
 
-export const GRAPHIC_TYPES: GraphicType[] = [
+export const GRAPHIC_TYPES: GraphicTypeDefinition[] = [
   { id: 'pixtaffy-character-scene', name: 'PixTaffy Character Scene', icon: UsersRound },
   { id: 'infographic', name: 'Infographic', icon: FileChartColumn },
   { id: 'illustration', name: 'Spot Illustration', icon: Image },
@@ -281,7 +281,7 @@ export const OPENROUTER_CURATED_MODELS: OpenRouterCuratedModel[] = [
   }
 ];
 
-export const ASPECT_RATIOS: AspectRatioOption[] = [
+export const ASPECT_RATIOS: AspectRatioDefinition[] = [
   { label: 'Square (1:1)', value: '1:1', icon: Frame },
   { label: 'Tall Portrait (2:3)', value: '2:3', icon: Smartphone },
   { label: 'Classic Photo (3:2)', value: '3:2', icon: Monitor },

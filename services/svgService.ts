@@ -1,14 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
-import { GenerationConfig, GeneratedImage, BrandColor, VisualStyle, GraphicType, SvgMode } from "../types";
+import { GenerationConfig, GeneratedImage, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, SvgMode } from "../types";
 import {
   formatUserFacingGeminiError,
   stringifyGeminiCallError,
 } from "./geminiTextModelService";
 
 interface SvgGenerationContext {
-  brandColors: BrandColor[];
-  visualStyles: VisualStyle[];
-  graphicTypes: GraphicType[];
+  brandColors: BrandColorDefinition[];
+  visualStyles: VisualStyleDefinition[];
+  graphicTypes: GraphicTypeDefinition[];
 }
 
 const looksLikeGeminiKey = (key: string): boolean =>

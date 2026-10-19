@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { UserSettings, AspectRatioOption, GraphicType, User, Team, VisualStyle, BrandColor } from '../types';
+import { UserSettings, AspectRatioDefinition, GraphicTypeDefinition, User, Team, VisualStyleDefinition, BrandColorDefinition } from '../types';
 import { ArrowLeft, Settings as SettingsIcon, Save, User as UserIcon, Camera, Loader2, Users, Plus, Key, CheckCircle, Layout, PenTool, Palette, Maximize, Sparkles, ChevronDown, X } from 'lucide-react';
 import { uploadProfileImage } from '../services/imageService';
 import { useConfirmAction } from '../hooks/useConfirmAction';
@@ -24,10 +24,10 @@ interface SettingsPageProps {
     apiKeys?: { [modelId: string]: string },
     openRouterModels?: string[]
   ) => void | Promise<void>;
-  graphicTypes: GraphicType[];
-  visualStyles: VisualStyle[];
-  brandColors: BrandColor[];
-  aspectRatios: AspectRatioOption[];
+  graphicTypes: GraphicTypeDefinition[];
+  visualStyles: VisualStyleDefinition[];
+  brandColors: BrandColorDefinition[];
+  aspectRatios: AspectRatioDefinition[];
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({

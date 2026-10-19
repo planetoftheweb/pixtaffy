@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { GenerationConfig, BrandColor, VisualStyle, GraphicType, AspectRatioOption, User, Team, SvgMode, ToolbarPreset, GeneratedImage, PromptImageStyleInfluenceMode, PromptImageStyleReference } from '../types';
+import { GenerationConfig, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, User, Team, SvgMode, ToolbarPreset, GeneratedImage, PromptImageStyleInfluenceMode, PromptImageStyleReference } from '../types';
 import { analyzeFileOptionPaid, describeImagePaid, expandPromptPaid } from '../services/paidAiService';
 import { SITE_FUNDED_MODEL_MILLICREDITS } from '../services/billingService';
 import { resourceService } from '../services/resourceService';
@@ -106,16 +106,16 @@ interface ControlPanelProps {
   guestBalanceMilliCredits?: number;
   isGenerating: boolean;
   options: {
-    brandColors: BrandColor[];
-    visualStyles: VisualStyle[];
-    graphicTypes: GraphicType[];
-    aspectRatios: AspectRatioOption[];
+    brandColors: BrandColorDefinition[];
+    visualStyles: VisualStyleDefinition[];
+    graphicTypes: GraphicTypeDefinition[];
+    aspectRatios: AspectRatioDefinition[];
   };
   setOptions: {
-    setBrandColors: React.Dispatch<React.SetStateAction<BrandColor[]>>;
-    setVisualStyles: React.Dispatch<React.SetStateAction<VisualStyle[]>>;
-    setGraphicTypes: React.Dispatch<React.SetStateAction<GraphicType[]>>;
-    setAspectRatios: React.Dispatch<React.SetStateAction<AspectRatioOption[]>>;
+    setBrandColors: React.Dispatch<React.SetStateAction<BrandColorDefinition[]>>;
+    setVisualStyles: React.Dispatch<React.SetStateAction<VisualStyleDefinition[]>>;
+    setGraphicTypes: React.Dispatch<React.SetStateAction<GraphicTypeDefinition[]>>;
+    setAspectRatios: React.Dispatch<React.SetStateAction<AspectRatioDefinition[]>>;
   };
   onUploadGuidelines: (file: File) => void;
   isAnalyzing: boolean;
@@ -1629,10 +1629,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         if (user) {
            if (editingId) {
              const updated = await resourceService.updateCustomItem('graphic_types', editingId, newType);
-             setOptions.setGraphicTypes(prev => prev.map(x => x.id === editingId ? { ...x, ...updated } as GraphicType : x));
+             setOptions.setGraphicTypes(prev => prev.map(x => x.id === editingId ? { ...x, ...updated } as GraphicTypeDefinition : x));
            } else {
              const saved = await resourceService.addCustomItem('graphic_types', newType, user.id, itemScope, selectedTeamId);
-             setOptions.setGraphicTypes(prev => [...prev, saved as GraphicType]);
+             setOptions.setGraphicTypes(prev => [...prev, saved as GraphicTypeDefinition]);
              handleChange('graphicTypeId', saved.id);
            }
         }
@@ -1642,10 +1642,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         if (user) {
            if (editingId) {
              const updated = await resourceService.updateCustomItem('visual_styles', editingId, newStyle);
-             setOptions.setVisualStyles(prev => prev.map(x => x.id === editingId ? { ...x, ...updated } as VisualStyle : x));
+             setOptions.setVisualStyles(prev => prev.map(x => x.id === editingId ? { ...x, ...updated } as VisualStyleDefinition : x));
            } else {
              const saved = await resourceService.addCustomItem('visual_styles', newStyle, user.id, itemScope, selectedTeamId);
-             setOptions.setVisualStyles(prev => [...prev, saved as VisualStyle]);
+             setOptions.setVisualStyles(prev => [...prev, saved as VisualStyleDefinition]);
              handleChange('visualStyleId', saved.id);
            }
         }
@@ -1665,10 +1665,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         if (user) {
            if (editingId) {
              const updated = await resourceService.updateCustomItem('brand_colors', editingId, newColor);
-             setOptions.setBrandColors(prev => prev.map(x => x.id === editingId ? { ...x, ...updated } as BrandColor : x));
+             setOptions.setBrandColors(prev => prev.map(x => x.id === editingId ? { ...x, ...updated } as BrandColorDefinition : x));
            } else {
              const saved = await resourceService.addCustomItem('brand_colors', newColor, user.id, itemScope, selectedTeamId);
-             setOptions.setBrandColors(prev => [...prev, saved as BrandColor]);
+             setOptions.setBrandColors(prev => [...prev, saved as BrandColorDefinition]);
              handleChange('colorSchemeId', saved.id);
            }
         }
