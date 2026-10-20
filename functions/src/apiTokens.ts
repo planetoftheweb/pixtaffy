@@ -19,7 +19,8 @@
  */
 import { onRequest } from "firebase-functions/v2/https";
 import type { Response } from "express";
-import * as admin from "firebase-admin";
+import { getAuth, DecodedIdToken } from "firebase-admin/auth";
+import { getFirestore, FieldValue, Firestore, Timestamp } from "firebase-admin/firestore";
 import { createHash, randomBytes } from "node:crypto";
 
 const REGION = "us-central1";
@@ -44,7 +45,7 @@ export interface VerifiedApiToken {
 
 /** Resolve a bearer `bdi_…` token to its account. Null = invalid/revoked. */
 export async function verifyApiToken(
-  db: admin.firestore.Firestore,
+  db: Firestore,
   token: string,
 ): Promise<VerifiedApiToken | null> {
   if (!token.startsWith(TOKEN_PREFIX) || token.length < 40 || token.length > 128) {
@@ -56,10 +57,10 @@ export async function verifyApiToken(
   if (!data || typeof data.uid !== "string" || data.revokedAt) return null;
 
   // Touch lastUsedAt at most once a minute — audit trail without write spam.
-  const last = (data.lastUsedAt as admin.firestore.Timestamp | undefined)?.toMillis?.() ?? 0;
+  const last = (data.lastUsedAt as Timestamp | undefined)?.toMillis?.() ?? 0;
   if (Date.now() - last > 60_000) {
     snap.ref
-      .update({ lastUsedAt: admin.firestore.FieldValue.serverTimestamp() })
+      .update({ lastUsedAt: FieldValue.serverTimestamp() })
       .catch(() => undefined);
   }
   return { uid: data.uid, tokenHash, name: typeof data.name === "string" ? data.name : "token" };
@@ -70,7 +71,7 @@ export async function verifyApiToken(
  * clean message when a limit would be exceeded (nothing is counted then).
  */
 export async function enforceApiRateLimit(
-  db: admin.firestore.Firestore,
+  db: Firestore,
   uid: string,
   images: number,
 ): Promise<void> {
@@ -107,7 +108,7 @@ export async function enforceApiRateLimit(
         dayCount: dayCount + images,
         maxPerHour,
         maxPerDay,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     );
@@ -158,16 +159,16 @@ export const manageApiTokens = onRequest(
         sendJson(out, 401, { error: "Missing Authorization bearer token." });
         return;
       }
-      let decoded: admin.auth.DecodedIdToken;
+      let decoded: DecodedIdToken;
       try {
-        decoded = await admin.auth().verifyIdToken(idToken);
+        decoded = await getAuth().verifyIdToken(idToken);
       } catch {
         sendJson(out, 401, { error: "Invalid or expired Firebase ID token." });
         return;
       }
       const uid = decoded.uid;
 
-      const db = admin.firestore();
+      const db = getFirestore();
       const userSnap = await db.collection("users").doc(uid).get();
       if (userSnap.data()?.isDisabled === true) {
         sendJson(out, 403, { error: "Account suspended." });
@@ -196,7 +197,7 @@ export const manageApiTokens = onRequest(
           uid,
           name,
           prefix: tokenDisplayPrefix(token),
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           lastUsedAt: null,
           revokedAt: null,
         });
@@ -214,9 +215,9 @@ export const manageApiTokens = onRequest(
               tokenHash: d.id,
               name: t.name || "API token",
               prefix: t.prefix || "bdi_…",
-              createdAt: (t.createdAt as admin.firestore.Timestamp | null)?.toMillis?.() ?? null,
-              lastUsedAt: (t.lastUsedAt as admin.firestore.Timestamp | null)?.toMillis?.() ?? null,
-              revokedAt: (t.revokedAt as admin.firestore.Timestamp | null)?.toMillis?.() ?? null,
+              createdAt: (t.createdAt as Timestamp | null)?.toMillis?.() ?? null,
+              lastUsedAt: (t.lastUsedAt as Timestamp | null)?.toMillis?.() ?? null,
+              revokedAt: (t.revokedAt as Timestamp | null)?.toMillis?.() ?? null,
             };
           })
           .filter((t) => !t.revokedAt)
@@ -237,7 +238,7 @@ export const manageApiTokens = onRequest(
           sendJson(out, 404, { error: "Token not found." });
           return;
         }
-        await ref.update({ revokedAt: admin.firestore.FieldValue.serverTimestamp() });
+        await ref.update({ revokedAt: FieldValue.serverTimestamp() });
         sendJson(out, 200, { revoked: true });
         return;
       }

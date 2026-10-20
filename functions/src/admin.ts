@@ -1,4 +1,6 @@
-import * as admin from "firebase-admin";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions/v2";
 
@@ -12,7 +14,7 @@ const BOOTSTRAP_USERNAME = "planetoftheweb";
 
 async function callerIsBootstrap(callerUid: string): Promise<boolean> {
   try {
-    const snap = await admin.firestore().doc(`users/${callerUid}`).get();
+    const snap = await getFirestore().doc(`users/${callerUid}`).get();
     if (!snap.exists) return false;
     const username = (snap.data()?.username as string | undefined)?.trim();
     return username === BOOTSTRAP_USERNAME;
@@ -55,7 +57,7 @@ export const setAdminRole = onCall(async (request) => {
   }
 
   try {
-    await admin.auth().setCustomUserClaims(targetUid, { admin: admin_ });
+    await getAuth().setCustomUserClaims(targetUid, { admin: admin_ });
     logger.info(`setAdminRole: caller=${callerUid} target=${targetUid} admin=${admin_}`);
     return { ok: true, uid: targetUid, admin: admin_ };
   } catch (err: any) {
@@ -90,7 +92,7 @@ export const deleteUserAccount = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "Missing target `uid`.");
   }
 
-  const firestore = admin.firestore();
+  const firestore = getFirestore();
   const userDocRef = firestore.doc(`users/${targetUid}`);
 
   // 1. Firestore: recursiveDelete handles the subcollections too.
@@ -103,7 +105,7 @@ export const deleteUserAccount = onCall(async (request) => {
 
   // 2. Storage: delete everything under users/{uid}/.
   try {
-    const bucket = admin.storage().bucket();
+    const bucket = getStorage().bucket();
     await bucket.deleteFiles({ prefix: `users/${targetUid}/` });
   } catch (err) {
     // Storage failures should not block Auth removal, but we log loudly.
@@ -112,7 +114,7 @@ export const deleteUserAccount = onCall(async (request) => {
 
   // 3. Auth: remove the user record.
   try {
-    await admin.auth().deleteUser(targetUid);
+    await getAuth().deleteUser(targetUid);
   } catch (err: any) {
     // Swallow "user-not-found" — Firestore/Storage cleanup already ran.
     if (err?.code !== "auth/user-not-found") {

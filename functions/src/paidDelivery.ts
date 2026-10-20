@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import * as admin from "firebase-admin";
+import { getStorage } from "firebase-admin/storage";
 
 export interface CachedPaidDelivery {
   version: 1;
@@ -56,7 +56,7 @@ export async function readPaidDelivery(
   uid: string,
   idempotencyKey: string,
 ): Promise<CachedPaidDelivery | null> {
-  const file = admin.storage().bucket().file(deliveryPath(uid, idempotencyKey));
+  const file = getStorage().bucket().file(deliveryPath(uid, idempotencyKey));
   const [exists] = await file.exists();
   if (!exists) return null;
   const [contents] = await file.download();
@@ -68,7 +68,7 @@ export async function readPaidDelivery(
 }
 
 export async function writePaidDeliveryWithRetry(delivery: CachedPaidDelivery): Promise<void> {
-  const file = admin.storage().bucket().file(deliveryPath(delivery.uid, delivery.idempotencyKey));
+  const file = getStorage().bucket().file(deliveryPath(delivery.uid, delivery.idempotencyKey));
   let lastError: unknown;
   for (const delay of [0, 250, 750]) {
     if (delay > 0) await wait(delay);
@@ -96,7 +96,7 @@ export async function readPaidAssistDelivery(
   uid: string,
   idempotencyKey: string,
 ): Promise<CachedPaidAssistDelivery | null> {
-  const file = admin.storage().bucket().file(assistDeliveryPath(uid, idempotencyKey));
+  const file = getStorage().bucket().file(assistDeliveryPath(uid, idempotencyKey));
   const [exists] = await file.exists();
   if (!exists) return null;
   const [contents] = await file.download();
@@ -108,7 +108,7 @@ export async function readPaidAssistDelivery(
 }
 
 export async function writePaidAssistDeliveryWithRetry(delivery: CachedPaidAssistDelivery): Promise<void> {
-  const file = admin.storage().bucket().file(assistDeliveryPath(delivery.uid, delivery.idempotencyKey));
+  const file = getStorage().bucket().file(assistDeliveryPath(delivery.uid, delivery.idempotencyKey));
   let lastError: unknown;
   for (const delay of [0, 250, 750]) {
     if (delay > 0) await wait(delay);
@@ -131,8 +131,8 @@ export async function writePaidAssistDeliveryWithRetry(delivery: CachedPaidAssis
 
 export async function deleteExpiredPaidDeliveries(now = Date.now()): Promise<number> {
   const [imageFiles, assistFiles] = await Promise.all([
-    admin.storage().bucket().getFiles({ prefix: "billing-deliveries/" }),
-    admin.storage().bucket().getFiles({ prefix: "billing-assist-deliveries/" }),
+    getStorage().bucket().getFiles({ prefix: "billing-deliveries/" }),
+    getStorage().bucket().getFiles({ prefix: "billing-assist-deliveries/" }),
   ]);
   const files = [...imageFiles[0], ...assistFiles[0]];
   const cutoff = now - 24 * 60 * 60 * 1_000;

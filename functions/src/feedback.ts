@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import * as admin from "firebase-admin";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
@@ -36,7 +36,7 @@ const LABEL_META: Record<string, { color: string; description: string }> = {
   "agent-todo": { color: "5319E7", description: "Ready for agent pickup" },
 };
 
-const db = () => admin.firestore();
+const db = () => getFirestore();
 const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 
 function requestIp(request: CallableRequest): string {
@@ -205,8 +205,8 @@ async function markIssueCreated(
   issue: { issueUrl: string; issueNumber: number },
 ): Promise<void> {
   await Promise.all([
-    feedbackRef.update({ ...issue, githubStatus: "created", issueState: "open", updatedAt: admin.firestore.FieldValue.serverTimestamp() }),
-    requestRef.update({ ...issue, status: "created", updatedAt: admin.firestore.FieldValue.serverTimestamp() }),
+    feedbackRef.update({ ...issue, githubStatus: "created", issueState: "open", updatedAt: FieldValue.serverTimestamp() }),
+    requestRef.update({ ...issue, status: "created", updatedAt: FieldValue.serverTimestamp() }),
   ]);
 }
 
@@ -249,7 +249,7 @@ export const submitFeedback = onCall(
       if (!feedbackRef || !feedbackSnap?.exists || feedbackSnap.data()?.userId !== uid) {
         throw new HttpsError("failed-precondition", "That saved feedback request is incomplete.");
       }
-      const createdAt = data.createdAt instanceof admin.firestore.Timestamp
+      const createdAt = data.createdAt instanceof Timestamp
         ? data.createdAt.toMillis()
         : Date.now();
       if (data.status === "pending" && Date.now() - createdAt < 60_000) {
@@ -289,7 +289,7 @@ export const submitFeedback = onCall(
       userAgent: cleanLine(request.data?.userAgent, 500),
       viewport: cleanLine(request.data?.viewport, 40),
       appVersion: cleanLine(request.data?.appVersion, 40),
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       githubStatus: "pending",
       issueUrl: null,
       issueNumber: null,
@@ -302,7 +302,7 @@ export const submitFeedback = onCall(
         status: "pending",
         feedbackId: feedbackRef.id,
         userId: uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
       tx.create(feedbackRef, feedback);
     });
@@ -328,8 +328,8 @@ export const submitFeedback = onCall(
     } catch (error) {
       const messageText = error instanceof Error ? error.message : "Unknown GitHub error";
       await Promise.all([
-        feedbackRef.update({ githubStatus: "error", githubError: messageText.slice(0, 500), updatedAt: admin.firestore.FieldValue.serverTimestamp() }),
-        requestRef.update({ status: "error", updatedAt: admin.firestore.FieldValue.serverTimestamp() }),
+        feedbackRef.update({ githubStatus: "error", githubError: messageText.slice(0, 500), updatedAt: FieldValue.serverTimestamp() }),
+        requestRef.update({ status: "error", updatedAt: FieldValue.serverTimestamp() }),
       ]).catch((writeError) => logger.error("Unable to record feedback failure", { writeError }));
       throw error instanceof HttpsError ? error : new HttpsError("unavailable", "Your note was saved, but GitHub is unavailable. Try again later.");
     }
