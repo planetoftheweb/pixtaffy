@@ -1,4 +1,6 @@
-import * as admin from "firebase-admin";
+import { getAuth, UserRecord } from "firebase-admin/auth";
+import { getFirestore, QueryDocumentSnapshot, WriteBatch } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import * as logger from "firebase-functions/logger";
 import { FieldPath } from "firebase-admin/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -8,7 +10,7 @@ const REGION = "us-central1";
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const RETENTION_CONFIG_PATH = "systemConfig/historyRetention";
 
-const db = () => admin.firestore();
+const db = () => getFirestore();
 
 async function retentionStartsAt(): Promise<number> {
   const ref = db().doc(RETENTION_CONFIG_PATH);
@@ -29,7 +31,7 @@ async function deleteBuildsForGeneration(uid: string, generationId: string): Pro
     .startAt(prefix)
     .endAt(`${prefix}\uf8ff`)
     .get();
-  const batches: admin.firestore.WriteBatch[] = [];
+  const batches: WriteBatch[] = [];
   let batch = db().batch();
   let count = 0;
   for (const doc of snap.docs) {
@@ -44,17 +46,17 @@ async function deleteBuildsForGeneration(uid: string, generationId: string): Pro
   await Promise.all(batches.map((item) => item.commit()));
 }
 
-async function deleteGeneration(uid: string, doc: admin.firestore.QueryDocumentSnapshot): Promise<void> {
+async function deleteGeneration(uid: string, doc: QueryDocumentSnapshot): Promise<void> {
   const generationId = String(doc.data().id || doc.id);
   await Promise.all([
-    admin.storage().bucket().deleteFiles({ prefix: `users/${uid}/history/${generationId}/`, force: true }),
+    getStorage().bucket().deleteFiles({ prefix: `users/${uid}/history/${generationId}/`, force: true }),
     deleteBuildsForGeneration(uid, generationId),
   ]);
   await doc.ref.delete();
 }
 
 async function reconcileStorage(uid: string, retainedIds: Set<string>): Promise<number> {
-  const [files] = await admin.storage().bucket().getFiles({ prefix: `users/${uid}/history/` });
+  const [files] = await getStorage().bucket().getFiles({ prefix: `users/${uid}/history/` });
   const orphanFiles = files.filter((file) => {
     const relative = file.name.slice(`users/${uid}/history/`.length);
     const generationId = relative.split("/")[0];
@@ -64,7 +66,7 @@ async function reconcileStorage(uid: string, retainedIds: Set<string>): Promise<
   return orphanFiles.length;
 }
 
-async function enforceForUser(user: admin.auth.UserRecord): Promise<{ deleted: number; orphanFiles: number }> {
+async function enforceForUser(user: UserRecord): Promise<{ deleted: number; orphanFiles: number }> {
   if (user.customClaims?.admin === true) return { deleted: 0, orphanFiles: 0 };
   const billingSnap = await db().doc(`users/${user.uid}/private/billing`).get();
   const billing = billingSnap.data() ?? {};
@@ -97,7 +99,7 @@ export const enforceHistoryRetention = onSchedule(
     let deleted = 0;
     let orphanFiles = 0;
     do {
-      const page = await admin.auth().listUsers(250, pageToken);
+      const page = await getAuth().listUsers(250, pageToken);
       for (const user of page.users) {
         try {
           const result = await enforceForUser(user);

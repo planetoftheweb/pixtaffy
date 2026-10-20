@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 import { GoogleGenAI } from "@google/genai";
 import * as logger from "firebase-functions/logger";
 import { defineSecret } from "firebase-functions/params";
@@ -57,7 +57,7 @@ const baseOptions = {
   memory: "1GiB" as const,
 };
 
-const db = () => admin.firestore();
+const db = () => getFirestore();
 const GUEST_DEVICE_WINDOW_MS = 30 * 24 * 60 * 60 * 1_000;
 const GUEST_IP_DAILY_LIMIT = 5;
 

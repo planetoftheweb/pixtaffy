@@ -28,6 +28,8 @@ jobs:
             functions/package-lock.json
       - run: npm ci
       - run: npm ci --prefix functions
+      - run: npm --prefix functions run lint
+        if: matrix.check == 'typecheck'
       # Build validation uses placeholders. This workflow never deploys its output.
       - run: npm run ${{ matrix.check }}
         env:
