@@ -5,31 +5,12 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions/v2";
 
 /**
- * Bootstrap safety valve: the single legacy username that is allowed to
- * promote themselves (or anyone else) to admin even when their token does not
- * yet carry the `admin` custom claim. Kept narrow on purpose so it cannot
- * silently widen over time.
- */
-const BOOTSTRAP_USERNAME = "planetoftheweb";
-
-async function callerIsBootstrap(callerUid: string): Promise<boolean> {
-  try {
-    const snap = await getFirestore().doc(`users/${callerUid}`).get();
-    if (!snap.exists) return false;
-    const username = (snap.data()?.username as string | undefined)?.trim();
-    return username === BOOTSTRAP_USERNAME;
-  } catch (err) {
-    logger.warn("callerIsBootstrap lookup failed", err);
-    return false;
-  }
-}
-
-/**
  * Set (or clear) the `admin` custom claim on a user.
- * Authorization:
- *   - caller's token already has `admin === true`, OR
- *   - caller's Firestore users/{callerUid}.username === 'planetoftheweb'
- *     (one-time bootstrap; retained as a break-glass fallback).
+ * Authorization: the caller's token must already carry `admin === true`.
+ * The old username-based bootstrap was removed because `username` lives on
+ * the user's own profile doc, so anyone could set it and promote themselves.
+ * To grant the first admin, set the claim with the Admin SDK from a trusted
+ * machine instead.
  */
 export const setAdminRole = onCall(async (request) => {
   if (!request.auth) {
@@ -47,13 +28,10 @@ export const setAdminRole = onCall(async (request) => {
   }
 
   if (!callerIsAdmin) {
-    const bootstrap = await callerIsBootstrap(callerUid);
-    if (!bootstrap) {
-      throw new HttpsError(
-        "permission-denied",
-        "Only admins (or the bootstrap user) can change admin roles."
-      );
-    }
+    throw new HttpsError(
+      "permission-denied",
+      "Only admins can change admin roles."
+    );
   }
 
   try {
