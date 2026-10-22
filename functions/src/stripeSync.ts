@@ -20,7 +20,8 @@
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
-import * as admin from "firebase-admin";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
@@ -43,7 +44,7 @@ const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const stripe = (): Stripe =>
   new Stripe(stripeApiKey.value(), { apiVersion: "2025-02-24.acacia" });
 
-const db = () => admin.firestore();
+const db = () => getFirestore();
 
 // ---------------------------------------------------------------------------
 // Firestore helpers -- write to the same paths the extension used
@@ -83,7 +84,7 @@ async function ensureStripeCustomer(uid: string): Promise<string> {
   const existing = snap.data()?.stripeId;
   if (typeof existing === "string" && existing.startsWith("cus_")) return existing;
 
-  const user = await admin.auth().getUser(uid);
+  const user = await getAuth().getUser(uid);
   const customer = await stripe().customers.create({
     email: user.email ?? undefined,
     metadata: { firebaseUID: uid },
@@ -121,9 +122,9 @@ function verifyWebhookSignature(rawBody: Buffer, signatureHeader: string, secret
 // Webhook event handlers -- keep Firestore in the same shape the extension did
 // ---------------------------------------------------------------------------
 
-function stripeTimestampToFirestore(ts: number | null | undefined): admin.firestore.Timestamp | null {
+function stripeTimestampToFirestore(ts: number | null | undefined): Timestamp | null {
   if (ts == null) return null;
-  return admin.firestore.Timestamp.fromMillis(ts * 1_000);
+  return Timestamp.fromMillis(ts * 1_000);
 }
 
 async function handleCustomerEvent(event: Stripe.Event): Promise<void> {
@@ -505,7 +506,7 @@ export async function createCheckoutSession(input: {
       url: session.url,
       mode: input.mode,
       price: input.priceId,
-      created: admin.firestore.FieldValue.serverTimestamp(),
+      created: FieldValue.serverTimestamp(),
       metadata: input.metadata,
     },
     { merge: true },

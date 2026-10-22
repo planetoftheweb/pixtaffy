@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Generation, BrandColor, VisualStyle, GraphicType, AspectRatioOption, Folder, INBOX_FOLDER_ID, ToolbarPreset } from '../types';
+import { Generation, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, Folder, INBOX_FOLDER_ID, ToolbarPreset } from '../types';
 import { ArrowUpRight, Trash2, Archive, CheckSquare, Square, GitCompare, Eye, EyeOff, LayoutGrid, Folder as FolderIcon, FolderPlus, Pencil, FolderInput, X as XIcon, Check, ChevronLeft, ChevronRight, ChevronDown, Loader2, FileText, MoreVertical, ClipboardCopy, Download } from 'lucide-react';
 import {
   buildFolderTree,
@@ -203,10 +203,10 @@ interface RecentGenerationsProps {
   onSelect: (gen: Generation) => void;
   onDelete: (generationId: string) => void;
   options: {
-    brandColors: BrandColor[];
-    visualStyles: VisualStyle[];
-    graphicTypes: GraphicType[];
-    aspectRatios: AspectRatioOption[];
+    brandColors: BrandColorDefinition[];
+    visualStyles: VisualStyleDefinition[];
+    graphicTypes: GraphicTypeDefinition[];
+    aspectRatios: AspectRatioDefinition[];
   };
   /** True when the app is in compare-pick mode — tile clicks should pick marks. */
   isComparePicking?: boolean;

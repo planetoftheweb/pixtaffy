@@ -7,7 +7,8 @@
 import * as logger from "firebase-functions/logger";
 import { onRequest } from "firebase-functions/v2/https";
 import type { Response } from "express";
-import * as admin from "firebase-admin";
+import { getAuth, DecodedIdToken } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 import { randomUUID } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
 import { verifyApiToken, enforceApiRateLimit, RateLimitError } from "./apiTokens";
@@ -1015,7 +1016,7 @@ export const agentGenerateImage = onRequest(
       let authUid: string;
       let authVia: "idToken" | "apiToken";
       if (token.startsWith("bdi_")) {
-        const verified = await verifyApiToken(admin.firestore(), token);
+        const verified = await verifyApiToken(getFirestore(), token);
         if (!verified) {
           sendJson(out, 401, { error: "Invalid or revoked API token." });
           return;
@@ -1023,9 +1024,9 @@ export const agentGenerateImage = onRequest(
         authUid = verified.uid;
         authVia = "apiToken";
       } else {
-        let decoded: admin.auth.DecodedIdToken;
+        let decoded: DecodedIdToken;
         try {
-          decoded = await admin.auth().verifyIdToken(token);
+          decoded = await getAuth().verifyIdToken(token);
         } catch {
           sendJson(out, 401, { error: "Invalid or expired Firebase ID token." });
           return;
@@ -1079,7 +1080,7 @@ export const agentGenerateImage = onRequest(
 
       if (authVia === "apiToken") {
         try {
-          await enforceApiRateLimit(admin.firestore(), authUid, promptsToRun.length);
+          await enforceApiRateLimit(getFirestore(), authUid, promptsToRun.length);
         } catch (e) {
           if (e instanceof RateLimitError) {
             sendJson(out, 429, { error: e.message });
@@ -1096,7 +1097,7 @@ export const agentGenerateImage = onRequest(
         return;
       }
 
-      const db = admin.firestore();
+      const db = getFirestore();
       const userRef = db.collection("users").doc(authUid);
       const userSnap = await userRef.get();
       const userData = userSnap.data();
@@ -1122,7 +1123,7 @@ export const agentGenerateImage = onRequest(
           folderNameBody: body.folderName,
           createFolderWithNameBody: body.createFolderWithName,
         });
-        if (!folderRes.ok) {
+        if (folderRes.ok === false) {
           sendJson(out, folderRes.status, folderRes.body);
           return;
         }

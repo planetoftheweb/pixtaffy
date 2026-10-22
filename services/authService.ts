@@ -22,7 +22,7 @@ import {
   serverTimestamp
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
-import { User, UserPreferences, BrandColor, VisualStyle, GraphicType, AspectRatioOption, ToolbarPreset, Folder } from "../types";
+import { User, UserPreferences, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, ToolbarPreset, Folder } from "../types";
 import { BRAND_COLORS, VISUAL_STYLES, GRAPHIC_TYPES, ASPECT_RATIOS } from "../constants";
 
 const defaultPreferences: UserPreferences = {
@@ -181,7 +181,7 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
         }
         if (Array.isArray(folder.presets) && folder.presets.length > 0) {
           entry.presets = folder.presets.map((preset) => {
-            const p: Record<string, unknown> = {
+            const p: ToolbarPreset = {
               id: preset.id,
               name: preset.name,
               createdAt: preset.createdAt,

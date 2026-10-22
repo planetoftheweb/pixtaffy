@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Generation, GenerationVersion, BrandColor, VisualStyle, GraphicType, AspectRatioOption, INBOX_FOLDER_ID } from '../types';
+import { Generation, GenerationVersion, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, INBOX_FOLDER_ID } from '../types';
 import { Download, RefreshCw, Send, Image as ImageIcon, Copy, Link, Trash2, ChevronDown, ChevronLeft, ChevronRight, Layers, FileImage, Code, Play, Pause, FileCode, Info, X, Globe, Wand2, Maximize, Maximize2, Minimize, GitCompare, Plus, Expand, ScanSearch, Check, Star, Film, Sparkles, GripVertical } from 'lucide-react';
 import { useConfirmAction } from '../hooks/useConfirmAction';
 import { createBlobUrlFromImage } from '../services/imageSourceService';
@@ -70,12 +70,12 @@ interface ImageDisplayProps {
   onDeleteRefinementVersion: (versionId: string) => Promise<void>;
   selectedModel: string;
   onModelChange: (modelId: string) => void;
-  resizeAspectRatios: AspectRatioOption[];
+  resizeAspectRatios: AspectRatioDefinition[];
   options: {
-    brandColors: BrandColor[];
-    visualStyles: VisualStyle[];
-    graphicTypes: GraphicType[];
-    aspectRatios: AspectRatioOption[];
+    brandColors: BrandColorDefinition[];
+    visualStyles: VisualStyleDefinition[];
+    graphicTypes: GraphicTypeDefinition[];
+    aspectRatios: AspectRatioDefinition[];
   };
   history?: Generation[];
   /**

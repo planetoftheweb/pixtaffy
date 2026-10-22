@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { GenerationConfig, GeneratedImage, BrandColor, VisualStyle, GraphicType, BrandGuidelinesAnalysis, PromptImageStyleInfluenceMode } from "../types";
+import { GenerationConfig, GeneratedImage, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, BrandGuidelinesAnalysis, PromptImageStyleInfluenceMode } from "../types";
 import { getSafeAspectRatioForModel, normalizeAspectRatio } from "./aspectRatioService";
 import {
   buildCorrectionAuditUserPrompt,

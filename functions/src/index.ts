@@ -1,6 +1,6 @@
-import * as admin from "firebase-admin";
+import { initializeApp } from "firebase-admin/app";
 
-admin.initializeApp();
+initializeApp();
 
 export { setAdminRole, deleteUserAccount } from "./admin";
 export { agentGenerateImage } from "./agentGenerateImage";

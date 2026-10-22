@@ -1,5 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import * as admin from "firebase-admin";
+import { getFirestore, DocumentData } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest, type CallableRequest } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
@@ -40,7 +40,7 @@ const callableOptions = {
 const stripeBillingEventsSecret = defineSecret("PIXTAFFY_STRIPE_EVENTS_WEBHOOK_SECRET");
 const stripeApiKeySecret = defineSecret("STRIPE_API_KEY");
 
-const db = () => admin.firestore();
+const db = () => getFirestore();
 const billingRef = (uid: string) => db().doc(`users/${uid}/private/billing`);
 const ledgerRef = (uid: string, id: string) => db().doc(`users/${uid}/billingLedger/${id}`);
 const reservationRef = (id: string) => db().doc(`billingReservations/${id}`);
@@ -73,7 +73,7 @@ const emptyBilling = (now: number): BillingDocument => ({
   updatedAt: now,
 });
 
-const readBilling = (data: admin.firestore.DocumentData | undefined, now: number): BillingDocument => {
+const readBilling = (data: DocumentData | undefined, now: number): BillingDocument => {
   const base = emptyBilling(now);
   if (!data) return base;
   return {

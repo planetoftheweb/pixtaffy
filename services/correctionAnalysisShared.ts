@@ -1,18 +1,18 @@
-import { GenerationConfig, BrandColor, VisualStyle, GraphicType, AspectRatioOption } from '../types';
+import { GenerationConfig, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition } from '../types';
 
 /** Context slice needed for correction audit (matches refine/generation context). */
 export interface CorrectionAnalysisContext {
-  brandColors: BrandColor[];
-  visualStyles: VisualStyle[];
-  graphicTypes: GraphicType[];
+  brandColors: BrandColorDefinition[];
+  visualStyles: VisualStyleDefinition[];
+  graphicTypes: GraphicTypeDefinition[];
 }
 
 /** Context for prompt expansion (includes aspect ratio labels). */
 export interface ExpandPromptContext {
-  brandColors: BrandColor[];
-  visualStyles: VisualStyle[];
-  graphicTypes: GraphicType[];
-  aspectRatios: AspectRatioOption[];
+  brandColors: BrandColorDefinition[];
+  visualStyles: VisualStyleDefinition[];
+  graphicTypes: GraphicTypeDefinition[];
+  aspectRatios: AspectRatioDefinition[];
 }
 
 /** User task text for vision models auditing an image for correction prompts. */

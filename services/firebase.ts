@@ -109,7 +109,7 @@ const observeFirebasePromise = async <T,>(label: string, promise: Promise<T>): P
 };
 
 const scheduleFirebaseBackgroundWork = (work: () => void) => {
-  if ('requestIdleCallback' in window) {
+  if (Reflect.has(window, 'requestIdleCallback')) {
     window.requestIdleCallback(work, { timeout: 1_500 });
     return;
   }
