@@ -1,5 +1,7 @@
 import { initializeApp } from "firebase-admin/app";
+import * as logger from "firebase-functions/logger";
 
+logger.info("runtime", { node: process.version });
 initializeApp();
 
 export { setAdminRole, deleteUserAccount } from "./admin";
@@ -20,6 +22,7 @@ export {
 } from "./billing";
 export {
   createPortalLink,
+  onStripeUserDeleted,
   stripeWebhook,
 } from "./stripeSync";
 export {

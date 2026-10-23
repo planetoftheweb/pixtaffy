@@ -23,9 +23,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
+import * as functionsV1 from "firebase-functions/v1";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import Stripe from "stripe";
+import { cancelStripeSubscriptionsForUser, ensureStripeCustomerCore } from "./stripeCustomerCore";
 
 const REGION = "us-central1";
 const ALLOWED_ORIGINS: Array<string | RegExp> = [
@@ -77,24 +79,29 @@ async function uidForStripeCustomer(stripeCustomerId: string): Promise<string | 
 
 /**
  * Find or create a Stripe customer for a Firebase user. Returns the Stripe
- * customer ID and whether it was newly created.
+ * customer ID, replacing stale IDs from the extension's test-mode key.
  */
 async function ensureStripeCustomer(uid: string): Promise<string> {
-  const snap = await customerRef(uid).get();
-  const existing = snap.data()?.stripeId;
-  if (typeof existing === "string" && existing.startsWith("cus_")) return existing;
-
-  const user = await getAuth().getUser(uid);
-  const customer = await stripe().customers.create({
-    email: user.email ?? undefined,
-    metadata: { firebaseUID: uid },
+  return ensureStripeCustomerCore(uid, {
+    stripe: stripe(),
+    customer: customerRef(uid),
+    getEmail: async () => (await getAuth().getUser(uid)).email,
+    arrayUnion: (id) => FieldValue.arrayUnion(id),
   });
-  await customerRef(uid).set(
-    { stripeId: customer.id, stripeLink: `https://dashboard.stripe.com/customers/${customer.id}`, email: user.email ?? null },
-    { merge: true },
-  );
-  return customer.id;
 }
+
+export const onStripeUserDeleted = functionsV1
+  .region(REGION)
+  .runWith({ secrets: [stripeApiKey] })
+  .auth.user().onDelete(async (user) => {
+    await cancelStripeSubscriptionsForUser(user.uid, {
+      stripe: stripe(),
+      customer: customerRef(user.uid),
+      subscription: (id) => subscriptionRef(user.uid, id),
+      now: () => FieldValue.serverTimestamp(),
+      warn: (message, ids) => logger.warn(message, ids),
+    });
+  });
 
 // ---------------------------------------------------------------------------
 // Webhook signature verification (same algorithm as billing.ts)
