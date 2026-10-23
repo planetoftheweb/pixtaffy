@@ -9,6 +9,28 @@ bridge functions (`onStripePayment`, `onStripeCheckoutSession`,
 `onStripeSubscription`, `onStripeCustomerWrite`) and client code continue to
 work without changes.
 
+## Extension retired (2026-10-23)
+
+The remaining extension duties are replaced as follows:
+
+- `createCustomer`: lazy `ensureStripeCustomer` at checkout and portal access;
+  no sign-up trigger. Stored IDs are verified with the current Stripe key.
+  Missing or deleted customers are replaced, preserving the previous ID in
+  `legacyStripeIds` (including IDs created by the extension's test-mode key).
+- `onUserDeleted`: `onStripeUserDeleted`, a gen1 Auth deletion trigger in
+  `us-central1` on Node 22 with `STRIPE_API_KEY` bound. It cancels active,
+  trialing, and past-due subscriptions and marks their Firestore documents
+  canceled. Stripe customers and payment history are retained. Missing
+  customers in the current key's mode are logged by ID and skipped.
+- `onCustomerDataDeleted`: intentionally not replaced; it was a production
+  no-op because Stripe customer deletion was disabled in the extension.
+
+After this change ships, uninstall the extension. The old extension webhook
+endpoint **must be disabled in Stripe**:
+`https://us-central1-brandoit.cloudfunctions.net/ext-firestore-stripe-payments-handleWebhookEvents`.
+Keep the self-managed `stripeWebhook` and `stripeBillingEvents` endpoints active.
+This retirement supersedes the staged migration timeline below.
+
 ## What changed
 
 | Before (extension)                                   | After (self-managed)                         |
@@ -146,10 +168,10 @@ Or use the Firebase Console > Extensions to remove it.
 
 | Path                                              | Written by           |
 |---------------------------------------------------|----------------------|
-| `customers/{uid}`                                 | stripeWebhook        |
+| `customers/{uid}`                                 | ensureStripeCustomer + stripeWebhook |
 | `customers/{uid}/checkout_sessions/{sessionId}`   | createCheckout + stripeWebhook |
 | `customers/{uid}/payments/{paymentId}`            | stripeWebhook        |
-| `customers/{uid}/subscriptions/{subscriptionId}`  | stripeWebhook        |
+| `customers/{uid}/subscriptions/{subscriptionId}`  | stripeWebhook + onStripeUserDeleted |
 | `products/{productId}`                            | stripeWebhook        |
 | `products/{productId}/prices/{priceId}`           | stripeWebhook        |
 
