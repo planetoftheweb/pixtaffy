@@ -1,3 +1,5 @@
+import { serverKeysEnabled } from './keyStorageMode';
+import { adminService as legacy } from './legacyAdminService';
 import { clearUserApiKeys as clearServerKeys, listUserKeyProfiles, countUserKeyProfiles, type SafeUserProfile } from './userApiKeyService';
 import {
   doc,
@@ -25,7 +27,7 @@ export interface AdminUserRow {
 
 export interface ListUsersPage {
   rows: AdminUserRow[];
-  cursor: string | null;
+  cursor: string | import('firebase/firestore').QueryDocumentSnapshot<import('firebase/firestore').DocumentData> | null;
   pageSize: number;
 }
 
@@ -51,7 +53,7 @@ function rowFromDoc(data: SafeUserProfile): AdminUserRow {
   };
 }
 
-export const adminService = {
+const server = {
   /** Reads the live admin claim off the current user's ID token. Forces a refresh. */
   async isCurrentUserAdmin(): Promise<boolean> {
     const current = auth.currentUser;
@@ -123,3 +125,12 @@ export type AdminService = typeof adminService;
 
 // Re-export a lightweight type for consumers that don't need the Firestore snapshot.
 export type { User };
+
+export const adminService = {
+  ...legacy,
+  countUsers: () => (serverKeysEnabled() ? server : legacy).countUsers(),
+  clearUserApiKeys: (uid: string) => (serverKeysEnabled() ? server : legacy).clearUserApiKeys(uid),
+  listUsers: (cursor?: ListUsersPage['cursor']): Promise<ListUsersPage> => serverKeysEnabled()
+    ? server.listUsers(typeof cursor === 'string' ? cursor : undefined)
+    : legacy.listUsers(typeof cursor === 'string' ? undefined : cursor),
+};

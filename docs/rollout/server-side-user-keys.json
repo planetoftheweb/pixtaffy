@@ -1,0 +1,32 @@
+{
+  "flagName": "serverSideUserKeys",
+  "flagLocation": "config/featureFlags.serverSideUserKeys",
+  "defaultState": "off",
+  "stages": [
+    {
+      "name": "stage 1",
+      "audience": "owner only (Ray, explicit uid allowlist)",
+      "howToEnable": "Set stage to 1, allowAdmins to false, and allowlistUids to only Ray's uid"
+    },
+    {
+      "name": "stage 2",
+      "audience": "everyone",
+      "howToEnable": "Set stage to 2"
+    }
+  ],
+  "howToFlip": "Ray runs locally, never CI: node scripts/set-feature-flag.mjs --project brandoit --flag serverSideUserKeys --stage 1 --allow-email planetoftheweb@gmail.com. Repeatable --allow-email resolves uids via Firebase Auth. --allow-uid also works. allowAdmins defaults false; --allow-admins explicitly opts in. --dry-run previews without writing.",
+  "rollback": "Set stage 0 with forceLegacy:false, wait 30 seconds, then sign in again. This is a no-data-loss rollback: keep encrypted storage and server Functions available, so migrated users retain server access. No new users migrate, and sticky-only users never lazily migrate. For a hard off use stage 0 plus forceLegacy:true; encrypted keys remain stored but migrated users must re-enter keys for the legacy client. Never restore decrypted keys to profiles.",
+  "migration": {
+    "required": true,
+    "runAfter": "Run only after stage 2, the final stage, is stable. Bulk migration is the final cleanup for inactive users after active users have lazily migrated.",
+    "command": "node scripts/migrate-user-api-keys.mjs --project PROJECT_ID --dry-run; then repeat without --dry-run using the same encryption secret"
+  },
+  "monitoring": [
+    "Functions generateWithUserKey error rate",
+    "failed-precondition counts",
+    "Firestore rules denials",
+    "Support reports",
+    "Own-key generation success rate"
+  ],
+  "offSwitch": "Without a deploy, set stage 0 in config/featureFlags.serverSideUserKeys at runtime. Effective within 30 seconds on the server and on next sign-in for clients. Stage 0 (default, off) stops new migrations; users with encrypted keys stay on the server path. Hard off: set stage 0 plus forceLegacy:true (CLI --force-legacy); migrated users must re-enter keys in the legacy client."
+}

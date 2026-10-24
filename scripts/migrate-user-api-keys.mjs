@@ -29,6 +29,7 @@ if (!args.includes('--project') || !project || project.startsWith('--')) throw n
 if (!process.env.USER_API_KEYS_ENCRYPTION_KEY) throw new Error('USER_API_KEYS_ENCRYPTION_KEY is required');
 initializeApp({ projectId: project });
 const db = getFirestore();
+if ((await db.doc('config/featureFlags').get()).data()?.serverSideUserKeys?.stage !== 2 && !args.includes('--force-before-stage-2')) throw new Error('Migration requires stage 2. --force-before-stage-2 is not recommended.');
 let cursor, scanned = 0, migrated = 0;
 while (true) {
   let query = db.collection('users').orderBy('__name__').limit(200);

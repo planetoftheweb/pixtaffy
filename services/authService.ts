@@ -1,3 +1,4 @@
+import { loadKeyStorageMode, serverKeysEnabled, resetKeyStorageMode } from './keyStorageMode';
 import { getUserApiKeyStatus } from './userApiKeyService';
 import { 
   createUserWithEmailAndPassword, 
@@ -31,6 +32,7 @@ const defaultPreferences: UserPreferences = {
   visualStyles: VISUAL_STYLES,
   graphicTypes: GRAPHIC_TYPES,
   aspectRatios: ASPECT_RATIOS,
+  apiKeys: {},
   apiKeyStatus: {},
   // Default model for brand-new accounts: Nano Banana 2 (Gemini 3.1 Flash).
   // App.loadResources / guestSelectedModel use the same id as their
@@ -86,7 +88,26 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
     delete (prefs as any).isAdmin;
   }
   const clean: any = {};
-  if (prefs.apiKeyStatus) clean.apiKeyStatus = prefs.apiKeyStatus;
+  if (!serverKeysEnabled()) {
+    // Only save settings and API keys. Arrays are managed via resourceService.
+    // Legacy support: omit when empty so clearing the field actually persists.
+    if (prefs.geminiApiKey && String(prefs.geminiApiKey).trim()) {
+      clean.geminiApiKey = String(prefs.geminiApiKey).trim();
+    }
+    if (prefs.apiKeys) {
+      // Strip empty-string entries so deleting a key in the UI actually clears it in Firestore.
+      const trimmedKeys: { [modelId: string]: string } = {};
+      for (const [modelId, value] of Object.entries(prefs.apiKeys)) {
+        if (typeof value === 'string' && value.trim() !== '') {
+          trimmedKeys[modelId] = value.trim();
+        }
+      }
+      // Empty keys need no storage-mode lookup in profile security rules.
+      // Preferences are replaced as a whole, so omission also clears old keys.
+      if (Object.keys(trimmedKeys).length > 0) clean.apiKeys = trimmedKeys;
+    }
+  }
+  if (serverKeysEnabled() && prefs.apiKeyStatus) clean.apiKeyStatus = prefs.apiKeyStatus;
   if (prefs.selectedModel) clean.selectedModel = prefs.selectedModel;
   if (prefs.systemPrompt) clean.systemPrompt = prefs.systemPrompt;
   // Enabled OpenRouter model slugs. An empty array is meaningful ("none
@@ -214,6 +235,22 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
 // Helper to merge saved preferences with default icons (re-hydration)
 const hydratePreferences = (savedPrefs: any): UserPreferences => {
   if (!savedPrefs) return defaultPreferences;
+  const rawApiKeys =
+    savedPrefs.apiKeys && typeof savedPrefs.apiKeys === 'object' ? savedPrefs.apiKeys : {};
+  const cleanedApiKeys: { [k: string]: string } = {};
+  for (const [k, v] of Object.entries(rawApiKeys)) {
+    if (typeof v === 'string' && v.trim() !== '') {
+      cleanedApiKeys[k] = v.trim();
+    }
+  }
+  const legacyGeminiTrimmed =
+    typeof savedPrefs.geminiApiKey === 'string' && savedPrefs.geminiApiKey.trim()
+      ? savedPrefs.geminiApiKey.trim()
+      : '';
+  if (!cleanedApiKeys.gemini && legacyGeminiTrimmed) {
+    cleanedApiKeys.gemini = legacyGeminiTrimmed;
+  }
+
 
   return {
     // We don't load arrays from preferences anymore, but we need to return something 
@@ -222,6 +259,7 @@ const hydratePreferences = (savedPrefs: any): UserPreferences => {
     visualStyles: [],
     graphicTypes: [],
     aspectRatios: [],
+    ...(serverKeysEnabled() ? {} : { apiKeys: cleanedApiKeys, geminiApiKey: legacyGeminiTrimmed || undefined }),
     apiKeyStatus: savedPrefs.apiKeyStatus || {},
     openRouterModels: Array.isArray(savedPrefs.openRouterModels)
       ? savedPrefs.openRouterModels.filter((s: unknown): s is string => typeof s === 'string')
@@ -294,7 +332,7 @@ const hydratePreferences = (savedPrefs: any): UserPreferences => {
 };
 
 // Helper to transform Firebase User + Firestore Data into our User type.
-// `isAdmin` is derived from the Auth custom claim — NEVER from Firestore data.
+// `isAdmin` is derived from the Auth custom claim - NEVER from Firestore data.
 // `isDisabled` is persisted in Firestore and used to hard-block the account.
 const transformUser = (firebaseUser: FirebaseUser, userData: any, isAdmin: boolean = false): User => {
   return {
@@ -336,7 +374,7 @@ const ensureUserDocument = async (
   seed: UserProfileSeed = {}
 ): Promise<Record<string, unknown>> => {
   const userRef = doc(db, "users", uid);
-  await getUserApiKeyStatus();
+  if (await loadKeyStorageMode()) await getUserApiKeyStatus();
   const snap = await getDoc(userRef);
   if (snap.exists()) {
     return snap.data() as Record<string, unknown>;
@@ -360,7 +398,7 @@ const ensureUserDocument = async (
   return profile;
 };
 
-// Best-effort write of `lastSignInAt`. Never blocks the sign-in flow — the
+// Best-effort write of `lastSignInAt`. Never blocks the sign-in flow - the
 // admin table can tolerate a missing value.
 const recordSignIn = async (uid: string): Promise<void> => {
   try {
@@ -371,7 +409,7 @@ const recordSignIn = async (uid: string): Promise<void> => {
   }
 };
 
-/** Lowercase doc id in `usernames` — uniqueness is case-insensitive. */
+/** Lowercase doc id in `usernames` - uniqueness is case-insensitive. */
 const normalizeUsernameKey = (username: string): string => username.trim().toLowerCase();
 
 const usernameDocRef = (username: string) => doc(db, "usernames", normalizeUsernameKey(username));
@@ -482,6 +520,7 @@ export const authService = {
         url: `${window.location.origin}/?verified=1`,
       });
 
+      await loadKeyStorageMode();
       // Create the user document in Firestore - SANITIZED
       const newUserProfile = {
         name,
@@ -530,7 +569,7 @@ export const authService = {
       const user = userCredential.user;
 
       const docRef = doc(db, "users", user.uid);
-      await getUserApiKeyStatus();
+      if (await loadKeyStorageMode()) await getUserApiKeyStatus();
       const docSnap = await getDoc(docRef);
 
       const userData = docSnap.exists()
@@ -579,6 +618,7 @@ export const authService = {
 
   logout: async () => {
     try {
+      resetKeyStorageMode();
       await signOut(auth);
       localStorage.removeItem('banana_brand_session');
     } catch (error) {
@@ -624,10 +664,11 @@ export const authService = {
   updateUserPreferences: async (userId: string, preferences: UserPreferences) => {
     try {
       const userRef = doc(db, "users", userId);
+      await loadKeyStorageMode();
       const cleanPreferences = sanitizePreferences(preferences);
 
       await ensureUserDocument(userId, { preferences: cleanPreferences });
-      cleanPreferences.apiKeyStatus = await getUserApiKeyStatus();
+      if (await loadKeyStorageMode()) cleanPreferences.apiKeyStatus = await getUserApiKeyStatus();
       await updateDoc(userRef, {
         preferences: cleanPreferences
       });
@@ -640,7 +681,7 @@ export const authService = {
   updateUserProfile: async (userId: string, data: { name?: string; username?: string; photoURL?: string; photoDataUrl?: string }) => {
     try {
       const userRef = doc(db, "users", userId);
-      await getUserApiKeyStatus();
+      if (await loadKeyStorageMode()) await getUserApiKeyStatus();
       const existingSnap = await getDoc(userRef);
       const existing = existingSnap.exists() ? existingSnap.data() : {};
       const previousUsername = typeof existing.username === 'string' ? existing.username : '';
@@ -712,6 +753,7 @@ export const authService = {
           void recordSignIn(user.uid);
           callback(transformUser(user, userData, isAdmin));
         } else {
+          resetKeyStorageMode();
           callback(null);
         }
       } catch (error) {

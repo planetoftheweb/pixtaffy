@@ -27,17 +27,32 @@ test('legacy precedence and masked status contain no key values', () => {
   assert.ok(!JSON.stringify(status).includes(key));
 });
 test('callables reject unauthenticated and stranger-target requests', async () => {
-  await assert.rejects(api.getUserApiKeyStatus.run({ data: {} }), { code: 'unauthenticated' });
+  // No Admin app is initialized: any premature Firestore access fails this test.
+  const { getKeyStorageMode } = require('../functions/lib/featureFlags.js');
+  for (const callable of [api.getUserApiKeyStatus, api.setUserApiKey, api.deleteUserApiKey, api.clearUserApiKeys, api.generateWithUserKey, api.listUserKeyProfiles, getKeyStorageMode]) {
+    for (const auth of [undefined, { uid: 'guest', token: { firebase: { sign_in_provider: 'anonymous' } } }]) {
+      await assert.rejects(callable.run({ auth, data: {} }), { code: 'unauthenticated' });
+    }
+  }
+  const admin = { uid: 'admin', token: { admin: true } };
+  for (const uid of ['', 'users/owner', 123, null]) {
+    await assert.rejects(api.listUserKeyProfiles.run({ auth: admin, data: { uid, countOnly: true } }), { code: 'invalid-argument' });
+  }
+  await assert.rejects(api.clearUserApiKeys.run({ auth: admin, data: { uid: 'users/owner' } }), { code: 'invalid-argument' });
+  await assert.rejects(api.listUserKeyProfiles.run({ auth: admin, data: { cursor: 'users/owner' } }), { code: 'invalid-argument' });
   await assert.rejects(api.listUserKeyProfiles.run({ auth: { uid: 'stranger', token: {} }, data: {} }), { code: 'permission-denied' });
   await assert.rejects(api.clearUserApiKeys.run({ auth: { uid: 'stranger', token: {} }, data: { uid: 'owner' } }), { code: 'permission-denied' });
 });
 test('emulator: migration, CRUD, server generation, CLI dry run and migration', { skip: !process.env.FIRESTORE_EMULATOR_HOST && !process.env.REQUIRE_EMULATOR_TESTS }, async () => {
-  assert.ok(process.env.FIRESTORE_EMULATOR_HOST.startsWith('127.0.0.1:') || process.env.FIRESTORE_EMULATOR_HOST.startsWith('localhost:'));
+  assert.ok(/^(127\.0\.0\.1|localhost):\d+$/.test(process.env.FIRESTORE_EMULATOR_HOST || ''), 'Local Firestore emulator required');
   process.env.USER_API_KEYS_ENCRYPTION_KEY = secret;
   const { initializeApp } = require('firebase-admin/app');
   const { getFirestore } = require('firebase-admin/firestore');
   initializeApp({ projectId: 'demo-pixtaffy', storageBucket: 'demo-pixtaffy.appspot.com' });
   const db = getFirestore();
+  const flags = require('../functions/lib/featureFlags.js');
+  const setStage = async (stage, fields = {}) => { await db.doc('config/featureFlags').set({ serverSideUserKeys: { stage, allowAdmins: false, ...fields } }); flags.resetFeatureFlagCache(); };
+  await setStage(0);
   const uid = `key-test-${randomBytes(8).toString('hex')}`;
   let ownerToken;
   let strangerToken;
@@ -57,6 +72,22 @@ test('emulator: migration, CRUD, server generation, CLI dry run and migration', 
   const profile = db.doc(`users/${auth.uid}`);
   const store = db.doc(`userApiKeys/${auth.uid}`);
   await profile.set({ name: 'Test', apiKeys: { openrouter: key }, geminiApiKey: key, preferences: { apiKeys: { openai: key, gemini: key }, geminiApiKey: key } });
+  assert.deepEqual(await flags.getKeyStorageMode.run(request({})), { serverKeys: false });
+  for (const [callable, data] of [[api.getUserApiKeyStatus, {}], [api.setUserApiKey, { slot: 'gemini', key }], [api.deleteUserApiKey, { slot: 'gemini' }], [api.clearUserApiKeys, {}], [api.generateWithUserKey, {}]]) {
+    await assert.rejects(callable.run(request(data)), { code: 'failed-precondition' });
+  }
+  assert.ok((await profile.get()).data().preferences.geminiApiKey === key);
+  assert.ok(await api.resolveUserApiKey(auth.uid, 'gemini') === key);
+  assert.ok(!(await store.get()).exists);
+  await api.listUserKeyProfiles.run({ auth: { uid: 'admin', token: { admin: true } }, data: { uid: auth.uid } });
+  assert.ok((await profile.get()).data().preferences.geminiApiKey === key);
+  assert.ok(!(await store.get()).exists);
+  await setStage(1);
+  await assert.rejects(api.getUserApiKeyStatus.run(request({})), { code: 'failed-precondition' });
+  auth.token.admin = true;
+  assert.deepEqual(await flags.getKeyStorageMode.run(request({})), { serverKeys: false });
+  await setStage(1, { allowlistUids: [auth.uid] });
+  assert.deepEqual(await flags.getKeyStorageMode.run(request({})), { serverKeys: true });
   const status = await api.getUserApiKeyStatus.run(request({}));
   assert.ok(status.gemini.hasKey && status.openai.hasKey && status.openrouter.hasKey);
   for (const value of [(await profile.get()).data(), (await store.get()).data(), status]) assert.ok(!JSON.stringify(value).includes(key));
@@ -70,11 +101,26 @@ test('emulator: migration, CRUD, server generation, CLI dry run and migration', 
     const ownProfile = await read('users', ownerToken);
     assert.ok(ownProfile.ok && !(await ownProfile.text()).includes(key));
   }
+  // Rollback preserves encrypted keys without lazily migrating any legacy fields.
+  await setStage(0);
+  await profile.set({ preferences: { geminiApiKey: key } }, { merge: true });
+  assert.deepEqual(await flags.getKeyStorageMode.run(request({})), { serverKeys: true });
+  assert.ok((await api.getUserApiKeyStatus.run(request({}))).gemini.hasKey);
+  assert.ok((await profile.get()).data().preferences.geminiApiKey === key);
+  await setStage(0, { forceLegacy: true });
+  assert.deepEqual(await flags.getKeyStorageMode.run(request({})), { serverKeys: false });
+  for (const [callable, data] of [[api.getUserApiKeyStatus, {}], [api.setUserApiKey, { slot: 'gemini', key }], [api.deleteUserApiKey, { slot: 'gemini' }], [api.clearUserApiKeys, {}], [api.generateWithUserKey, {}]]) {
+    await assert.rejects(callable.run(request(data)), { code: 'failed-precondition' });
+  }
+  assert.ok((await store.get()).data().keys.gemini);
+  await setStage(0);
   const replacement = randomBytes(32).toString('hex');
   const adminPage = await api.listUserKeyProfiles.run({ auth: { uid: 'admin', token: { admin: true } }, data: { uid: auth.uid } });
   assert.ok(adminPage.rows.length === 1 && !JSON.stringify(adminPage).includes(key));
   const replaced = await api.setUserApiKey.run(request({ slot: 'openai', key: replacement }));
   assert.ok(replaced.openai.last4 === replacement.slice(-4));
+  await api.deleteUserApiKey.run(request({ slot: 'unused' }));
+  assert.ok((await profile.get()).data().preferences.geminiApiKey === key);
   const originalFetch = globalThis.fetch;
   let providerCalled = false;
   globalThis.fetch = async (url, options) => {
@@ -111,6 +157,11 @@ test('emulator: migration, CRUD, server generation, CLI dry run and migration', 
         assert.ok(result.base64Data && !JSON.stringify(result).includes(key) && !JSON.stringify(result).includes(replacement));
       }
     }
+    assert.ok((await profile.get()).data().preferences.geminiApiKey === key);
+    await setStage(2);
+    delete auth.token.admin;
+    const everyone = await api.generateWithUserKey.run(request({ model: 'openai', prompt: 'Stage 2', config: { aspectRatio: '1:1' } }));
+    assert.ok(everyone.base64Data);
     const models = await api.generateWithUserKey.run(request({ model: 'openrouter', action: 'models' }));
     assert.ok(models[0].slug === 'example/image' && !JSON.stringify(models).includes(key));
   } finally { globalThis.fetch = originalFetch; }
@@ -137,11 +188,18 @@ test('emulator: migration, CRUD, server generation, CLI dry run and migration', 
       assert.ok((await billing.get()).data().balanceMilliCredits === before - generated.milliCreditsCharged);
     } finally { globalThis.fetch = originalFetch; }
   }
+  await setStage(2);
+  delete auth.token.admin;
+  assert.deepEqual(await flags.getKeyStorageMode.run(request({})), { serverKeys: true });
+  await api.getUserApiKeyStatus.run(request({}));
   await profile.set({ preferences: { geminiApiKey: key } });
   execFileSync(process.execPath, ['scripts/migrate-user-api-keys.mjs', '--project', 'demo-pixtaffy', '--dry-run'], { stdio: 'pipe' });
   assert.ok((await profile.get()).data().preferences.geminiApiKey === key);
   execFileSync(process.execPath, ['scripts/migrate-user-api-keys.mjs', '--project', 'demo-pixtaffy'], { stdio: 'pipe' });
   assert.ok(!(await profile.get()).data().preferences.geminiApiKey);
   assert.ok(await api.resolveUserApiKey(auth.uid, 'gemini') === key);
+  await setStage(0);
+  await api.clearUserApiKeys.run(request({}));
+  assert.deepEqual(await flags.getKeyStorageMode.run(request({})), { serverKeys: false });
   await Promise.all([profile.delete(), store.delete()]);
 });

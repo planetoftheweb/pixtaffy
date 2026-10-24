@@ -38,3 +38,5 @@ export { enforceHistoryRetention } from "./historyRetention";
 export { submitFeedback } from "./feedback";
 
 export { listUserKeyProfiles, getUserApiKeyStatus, setUserApiKey, deleteUserApiKey, clearUserApiKeys, generateWithUserKey } from './userApiKeys';
+
+export { getKeyStorageMode } from './featureFlags';

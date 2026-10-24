@@ -1,3 +1,4 @@
+import { serverSideUserKeysEnabled, userKeysMode } from './featureFlags';
 import { generateOpenRouterImageCore } from './openRouterProvider';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -56,10 +57,12 @@ export async function ensureUserApiKeysMigrated(uid: string): Promise<Record<str
   });
 }
 export async function resolveUserApiKey(uid: string, model: string): Promise<string | undefined> {
-  const keys = await ensureUserApiKeysMigrated(uid);
+  const keys: Record<string, EncryptedKey> = (await getFirestore().doc(`userApiKeys/${uid}`).get()).data()?.keys || {};
   const provider = model.startsWith('openrouter') ? 'openrouter' : model.startsWith('openai') ? 'openai' : 'gemini';
   const slot = [model, provider, ...(model === 'gemini' ? ['gemini-3.1-flash-image-preview', 'gemini-svg'] : [])].find(k => keys[k]);
-  return slot ? decryptKey(keys[slot], USER_API_KEYS_ENCRYPTION_KEY.value(), `${uid}:${slot}`) : undefined;
+  if (slot) return decryptKey(keys[slot], USER_API_KEYS_ENCRYPTION_KEY.value(), `${uid}:${slot}`);
+  const legacy = legacyKeys((await getFirestore().doc(`users/${uid}`).get()).data() || {});
+  return [model, provider, ...(model === 'gemini' ? ['gemini-3.1-flash-image-preview', 'gemini-svg'] : [])].map(k => legacy[k]).find(Boolean);
 }
 const options = { secrets: [USER_API_KEYS_ENCRYPTION_KEY], timeoutSeconds: 540, memory: '1GiB' as const };
 function authenticated(request: CallableRequest): string {
@@ -70,9 +73,17 @@ function slotOf(value: unknown): string {
   if (typeof value !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(value) || !/^[a-z0-9:_-][a-z0-9:._/-]{0,159}$/i.test(value)) throw new HttpsError('invalid-argument', 'Invalid key slot.');
   return value;
 }
-export const getUserApiKeyStatus = onCall(options, async request => keyStatus(await ensureUserApiKeysMigrated(authenticated(request))));
-async function mutate(uid: string, slot?: string, value?: string) {
-  await ensureUserApiKeysMigrated(uid);
+async function enabled(request: CallableRequest): Promise<string> {
+  const uid = authenticated(request);
+  if (!await userKeysMode(request.auth)) throw new HttpsError('failed-precondition', 'server-side keys are not enabled for this account');
+  if (await serverSideUserKeysEnabled(request.auth)) await ensureUserApiKeysMigrated(uid);
+  return uid;
+}
+export const getUserApiKeyStatus = onCall(options, async request => {
+  const uid = await enabled(request);
+  return keyStatus((await getFirestore().doc(`userApiKeys/${uid}`).get()).data()?.keys || {});
+});
+async function mutate(uid: string, slot?: string, value?: string, clearLegacy = false) {
   const db = getFirestore();
   return db.runTransaction(async tx => {
     const ref = db.doc(`userApiKeys/${uid}`);
@@ -82,26 +93,28 @@ async function mutate(uid: string, slot?: string, value?: string) {
     else if (value) keys[slot] = encryptKey(value, USER_API_KEYS_ENCRYPTION_KEY.value(), `${uid}:${slot}`);
     else delete keys[slot];
     tx.set(ref, { keys });
+    if (clearLegacy) tx.set(db.doc(`users/${uid}`), { apiKeys: FieldValue.delete(), geminiApiKey: FieldValue.delete(), preferences: { apiKeys: FieldValue.delete(), geminiApiKey: FieldValue.delete() } }, { merge: true });
     tx.set(db.doc(`users/${uid}`), { preferences: { apiKeyStatus: keyStatus(keys) } }, { mergeFields: ['preferences.apiKeyStatus'] });
     return keyStatus(keys);
   });
 }
 export const setUserApiKey = onCall(options, async request => {
-  const uid = authenticated(request), slot = slotOf(request.data?.slot), value = request.data?.key;
+  const uid = await enabled(request), slot = slotOf(request.data?.slot), value = request.data?.key;
   if (typeof value !== 'string' || value.trim().length < 8 || value.length > 512) throw new HttpsError('invalid-argument', 'Invalid API key.');
   return mutate(uid, slot, value.trim());
 });
-export const deleteUserApiKey = onCall(options, async request => mutate(authenticated(request), slotOf(request.data?.slot)));
+export const deleteUserApiKey = onCall(options, async request => mutate(await enabled(request), slotOf(request.data?.slot)));
 export const clearUserApiKeys = onCall(options, async request => {
   const uid = authenticated(request);
-  const target = request.data?.uid || uid;
-  if (typeof target !== 'string' || target.includes('/')) throw new HttpsError('invalid-argument', 'Invalid user.');
+  const target = request.data?.uid ?? uid;
+  if (typeof target !== 'string' || !target || target.includes('/')) throw new HttpsError('invalid-argument', 'Invalid user.');
   if (target !== uid && request.auth?.token.admin !== true) throw new HttpsError('permission-denied', 'Admin required.');
-  return mutate(target);
+  if (target === uid) await enabled(request);
+  return mutate(target, undefined, undefined, target !== uid);
 });
 
 export const generateWithUserKey = onCall(options, async request => {
-  const uid = authenticated(request);
+  const uid = await enabled(request);
   const { model = 'gemini', action = 'generate', prompt = '', config = {}, context = {}, image, svg, systemPrompt = '', quality = 'auto', background = 'auto' } = request.data || {};
   if (typeof model !== 'string' || !(['gemini', 'gemini-svg', 'gemini-3.1-flash-image-preview', 'gemini-3.1-flash-lite-image', 'openai', 'openai-2', 'openai-2.5', 'openai-flare', 'openai-mini', 'openrouter'].includes(model) || /^openrouter:[a-z0-9._/-]+$/i.test(model))) {
     throw new HttpsError('invalid-argument', 'Unsupported model.');
@@ -165,19 +178,21 @@ export const generateWithUserKey = onCall(options, async request => {
 export const listUserKeyProfiles = onCall(options, async request => {
   authenticated(request);
   if (request.auth?.token.admin !== true) throw new HttpsError('permission-denied', 'Admin required.');
+  const uid = request.data?.uid;
+  if (uid !== undefined && (typeof uid !== 'string' || !uid || uid.includes('/'))) throw new HttpsError('invalid-argument', 'Invalid user.');
+  const cursor = request.data?.cursor;
+  if (cursor !== undefined && (typeof cursor !== 'string' || !cursor || cursor.includes('/'))) throw new HttpsError('invalid-argument', 'Invalid cursor.');
   const db = getFirestore();
   if (request.data?.countOnly) return { count: (await db.collection('users').count().get()).data().count };
-  const uid = request.data?.uid;
-  if (uid && (typeof uid !== 'string' || uid.includes('/'))) throw new HttpsError('invalid-argument', 'Invalid user.');
   let query = db.collection('users').orderBy('__name__').limit(100);
-  if (request.data?.cursor) {
-    const cursor = String(request.data.cursor);
-    if (cursor.includes('/')) throw new HttpsError('invalid-argument', 'Invalid cursor.');
-    query = query.startAfter(cursor);
-  }
+  if (cursor) query = query.startAfter(cursor);
   const docs = uid ? [await db.doc(`users/${uid}`).get()] : (await query.get()).docs;
   const rows = await Promise.all(docs.filter(doc => doc.exists).map(async doc => {
-    const status = keyStatus(await ensureUserApiKeysMigrated(doc.id));
+    const stored = (await db.doc(`userApiKeys/${doc.id}`).get()).data()?.keys || {};
+    const status = keyStatus(stored);
+    for (const [slot, value] of Object.entries(legacyKeys(doc.data() || {}))) {
+      if (!status[slot]?.hasKey) status[slot] = { hasKey: true, last4: value.slice(-4) };
+    }
     const data = doc.data() || {};
     const { apiKeys: _keys, geminiApiKey: _legacy, ...preferences } = data.preferences || {};
     return {

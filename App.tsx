@@ -1,3 +1,5 @@
+import { serverKeysEnabled } from './services/keyStorageMode';
+import { LegacySettingsPage } from './components/LegacySettingsPage';
 import { getUserApiKeyStatus } from './services/userApiKeyService';
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ControlPanel } from './components/ControlPanel';
@@ -211,7 +213,7 @@ interface ActiveGenerationJob {
   failed: number;
   inFlight: number;
   startedAt: number;
-  /** When `completed + failed` last increased — anchors the observed-speed
+  /** When `completed + failed` last increased - anchors the observed-speed
    * term of the remaining-time estimate so the countdown keeps ticking
    * between completions instead of stalling. */
   lastProgressAt?: number;
@@ -345,6 +347,7 @@ const ConfigurationErrorScreen: React.FC<{ keys: string[] }> = ({ keys }) => (
 );
 
 const App: React.FC = () => {
+  const ActiveSettingsPage = serverKeysEnabled() ? SettingsPage : LegacySettingsPage;
   // Theme State
   // Hard-set dark (DESIGN D-01). index.html ships class="dark"; do not follow OS light preference on boot.
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -405,7 +408,7 @@ const App: React.FC = () => {
     });
   }, []);
   // Tracks whether Firebase auth has reported in at least once. Until this is
-  // true, `user` is null because the session is still being restored — not
+  // true, `user` is null because the session is still being restored - not
   // because the visitor is a guest. Several UI affordances (the BYOK setup
   // modal in particular) must wait for this before assuming "no user means
   // new visitor", otherwise returning users see a flash of the onboarding
@@ -422,7 +425,7 @@ const App: React.FC = () => {
   );
   const [guestImageSavedInBrowser, setGuestImageSavedInBrowser] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  // Build Studio (reveal animator) target — the generation+version to animate.
+  // Build Studio (reveal animator) target - the generation+version to animate.
   const [buildStudioTarget, setBuildStudioTarget] = useState<
     { generation: Generation; version: GenerationVersion } | null
   >(null);
@@ -611,7 +614,7 @@ const App: React.FC = () => {
   // Set while we are running a `window.scrollTo` (e.g. snapping to the top
   // after restoring a generation from history). The auto-collapse scroll
   // listener consults this so the synthetic scroll events fired during the
-  // smooth scroll don't toggle `isToolbarCollapsed` back off — and so the
+  // smooth scroll don't toggle `isToolbarCollapsed` back off - and so the
   // listener doesn't compete with the in-flight animation while the user
   // tries to take over with their wheel/trackpad.
   const isProgrammaticScrollRef = useRef(false);
@@ -834,7 +837,7 @@ const App: React.FC = () => {
       if (!active) return;
       if (restoredUser) {
         // The account preference is the source of truth for the model. The
-        // local toolbar cache only fills in when the account has none —
+        // local toolbar cache only fills in when the account has none -
         // letting it OVERRIDE the preference (as it used to) meant any stale
         // cache from an older tab or session silently resurrected an old
         // model on reload, and the next preference write persisted it: the
@@ -919,7 +922,7 @@ const App: React.FC = () => {
   // Sync preferences to Auth Service when they change AND a user is logged in.
   // We pass the full `user.preferences` (not a hand-picked subset) because
   // `authService.updateUserPreferences` fully replaces the `preferences` map
-  // in Firestore. Sending a subset wipes any field we forgot to include —
+  // in Firestore. Sending a subset wipes any field we forgot to include -
   // historically this clobbered `presets` / `folders` / `activeFolderId` on
   // every page load, so a saved preset would vanish on the next refresh.
   // `sanitizePreferences` already strips icons, arrays, and the admin flag.
@@ -933,6 +936,8 @@ const App: React.FC = () => {
   }, [
     user?.preferences.settings,
     user?.preferences.apiKeyStatus,
+    user?.preferences.apiKeys,
+    user?.preferences.geminiApiKey,
     user?.preferences.selectedModel,
     user?.preferences.systemPrompt,
     user?.preferences.lastSeenWhatsNewId,
@@ -1019,7 +1024,7 @@ const App: React.FC = () => {
     ? (user.preferences.selectedModel || guestSelectedModel)
     : guestSelectedModel;
 
-  // Newest generation whose settings match the preset's PINNED fields —
+  // Newest generation whose settings match the preset's PINNED fields -
   // shown as a sample thumbnail in the hover preview so the user can see
   // what a preset produces before applying it. Partial presets match on
   // the fields they carry only (a style-only preset matches by style).
@@ -1032,7 +1037,7 @@ const App: React.FC = () => {
         if (preset.visualStyleId && c.visualStyleId !== preset.visualStyleId) return false;
         if (preset.colorSchemeId && c.colorSchemeId !== preset.colorSchemeId) return false;
         // Normalized compare: legacy presets store ratios like "16_9" while
-        // applying coerces to "16:9" — a literal compare would never match.
+        // applying coerces to "16:9" - a literal compare would never match.
         if (
           preset.aspectRatio &&
           normalizeAspectRatio(c.aspectRatio) !== normalizeAspectRatio(preset.aspectRatio)
@@ -1104,7 +1109,7 @@ const App: React.FC = () => {
   // Picks up to two marks from anywhere in the app (thumbnail rail, current
   // viewport, or Recent Generations tile). Once two are selected we render
   // either an inline or full-screen JuxtaposeSlider. Intentionally live-only
-  // — nothing about the comparison itself is persisted.
+  // - nothing about the comparison itself is persisted.
   const [comparisonState, setComparisonState] = useState<{
     mode: 'idle' | 'picking';
     a: MarkRef | null;
@@ -1147,7 +1152,7 @@ const App: React.FC = () => {
       if (!prev.b) {
         return { mode: 'idle', a: prev.a, b: ref };
       }
-      // Both already set — replace B with the new pick and re-open the slider.
+      // Both already set - replace B with the new pick and re-open the slider.
       return { mode: 'idle', a: prev.a, b: ref };
     });
   };
@@ -1190,7 +1195,7 @@ const App: React.FC = () => {
         4000
       );
     } else {
-      // Toolbar is back — drop the hint immediately, don't let it linger.
+      // Toolbar is back - drop the hint immediately, don't let it linger.
       setShowToolbarHint(false);
       window.clearTimeout(toolbarHintTimerRef.current);
     }
@@ -1210,7 +1215,7 @@ const App: React.FC = () => {
   }, []);
 
   // Dock when the sentinel scrolls off-screen; undock when it returns to the
-  // top — avoids scroll-delta feedback loops from toolbar height animations.
+  // top - avoids scroll-delta feedback loops from toolbar height animations.
   useEffect(() => {
     if (!isStudioRoute) return;
     const sentinel = toolbarDockSentinelRef.current;
@@ -1264,18 +1269,18 @@ const App: React.FC = () => {
   }, [isStudioRoute, setToolbarCollapsed]);
 
   // Reversible scroll-to-toggle at the very top. When you're already at the
-  // top the sentinel observer has nothing to react to (no scroll room — the
+  // top the sentinel observer has nothing to react to (no scroll room - the
   // focus-mode preview hugs the image, so the page often doesn't scroll at
   // all), which left the toolbar stuck: scroll-up wouldn't show it, scroll-
   // down wouldn't hide it. Catch the wheel/trackpad gesture at the top and
-  // drive it directly — up shows, down hides — so it's fully reversible
+  // drive it directly - up shows, down hides - so it's fully reversible
   // without reaching for the ⤢ button.
   useEffect(() => {
     if (!isStudioRoute) return;
     const onWheel = (e: WheelEvent) => {
       if (window.scrollY > 8) return; // only act at the very top
       // Don't collapse the toolbar when the wheel is over the toolbar itself or
-      // one of its open dropdown panels — the user is scrolling a menu, not the
+      // one of its open dropdown panels - the user is scrolling a menu, not the
       // page. Without this, scrolling a long dropdown hides the toolbar and
       // closes the menu.
       const target = e.target as HTMLElement | null;
@@ -1298,7 +1303,7 @@ const App: React.FC = () => {
 
   // Auto-collapse whenever the user lands on a new large preview. Without
   // this, a freshly-selected image that fits inside the viewport never
-  // triggers docking — the user would have to scroll just to get focus mode.
+  // triggers docking - the user would have to scroll just to get focus mode.
   // Keying on the generation id (not the object) avoids re-collapsing on
   // every refinement-version change for the same image.
   useEffect(() => {
@@ -1345,7 +1350,7 @@ const App: React.FC = () => {
 
   // First-time bootstrap of the user's persistent Firestore defaults from
   // whatever is currently in the toolbar. This only fills in defaults the
-  // user has NEVER explicitly set — once a `default*` field exists in
+  // user has NEVER explicitly set - once a `default*` field exists in
   // settings, it's owned by the Settings page and toolbar tweaks must not
   // clobber it (otherwise picking 1:1 for a one-off generation would
   // silently overwrite the user's saved Widescreen preference).
@@ -1357,7 +1362,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!user || !hasHydratedToolbarState) return;
     const existingSettings = user.preferences.settings || { contributeByDefault: false };
-    // Only seed defaults that don't have a saved value yet — never overwrite.
+    // Only seed defaults that don't have a saved value yet - never overwrite.
     const seededDefaults: Partial<UserSettings> = {};
     if (!existingSettings.defaultGraphicTypeId && config.graphicTypeId) {
       seededDefaults.defaultGraphicTypeId = config.graphicTypeId;
@@ -1404,7 +1409,7 @@ const App: React.FC = () => {
 
   // Extra models unlocked by an OpenRouter key: the user's enabled slugs
   // (defaults = curated top benchmark picks), minus vendors already covered
-  // by a direct provider key — direct APIs always win over OpenRouter routing.
+  // by a direct provider key - direct APIs always win over OpenRouter routing.
   const openRouterModels = useMemo(() => {
     if (!user || !getOpenRouterKeyFromUser(user)) return [];
     const hasGeminiKey = !!getApiKeyForModelFromUser(user, 'gemini');
@@ -1427,7 +1432,7 @@ const App: React.FC = () => {
           group: 'OpenRouter' as const
         };
       });
-  }, [user?.preferences.apiKeyStatus, user?.preferences.openRouterModels]);
+  }, [user?.preferences.apiKeyStatus, user?.preferences.apiKeys, user?.preferences.geminiApiKey, user?.preferences.openRouterModels]);
 
   const getActiveApiKey = (): string | undefined => getApiKeyForModel(selectedModel);
 
@@ -1451,7 +1456,7 @@ const App: React.FC = () => {
   // model so the user can start generating immediately instead of being
   // stuck behind the "One setup step left" banner.
   // Skip credit-funded models when the account can pay with PixTaffy credits
-  // — otherwise picking GPT Image 2.5 with a Gemini BYOK key snapped the
+  // - otherwise picking GPT Image 2.5 with a Gemini BYOK key snapped the
   // toolbar back to Nano Banana Pro after every generate.
   useEffect(() => {
     if (!user) return;
@@ -1470,7 +1475,7 @@ const App: React.FC = () => {
     };
     setUser(updatedUser);
     authService.updateUserPreferences(user.id, updatedUser.preferences).catch(console.error);
-  }, [user?.id, user?.preferences.apiKeyStatus, selectedModel, activeApiKey, hasUsableCredits]);
+  }, [user?.id, user?.preferences.apiKeyStatus, user?.preferences.apiKeys, user?.preferences.geminiApiKey, selectedModel, activeApiKey, hasUsableCredits]);
 
   // Keep the generation monitor's elapsed/remaining display live by nudging a
   // tick once per second while at least one background generation is running.
@@ -1538,13 +1543,13 @@ const App: React.FC = () => {
       `Structured Prompt: ${expanded}`,
       `Type: ${typeLabel}`,
       styleLabel ? `Style: ${styleLabel}${styleDesc}` : '',
-      colorsLabel ? `Colors (paint the artwork WITH these — NEVER draw the hex codes, palette name, or color swatches as visible elements): ${colorsLabel}` : '',
+      colorsLabel ? `Colors (paint the artwork WITH these - NEVER draw the hex codes, palette name, or color swatches as visible elements): ${colorsLabel}` : '',
       aspectLabel ? `Size: ${aspectLabel}` : '',
       instructions ? `Additional art direction: ${instructions}` : '',
       // Weaker models transcribe settings into the artwork (hex codes drawn
       // as swatch chips, style names as captions). Strong models ignore this
       // line at no cost; weak ones need it stated flatly.
-      'Note: Type, Style, Colors, and Size above are generation settings, not content — never render their labels, names, hex codes, or swatches anywhere in the image.'
+      'Note: Type, Style, Colors, and Size above are generation settings, not content - never render their labels, names, hex codes, or swatches anywhere in the image.'
     ].filter(Boolean).join('\n');
   };
 
@@ -1885,7 +1890,7 @@ const App: React.FC = () => {
         );
       }
 
-      // Comparison batch id — only stamped when running more than one model.
+      // Comparison batch id - only stamped when running more than one model.
       // It still acts as a "this tile is a multi-model comparison run" marker
       // for UI chrome (badge in Recent Generations), even though all marks now
       // live in a single Generation tile rather than across siblings.
@@ -1969,7 +1974,7 @@ const App: React.FC = () => {
 
       // Aggregate progress across all per-model batches. Models run in
       // parallel (see Promise.all below), so we can't just add a running
-      // total — progress events from different models arrive interleaved.
+      // total - progress events from different models arrive interleaved.
       // Instead, each model reports its own latest BatchProgress into
       // `perModelProgress` and we re-sum across all known models on every
       // event. Single-source-of-truth and concurrency-safe.
@@ -2077,7 +2082,7 @@ const App: React.FC = () => {
           recordModelDuration(modelId, performance.now() - jobStart);
 
           // Safety net: occasionally a model API returns a 200 with an empty
-          // payload (no base64 / no svg) — the call doesn't throw, but the
+          // payload (no base64 / no svg) - the call doesn't throw, but the
           // resulting "image" is a 0-byte tile that renders solid black in
           // the gallery and Compare rail. Without this guard we persisted
           // those blanks as `type: 'generation'` versions, which the user
@@ -2089,7 +2094,7 @@ const App: React.FC = () => {
             ? Boolean(result?.svgCode && result.svgCode.trim().length > 0)
             : Boolean(result?.base64Data && result.base64Data.length > 100);
           if (!hasUsableBytes) {
-            throw new Error('Model returned an empty image — skipping');
+            throw new Error('Model returned an empty image - skipping');
           }
           const actualModelId = result.modelId || modelId;
 
@@ -2191,7 +2196,7 @@ const App: React.FC = () => {
                 // Empty preview (or already on this tile): show results live.
                 setCurrentGeneration(latest);
               } else {
-                // The user is working on another tile — don't yank them away;
+                // The user is working on another tile - don't yank them away;
                 // offer a click-to-view toast instead.
                 showCompletionToast(latest);
               }
@@ -2219,7 +2224,7 @@ const App: React.FC = () => {
 
       // Run all selected models in PARALLEL. Previously this was a sequential
       // for-await loop, which meant a 2-model compare run waited for model A
-      // to finish before firing the first request for model B — so a user
+      // to finish before firing the first request for model B - so a user
       // ever saw at most `DEFAULT_BATCH_CONCURRENCY` API calls in flight
       // regardless of how many models they picked. With Promise.all, each
       // model runs its own workers independently, giving N × concurrency
@@ -2402,7 +2407,7 @@ const App: React.FC = () => {
         safeAspectRatio
       );
       // Guarded apply: refresh the preview only if the user is STILL viewing
-      // this generation — a refine finishing on tile A must not hijack the
+      // this generation - a refine finishing on tile A must not hijack the
       // view (or worse, the result) when the user has moved on to tile B.
       applyGenerationSnapshot(updatedGeneration);
 
@@ -2414,7 +2419,7 @@ const App: React.FC = () => {
   };
 
   const handleRefine = (refinementText: string) => {
-    // Pin the ORIGIN tile at call time — queued work must never retarget to
+    // Pin the ORIGIN tile at call time - queued work must never retarget to
     // whatever tile the user is viewing when it finally runs (switching
     // slides mid-refine used to land the new Mark on the wrong generation).
     const targetGeneration = currentGenerationRef.current;
@@ -2443,7 +2448,7 @@ const App: React.FC = () => {
   };
 
   // Build Studio "Clean up for animation": refine the STUDIO's generation +
-  // version (which may not be the current tile — the old code refined the
+  // version (which may not be the current tile - the old code refined the
   // current tile and silently no-oped when there wasn't one), then swap the
   // studio to the freshly created Mark. Returns true on success so the
   // studio can flash a failure message without closing.
@@ -2467,7 +2472,7 @@ const App: React.FC = () => {
   // a "generation"-type Mark on the current tile. Unlike `handleRefine`, this
   // does NOT pass the previous image into the model and is NOT wrapped in the
   // "preserve composition / framing / layout" directives that make refine
-  // outputs hug the source — so each new Mark is a fresh take on the prompt
+  // outputs hug the source - so each new Mark is a fresh take on the prompt
   // with the model free to rethink layout, palette application, and
   // organization. Hooked up to the "+" plus button at the end of the version
   // rail; refine-bar text submissions still go through `handleRefine` because
@@ -2600,7 +2605,7 @@ const App: React.FC = () => {
   };
 
   // Star (or unstar) a Mark within the current generation. At most one Mark
-  // per generation is starred — calling this with the already-starred id
+  // per generation is starred - calling this with the already-starred id
   // clears the star; calling with a different id moves the star. Persists to
   // the same storage as every other generation mutation so the choice
   // survives reload + cross-device sync.
@@ -2714,7 +2719,7 @@ const App: React.FC = () => {
   };
 
   const handleResizeCanvasRefine = async (targetAspectRatioInput: string): Promise<void> => {
-    // Pin the origin tile at call time (see handleRefine) — queued work must
+    // Pin the origin tile at call time (see handleRefine) - queued work must
     // not retarget to whichever tile is showing when it runs.
     const pinned = currentGenerationRef.current;
     if (!pinned) {
@@ -2872,7 +2877,7 @@ const App: React.FC = () => {
         );
         applyGenerationSnapshot(updatedGeneration);
         // Only steer the shared toolbar aspect if the user is still on this
-        // tile — background completions shouldn't reconfigure the toolbar.
+        // tile - background completions shouldn't reconfigure the toolbar.
         if (currentGenerationRef.current?.id === pinnedId) {
           setConfig(prev => ({ ...prev, aspectRatio: targetAspectRatio }));
         }
@@ -2909,7 +2914,7 @@ const App: React.FC = () => {
     if (user && restoredGeneration.modelId) {
       // Functional + queued (see handleModelChange): the old snapshot-based
       // setUser here could clobber interim preference changes, and the
-      // restored model was never persisted — so a reload forgot it.
+      // restored model was never persisted - so a reload forgot it.
       setUser(prev => prev ? {
         ...prev,
         preferences: { ...prev.preferences, selectedModel: restoredGeneration.modelId }
@@ -2961,7 +2966,7 @@ const App: React.FC = () => {
     const targetIndex = currentGeneration.versions.findIndex((version) => version.id === versionId);
     if (targetIndex < 0) return;
 
-    // Any single version can be removed (originals and refinements alike) —
+    // Any single version can be removed (originals and refinements alike) -
     // the only hard constraint is that the generation must keep at least one
     // version. Removing the very last one would leave a phantom tile with no
     // image, so use the gallery-tile delete instead. This matters because
@@ -3113,14 +3118,16 @@ const App: React.FC = () => {
   const handleSaveSettings = async (
     newSettings: UserSettings,
     profileData?: { name: string; username: string; photoURL?: string; photoDataUrl?: string },
+    geminiApiKey?: string,
     systemPrompt?: string,
     preferredModel?: string,
+    apiKeys?: Record<string, string>,
     openRouterModelSlugs?: string[]
   ) => {
     if (!user) return;
     const nextSelectedModel = preferredModel || user.preferences.selectedModel || DEFAULT_MODEL_ID;
 
-    const apiKeyStatus = await getUserApiKeyStatus();
+    const apiKeyStatus = serverKeysEnabled() ? await getUserApiKeyStatus() : undefined;
 
     // Update local state for immediate feedback
     const updatedUser = {
@@ -3135,6 +3142,7 @@ const App: React.FC = () => {
             systemPrompt: systemPrompt !== undefined ? systemPrompt : user.preferences.systemPrompt,
             selectedModel: nextSelectedModel,
             apiKeyStatus,
+            ...(!serverKeysEnabled() ? { apiKeys: apiKeys ?? user.preferences.apiKeys, geminiApiKey: geminiApiKey ?? user.preferences.geminiApiKey } : {}),
             openRouterModels:
               openRouterModelSlugs !== undefined ? openRouterModelSlugs : user.preferences.openRouterModels
         }
@@ -3228,7 +3236,7 @@ const App: React.FC = () => {
     }
     // Functional update + queued persist: building the next user from a
     // captured `user` let two same-tick preference changes (e.g. a preset
-    // applying model AND quality) clobber each other — the second setUser
+    // applying model AND quality) clobber each other - the second setUser
     // rebuilt from the stale closure and silently reverted the first, and
     // their interleaved Firestore writes could land out of order, so the
     // reverted value was what got "remembered" after a reload.
@@ -3238,7 +3246,7 @@ const App: React.FC = () => {
 
   const handleOpenAIQualityChange = (quality: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto') => {
     if (!user) return;
-    // Functional update + queued persist — see handleModelChange for why.
+    // Functional update + queued persist - see handleModelChange for why.
     setUser(prev => prev ? {
       ...prev,
       preferences: {
@@ -3287,7 +3295,7 @@ const App: React.FC = () => {
     };
     const { presets } = await presetService.savePreset(user, name, snapshot);
     setUser(prev => prev ? { ...prev, preferences: { ...prev.preferences, presets } } : prev);
-    // The instructions the user just typed become the active art direction —
+    // The instructions the user just typed become the active art direction -
     // saving a preset shouldn't require re-applying it to take effect.
     if (instructions !== (config.customInstructions?.trim() || undefined)) {
       setConfig(prev => ({ ...prev, customInstructions: instructions || undefined }));
@@ -3295,7 +3303,7 @@ const App: React.FC = () => {
   };
 
   const handleApplyPreset = (preset: ToolbarPreset) => {
-    // Apply only the fields the preset actually carries — leave the rest
+    // Apply only the fields the preset actually carries - leave the rest
     // untouched so partial presets compose with the user's current setup.
     setConfig(prev => {
       const next = { ...prev };
@@ -3354,7 +3362,7 @@ const App: React.FC = () => {
 
   // Overwrite an existing preset with the current toolbar snapshot. Mirrors
   // the same field set as `handleSavePreset` so updating produces an
-  // equivalent shape — keeping name + createdAt intact via presetService so
+  // equivalent shape - keeping name + createdAt intact via presetService so
   // the row identity (and sort order) survives the rewrite.
   const handleUpdatePreset = async (presetId: string) => {
     if (!user) throw new Error('Sign in to update presets.');
@@ -3761,7 +3769,7 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col w-full min-h-screen font-sans transition-colors duration-200">
 
-      {/* What's New spotlight — auto-fires for the newest featured entry the
+      {/* What's New spotlight - auto-fires for the newest featured entry the
           current user hasn't dismissed. Lives outside the scrollable layout
           so its fixed overlay covers the entire viewport including header. */}
       {user && !welcomeMode && whatsNew.isSpotlightPending && whatsNew.spotlightEntry && (
@@ -3815,6 +3823,7 @@ const App: React.FC = () => {
              <div className="relative">
                <button 
                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                 aria-label="Open account menu"
                  className="flex items-center gap-2 p-1 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] rounded-full transition-colors"
                >
                  <div className="w-8 h-8 rounded-full bg-brand-red flex items-center justify-center text-white text-xs font-bold overflow-hidden">
@@ -3840,7 +3849,7 @@ const App: React.FC = () => {
                     onClick={() => setIsUserMenuOpen(false)}
                     aria-hidden="true"
                   ></div>
-                  {/* Account menu — spacing modeled on a section-grouped pattern:
+                  {/* Account menu - spacing modeled on a section-grouped pattern:
                       identity → navigation actions → preference toggles → destructive
                       action, each separated by a hairline divider so the eye lands
                       on the right cluster instantly. Wider panel (`w-64`) gives the
@@ -3852,7 +3861,7 @@ const App: React.FC = () => {
                     aria-label="Account menu"
                     className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
                   >
-                    {/* Identity header — display name on top, email below in
+                    {/* Identity header - display name on top, email below in
                         muted weight, both truncated so long emails don't blow
                         out the panel width. */}
                     <div className="px-4 py-3 border-b border-gray-200 dark:border-[#30363d]">
@@ -3951,7 +3960,7 @@ const App: React.FC = () => {
                           <span>Admin</span>
                         </button>
                       )}
-                      {/* GitHub repo link — moved out of the header so the
+                      {/* GitHub repo link - moved out of the header so the
                           right-side icon strip stays focused on Focus mode +
                           What's New. Anchor (not button) so the OS / browser
                           new-tab affordances work naturally. */}
@@ -3980,7 +3989,7 @@ const App: React.FC = () => {
                       </button>
                     </div>
 
-                    {/* Preferences — the whole row is the toggle target; the
+                    {/* Preferences - the whole row is the toggle target; the
                         pill on the right is a visual indicator (aria-hidden)
                         so the button itself carries the switch semantics. The
                         thumb's translate values are tuned to the 36px track +
@@ -4011,7 +4020,7 @@ const App: React.FC = () => {
                       </button>
                     </div>
 
-                    {/* Destructive action sits on its own at the bottom — no
+                    {/* Destructive action sits on its own at the bottom - no
                         divider above, the visual break is the red tint. */}
                     <button
                       type="button"
@@ -4045,7 +4054,7 @@ const App: React.FC = () => {
 
            {user && <div className="h-6 w-px bg-gray-200 dark:bg-[#30363d]"></div>}
 
-           {/* Focus mode toggle — collapses BOTH the toolbar options row
+           {/* Focus mode toggle - collapses BOTH the toolbar options row
                and the prompt input so the user can see more of the
                preview/gallery. Only meaningful in the main view (not
                admin/settings/catalog), where the ControlPanel is mounted.
@@ -4063,7 +4072,7 @@ const App: React.FC = () => {
              </button>
            )}
 
-           {/* What's New bell — last icon in the row so the unread count
+           {/* What's New bell - last icon in the row so the unread count
                bubble sits in the corner where users expect notification
                pings. Guest navigation stays focused on Log In. */}
            {user && (
@@ -4165,7 +4174,7 @@ const App: React.FC = () => {
       ) : settingsMode ? (
         user && (
           <Suspense fallback={<LazyPageFallback label="Loading settings..." />}>
-            <SettingsPage
+            <ActiveSettingsPage
               onBack={() => setSettingsMode(false)}
               user={user}
               onSave={handleSaveSettings}
@@ -4243,7 +4252,7 @@ const App: React.FC = () => {
           >
             <div className="flex items-center gap-2 rounded-full bg-slate-900/90 dark:bg-[#161b22]/95 px-3.5 py-2 text-xs font-medium text-white shadow-lg ring-1 ring-white/10 backdrop-blur-sm">
               <Maximize2 size={13} className="shrink-0 text-brand-teal" />
-              <span>Toolbar hidden — scroll up or tap <span className="font-semibold">⤢</span> to show it</span>
+              <span>Toolbar hidden - scroll up or tap <span className="font-semibold">⤢</span> to show it</span>
             </div>
           </div>
 
@@ -4269,7 +4278,7 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Finished-generation toast — quiet click-to-view notice shown
+            {/* Finished-generation toast - quiet click-to-view notice shown
                 when a generation completes while the user is on another tile
                 (the preview is never hijacked). Bottom-right so it stays
                 clear of the Active Generations monitor at top-right. */}
@@ -4289,7 +4298,7 @@ const App: React.FC = () => {
                   <button
                     type="button"
                     onClick={openToastGeneration}
-                    aria-label="Generation finished — view it"
+                    aria-label="Generation finished - view it"
                     className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 pl-2 pr-4 py-2 text-left shadow-lg backdrop-blur-sm transition-colors hover:border-brand-teal"
                   >
                     {toastVersion?.imageUrl ? (
@@ -4438,7 +4447,7 @@ const App: React.FC = () => {
                           let perGen = baselinePerGen;
                           if (doneCount > 0) {
                             // Anchor the observed speed to the moment of the
-                            // last completion — deriving it from live elapsed
+                            // last completion - deriving it from live elapsed
                             // makes perGen grow 1s/s and cancels the countdown
                             // (the display stalls while a straggler runs).
                             const anchoredSec = Math.max(
@@ -4612,7 +4621,7 @@ const App: React.FC = () => {
               );
             })()}
 
-            {/* Display — render the viewer when we have something to show,
+            {/* Display - render the viewer when we have something to show,
                 a new generation is starting up (so the "Generating…"
                 placeholder is visible instead of stale art), or there's no
                 history at all (true first-run). When the viewer is empty but
@@ -4833,7 +4842,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {/* Build Studio — reveal animator over the current image */}
+      {/* Build Studio - reveal animator over the current image */}
       {buildStudioTarget && (
         <Suspense fallback={<LazyModalFallback />}>
           <BuildStudio

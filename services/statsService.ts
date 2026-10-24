@@ -1,3 +1,5 @@
+import { serverKeysEnabled } from './keyStorageMode';
+import { statsService as legacy } from './legacyStatsService';
 import { allUserKeyProfiles, listUserKeyProfiles, countUserKeyProfiles } from './userApiKeyService';
 import {
   collectionGroup,
@@ -85,7 +87,7 @@ export interface AdminStats {
     /** Chronological, last 30 days (images AND refinements per day). */
     perDayLast30: StatsDailyEntry[];
     byModel: StatsBucketEntry[];
-    /** Per-VERSION (every image) counts by model — basis for estimated spend. */
+    /** Per-VERSION (every image) counts by model - basis for estimated spend. */
     byModelImages: StatsBucketEntry[];
     byGraphicType: StatsBucketEntry[];
     byVisualStyle: StatsBucketEntry[];
@@ -127,7 +129,7 @@ export interface UserStats {
     isDisabled: boolean;
     /** Has at least one configured API key (Gemini or OpenAI). */
     hasApiKey: boolean;
-    /** Persisted admin signal — see `AdminStats.users.legacyAdminSignals`. */
+    /** Persisted admin signal - see `AdminStats.users.legacyAdminSignals`. */
     isLegacyAdminSignal: boolean;
   };
 
@@ -137,7 +139,7 @@ export interface UserStats {
     totalRefinements: number;
     perDayLast30: StatsDailyEntry[];
     byModel: StatsBucketEntry[];
-    /** Per-VERSION (every image) counts by model — basis for estimated spend. */
+    /** Per-VERSION (every image) counts by model - basis for estimated spend. */
     byModelImages: StatsBucketEntry[];
     byGraphicType: StatsBucketEntry[];
     byVisualStyle: StatsBucketEntry[];
@@ -159,7 +161,7 @@ function dayKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Returns [oldest, ..., today] — `count` consecutive local-day keys. */
+/** Returns [oldest, ..., today] - `count` consecutive local-day keys. */
 function lastNDays(count: number): string[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -234,7 +236,7 @@ function modelLabel(id: string): string {
 // Public API
 // -----------------------------------------------------------------------------
 
-export const statsService = {
+const server = {
   /**
    * Build a single admin usage-stats snapshot.
    *
@@ -251,7 +253,7 @@ export const statsService = {
    *   - `match /users/{uid} { allow list: if isAdmin(); }`
    *
    * For projects with tens of thousands of history docs this becomes slow
-   * and expensive — at that point we'd pre-aggregate with a scheduled
+   * and expensive - at that point we'd pre-aggregate with a scheduled
    * Cloud Function. For now, live computation is fine.
    */
   async getStats(opts: { topUsersLimit?: number } = {}): Promise<AdminStats> {
@@ -327,7 +329,7 @@ export const statsService = {
     let totalRefinements = 0;
 
     const byModel = new Map<string, { label: string; count: number }>();
-    // Per-VERSION counts by model — every generated/refined image, not just
+    // Per-VERSION counts by model - every generated/refined image, not just
     // tiles. This is what the estimated-spend figures multiply against.
     const byModelImages = new Map<string, { label: string; count: number }>();
     const byGraphicType = new Map<string, { label: string; count: number }>();
@@ -477,7 +479,7 @@ export const statsService = {
    * Build a focused snapshot for a single user.
    *
    * Targets just `users/{uid}` + `users/{uid}/history/*`, so it's a small,
-   * predictable query regardless of project size — nice when drilling in
+   * predictable query regardless of project size - nice when drilling in
    * from the admin leaderboard.
    *
    * Same admin-only security model as `getStats`: the top-level
@@ -619,7 +621,7 @@ export const statsService = {
     };
   },
 
-  /** Cheap health probe — just the two top-level counts with server-side aggregates. */
+  /** Cheap health probe - just the two top-level counts with server-side aggregates. */
   async getQuickCounts(): Promise<{ users: number; historyTiles: number }> {
     const [usersSnap, historySnap] = await Promise.all([
       countUserKeyProfiles(),
@@ -645,3 +647,5 @@ export const statsService = {
     }));
   },
 };
+
+export const statsService = new Proxy(legacy, { get(_target, property) { return Reflect.get(serverKeysEnabled() ? server : legacy, property); } });

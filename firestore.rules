@@ -19,8 +19,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn()
-        && 'admin' in request.auth.token
-        && request.auth.token.admin == true;
+        && request.auth.token.get('admin', false) == true;
     }
 
     function isNotDisabled(uid) {
@@ -30,7 +29,7 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(uid)).data.isDisabled == true);
     }
 
-    // Catalog resources (graphic_types, visual_styles, etc.) — must align with
+    // Catalog resources (graphic_types, visual_styles, etc.) - must align with
     // resourceService.fetchScopedResources queries. Guests read system + public
     // only; signed-in users also read their private items and team-shared items.
     function isPublicCatalogScope() {
@@ -87,9 +86,33 @@ service cloud.firestore {
               'lastSignInAt', 'photoURL', 'photoDataUrl'];
     }
 
+    function serverKeysEnabledForFlags(flags) {
+      let stage = flags.get('stage', 0);
+      let allowAdmins = flags.get('allowAdmins', false);
+      let allowlist = flags.get('allowlistUids', []);
+      return stage in [0, 1, 2] && allowAdmins is bool && allowlist is list
+        && (stage == 2 || (stage == 1
+          && ((allowAdmins && isAdmin()) || request.auth.uid in allowlist)));
+    }
+
+    function serverKeysEnabledForConfig(config) {
+      let flags = config.get('serverSideUserKeys', {});
+      return flags is map && serverKeysEnabledForFlags(flags);
+    }
+
+    function serverKeysOn() {
+      // One guarded document read, only when a profile contains legacy keys.
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/config/featureFlags)
+        && serverKeysEnabledForConfig(get(/databases/$(database)/documents/config/featureFlags).data);
+    }
+    match /config/{doc} { allow read, write: if false; }
+
     function noPlaintextKeys(data) {
+      let preferences = data.get('preferences', {});
       return !data.keys().hasAny(['apiKeys', 'geminiApiKey'])
-        && (!('preferences' in data) || !data.preferences.keys().hasAny(['apiKeys', 'geminiApiKey']));
+        && preferences is map
+        && !preferences.keys().hasAny(['apiKeys', 'geminiApiKey']);
     }
 
     match /userApiKeys/{uid} {
@@ -98,11 +121,11 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow get: if (isOwner(uid) || isAdmin())
-        && (!exists(/databases/$(database)/documents/users/$(uid)) || noPlaintextKeys(resource.data));
-      allow list: if isAdmin() && noPlaintextKeys(resource.data);
-      allow create: if isOwner(uid) && noPlaintextKeys(request.resource.data)
+        && (!exists(/databases/$(database)/documents/users/$(uid)) || noPlaintextKeys(resource.data) || !serverKeysOn());
+      allow list: if isAdmin() && (noPlaintextKeys(resource.data) || !serverKeysOn());
+      allow create: if isOwner(uid) && (noPlaintextKeys(request.resource.data) || !serverKeysOn())
         && request.resource.data.keys().hasOnly(ownerProfileFields());
-      allow update: if noPlaintextKeys(request.resource.data) && (isAdmin()
+      allow update: if (noPlaintextKeys(request.resource.data) || !serverKeysOn()) && (isAdmin()
         || (isOwner(uid)
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(ownerProfileFields())));
@@ -117,7 +140,7 @@ service cloud.firestore {
       }
 
       // Build Studio reveal animations, keyed by `${generationId}|${versionId}`
-      // (see services/buildStore.ts) — owner-private; admins override.
+      // (see services/buildStore.ts) - owner-private; admins override.
       match /builds/{buildId} {
         allow read:   if isOwner(uid) || isAdmin();
         allow create: if isOwner(uid) || isAdmin();
@@ -126,7 +149,7 @@ service cloud.firestore {
       }
 
       // Server-managed private docs (API rate-limit counters, etc.). Only
-      // Cloud Functions (admin SDK, which bypasses rules) may touch these —
+      // Cloud Functions (admin SDK, which bypasses rules) may touch these -
       // owners must not edit their own rate limits.
       match /private/{docId} {
         allow read:   if isAdmin();
@@ -199,7 +222,7 @@ service cloud.firestore {
 
     // Personal API tokens: doc id is the SHA-256 of the token, managed
     // exclusively by the manageApiTokens Cloud Function via the admin SDK.
-    // No client may read or write here — a client read would expose which
+    // No client may read or write here - a client read would expose which
     // hashes exist; writes could forge or un-revoke tokens.
     match /apiTokens/{tokenHash} {
       allow read, write: if false;
@@ -266,7 +289,8 @@ service cloud.firestore {
 
     // Admin fallback must not override profile or encrypted-key protections.
     match /{collection}/{path=**} {
-      allow read, write: if isAdmin() && !(collection in ['users', 'userApiKeys']);
+      allow read, write: if isAdmin() && !(collection in ['userApiKeys', 'config'])
+        && (collection != 'users' || !serverKeysOn());
     }
   }
 }

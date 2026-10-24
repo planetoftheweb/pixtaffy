@@ -17,8 +17,10 @@ interface SettingsPageProps {
   onSave: (
     newSettings: UserSettings,
     profileData?: { name: string; username: string; photoURL?: string; photoDataUrl?: string },
+    geminiApiKey?: string,
     systemPrompt?: string,
     selectedModel?: string,
+    apiKeys?: Record<string, string>,
     openRouterModels?: string[]
   ) => void | Promise<void>;
   graphicTypes: GraphicTypeDefinition[];
@@ -65,7 +67,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [apiTokenName, setApiTokenName] = useState('');
   const [apiTokenBusy, setApiTokenBusy] = useState(false);
   const [apiTokenError, setApiTokenError] = useState<string | null>(null);
-  /** Plaintext of a freshly created token — shown exactly once. */
+  /** Plaintext of a freshly created token - shown exactly once. */
   const [freshToken, setFreshToken] = useState<string | null>(null);
   const [freshTokenCopied, setFreshTokenCopied] = useState(false);
   const revokeConfirm = useConfirmAction({
@@ -311,8 +313,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     await onSave(
       localSettings,
       { name, username, photoURL, photoDataUrl },
+      undefined,
       systemPrompt,
       selectedModel,
+      undefined,
       nextOrModels
     );
   };
@@ -350,7 +354,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     const slug = orCustomSlug.trim();
     if (!slug) return;
     if (!/^[\w.-]+\/[\w.:-]+$/.test(slug)) {
-      setOrSlugWarning('Slugs look like vendor/model — e.g. bytedance-seed/seedream-4.5');
+      setOrSlugWarning('Slugs look like vendor/model - e.g. bytedance-seed/seedream-4.5');
       return;
     }
     if (orModels.includes(slug)) {
@@ -359,7 +363,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     }
     setOrSlugWarning(
       orKnownSlugs && !orKnownSlugs.has(slug)
-        ? `“${slug}” isn’t in OpenRouter’s image-model list — it may fail to generate.`
+        ? `“${slug}” isn’t in OpenRouter’s image-model list - it may fail to generate.`
         : null
     );
     setOrCustomSlug('');
@@ -479,13 +483,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         <div className="mb-8 flex items-center gap-4">
           <button 
             onClick={onBack}
+            aria-label="Back to studio"
             className="p-2 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
           >
             <ArrowLeft size={20} className="text-slate-600 dark:text-slate-300" />
           </button>
           <div className="flex items-center gap-2">
             <SettingsIcon size={24} className="text-brand-teal" />
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
+            <h1 data-key-storage-mode="server" className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
           </div>
         </div>
 
@@ -514,6 +519,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     <p className="text-xs text-slate-500">{provider.description}</p>
                     <input
                       type="password"
+                      aria-label={`${provider.label} key`}
+                      data-key-slot={provider.keyId}
                       value={apiKeys[provider.keyId] || ''}
                       onChange={(e) => handleApiKeyChange(provider.keyId, e.target.value)}
                       onBlur={() => handleApiKeyBlur(provider.keyId)}
@@ -534,7 +541,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 try { setKeyStatus(await clearUserApiKeys()); setApiKeys({}); await persistPreferences({}); }
                 catch { setUploadError('Could not clear keys.'); }
               }}>Delete all keys</button>
-              {/* OpenRouter model roster — which extra models show in the
+              {/* OpenRouter model roster - which extra models show in the
                   picker. Vendors already covered by a direct key are routed
                   to the direct API and hidden from the picker. */}
               {hasOpenRouterKey && (
@@ -574,7 +581,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           <span className="block text-[11px] leading-snug text-slate-500">{m.goodAt}</span>
                           {routedDirect && (
                             <span className="block mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                              Covered by your direct {m.slug.startsWith('google/') ? 'Google' : 'OpenAI'} key —
+                              Covered by your direct {m.slug.startsWith('google/') ? 'Google' : 'OpenAI'} key -
                               hidden from the picker; the direct API is used instead.
                             </span>
                           )}
@@ -617,7 +624,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         }
                       }}
                       className="flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
-                      placeholder="Add a model slug — e.g. sourceful/riverflow-v2.5-pro"
+                      placeholder="Add a model slug - e.g. sourceful/riverflow-v2.5-pro"
                       autoComplete="off"
                     />
                     <button
@@ -700,7 +707,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 </div>
               )}
 
-              {/* Personal API tokens — external access for MCP servers,
+              {/* Personal API tokens - external access for MCP servers,
                   scripts, and other apps. Plaintext is shown exactly once. */}
               <div className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
                 <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -714,7 +721,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 {freshToken && (
                   <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-2.5 space-y-1.5">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                      Copy this token now — it won't be shown again
+                      Copy this token now - it won't be shown again
                     </p>
                     <code className="block break-all text-[11px] text-slate-800 dark:text-slate-100">{freshToken}</code>
                     <div className="flex gap-2">
@@ -771,7 +778,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     value={apiTokenName}
                     onChange={(e) => setApiTokenName(e.target.value)}
                     maxLength={60}
-                    placeholder="Token name — e.g. Claude MCP, writAIble"
+                    placeholder="Token name - e.g. Claude MCP, writAIble"
                     className="flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
                   />
                   <button
@@ -1127,6 +1134,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         <div className="mt-8 flex justify-end gap-3">
           <button 
             onClick={onBack}
+            aria-label="Back to studio"
             className="px-6 py-2.5 text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg font-medium text-sm transition-colors"
           >
             Cancel

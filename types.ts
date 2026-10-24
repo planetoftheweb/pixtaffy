@@ -53,7 +53,7 @@ export interface GenerationConfig {
   aspectRatio: string;
   svgMode?: SvgMode;
   /**
-   * Free-text art direction appended to every generation — captures guidance
+   * Free-text art direction appended to every generation - captures guidance
    * the dropdown menus can't express (mood, composition rules, decorative
    * motifs, negative constraints). Seeded by applying a preset that carries
    * instructions; visible and clearable from the Presets menu.
@@ -218,9 +218,9 @@ export interface ImageBuild {
   steps: BuildStep[];
   revealStyle: BuildRevealStyle; // default 'fade'
   /**
-   * false (default): show one item at a time — the previous item hides as the
+   * false (default): show one item at a time - the previous item hides as the
    * next appears; the end reveals all selected items together.
-   * true: cumulative "build up" — each item stays visible as the next is added.
+   * true: cumulative "build up" - each item stays visible as the next is added.
    */
   cumulative: boolean;
   zoom: number;                  // 0 = no camera zoom … 1 = fully frame each region
@@ -268,7 +268,7 @@ export interface Folder {
   parentId?: string;
   /**
    * Sibling order within the same `parentId` (lower = higher in the list).
-   * Omitted on legacy folders — falls back to `createdAt`.
+   * Omitted on legacy folders - falls back to `createdAt`.
    */
   sortOrder?: number;
   /**
@@ -296,6 +296,8 @@ export interface ApiKeySlotStatus { hasKey: boolean; last4: string | null; updat
 export type UserApiKeyStatusMap = Record<string, ApiKeySlotStatus>;
 
 export interface UserPreferences {
+  apiKeys?: Record<string, string>;
+  geminiApiKey?: string;
   apiKeyStatus?: UserApiKeyStatusMap;
   // Legacy in-memory defaults. These arrays are not persisted in preferences.
   brandColors?: BrandColorDefinition[];
@@ -326,7 +328,7 @@ export interface UserPreferences {
    */
   folders?: Folder[];
   /**
-   * @deprecated Legacy sticky-folder pin — no longer written. New tiles use
+   * @deprecated Legacy sticky-folder pin - no longer written. New tiles use
    * `galleryViewFolderId` (the folder currently open in the gallery).
    */
   activeFolderId?: string;
@@ -390,7 +392,7 @@ export interface WhatsNewEntry {
   id: string;
   title: string;
   /**
-   * One-sentence preview rendered in the bell dropdown. Keep it short — the
+   * One-sentence preview rendered in the bell dropdown. Keep it short - the
    * dropdown shows two lines max before truncation.
    */
   summary: string;
@@ -439,7 +441,7 @@ export interface ToolbarPreset {
    * Consumed by openai-2 / openai-2.5 / openai-flare (gpt-image-2 and 2.5 family).
    */
   openaiImageBackground?: 'auto' | 'opaque' | 'transparent';
-  /** Free-text art direction this preset carries — applied to the toolbar's
+  /** Free-text art direction this preset carries - applied to the toolbar's
    * active instructions when the preset is applied (see
    * GenerationConfig.customInstructions). */
   customInstructions?: string;
@@ -479,7 +481,7 @@ export interface User {
 
   /**
    * Derived from the Firebase Auth custom claim `admin` on every auth state
-   * change. Never persisted to Firestore — sanitized out of every write path.
+   * change. Never persisted to Firestore - sanitized out of every write path.
    */
   isAdmin?: boolean;
 

@@ -1,3 +1,12 @@
+import { refineSvg as legacyRefineSvg } from './svgService';
+import { generateSvg as legacyGenerateSvg } from './svgService';
+import { generateOpenRouterImage as legacyGenerateOpenRouterImage } from './openRouterService';
+import { refineOpenAIImage as legacyRefineOpenAIImage } from './openaiService';
+import { generateOpenAIImage as legacyGenerateOpenAIImage } from './openaiService';
+import { refineGraphic as legacyRefineGraphic } from './geminiService';
+import { generateGraphicWithStyleReference as legacyGenerateGraphicWithStyleReference } from './geminiService';
+import { generateGraphic as legacyGenerateGraphic } from './geminiService';
+import { serverKeysEnabled } from './keyStorageMode';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase';
 import type { GeneratedImage, UserApiKeyStatusMap } from '../types';
@@ -23,21 +32,21 @@ const source = async (image: GeneratedImage) => {
   const resolved = await resolveImageInputForRefinement(image);
   return { base64Data: resolved.base64Data, mimeType: resolved.mimeType };
 };
-export const generateGraphic: typeof import('./geminiService').generateGraphic = (config, context, _key, systemPrompt, model = 'gemini') =>
+const serverGenerateGraphic: typeof import('./geminiService').generateGraphic = (config, context, _key, systemPrompt, model = 'gemini') =>
   generateWithUserKey({ config, context, systemPrompt, model });
-export const generateGraphicWithStyleReference: typeof import('./geminiService').generateGraphicWithStyleReference = async (image, prompt, config, context, _key, systemPrompt, model = 'gemini', options) =>
+const serverGenerateGraphicWithStyleReference: typeof import('./geminiService').generateGraphicWithStyleReference = async (image, prompt, config, context, _key, systemPrompt, model = 'gemini', options) =>
   generateWithUserKey({ image: await source(image), prompt, config, context, systemPrompt, model, action: 'style', options });
-export const refineGraphic: typeof import('./geminiService').refineGraphic = async (image, prompt, config, context, _key, systemPrompt, model = 'gemini', previousAspectRatio, options) =>
+const serverRefineGraphic: typeof import('./geminiService').refineGraphic = async (image, prompt, config, context, _key, systemPrompt, model = 'gemini', previousAspectRatio, options) =>
   generateWithUserKey({ image: await source(image), prompt, config, context, systemPrompt, model, action: 'refine', previousAspectRatio, options });
-export const generateOpenAIImage: typeof import('./openaiService').generateOpenAIImage = (prompt, config, _key, options = {}) =>
+const serverGenerateOpenAIImage: typeof import('./openaiService').generateOpenAIImage = (prompt, config, _key, options = {}) =>
   generateWithUserKey({ prompt, config, ...options, model: options.modelId || 'openai' });
-export const refineOpenAIImage: typeof import('./openaiService').refineOpenAIImage = async (image, prompt, config, context, _key, options = {}) =>
+const serverRefineOpenAIImage: typeof import('./openaiService').refineOpenAIImage = async (image, prompt, config, context, _key, options = {}) =>
   generateWithUserKey({ image: await source(image), prompt, config, context, ...options, model: options.modelId || 'openai', action: 'refine' });
-export const generateOpenRouterImage: typeof import('./openRouterService').generateOpenRouterImage = (prompt, config, _key, options) =>
+const serverGenerateOpenRouterImage: typeof import('./openRouterService').generateOpenRouterImage = (prompt, config, _key, options) =>
   generateWithUserKey({ prompt, config, ...options, model: `openrouter:${options.modelSlug}` });
-export const generateSvg: typeof import('./svgService').generateSvg = (config, context, _key, systemPrompt) =>
+const serverGenerateSvg: typeof import('./svgService').generateSvg = (config, context, _key, systemPrompt) =>
   generateWithUserKey({ config, context, systemPrompt, model: 'gemini-svg' });
-export const refineSvg: typeof import('./svgService').refineSvg = (svg, prompt, config, context, _key, systemPrompt) =>
+const serverRefineSvg: typeof import('./svgService').refineSvg = (svg, prompt, config, context, _key, systemPrompt) =>
   generateWithUserKey({ svg, prompt, config, context, systemPrompt, model: 'gemini-svg', action: 'refine' });
 
 export interface SafeUserProfile {
@@ -57,3 +66,19 @@ export async function allUserKeyProfiles(): Promise<SafeUserProfile[]> {
   } while (cursor);
   return rows;
 }
+
+export const generateGraphic: typeof import('./geminiService').generateGraphic = (...args) => serverKeysEnabled() ? serverGenerateGraphic(...args) : legacyGenerateGraphic(...args);
+
+export const generateGraphicWithStyleReference: typeof import('./geminiService').generateGraphicWithStyleReference = (...args) => serverKeysEnabled() ? serverGenerateGraphicWithStyleReference(...args) : legacyGenerateGraphicWithStyleReference(...args);
+
+export const refineGraphic: typeof import('./geminiService').refineGraphic = (...args) => serverKeysEnabled() ? serverRefineGraphic(...args) : legacyRefineGraphic(...args);
+
+export const generateOpenAIImage: typeof import('./openaiService').generateOpenAIImage = (...args) => serverKeysEnabled() ? serverGenerateOpenAIImage(...args) : legacyGenerateOpenAIImage(...args);
+
+export const refineOpenAIImage: typeof import('./openaiService').refineOpenAIImage = (...args) => serverKeysEnabled() ? serverRefineOpenAIImage(...args) : legacyRefineOpenAIImage(...args);
+
+export const generateOpenRouterImage: typeof import('./openRouterService').generateOpenRouterImage = (...args) => serverKeysEnabled() ? serverGenerateOpenRouterImage(...args) : legacyGenerateOpenRouterImage(...args);
+
+export const generateSvg: typeof import('./svgService').generateSvg = (...args) => serverKeysEnabled() ? serverGenerateSvg(...args) : legacyGenerateSvg(...args);
+
+export const refineSvg: typeof import('./svgService').refineSvg = (...args) => serverKeysEnabled() ? serverRefineSvg(...args) : legacyRefineSvg(...args);

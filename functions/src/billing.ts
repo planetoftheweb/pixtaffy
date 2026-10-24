@@ -1,4 +1,3 @@
-import { ensureUserApiKeysMigrated, USER_API_KEYS_ENCRYPTION_KEY } from './userApiKeys';
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getFirestore, DocumentData } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
@@ -904,10 +903,9 @@ export const stripeBillingEvents = onRequest(
   },
 );
 
-export const getBillingState = onCall({ ...callableOptions, secrets: [USER_API_KEYS_ENCRYPTION_KEY] }, async (request) => {
+export const getBillingState = onCall(callableOptions, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to view billing.");
-  await ensureUserApiKeysMigrated(uid);
   const isAdmin = request.auth?.token?.admin === true;
   await ensureStarterGrant(uid, isVerified(request));
   const snap = await billingRef(uid).get();
