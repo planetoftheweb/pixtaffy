@@ -39,3 +39,30 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ci.invalid
           VITE_FIREBASE_MESSAGING_SENDER_ID: ci-placeholder
           VITE_FIREBASE_APP_ID: ci-placeholder
+
+  emulator:
+    name: emulator tests (rules + key store)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm ci --prefix functions
+      - run: npm install -g firebase-tools
+      # Runs only against local emulators with the demo-pixtaffy project.
+      # No real secrets: the encryption key below is a fake, test-only value.
+      - run: npm run test:emulator
+        env:
+          REQUIRE_EMULATOR_TESTS: '1'
+          USER_API_KEYS_TEST_ENCRYPTION_KEY: fake-ci-only-test-encryption-key-not-a-secret

@@ -5,7 +5,8 @@ import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
 const api = require('../functions/lib/userApiKeys.js');
-const secret = randomBytes(32).toString('base64');
+// Tests use a throwaway key. CI sets USER_API_KEYS_TEST_ENCRYPTION_KEY to a clearly fake value; locally a random one is generated.
+const secret = process.env.USER_API_KEYS_TEST_ENCRYPTION_KEY || randomBytes(32).toString('base64');
 const key = randomBytes(32).toString('hex');
 test('AES-GCM round trip, random IV, tamper and account substitution rejection', () => {
   const encrypted = api.encryptKey(key, secret, 'owner:gemini');
@@ -30,7 +31,7 @@ test('callables reject unauthenticated and stranger-target requests', async () =
   await assert.rejects(api.listUserKeyProfiles.run({ auth: { uid: 'stranger', token: {} }, data: {} }), { code: 'permission-denied' });
   await assert.rejects(api.clearUserApiKeys.run({ auth: { uid: 'stranger', token: {} }, data: { uid: 'owner' } }), { code: 'permission-denied' });
 });
-test('emulator: migration, CRUD, server generation, CLI dry run and migration', { skip: !process.env.FIRESTORE_EMULATOR_HOST }, async () => {
+test('emulator: migration, CRUD, server generation, CLI dry run and migration', { skip: !process.env.FIRESTORE_EMULATOR_HOST && !process.env.REQUIRE_EMULATOR_TESTS }, async () => {
   assert.ok(process.env.FIRESTORE_EMULATOR_HOST.startsWith('127.0.0.1:') || process.env.FIRESTORE_EMULATOR_HOST.startsWith('localhost:'));
   process.env.USER_API_KEYS_ENCRYPTION_KEY = secret;
   const { initializeApp } = require('firebase-admin/app');
