@@ -51,7 +51,7 @@ export const storage = getStorage(app);
 // When running `npm run dev` with VITE_USE_FIREBASE_EMULATORS=true, point the
 // SDK at the locally-running Firebase Emulator Suite (ports from firebase.json).
 // This lets the admin panel's Cloud Functions be exercised end-to-end without
-// deploying. Production builds ignore this block entirely.
+// deploying. The explicit emulator flag also applies to preview builds.
 const useEmulators =
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ||
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === '1';
@@ -162,6 +162,16 @@ if (typeof window !== 'undefined' && !useEmulators && appCheckSiteKey) {
 // Functions can initialize immediately. The SDK discovers App Check through
 // Firebase's component registry once the background initializer runs.
 export const functions = getFunctions(app);
+
+// Plain HTTP functions do not use the callable protocol. Keep their URLs aligned
+// with the SDK project, region, and emulator configuration.
+export const getFunctionUrl = (name: string): string => {
+  const projectId = app.options.projectId as string;
+  const region = functions.region;
+  return useEmulators
+    ? `http://127.0.0.1:5001/${projectId}/${region}/${name}`
+    : `https://${region}-${projectId}.cloudfunctions.net/${name}`;
+};
 export const ensureAppCheckToken = async (): Promise<void> => {
   // Client actions may wait briefly for a token, but page rendering never does.
   // If App Check is unavailable, continue and let the callable's server-side

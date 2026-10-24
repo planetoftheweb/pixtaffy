@@ -1,3 +1,4 @@
+import { serverKeysEnabled } from './keyStorageMode';
 import type { User } from '../types';
 import { OPENROUTER_MODEL_PREFIX } from '../constants';
 
@@ -50,7 +51,7 @@ const normalizeProviderKey = (
   const key = normalizeStoredApiKey(value);
   if (!key) return undefined;
 
-  // Strict provider check — only accept keys that look like the right provider's
+  // Strict provider check - only accept keys that look like the right provider's
   // format. Anything else (cross-provider paste, .env dump, Firebase config
   // blob, raw JSON, etc.) is rejected so the resolver can fall through to the
   // next slot instead of sending garbage to the API.
@@ -69,6 +70,10 @@ export function getApiKeyForModelFromUser(
   modelId: string
 ): string | undefined {
   if (!user) return undefined;
+  if (serverKeysEnabled()) {
+    const slots = [modelId, getProviderForModel(modelId) || '', ...(modelId === 'gemini' ? ['gemini-3.1-flash-image-preview', 'gemini-svg'] : [])];
+    return slots.some(slot => user.preferences.apiKeyStatus?.[slot]?.hasKey) ? 'server-managed' : undefined;
+  }
   const provider = getProviderForModel(modelId);
   const slot = user.preferences.apiKeys?.[modelId];
   if (provider) {
@@ -81,7 +86,7 @@ export function getApiKeyForModelFromUser(
     if (shared) return shared;
     const legacy = normalizeProviderKey(user.preferences.geminiApiKey, 'gemini');
     if (legacy) return legacy;
-    // Nano Banana Pro — if only NB2 per-model override exists, use it (same Google project/key).
+    // Nano Banana Pro - if only NB2 per-model override exists, use it (same Google project/key).
     if (modelId === 'gemini') {
       const nb2 = normalizeProviderKey(user.preferences.apiKeys?.['gemini-3.1-flash-image-preview'], 'gemini');
       if (nb2) return nb2;
@@ -100,6 +105,7 @@ export function getApiKeyForModelFromUser(
 
 /** The user's shared OpenRouter key, if a valid-looking one is configured. */
 export function getOpenRouterKeyFromUser(user: User | null | undefined): string | undefined {
+  if (serverKeysEnabled()) return user?.preferences.apiKeyStatus?.openrouter?.hasKey ? 'server-managed' : undefined;
   return normalizeProviderKey(user?.preferences.apiKeys?.openrouter, 'openrouter');
 }
 

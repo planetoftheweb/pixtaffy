@@ -1,3 +1,4 @@
+import { stagingOrigins } from "./corsOrigins";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getFirestore, DocumentData } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
@@ -22,6 +23,7 @@ import { createCheckoutSession } from "./stripeSync";
 
 const REGION = "us-central1";
 const ALLOWED_ORIGINS: Array<string | RegExp> = [
+  ...stagingOrigins(),
   "https://pixtaffy.com",
   "https://www.pixtaffy.com",
   "https://pixtaffy.web.app",

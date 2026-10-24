@@ -41,3 +41,5 @@ pubsub-debug.log*
 # Env files (never commit secrets)
 .env*
 !.env.example
+
+e2e-results/

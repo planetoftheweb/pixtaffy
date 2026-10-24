@@ -1,16 +1,10 @@
+import { serverKeysEnabled } from './keyStorageMode';
+import { adminService as legacy } from './legacyAdminService';
+import { clearUserApiKeys as clearServerKeys, listUserKeyProfiles, countUserKeyProfiles, type SafeUserProfile } from './userApiKeyService';
 import {
-  collection,
   doc,
-  getCountFromServer,
-  getDocs,
-  limit as limitFn,
-  orderBy,
-  query,
-  startAfter,
   updateDoc,
   deleteField,
-  QueryDocumentSnapshot,
-  DocumentData,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { auth, db, functions } from "./firebase";
@@ -33,17 +27,14 @@ export interface AdminUserRow {
 
 export interface ListUsersPage {
   rows: AdminUserRow[];
-  cursor: QueryDocumentSnapshot<DocumentData> | null;
+  cursor: string | import('firebase/firestore').QueryDocumentSnapshot<import('firebase/firestore').DocumentData> | null;
   pageSize: number;
 }
 
-const PAGE_SIZE = 25;
-
-function rowFromDoc(snap: QueryDocumentSnapshot<DocumentData>): AdminUserRow {
-  const data = snap.data() as any;
-  const apiKeys = data?.preferences?.apiKeys ?? {};
+function rowFromDoc(data: SafeUserProfile): AdminUserRow {
+  const apiKeys = data?.preferences?.apiKeyStatus ?? {};
   return {
-    id: snap.id,
+    id: data.id,
     name: data?.name,
     username: data?.username,
     email: data?.email,
@@ -51,8 +42,8 @@ function rowFromDoc(snap: QueryDocumentSnapshot<DocumentData>): AdminUserRow {
     createdAt: data?.createdAt,
     lastSignInAt: data?.lastSignInAt,
     selectedModel: data?.preferences?.selectedModel,
-    hasGeminiKey: Boolean(apiKeys?.gemini?.trim?.() || data?.preferences?.geminiApiKey?.trim?.()),
-    hasOpenAIKey: Boolean(apiKeys?.openai?.trim?.()),
+    hasGeminiKey: Boolean(apiKeys?.gemini?.hasKey),
+    hasOpenAIKey: Boolean(apiKeys?.openai?.hasKey),
     // Claims-based isAdmin cannot be read from another user's document. The
     // admin page treats the row-level flag as "best-effort from persisted
     // data" and relies on the Cloud Function to enforce truth. Kept for the
@@ -62,7 +53,7 @@ function rowFromDoc(snap: QueryDocumentSnapshot<DocumentData>): AdminUserRow {
   };
 }
 
-export const adminService = {
+const server = {
   /** Reads the live admin claim off the current user's ID token. Forces a refresh. */
   async isCurrentUserAdmin(): Promise<boolean> {
     const current = auth.currentUser;
@@ -73,33 +64,21 @@ export const adminService = {
 
   /** Total user count (server-side aggregation). */
   async countUsers(): Promise<number> {
-    const snap = await getCountFromServer(collection(db, "users"));
-    return snap.data().count ?? 0;
+    return countUserKeyProfiles();
   },
 
   /**
-   * Paginated list of users, 25 per page, ordered by createdAt desc.
+   * Paginated list of sanitized profiles, 100 per page, ordered by document ID.
    * Pass `cursor` from the previous page to load the next one.
    */
-  async listUsers(cursor?: QueryDocumentSnapshot<DocumentData> | null): Promise<ListUsersPage> {
-    const usersRef = collection(db, "users");
-    const constraints: any[] = [orderBy("createdAt", "desc"), limitFn(PAGE_SIZE)];
-    if (cursor) constraints.splice(1, 0, startAfter(cursor));
-
-    const snap = await getDocs(query(usersRef, ...constraints));
-    const rows = snap.docs.map(rowFromDoc);
-    const nextCursor = snap.docs.length === PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null;
-
-    return { rows, cursor: nextCursor, pageSize: PAGE_SIZE };
+  async listUsers(cursor?: string | null): Promise<ListUsersPage> {
+    const page = await listUserKeyProfiles(cursor ? { cursor } : {});
+    return { rows: page.rows.map(rowFromDoc), cursor: page.cursor, pageSize: 100 };
   },
 
   /** Wipe both legacy `geminiApiKey` and the new `apiKeys` map. */
   async clearUserApiKeys(uid: string): Promise<void> {
-    const ref = doc(db, "users", uid);
-    await updateDoc(ref, {
-      "preferences.apiKeys": {},
-      "preferences.geminiApiKey": deleteField(),
-    });
+    await clearServerKeys(uid);
   },
 
   /** Remove the user's custom system prompt. */
@@ -146,3 +125,12 @@ export type AdminService = typeof adminService;
 
 // Re-export a lightweight type for consumers that don't need the Firestore snapshot.
 export type { User };
+
+export const adminService = {
+  ...legacy,
+  countUsers: () => (serverKeysEnabled() ? server : legacy).countUsers(),
+  clearUserApiKeys: (uid: string) => (serverKeysEnabled() ? server : legacy).clearUserApiKeys(uid),
+  listUsers: (cursor?: ListUsersPage['cursor']): Promise<ListUsersPage> => serverKeysEnabled()
+    ? server.listUsers(typeof cursor === 'string' ? cursor : undefined)
+    : legacy.listUsers(typeof cursor === 'string' ? undefined : cursor),
+};

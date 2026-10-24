@@ -1,3 +1,4 @@
+import { getUserApiKeyStatus, setUserApiKey, deleteUserApiKey, clearUserApiKeys, listUserOpenRouterModels } from '../services/userApiKeyService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { UserSettings, AspectRatioDefinition, GraphicTypeDefinition, User, Team, VisualStyleDefinition, BrandColorDefinition } from '../types';
 import { ArrowLeft, Settings as SettingsIcon, Save, User as UserIcon, Camera, Loader2, Users, Plus, Key, CheckCircle, Layout, PenTool, Palette, Maximize, Sparkles, ChevronDown, X } from 'lucide-react';
@@ -8,8 +9,6 @@ import { CachedImage } from './CachedImage';
 import { teamService } from '../services/teamService';
 import { SUPPORTED_MODELS, MODEL_GROUP_ORDER, OPENROUTER_CURATED_MODELS } from '../constants';
 import { getAspectRatiosForModel, getSafeAspectRatioForModel } from '../services/aspectRatioService';
-import { isLikelyOpenRouterKey } from '../services/correctionAnalysisRouter';
-import { listOpenRouterImageModels } from '../services/openRouterService';
 import { RichSelect } from './RichSelect';
 
 interface SettingsPageProps {
@@ -21,7 +20,7 @@ interface SettingsPageProps {
     geminiApiKey?: string,
     systemPrompt?: string,
     selectedModel?: string,
-    apiKeys?: { [modelId: string]: string },
+    apiKeys?: Record<string, string>,
     openRouterModels?: string[]
   ) => void | Promise<void>;
   graphicTypes: GraphicTypeDefinition[];
@@ -44,17 +43,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [username, setUsername] = useState(user.username || '');
   const [photoURL, setPhotoURL] = useState<string | undefined>(user.photoURL);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | undefined>(user.photoDataUrl);
-  const [apiKeys, setApiKeys] = useState<{ [key: string]: string }>(() => {
-    const keys: { [key: string]: string } = {};
-    if (user.preferences.apiKeys) {
-      Object.assign(keys, user.preferences.apiKeys);
-    }
-    const legacyGemini = user.preferences.geminiApiKey?.trim();
-    if (!keys['gemini']?.trim() && legacyGemini) {
-      keys['gemini'] = legacyGemini;
-    }
-    return keys;
-  });
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [keyStatus, setKeyStatus] = useState(user.preferences.apiKeyStatus || {});
   const [selectedModel, setSelectedModel] = useState<string>(user.preferences.selectedModel || 'gemini');
   const [systemPrompt, setSystemPrompt] = useState<string>(user.preferences.systemPrompt || '');
   // Enabled OpenRouter model slugs (undefined pref = curated defaults).
@@ -77,7 +67,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [apiTokenName, setApiTokenName] = useState('');
   const [apiTokenBusy, setApiTokenBusy] = useState(false);
   const [apiTokenError, setApiTokenError] = useState<string | null>(null);
-  /** Plaintext of a freshly created token — shown exactly once. */
+  /** Plaintext of a freshly created token - shown exactly once. */
   const [freshToken, setFreshToken] = useState<string | null>(null);
   const [freshTokenCopied, setFreshTokenCopied] = useState(false);
   const revokeConfirm = useConfirmAction({
@@ -102,7 +92,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   // model uses the shared OpenAI key. Auto-expand the overrides section if
   // the user already has any per-model override saved, so existing data is
   // never hidden without explanation.
-  const hasPerModelOverride = Object.entries(apiKeys).some(
+  const hasPerModelOverride = Object.entries(keyStatus).some(
     ([key, value]) =>
       key !== 'gemini' &&
       key !== 'openai' &&
@@ -111,7 +101,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       key !== 'openai-2.5' &&
       key !== 'openai-flare' &&
       key !== 'openai-mini' &&
-      !!value
+      !!value.hasKey
   );
   const [showOverrides, setShowOverrides] = useState<boolean>(hasPerModelOverride);
 
@@ -128,11 +118,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setUsername(user.username || '');
     setPhotoURL(user.photoURL);
     setPhotoDataUrl(user.photoDataUrl);
-    const keys: { [key: string]: string } = {};
-    if (user.preferences.apiKeys) Object.assign(keys, user.preferences.apiKeys);
-    const legacyGemini = user.preferences.geminiApiKey?.trim();
-    if (!keys['gemini']?.trim() && legacyGemini) keys['gemini'] = legacyGemini;
-    setApiKeys(keys);
+    const keys = user.preferences.apiKeyStatus || {};
+    setKeyStatus(keys);
+    void getUserApiKeyStatus().then(setKeyStatus).catch(() => setUploadError('Could not load key status.'));
     setSelectedModel(user.preferences.selectedModel || 'gemini');
     setSystemPrompt(user.preferences.systemPrompt || '');
     setShowOverrides(
@@ -145,7 +133,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           modelId !== 'openai-2.5' &&
           modelId !== 'openai-flare' &&
           modelId !== 'openai-mini' &&
-          !!value
+          !!value.hasKey
       )
     );
     setOrModels(user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug));
@@ -308,6 +296,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     delete next[modelId];
     setApiKeys(next);
     try {
+      setKeyStatus(await deleteUserApiKey(modelId));
       await persistPreferences(next);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
@@ -317,29 +306,30 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const persistPreferences = async (nextApiKeys = apiKeys, nextOrModels = orModels) => {
-    // Use local state as the source of truth; pass apiKeys['gemini'] directly (no `||`
-    // fallback) so clearing the Nano Banana key is actually persisted. sanitizePreferences
-    // in authService strips empty-string entries.
+    for (const [slot, value] of Object.entries(nextApiKeys)) {
+      if (value.trim()) setKeyStatus(await setUserApiKey(slot, value));
+    }
+    setApiKeys({});
     await onSave(
       localSettings,
       { name, username, photoURL, photoDataUrl },
-      nextApiKeys['gemini'] ?? '',
+      undefined,
       systemPrompt,
       selectedModel,
-      nextApiKeys,
+      undefined,
       nextOrModels
     );
   };
 
-  const hasOpenRouterKey = isLikelyOpenRouterKey((apiKeys['openrouter'] || '').trim());
-  const hasDirectGeminiKey = !!(apiKeys['gemini'] || '').trim();
-  const hasDirectOpenAIKey = !!(apiKeys['openai'] || '').trim();
+  const hasOpenRouterKey = !!keyStatus.openrouter?.hasKey;
+  const hasDirectGeminiKey = !!keyStatus.gemini?.hasKey;
+  const hasDirectOpenAIKey = !!keyStatus.openai?.hasKey;
 
   // Fetch OpenRouter's public image-model list (cached 24h) so custom slugs
   // can be sanity-checked before the user burns a generation on a typo.
   useEffect(() => {
     if (!hasOpenRouterKey || orKnownSlugs) return;
-    listOpenRouterImageModels()
+    listUserOpenRouterModels()
       .then((models) => setOrKnownSlugs(new Set(models.map((m) => m.slug))))
       .catch(() => { /* validation is best-effort only */ });
   }, [hasOpenRouterKey, orKnownSlugs]);
@@ -364,7 +354,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     const slug = orCustomSlug.trim();
     if (!slug) return;
     if (!/^[\w.-]+\/[\w.:-]+$/.test(slug)) {
-      setOrSlugWarning('Slugs look like vendor/model — e.g. bytedance-seed/seedream-4.5');
+      setOrSlugWarning('Slugs look like vendor/model - e.g. bytedance-seed/seedream-4.5');
       return;
     }
     if (orModels.includes(slug)) {
@@ -373,20 +363,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     }
     setOrSlugWarning(
       orKnownSlugs && !orKnownSlugs.has(slug)
-        ? `“${slug}” isn’t in OpenRouter’s image-model list — it may fail to generate.`
+        ? `“${slug}” isn’t in OpenRouter’s image-model list - it may fail to generate.`
         : null
     );
     setOrCustomSlug('');
     await persistOrModels([...orModels, slug]);
   };
 
-  const MANAGE_TOKENS_URL = 'https://us-central1-brandoit.cloudfunctions.net/manageApiTokens';
-
   const callManageTokens = async (payload: Record<string, unknown>) => {
-    const { auth } = await import('../services/firebase');
+    const { auth, getFunctionUrl } = await import('../services/firebase');
     const idToken = await auth.currentUser?.getIdToken();
     if (!idToken) throw new Error('Sign in again to manage API tokens.');
-    const resp = await fetch(MANAGE_TOKENS_URL, {
+    const resp = await fetch(getFunctionUrl('manageApiTokens'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -493,13 +481,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         <div className="mb-8 flex items-center gap-4">
           <button 
             onClick={onBack}
+            aria-label="Back to studio"
             className="p-2 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
           >
             <ArrowLeft size={20} className="text-slate-600 dark:text-slate-300" />
           </button>
           <div className="flex items-center gap-2">
             <SettingsIcon size={24} className="text-brand-teal" />
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
+            <h1 data-key-storage-mode="server" className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
           </div>
         </div>
 
@@ -528,22 +517,29 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     <p className="text-xs text-slate-500">{provider.description}</p>
                     <input
                       type="password"
+                      aria-label={`${provider.label} key`}
+                      data-key-slot={provider.keyId}
                       value={apiKeys[provider.keyId] || ''}
                       onChange={(e) => handleApiKeyChange(provider.keyId, e.target.value)}
                       onBlur={() => handleApiKeyBlur(provider.keyId)}
                       className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
-                      placeholder={provider.placeholder}
+                      placeholder={keyStatus[provider.keyId]?.hasKey ? `••••${keyStatus[provider.keyId].last4}` : provider.placeholder}
                       autoComplete="off"
                     />
                     <p className="text-[11px] text-slate-500">{provider.helpText}</p>
+                    {keyStatus[provider.keyId]?.hasKey && <button type="button" onClick={() => handleClearOverride(provider.keyId)}>Delete key</button>}
                   </div>
                 ))}
                 <p className="text-xs text-slate-500">
-                  Keys are stored on your account and only used for your own requests.
+                  Keys are encrypted on the server and only used for your own requests.
                 </p>
               </div>
 
-              {/* OpenRouter model roster — which extra models show in the
+              <button type="button" onClick={async () => {
+                try { setKeyStatus(await clearUserApiKeys()); setApiKeys({}); await persistPreferences({}); }
+                catch { setUploadError('Could not clear keys.'); }
+              }}>Delete all keys</button>
+              {/* OpenRouter model roster - which extra models show in the
                   picker. Vendors already covered by a direct key are routed
                   to the direct API and hidden from the picker. */}
               {hasOpenRouterKey && (
@@ -583,7 +579,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           <span className="block text-[11px] leading-snug text-slate-500">{m.goodAt}</span>
                           {routedDirect && (
                             <span className="block mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                              Covered by your direct {m.slug.startsWith('google/') ? 'Google' : 'OpenAI'} key —
+                              Covered by your direct {m.slug.startsWith('google/') ? 'Google' : 'OpenAI'} key -
                               hidden from the picker; the direct API is used instead.
                             </span>
                           )}
@@ -626,7 +622,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         }
                       }}
                       className="flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
-                      placeholder="Add a model slug — e.g. sourceful/riverflow-v2.5-pro"
+                      placeholder="Add a model slug - e.g. sourceful/riverflow-v2.5-pro"
                       autoComplete="off"
                     />
                     <button
@@ -681,7 +677,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
                                 {model.name} override
                               </label>
-                              {override && (
+                              {keyStatus[model.id]?.hasKey && (
                                 <button
                                   type="button"
                                   onClick={() => handleClearOverride(model.id)}
@@ -698,7 +694,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                               onChange={(e) => handleApiKeyChange(model.id, e.target.value)}
                               onBlur={() => handleApiKeyBlur(model.id)}
                               className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
-                              placeholder={`Use Google Gemini key (default)`}
+                              placeholder={keyStatus[model.id]?.hasKey ? `••••${keyStatus[model.id].last4}` : `Use Google Gemini key (default)`}
                               autoComplete="off"
                             />
                           </div>
@@ -709,7 +705,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 </div>
               )}
 
-              {/* Personal API tokens — external access for MCP servers,
+              {/* Personal API tokens - external access for MCP servers,
                   scripts, and other apps. Plaintext is shown exactly once. */}
               <div className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
                 <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -723,7 +719,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 {freshToken && (
                   <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-2.5 space-y-1.5">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                      Copy this token now — it won't be shown again
+                      Copy this token now - it won't be shown again
                     </p>
                     <code className="block break-all text-[11px] text-slate-800 dark:text-slate-100">{freshToken}</code>
                     <div className="flex gap-2">
@@ -780,7 +776,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     value={apiTokenName}
                     onChange={(e) => setApiTokenName(e.target.value)}
                     maxLength={60}
-                    placeholder="Token name — e.g. Claude MCP, writAIble"
+                    placeholder="Token name - e.g. Claude MCP, writAIble"
                     className="flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
                   />
                   <button
@@ -1136,6 +1132,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         <div className="mt-8 flex justify-end gap-3">
           <button 
             onClick={onBack}
+            aria-label="Back to studio"
             className="px-6 py-2.5 text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg font-medium text-sm transition-colors"
           >
             Cancel

@@ -1,3 +1,4 @@
+import { resolveUserApiKey, USER_API_KEYS_ENCRYPTION_KEY } from './userApiKeys';
 /**
  * Admin-only HTTPS API: generate image(s) using the signed-in user's BYOK keys
  * and catalog resources — same semantics as the main app toolbar.
@@ -190,57 +191,6 @@ const getSafeAspectRatioForModel = (
 
 /** --- BYOK resolution (parity with services/correctionAnalysisRouter) --- */
 
-type ApiKeyProvider = "gemini" | "openai" | "openrouter";
-
-const normalizeStoredApiKey = (value: string): string =>
-  value.replace(/^\uFEFF/, "").trim();
-
-const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
-  if (
-    modelId === "gemini" ||
-    modelId === NANO_BANANA_2_MODEL ||
-    modelId === NANO_BANANA_2_LITE_MODEL ||
-    modelId === "gemini-svg"
-  ) {
-    return "gemini";
-  }
-  if (
-    modelId === "openai" ||
-    modelId === "openai-2" ||
-    modelId === "openai-2.5" ||
-    modelId === "openai-flare" ||
-    modelId === "openai-mini"
-  ) {
-    return "openai";
-  }
-  if (modelId.startsWith("openrouter:")) {
-    return "openrouter";
-  }
-  return undefined;
-};
-
-const isLikelyOpenAIKey = (value: string): boolean =>
-  /^sk-[A-Za-z0-9_-]+$/.test(value) && value.length >= 20 && value.length <= 256 &&
-  !value.startsWith("sk-or-");
-const isLikelyOpenRouterKey = (value: string): boolean =>
-  /^sk-or-[A-Za-z0-9_-]+$/.test(value) && value.length >= 20 && value.length <= 256;
-const isLikelyGoogleApiKey = (value: string): boolean =>
-  /^AIza[A-Za-z0-9_-]+$/.test(value) && value.length >= 30 && value.length <= 60;
-
-const normalizeProviderKey = (
-  value: string | undefined,
-  provider: ApiKeyProvider,
-): string | undefined => {
-  if (typeof value !== "string") return undefined;
-  const key = normalizeStoredApiKey(value);
-  if (!key) return undefined;
-
-  if (provider === "gemini") return isLikelyGoogleApiKey(key) ? key : undefined;
-  if (provider === "openai") return isLikelyOpenAIKey(key) ? key : undefined;
-  if (provider === "openrouter") return isLikelyOpenRouterKey(key) ? key : undefined;
-  return undefined;
-};
-
 interface FolderRow {
   id: string;
   name: string;
@@ -248,8 +198,6 @@ interface FolderRow {
 }
 
 interface PreferencesShape {
-  apiKeys?: Record<string, string>;
-  geminiApiKey?: string;
   selectedModel?: string;
   systemPrompt?: string;
   folders?: unknown[];
@@ -273,36 +221,6 @@ interface PreferencesShape {
     openaiImageQuality?: "low" | "medium" | "high" | "xhigh" | "max" | "auto";
     openaiImageBackground?: OpenAIImageBackground;
   }>;
-}
-
-function getApiKeyForModelFromPrefs(modelId: string, prefs?: PreferencesShape): string | undefined {
-  if (!prefs) return undefined;
-  const provider = getProviderForModel(modelId);
-  const slot = prefs.apiKeys?.[modelId];
-  if (provider) {
-    const t = normalizeProviderKey(slot, provider);
-    if (t) return t;
-  }
-
-  if (provider === "gemini") {
-    const shared = normalizeProviderKey(prefs.apiKeys?.gemini, "gemini");
-    if (shared) return shared;
-    const legacy = normalizeProviderKey(prefs.geminiApiKey, "gemini");
-    if (legacy) return legacy;
-    if (modelId === "gemini") {
-      const nb2 = normalizeProviderKey(prefs.apiKeys?.[NANO_BANANA_2_MODEL], "gemini");
-      if (nb2) return nb2;
-    }
-  }
-  if (provider === "openai") {
-    const k = normalizeProviderKey(prefs.apiKeys?.openai, "openai");
-    if (k) return k;
-  }
-  if (provider === "openrouter") {
-    const k = normalizeProviderKey(prefs.apiKeys?.openrouter, "openrouter");
-    if (k) return k;
-  }
-  return undefined;
 }
 
 /** --- Scoped Firestore catalogs (parity with resourceService.fetchScopedResources) --- */
@@ -972,7 +890,7 @@ async function resolveGalleryFolderTarget(params: {
     });
     return { ok: true, folderId: newId };
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = 'The provider could not complete this request.';
     logger.error("resolveGalleryFolderTarget transaction failed", { msg });
     return {
       ok: false,
@@ -984,6 +902,7 @@ async function resolveGalleryFolderTarget(params: {
 
 export const agentGenerateImage = onRequest(
   {
+    secrets: [USER_API_KEYS_ENCRYPTION_KEY],
     cors: true,
     region: REGION,
     memory: "1GiB",
@@ -1264,7 +1183,7 @@ export const agentGenerateImage = onRequest(
       }
       const outputFormat = outputFormatRaw as OutputFormat;
 
-      const apiKey = getApiKeyForModelFromPrefs(selectedModel, prefs);
+      const apiKey = await resolveUserApiKey(authUid, selectedModel);
       if (!apiKey) {
         sendJson(out, 400, {
           error: `No API key configured for "${selectedModel}" (BYOK in Settings).`,
@@ -1349,7 +1268,7 @@ export const agentGenerateImage = onRequest(
             return;
           }
         } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
+          const msg = 'The provider could not complete this request.';
           results.push({ index: i, prompt: promptRaw, ok: false, error: msg });
           continue;
         }
@@ -1475,8 +1394,8 @@ export const agentGenerateImage = onRequest(
 
       sendJson(out, 200, response);
     } catch (err: unknown) {
-      logger.error("agentGenerateImage error", err);
-      const msg = err instanceof Error ? err.message : "Internal error.";
+      logger.error("agentGenerateImage request failed");
+      const msg = "Generation failed. Check your key and model access.";
       sendJson(out, 500, { error: msg });
     }
   },

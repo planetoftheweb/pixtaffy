@@ -1,10 +1,11 @@
+import { serverKeysEnabled } from './keyStorageMode';
+import { statsService as legacy } from './legacyStatsService';
+import { allUserKeyProfiles, listUserKeyProfiles, countUserKeyProfiles } from './userApiKeyService';
 import {
   collectionGroup,
   getDocs,
-  getDoc,
   getCountFromServer,
   collection,
-  doc,
   query,
   orderBy,
   limit as limitFn,
@@ -86,7 +87,7 @@ export interface AdminStats {
     /** Chronological, last 30 days (images AND refinements per day). */
     perDayLast30: StatsDailyEntry[];
     byModel: StatsBucketEntry[];
-    /** Per-VERSION (every image) counts by model — basis for estimated spend. */
+    /** Per-VERSION (every image) counts by model - basis for estimated spend. */
     byModelImages: StatsBucketEntry[];
     byGraphicType: StatsBucketEntry[];
     byVisualStyle: StatsBucketEntry[];
@@ -128,7 +129,7 @@ export interface UserStats {
     isDisabled: boolean;
     /** Has at least one configured API key (Gemini or OpenAI). */
     hasApiKey: boolean;
-    /** Persisted admin signal — see `AdminStats.users.legacyAdminSignals`. */
+    /** Persisted admin signal - see `AdminStats.users.legacyAdminSignals`. */
     isLegacyAdminSignal: boolean;
   };
 
@@ -138,7 +139,7 @@ export interface UserStats {
     totalRefinements: number;
     perDayLast30: StatsDailyEntry[];
     byModel: StatsBucketEntry[];
-    /** Per-VERSION (every image) counts by model — basis for estimated spend. */
+    /** Per-VERSION (every image) counts by model - basis for estimated spend. */
     byModelImages: StatsBucketEntry[];
     byGraphicType: StatsBucketEntry[];
     byVisualStyle: StatsBucketEntry[];
@@ -160,7 +161,7 @@ function dayKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Returns [oldest, ..., today] — `count` consecutive local-day keys. */
+/** Returns [oldest, ..., today] - `count` consecutive local-day keys. */
 function lastNDays(count: number): string[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -235,7 +236,7 @@ function modelLabel(id: string): string {
 // Public API
 // -----------------------------------------------------------------------------
 
-export const statsService = {
+const server = {
   /**
    * Build a single admin usage-stats snapshot.
    *
@@ -252,7 +253,7 @@ export const statsService = {
    *   - `match /users/{uid} { allow list: if isAdmin(); }`
    *
    * For projects with tens of thousands of history docs this becomes slow
-   * and expensive — at that point we'd pre-aggregate with a scheduled
+   * and expensive - at that point we'd pre-aggregate with a scheduled
    * Cloud Function. For now, live computation is fine.
    */
   async getStats(opts: { topUsersLimit?: number } = {}): Promise<AdminStats> {
@@ -262,9 +263,9 @@ export const statsService = {
     // --- 1. Users ---------------------------------------------------------
     // Load all user docs so we can resolve uid -> name/email for the
     // leaderboard AND compute user-level stats (admins, active, etc.).
-    const usersSnap = await getDocs(collection(db, "users"));
+    const usersSnap = await allUserKeyProfiles();
     const userById = new Map<string, any>();
-    usersSnap.forEach((d) => userById.set(d.id, d.data() || {}));
+    usersSnap.forEach((d) => userById.set(d.id, d));
 
     const now = Date.now();
     const sevenDaysAgo = now - 7 * DAY_MS;
@@ -287,13 +288,8 @@ export const statsService = {
         if (last >= thirtyDaysAgo) activeLast30d += 1;
       }
 
-      const keys = data?.preferences?.apiKeys ?? {};
-      const hasGemini = typeof keys?.gemini === "string" && keys.gemini.trim().length > 0;
-      const hasLegacyGemini =
-        typeof data?.preferences?.geminiApiKey === "string" &&
-        data.preferences.geminiApiKey.trim().length > 0;
-      const hasOpenAI = typeof keys?.openai === "string" && keys.openai.trim().length > 0;
-      if (hasGemini || hasLegacyGemini || hasOpenAI) withApiKey += 1;
+      const keys = data?.preferences?.apiKeyStatus ?? {};
+      if (Object.values(keys).some((status: any) => status?.hasKey)) withApiKey += 1;
 
       const createdMs = coerceMs(data?.createdAt);
       if (createdMs != null && createdMs >= thirtyDaysAgo) {
@@ -333,7 +329,7 @@ export const statsService = {
     let totalRefinements = 0;
 
     const byModel = new Map<string, { label: string; count: number }>();
-    // Per-VERSION counts by model — every generated/refined image, not just
+    // Per-VERSION counts by model - every generated/refined image, not just
     // tiles. This is what the estimated-spend figures multiply against.
     const byModelImages = new Map<string, { label: string; count: number }>();
     const byGraphicType = new Map<string, { label: string; count: number }>();
@@ -483,7 +479,7 @@ export const statsService = {
    * Build a focused snapshot for a single user.
    *
    * Targets just `users/{uid}` + `users/{uid}/history/*`, so it's a small,
-   * predictable query regardless of project size — nice when drilling in
+   * predictable query regardless of project size - nice when drilling in
    * from the admin leaderboard.
    *
    * Same admin-only security model as `getStats`: the top-level
@@ -497,17 +493,13 @@ export const statsService = {
     const startedAt = Date.now();
 
     // --- 1. User profile -------------------------------------------------
-    const userSnap = await getDoc(doc(db, "users", uid));
-    const u = (userSnap.exists() ? userSnap.data() : {}) as any;
+    const userSnap = await listUserKeyProfiles({ uid });
+    const u = userSnap.rows[0] || {} as any;
 
-    const apiKeys = u?.preferences?.apiKeys ?? {};
-    const hasGemini =
-      typeof apiKeys?.gemini === "string" && apiKeys.gemini.trim().length > 0;
-    const hasLegacyGemini =
-      typeof u?.preferences?.geminiApiKey === "string" &&
-      u.preferences.geminiApiKey.trim().length > 0;
-    const hasOpenAI =
-      typeof apiKeys?.openai === "string" && apiKeys.openai.trim().length > 0;
+    const apiKeys = u?.preferences?.apiKeyStatus ?? {};
+    const hasGemini = !!apiKeys.gemini?.hasKey;
+    const hasLegacyGemini = false;
+    const hasOpenAI = !!apiKeys.openai?.hasKey;
 
     // --- 2. Catalog labels ----------------------------------------------
     const catalog = await resourceService.getAllResources();
@@ -629,14 +621,14 @@ export const statsService = {
     };
   },
 
-  /** Cheap health probe — just the two top-level counts with server-side aggregates. */
+  /** Cheap health probe - just the two top-level counts with server-side aggregates. */
   async getQuickCounts(): Promise<{ users: number; historyTiles: number }> {
     const [usersSnap, historySnap] = await Promise.all([
-      getCountFromServer(collection(db, "users")),
+      countUserKeyProfiles(),
       getCountFromServer(collectionGroup(db, "history")),
     ]);
     return {
-      users: usersSnap.data().count ?? 0,
+      users: usersSnap,
       historyTiles: historySnap.data().count ?? 0,
     };
   },
@@ -655,3 +647,5 @@ export const statsService = {
     }));
   },
 };
+
+export const statsService = new Proxy(legacy, { get(_target, property) { return Reflect.get(serverKeysEnabled() ? server : legacy, property); } });

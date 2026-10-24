@@ -75,6 +75,7 @@ export const deleteUserAccount = onCall(async (request) => {
 
   // 1. Firestore: recursiveDelete handles the subcollections too.
   try {
+    await firestore.doc(`userApiKeys/${targetUid}`).delete();
     await firestore.recursiveDelete(userDocRef);
   } catch (err) {
     logger.error(`recursiveDelete failed for users/${targetUid}`, err);

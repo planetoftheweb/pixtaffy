@@ -1,3 +1,4 @@
+import { stagingOrigins } from "./corsOrigins";
 import { createHash } from "node:crypto";
 import { getFirestore } from "firebase-admin/firestore";
 import { GoogleGenAI } from "@google/genai";
@@ -40,6 +41,7 @@ const REGION = "us-central1";
 const OPENROUTER_API_KEY = defineSecret("OPENROUTER_API_KEY");
 const PIXTAFFY_GEMINI_API_KEY = defineSecret("PIXTAFFY_GEMINI_API_KEY");
 const ALLOWED_ORIGINS: Array<string | RegExp> = [
+  ...stagingOrigins(),
   "https://pixtaffy.com",
   "https://www.pixtaffy.com",
   "https://pixtaffy.web.app",
