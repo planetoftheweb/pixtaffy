@@ -2,10 +2,12 @@
 // CI test count guard. Reads captured test output, sums the node:test totals
 // (TAP "# tests N" and spec "ℹ tests N" lines, one block per test run), writes a
 // JSON summary and a GitHub step summary, and fails when no tests ran or any failed.
-// Usage: node scripts/ci-test-counts.mjs <log file> <output json>
+// Usage: node scripts/ci-test-counts.mjs <log file> <output json> [--fail-on-skipped]
 import fs from 'node:fs';
 
-const [logFile, outFile = 'test-counts.json'] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const failOnSkipped = args.includes('--fail-on-skipped');
+const [logFile, outFile = 'test-counts.json'] = args.filter((a) => !a.startsWith('--'));
 if (!logFile) {
   console.error('usage: node scripts/ci-test-counts.mjs <log file> <output json>');
   process.exit(1);
@@ -26,6 +28,7 @@ const problems = [];
 if (!raw) problems.push(`log file ${logFile} is missing or empty`);
 if (totals.tests < 1) problems.push('no tests ran (test count is 0)');
 if (totals.fail > 0) problems.push(`${totals.fail} test(s) failed`);
+if (failOnSkipped && totals.skipped > 0) problems.push(`${totals.skipped} test(s) skipped`);
 const result = { ...totals, ok: problems.length === 0, problems };
 fs.writeFileSync(outFile, `${JSON.stringify(result, null, 2)}\n`);
 
