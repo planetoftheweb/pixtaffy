@@ -11,7 +11,7 @@
     "test": "node --test --experimental-strip-types tests/ui-interaction-regressions.test.mjs tests/release-surface-regressions.test.mjs tests/welcome-mode.test.mjs tests/dependency-compatibility.test.mjs && npm --prefix functions test",
     "test:cold-start": "node scripts/cold-start-smoke.mjs",
     "test:render": "node scripts/render-smoke.mjs",
-    "test:emulator": "npm --prefix functions run build && firebase emulators:exec --project demo-pixtaffy --only auth,firestore,storage \"node --test tests/billing.rules.test.mjs tests/user-profile.rules.test.mjs tests/user-api-keys.test.mjs\"",
+    "test:emulator": "npm --prefix functions run build && firebase emulators:exec --project demo-pixtaffy --only auth,firestore,storage \"node --test --test-concurrency=1 tests/billing.rules.test.mjs tests/user-profile.rules.test.mjs tests/user-api-keys.test.mjs\"",
     "test:rules": "firebase emulators:exec --project demo-pixtaffy --only firestore,storage \"node --test tests/billing.rules.test.mjs tests/user-profile.rules.test.mjs\"",
     "preview": "vite preview",
     "whats-new": "node scripts/whats-new.mjs add",
