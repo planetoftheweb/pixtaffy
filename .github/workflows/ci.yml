@@ -56,7 +56,7 @@ jobs:
         run: node scripts/ci-test-counts.mjs ci-output.log test-counts-${{ matrix.check }}.json
       - name: Upload test counts
         if: always() && (matrix.check == 'test' || matrix.check == 'build')
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-counts-${{ matrix.check }}
           path: test-counts-${{ matrix.check }}.json
