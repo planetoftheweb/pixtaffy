@@ -8,6 +8,15 @@
  * Local: FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 with --project demo-pixtaffy.
  * Uses Application Default Credentials outside the emulator. Never logs key values.
  * No production migration is performed by tests or builds.
+ *
+ * PR body handoff (publishing a PR requires separate authorization):
+ * Before deploy, Ray must create the secret:
+ * firebase functions:secrets:set USER_API_KEYS_ENCRYPTION_KEY
+ * Dry-run: node scripts/migrate-user-api-keys.mjs --project PROJECT_ID --dry-run
+ * Apply: node scripts/migrate-user-api-keys.mjs --project PROJECT_ID
+ * Supply the same secret to the script process as USER_API_KEYS_ENCRYPTION_KEY.
+ * Local emulator check uses FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 and
+ * --project demo-pixtaffy. Do not run the script against production during review.
  */
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
