@@ -1,3 +1,4 @@
+import { getUserApiKeyStatus } from './services/userApiKeyService';
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ControlPanel } from './components/ControlPanel';
 import { ImageDisplay } from './components/ImageDisplay';
@@ -18,11 +19,11 @@ import {
   generateGraphic,
   generateGraphicWithStyleReference,
   refineGraphic,
-} from './services/geminiService';
+} from './services/userApiKeyService';
 import {
   generateOpenAIImage,
   refineOpenAIImage,
-} from './services/openaiService';
+} from './services/userApiKeyService';
 import {
   supportsOpenAIBackground,
   normalizeOpenAIImageBackground,
@@ -35,8 +36,8 @@ import {
   writePreferStudioFlag,
 } from './utils/welcomeMode';
 import { getApiKeyForModelFromUser, getOpenRouterKeyFromUser } from './services/correctionAnalysisRouter';
-import { generateOpenRouterImage } from './services/openRouterService';
-import { generateSvg, refineSvg } from './services/svgService';
+import { generateOpenRouterImage } from './services/userApiKeyService';
+import { generateSvg, refineSvg } from './services/userApiKeyService';
 import { getAspectRatiosForModel, getSafeAspectRatioForModel, extractAspectRatioFromText, normalizeAspectRatio } from './services/aspectRatioService';
 import { authService } from './services/authService';
 import { presetService } from './services/presetService';
@@ -931,7 +932,7 @@ const App: React.FC = () => {
     }
   }, [
     user?.preferences.settings,
-    user?.preferences.apiKeys,
+    user?.preferences.apiKeyStatus,
     user?.preferences.selectedModel,
     user?.preferences.systemPrompt,
     user?.preferences.lastSeenWhatsNewId,
@@ -1426,7 +1427,7 @@ const App: React.FC = () => {
           group: 'OpenRouter' as const
         };
       });
-  }, [user?.preferences.apiKeys, user?.preferences.geminiApiKey, user?.preferences.openRouterModels]);
+  }, [user?.preferences.apiKeyStatus, user?.preferences.openRouterModels]);
 
   const getActiveApiKey = (): string | undefined => getApiKeyForModel(selectedModel);
 
@@ -1469,7 +1470,7 @@ const App: React.FC = () => {
     };
     setUser(updatedUser);
     authService.updateUserPreferences(user.id, updatedUser.preferences).catch(console.error);
-  }, [user?.id, user?.preferences.apiKeys, user?.preferences.geminiApiKey, selectedModel, activeApiKey, hasUsableCredits]);
+  }, [user?.id, user?.preferences.apiKeyStatus, selectedModel, activeApiKey, hasUsableCredits]);
 
   // Keep the generation monitor's elapsed/remaining display live by nudging a
   // tick once per second while at least one background generation is running.
@@ -3112,19 +3113,14 @@ const App: React.FC = () => {
   const handleSaveSettings = async (
     newSettings: UserSettings,
     profileData?: { name: string; username: string; photoURL?: string; photoDataUrl?: string },
-    geminiApiKey?: string,
     systemPrompt?: string,
     preferredModel?: string,
-    apiKeys?: { [modelId: string]: string },
     openRouterModelSlugs?: string[]
   ) => {
     if (!user) return;
     const nextSelectedModel = preferredModel || user.preferences.selectedModel || DEFAULT_MODEL_ID;
 
-    // Use the apiKeys from SettingsPage as-is (it reflects the user's latest
-    // edits, including deletions). Falling back to `user.preferences.apiKeys`
-    // here would re-introduce the bug where cleared keys came back after Save.
-    const nextApiKeys = apiKeys !== undefined ? apiKeys : (user.preferences.apiKeys || {});
+    const apiKeyStatus = await getUserApiKeyStatus();
 
     // Update local state for immediate feedback
     const updatedUser = {
@@ -3136,12 +3132,9 @@ const App: React.FC = () => {
         preferences: {
             ...user.preferences,
             settings: newSettings,
-            // Keep legacy geminiApiKey for backward compatibility if provided.
-            // Using `!== undefined` preserves the empty string so the key can be cleared.
-            geminiApiKey: geminiApiKey !== undefined ? geminiApiKey : user.preferences.geminiApiKey,
             systemPrompt: systemPrompt !== undefined ? systemPrompt : user.preferences.systemPrompt,
             selectedModel: nextSelectedModel,
-            apiKeys: nextApiKeys,
+            apiKeyStatus,
             openRouterModels:
               openRouterModelSlugs !== undefined ? openRouterModelSlugs : user.preferences.openRouterModels
         }

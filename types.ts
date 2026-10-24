@@ -292,21 +292,22 @@ export interface BrandGuidelinesAnalysis {
   graphicTypes: Omit<GraphicType, 'id' | 'authorId' | 'authorName' | 'scope' | 'votes' | 'voters' | 'createdAt'>[];
 }
 
+export interface ApiKeySlotStatus { hasKey: boolean; last4: string | null; updatedAt?: number }
+export type UserApiKeyStatusMap = Record<string, ApiKeySlotStatus>;
+
 export interface UserPreferences {
+  apiKeyStatus?: UserApiKeyStatusMap;
   // Legacy in-memory defaults. These arrays are not persisted in preferences.
   brandColors?: BrandColorDefinition[];
   visualStyles?: VisualStyleDefinition[];
   graphicTypes?: GraphicTypeDefinition[];
   aspectRatios?: AspectRatioDefinition[];
   // References only, actual data stored in resource collections
-  geminiApiKey?: string; // Legacy support
-  apiKeys?: {
-    [modelId: string]: string;
-  };
+
   /**
    * OpenRouter image models enabled in the model picker (bare slugs, e.g.
    * "bytedance-seed/seedream-4.5"). Undefined = the curated defaults in
-   * OPENROUTER_CURATED_MODELS. Only used when apiKeys.openrouter is set.
+   * OPENROUTER_CURATED_MODELS. Only used when apiKeyStatus.openrouter.hasKey is true.
    */
   openRouterModels?: string[];
   selectedModel?: string;

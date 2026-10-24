@@ -72,7 +72,7 @@ test('normal use: owner can update name, username, photo, preferences and lastSi
   const db = registered('alice').firestore();
   const ref = doc(db, 'users/alice');
   await assertSucceeds(updateDoc(ref, { lastSignInAt: serverTimestamp() }));
-  await assertSucceeds(updateDoc(ref, { preferences: { theme: 'light', apiKeys: {} } }));
+  await assertSucceeds(updateDoc(ref, { preferences: { theme: 'light' } }));
   await assertSucceeds(updateDoc(ref, {
     name: 'Alice B', username: 'aliceb', photoURL: 'https://example.com/a.png',
     photoDataUrl: 'data:image/png;base64,AAAA',
@@ -108,5 +108,34 @@ test('attack: another user cannot read or write someone else profile', async () 
 test('admins can still suspend users and edit any field', async () => {
   const db = registered('root', { admin: true }).firestore();
   await assertSucceeds(updateDoc(doc(db, 'users/alice'), { isDisabled: false }));
-  await assertSucceeds(updateDoc(doc(db, 'users/alice'), { 'preferences.apiKeys': {} }));
+  await assertFails(updateDoc(doc(db, 'users/alice'), { 'preferences.apiKeys': {} }));
+});
+
+for (const identity of ['anonymous', 'alice', 'stranger', 'admin']) {
+  test(`encrypted key store denies ${identity} reads and writes`, async () => {
+    const db = identity === 'anonymous' ? testEnv.unauthenticatedContext().firestore() : registered(identity, { admin: identity === 'admin' }).firestore();
+    const ref = doc(db, 'userApiKeys/alice');
+    await assertFails(getDoc(ref));
+    await assertFails(setDoc(ref, { keys: {} }));
+  });
+}
+for (const field of ['apiKeys', 'geminiApiKey', 'preferences.apiKeys', 'preferences.geminiApiKey']) {
+  for (const admin of [false, true]) {
+    test(`plaintext ${field} rejected for ${admin ? 'admin' : 'owner'}`, async () => {
+      const db = registered('alice', { admin }).firestore();
+      await assertFails(updateDoc(doc(db, 'users/alice'), { [field]: {} }));
+      const create = field.startsWith('preferences.') ? { preferences: { [field.split('.')[1]]: {} } } : { [field]: {} };
+      await assertFails(setDoc(doc(registered('new', { admin }).firestore(), 'users/new'), create));
+    });
+  }
+}
+test('legacy profile cannot expose plaintext even to its owner or an admin', async () => {
+  await testEnv.withSecurityRulesDisabled(async ctx => setDoc(doc(ctx.firestore(), 'users/legacy'), { preferences: { apiKeys: {} } }));
+  for (const identity of ['legacy', 'stranger', 'admin']) {
+    await assertFails(getDoc(doc(registered(identity, { admin: identity === 'admin' }).firestore(), 'users/legacy')));
+  }
+});
+
+test('owner may check whether their profile exists before creation', async () => {
+  await assertSucceeds(getDoc(doc(registered('new-owner').firestore(), 'users/new-owner')));
 });

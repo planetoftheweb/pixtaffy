@@ -1,10 +1,9 @@
+import { allUserKeyProfiles, listUserKeyProfiles, countUserKeyProfiles } from './userApiKeyService';
 import {
   collectionGroup,
   getDocs,
-  getDoc,
   getCountFromServer,
   collection,
-  doc,
   query,
   orderBy,
   limit as limitFn,
@@ -262,9 +261,9 @@ export const statsService = {
     // --- 1. Users ---------------------------------------------------------
     // Load all user docs so we can resolve uid -> name/email for the
     // leaderboard AND compute user-level stats (admins, active, etc.).
-    const usersSnap = await getDocs(collection(db, "users"));
+    const usersSnap = await allUserKeyProfiles();
     const userById = new Map<string, any>();
-    usersSnap.forEach((d) => userById.set(d.id, d.data() || {}));
+    usersSnap.forEach((d) => userById.set(d.id, d));
 
     const now = Date.now();
     const sevenDaysAgo = now - 7 * DAY_MS;
@@ -287,13 +286,8 @@ export const statsService = {
         if (last >= thirtyDaysAgo) activeLast30d += 1;
       }
 
-      const keys = data?.preferences?.apiKeys ?? {};
-      const hasGemini = typeof keys?.gemini === "string" && keys.gemini.trim().length > 0;
-      const hasLegacyGemini =
-        typeof data?.preferences?.geminiApiKey === "string" &&
-        data.preferences.geminiApiKey.trim().length > 0;
-      const hasOpenAI = typeof keys?.openai === "string" && keys.openai.trim().length > 0;
-      if (hasGemini || hasLegacyGemini || hasOpenAI) withApiKey += 1;
+      const keys = data?.preferences?.apiKeyStatus ?? {};
+      if (Object.values(keys).some((status: any) => status?.hasKey)) withApiKey += 1;
 
       const createdMs = coerceMs(data?.createdAt);
       if (createdMs != null && createdMs >= thirtyDaysAgo) {
@@ -497,17 +491,13 @@ export const statsService = {
     const startedAt = Date.now();
 
     // --- 1. User profile -------------------------------------------------
-    const userSnap = await getDoc(doc(db, "users", uid));
-    const u = (userSnap.exists() ? userSnap.data() : {}) as any;
+    const userSnap = await listUserKeyProfiles({ uid });
+    const u = userSnap.rows[0] || {} as any;
 
-    const apiKeys = u?.preferences?.apiKeys ?? {};
-    const hasGemini =
-      typeof apiKeys?.gemini === "string" && apiKeys.gemini.trim().length > 0;
-    const hasLegacyGemini =
-      typeof u?.preferences?.geminiApiKey === "string" &&
-      u.preferences.geminiApiKey.trim().length > 0;
-    const hasOpenAI =
-      typeof apiKeys?.openai === "string" && apiKeys.openai.trim().length > 0;
+    const apiKeys = u?.preferences?.apiKeyStatus ?? {};
+    const hasGemini = !!apiKeys.gemini?.hasKey;
+    const hasLegacyGemini = false;
+    const hasOpenAI = !!apiKeys.openai?.hasKey;
 
     // --- 2. Catalog labels ----------------------------------------------
     const catalog = await resourceService.getAllResources();
@@ -632,11 +622,11 @@ export const statsService = {
   /** Cheap health probe — just the two top-level counts with server-side aggregates. */
   async getQuickCounts(): Promise<{ users: number; historyTiles: number }> {
     const [usersSnap, historySnap] = await Promise.all([
-      getCountFromServer(collection(db, "users")),
+      countUserKeyProfiles(),
       getCountFromServer(collectionGroup(db, "history")),
     ]);
     return {
-      users: usersSnap.data().count ?? 0,
+      users: usersSnap,
       historyTiles: historySnap.data().count ?? 0,
     };
   },

@@ -1,3 +1,4 @@
+import { ensureUserApiKeysMigrated, USER_API_KEYS_ENCRYPTION_KEY } from './userApiKeys';
 import { createHash } from "node:crypto";
 import { getFirestore } from "firebase-admin/firestore";
 import { GoogleGenAI } from "@google/genai";
@@ -522,9 +523,10 @@ export const generateGuestImage = onCall(
 );
 
 export const generateWithCredits = onCall(
-  { ...baseOptions, secrets: [OPENROUTER_API_KEY] },
+  { ...baseOptions, secrets: [OPENROUTER_API_KEY, USER_API_KEYS_ENCRYPTION_KEY] },
   async (request) => {
     const { uid, isAdmin } = requireAuth(request);
+    await ensureUserApiKeysMigrated(uid);
     const modelId = String(request.data?.modelId ?? "");
     const pricing = getPaidModelPrice(modelId);
     if (!pricing) {
@@ -718,9 +720,10 @@ function requireAssistAction(value: unknown): AiAssistAction {
 }
 
 export const runAiAssist = onCall(
-  { ...baseOptions, secrets: [PIXTAFFY_GEMINI_API_KEY] },
+  { ...baseOptions, secrets: [PIXTAFFY_GEMINI_API_KEY, USER_API_KEYS_ENCRYPTION_KEY] },
   async (request) => {
     const { uid, isAdmin } = requireAuth(request);
+    await ensureUserApiKeysMigrated(uid);
     const action = requireAssistAction(request.data?.action);
     const idempotencyKey = validateIdempotencyKey(request.data?.idempotencyKey);
     const cachedAssist = await readPaidAssistDelivery(uid, idempotencyKey).catch((error) => {

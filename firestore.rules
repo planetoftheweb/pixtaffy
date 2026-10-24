@@ -87,15 +87,25 @@ service cloud.firestore {
               'lastSignInAt', 'photoURL', 'photoDataUrl'];
     }
 
+    function noPlaintextKeys(data) {
+      return !data.keys().hasAny(['apiKeys', 'geminiApiKey'])
+        && (!('preferences' in data) || !data.preferences.keys().hasAny(['apiKeys', 'geminiApiKey']));
+    }
+
+    match /userApiKeys/{uid} {
+      allow read, write: if false;
+    }
+
     match /users/{uid} {
-      allow get:    if isOwner(uid) || isAdmin();
-      allow list:   if isAdmin();
-      allow create: if isOwner(uid)
+      allow get: if (isOwner(uid) || isAdmin())
+        && (!exists(/databases/$(database)/documents/users/$(uid)) || noPlaintextKeys(resource.data));
+      allow list: if isAdmin() && noPlaintextKeys(resource.data);
+      allow create: if isOwner(uid) && noPlaintextKeys(request.resource.data)
         && request.resource.data.keys().hasOnly(ownerProfileFields());
-      allow update: if isAdmin()
+      allow update: if noPlaintextKeys(request.resource.data) && (isAdmin()
         || (isOwner(uid)
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(ownerProfileFields()));
+                 .hasOnly(ownerProfileFields())));
       allow delete: if isAdmin();
 
       // History subcollection is owner-private; admins override.
@@ -254,9 +264,9 @@ service cloud.firestore {
       }
     }
 
-    // Everything else is denied by default.
-    match /{path=**} {
-      allow read, write: if isAdmin();
+    // Admin fallback must not override profile or encrypted-key protections.
+    match /{collection}/{path=**} {
+      allow read, write: if isAdmin() && !(collection in ['users', 'userApiKeys']);
     }
   }
 }

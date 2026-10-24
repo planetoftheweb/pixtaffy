@@ -1,3 +1,4 @@
+import { getUserApiKeyStatus } from './userApiKeyService';
 import { 
   createUserWithEmailAndPassword, 
   EmailAuthProvider,
@@ -30,7 +31,7 @@ const defaultPreferences: UserPreferences = {
   visualStyles: VISUAL_STYLES,
   graphicTypes: GRAPHIC_TYPES,
   aspectRatios: ASPECT_RATIOS,
-  apiKeys: {},
+  apiKeyStatus: {},
   // Default model for brand-new accounts: Nano Banana 2 (Gemini 3.1 Flash).
   // App.loadResources / guestSelectedModel use the same id as their
   // code-level fallback so the UI matches across guest + first-login.
@@ -85,21 +86,7 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
     delete (prefs as any).isAdmin;
   }
   const clean: any = {};
-  // Only save settings and API keys. Arrays are managed via resourceService.
-  // Legacy support: omit when empty so clearing the field actually persists.
-  if (prefs.geminiApiKey && String(prefs.geminiApiKey).trim()) {
-    clean.geminiApiKey = String(prefs.geminiApiKey).trim();
-  }
-  if (prefs.apiKeys) {
-    // Strip empty-string entries so deleting a key in the UI actually clears it in Firestore.
-    const trimmedKeys: { [modelId: string]: string } = {};
-    for (const [modelId, value] of Object.entries(prefs.apiKeys)) {
-      if (typeof value === 'string' && value.trim() !== '') {
-        trimmedKeys[modelId] = value.trim();
-      }
-    }
-    clean.apiKeys = trimmedKeys;
-  }
+  if (prefs.apiKeyStatus) clean.apiKeyStatus = prefs.apiKeyStatus;
   if (prefs.selectedModel) clean.selectedModel = prefs.selectedModel;
   if (prefs.systemPrompt) clean.systemPrompt = prefs.systemPrompt;
   // Enabled OpenRouter model slugs. An empty array is meaningful ("none
@@ -228,22 +215,6 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
 const hydratePreferences = (savedPrefs: any): UserPreferences => {
   if (!savedPrefs) return defaultPreferences;
 
-  const rawApiKeys =
-    savedPrefs.apiKeys && typeof savedPrefs.apiKeys === 'object' ? savedPrefs.apiKeys : {};
-  const cleanedApiKeys: { [k: string]: string } = {};
-  for (const [k, v] of Object.entries(rawApiKeys)) {
-    if (typeof v === 'string' && v.trim() !== '') {
-      cleanedApiKeys[k] = v.trim();
-    }
-  }
-  const legacyGeminiTrimmed =
-    typeof savedPrefs.geminiApiKey === 'string' && savedPrefs.geminiApiKey.trim()
-      ? savedPrefs.geminiApiKey.trim()
-      : '';
-  if (!cleanedApiKeys.gemini && legacyGeminiTrimmed) {
-    cleanedApiKeys.gemini = legacyGeminiTrimmed;
-  }
-
   return {
     // We don't load arrays from preferences anymore, but we need to return something 
     // to satisfy the type. The App will fetch real data from resourceService.
@@ -251,8 +222,7 @@ const hydratePreferences = (savedPrefs: any): UserPreferences => {
     visualStyles: [],
     graphicTypes: [],
     aspectRatios: [],
-    geminiApiKey: legacyGeminiTrimmed || undefined,
-    apiKeys: cleanedApiKeys,
+    apiKeyStatus: savedPrefs.apiKeyStatus || {},
     openRouterModels: Array.isArray(savedPrefs.openRouterModels)
       ? savedPrefs.openRouterModels.filter((s: unknown): s is string => typeof s === 'string')
       : undefined,
@@ -366,6 +336,7 @@ const ensureUserDocument = async (
   seed: UserProfileSeed = {}
 ): Promise<Record<string, unknown>> => {
   const userRef = doc(db, "users", uid);
+  await getUserApiKeyStatus();
   const snap = await getDoc(userRef);
   if (snap.exists()) {
     return snap.data() as Record<string, unknown>;
@@ -559,6 +530,7 @@ export const authService = {
       const user = userCredential.user;
 
       const docRef = doc(db, "users", user.uid);
+      await getUserApiKeyStatus();
       const docSnap = await getDoc(docRef);
 
       const userData = docSnap.exists()
@@ -655,6 +627,7 @@ export const authService = {
       const cleanPreferences = sanitizePreferences(preferences);
 
       await ensureUserDocument(userId, { preferences: cleanPreferences });
+      cleanPreferences.apiKeyStatus = await getUserApiKeyStatus();
       await updateDoc(userRef, {
         preferences: cleanPreferences
       });
@@ -667,6 +640,7 @@ export const authService = {
   updateUserProfile: async (userId: string, data: { name?: string; username?: string; photoURL?: string; photoDataUrl?: string }) => {
     try {
       const userRef = doc(db, "users", userId);
+      await getUserApiKeyStatus();
       const existingSnap = await getDoc(userRef);
       const existing = existingSnap.exists() ? existingSnap.data() : {};
       const previousUsername = typeof existing.username === 'string' ? existing.username : '';

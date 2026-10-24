@@ -1,3 +1,4 @@
+import { getUserApiKeyStatus, setUserApiKey, deleteUserApiKey, clearUserApiKeys, listUserOpenRouterModels } from '../services/userApiKeyService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { UserSettings, AspectRatioDefinition, GraphicTypeDefinition, User, Team, VisualStyleDefinition, BrandColorDefinition } from '../types';
 import { ArrowLeft, Settings as SettingsIcon, Save, User as UserIcon, Camera, Loader2, Users, Plus, Key, CheckCircle, Layout, PenTool, Palette, Maximize, Sparkles, ChevronDown, X } from 'lucide-react';
@@ -8,8 +9,6 @@ import { CachedImage } from './CachedImage';
 import { teamService } from '../services/teamService';
 import { SUPPORTED_MODELS, MODEL_GROUP_ORDER, OPENROUTER_CURATED_MODELS } from '../constants';
 import { getAspectRatiosForModel, getSafeAspectRatioForModel } from '../services/aspectRatioService';
-import { isLikelyOpenRouterKey } from '../services/correctionAnalysisRouter';
-import { listOpenRouterImageModels } from '../services/openRouterService';
 import { RichSelect } from './RichSelect';
 
 interface SettingsPageProps {
@@ -18,10 +17,8 @@ interface SettingsPageProps {
   onSave: (
     newSettings: UserSettings,
     profileData?: { name: string; username: string; photoURL?: string; photoDataUrl?: string },
-    geminiApiKey?: string,
     systemPrompt?: string,
     selectedModel?: string,
-    apiKeys?: { [modelId: string]: string },
     openRouterModels?: string[]
   ) => void | Promise<void>;
   graphicTypes: GraphicTypeDefinition[];
@@ -44,17 +41,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [username, setUsername] = useState(user.username || '');
   const [photoURL, setPhotoURL] = useState<string | undefined>(user.photoURL);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | undefined>(user.photoDataUrl);
-  const [apiKeys, setApiKeys] = useState<{ [key: string]: string }>(() => {
-    const keys: { [key: string]: string } = {};
-    if (user.preferences.apiKeys) {
-      Object.assign(keys, user.preferences.apiKeys);
-    }
-    const legacyGemini = user.preferences.geminiApiKey?.trim();
-    if (!keys['gemini']?.trim() && legacyGemini) {
-      keys['gemini'] = legacyGemini;
-    }
-    return keys;
-  });
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [keyStatus, setKeyStatus] = useState(user.preferences.apiKeyStatus || {});
   const [selectedModel, setSelectedModel] = useState<string>(user.preferences.selectedModel || 'gemini');
   const [systemPrompt, setSystemPrompt] = useState<string>(user.preferences.systemPrompt || '');
   // Enabled OpenRouter model slugs (undefined pref = curated defaults).
@@ -102,7 +90,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   // model uses the shared OpenAI key. Auto-expand the overrides section if
   // the user already has any per-model override saved, so existing data is
   // never hidden without explanation.
-  const hasPerModelOverride = Object.entries(apiKeys).some(
+  const hasPerModelOverride = Object.entries(keyStatus).some(
     ([key, value]) =>
       key !== 'gemini' &&
       key !== 'openai' &&
@@ -111,7 +99,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       key !== 'openai-2.5' &&
       key !== 'openai-flare' &&
       key !== 'openai-mini' &&
-      !!value
+      !!value.hasKey
   );
   const [showOverrides, setShowOverrides] = useState<boolean>(hasPerModelOverride);
 
@@ -128,11 +116,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setUsername(user.username || '');
     setPhotoURL(user.photoURL);
     setPhotoDataUrl(user.photoDataUrl);
-    const keys: { [key: string]: string } = {};
-    if (user.preferences.apiKeys) Object.assign(keys, user.preferences.apiKeys);
-    const legacyGemini = user.preferences.geminiApiKey?.trim();
-    if (!keys['gemini']?.trim() && legacyGemini) keys['gemini'] = legacyGemini;
-    setApiKeys(keys);
+    const keys = user.preferences.apiKeyStatus || {};
+    setKeyStatus(keys);
+    void getUserApiKeyStatus().then(setKeyStatus).catch(() => setUploadError('Could not load key status.'));
     setSelectedModel(user.preferences.selectedModel || 'gemini');
     setSystemPrompt(user.preferences.systemPrompt || '');
     setShowOverrides(
@@ -145,7 +131,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           modelId !== 'openai-2.5' &&
           modelId !== 'openai-flare' &&
           modelId !== 'openai-mini' &&
-          !!value
+          !!value.hasKey
       )
     );
     setOrModels(user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug));
@@ -308,6 +294,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     delete next[modelId];
     setApiKeys(next);
     try {
+      setKeyStatus(await deleteUserApiKey(modelId));
       await persistPreferences(next);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
@@ -317,29 +304,28 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const persistPreferences = async (nextApiKeys = apiKeys, nextOrModels = orModels) => {
-    // Use local state as the source of truth; pass apiKeys['gemini'] directly (no `||`
-    // fallback) so clearing the Nano Banana key is actually persisted. sanitizePreferences
-    // in authService strips empty-string entries.
+    for (const [slot, value] of Object.entries(nextApiKeys)) {
+      if (value.trim()) setKeyStatus(await setUserApiKey(slot, value));
+    }
+    setApiKeys({});
     await onSave(
       localSettings,
       { name, username, photoURL, photoDataUrl },
-      nextApiKeys['gemini'] ?? '',
       systemPrompt,
       selectedModel,
-      nextApiKeys,
       nextOrModels
     );
   };
 
-  const hasOpenRouterKey = isLikelyOpenRouterKey((apiKeys['openrouter'] || '').trim());
-  const hasDirectGeminiKey = !!(apiKeys['gemini'] || '').trim();
-  const hasDirectOpenAIKey = !!(apiKeys['openai'] || '').trim();
+  const hasOpenRouterKey = !!keyStatus.openrouter?.hasKey;
+  const hasDirectGeminiKey = !!keyStatus.gemini?.hasKey;
+  const hasDirectOpenAIKey = !!keyStatus.openai?.hasKey;
 
   // Fetch OpenRouter's public image-model list (cached 24h) so custom slugs
   // can be sanity-checked before the user burns a generation on a typo.
   useEffect(() => {
     if (!hasOpenRouterKey || orKnownSlugs) return;
-    listOpenRouterImageModels()
+    listUserOpenRouterModels()
       .then((models) => setOrKnownSlugs(new Set(models.map((m) => m.slug))))
       .catch(() => { /* validation is best-effort only */ });
   }, [hasOpenRouterKey, orKnownSlugs]);
@@ -532,17 +518,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       onChange={(e) => handleApiKeyChange(provider.keyId, e.target.value)}
                       onBlur={() => handleApiKeyBlur(provider.keyId)}
                       className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
-                      placeholder={provider.placeholder}
+                      placeholder={keyStatus[provider.keyId]?.hasKey ? `••••${keyStatus[provider.keyId].last4}` : provider.placeholder}
                       autoComplete="off"
                     />
                     <p className="text-[11px] text-slate-500">{provider.helpText}</p>
+                    {keyStatus[provider.keyId]?.hasKey && <button type="button" onClick={() => handleClearOverride(provider.keyId)}>Delete key</button>}
                   </div>
                 ))}
                 <p className="text-xs text-slate-500">
-                  Keys are stored on your account and only used for your own requests.
+                  Keys are encrypted on the server and only used for your own requests.
                 </p>
               </div>
 
+              <button type="button" onClick={async () => {
+                try { setKeyStatus(await clearUserApiKeys()); setApiKeys({}); await persistPreferences({}); }
+                catch { setUploadError('Could not clear keys.'); }
+              }}>Delete all keys</button>
               {/* OpenRouter model roster — which extra models show in the
                   picker. Vendors already covered by a direct key are routed
                   to the direct API and hidden from the picker. */}
@@ -681,7 +672,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
                                 {model.name} override
                               </label>
-                              {override && (
+                              {keyStatus[model.id]?.hasKey && (
                                 <button
                                   type="button"
                                   onClick={() => handleClearOverride(model.id)}
@@ -698,7 +689,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                               onChange={(e) => handleApiKeyChange(model.id, e.target.value)}
                               onBlur={() => handleApiKeyBlur(model.id)}
                               className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
-                              placeholder={`Use Google Gemini key (default)`}
+                              placeholder={keyStatus[model.id]?.hasKey ? `••••${keyStatus[model.id].last4}` : `Use Google Gemini key (default)`}
                               autoComplete="off"
                             />
                           </div>
