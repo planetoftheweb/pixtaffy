@@ -1,3 +1,4 @@
+import { stagingOrigins } from "./corsOrigins";
 import { createHash } from "node:crypto";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
@@ -17,6 +18,7 @@ const REGION = "us-central1";
 const GITHUB_TOKEN = defineSecret("GITHUB_TOKEN");
 const GITHUB_REPO = "planetoftheweb/pixtaffy";
 const ALLOWED_ORIGINS: Array<string | RegExp> = [
+  ...stagingOrigins(),
   "https://pixtaffy.com",
   "https://www.pixtaffy.com",
   "https://pixtaffy.web.app",

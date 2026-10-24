@@ -370,13 +370,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     await persistOrModels([...orModels, slug]);
   };
 
-  const MANAGE_TOKENS_URL = 'https://us-central1-brandoit.cloudfunctions.net/manageApiTokens';
-
   const callManageTokens = async (payload: Record<string, unknown>) => {
-    const { auth } = await import('../services/firebase');
+    const { auth, getFunctionUrl } = await import('../services/firebase');
     const idToken = await auth.currentUser?.getIdToken();
     if (!idToken) throw new Error('Sign in again to manage API tokens.');
-    const resp = await fetch(MANAGE_TOKENS_URL, {
+    const resp = await fetch(getFunctionUrl('manageApiTokens'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

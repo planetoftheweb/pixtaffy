@@ -1,12 +1,20 @@
 {
   "projects": {
-    "default": "brandoit"
+    "default": "brandoit",
+    "staging": "pixtaffy-staging"
   },
   "targets": {
     "brandoit": {
       "hosting": {
         "pixtaffy": [
           "pixtaffy"
+        ]
+      }
+    },
+    "pixtaffy-staging": {
+      "hosting": {
+        "pixtaffy": [
+          "pixtaffy-staging"
         ]
       }
     }
