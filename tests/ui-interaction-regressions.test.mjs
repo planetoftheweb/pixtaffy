@@ -76,3 +76,105 @@ test('capture-phase dismissal preserves each menu trigger as part of its widget'
   assert.match(adminPageSource, /data-admin-row-menu-trigger=\{row\.id\}/);
   assert.match(adminPageSource, /data-admin-row-menu-trigger="\$\{openRowMenu\}"/);
 });
+
+const settingsPages = ['SettingsPage', 'LegacySettingsPage'].map(name =>
+  readFileSync(new URL(`../components/${name}.tsx`, import.meta.url), 'utf8'));
+const settingsPrimitives = readFileSync(new URL('../components/settings/SettingsPrimitives.tsx', import.meta.url), 'utf8');
+const settingsPresentation = readFileSync(new URL('../components/settings/keyPresentation.ts', import.meta.url), 'utf8');
+
+test('settings share compact key controls, confirmation, and accessible feedback in both modes', () => {
+  for (const source of [...settingsPages, settingsPrimitives]) {
+    assert.doesNotMatch(source, /<select\b|\btitle=/);
+    assert.doesNotMatch(source, /\u2014/);
+  }
+  for (const source of settingsPages) {
+    assert.match(source, /<SettingsSurface>/);
+    assert.match(source, /lg:grid-cols-2/);
+    assert.match(source, /<KeyRow/);
+    assert.match(source, /<DeleteAllKeys/);
+    assert.match(source, /<SettingsToast/);
+    assert.match(source, /feedbackId=\{feedbackId\}/);
+    assert.match(source, /Settings saved successfully!/);
+    assert.match(source, /setKeyMessage\(keyFeedback\(modelId, 'deleted'\)\)/);
+    assert.match(source, /setKeyMessage\('All keys deleted'\)/);
+    assert.match(source, /SHOW_TEAMS_SETTINGS &&/);
+    assert.match(source, /if \(SHOW_TEAMS_SETTINGS\) loadTeams\(\)/);
+  }
+  assert.match(settingsPresentation, /SHOW_TEAMS_SETTINGS = false/);
+  assert.match(settingsPrimitives, /aria-label="Delete key"/);
+  assert.match(settingsPrimitives, /aria-label="Delete all keys"/);
+  assert.match(settingsPrimitives, /confirm.trigger\('all'\)/);
+  assert.match(settingsPrimitives, /confirm.trigger\(slot\)/);
+  assert.match(settingsPrimitives, /aria-label="Confirm delete"/);
+  assert.match(settingsPrimitives, /aria-label="Confirm delete all keys"/);
+  assert.match(settingsPrimitives, /Delete your \{providerName\} key\?/);
+  assert.match(settingsPrimitives, /onClick=\{confirm.reset\}/);
+  assert.match(settingsPrimitives, /event.key === 'Escape'/);
+  assert.match(settingsPrimitives, /grid-cols-\[minmax\(0,1fr\)_auto\]/);
+  assert.doesNotMatch(settingsPrimitives, /Sure\?/);
+  assert.match(settingsPrimitives, /data-key-slot=\{slot\}/);
+});
+
+test('key feedback and persisted row presentation follow save and delete outcomes', async () => {
+  const { keyFeedback, keyRowStatus } = await import('../components/settings/keyPresentation.ts');
+  assert.equal(keyRowStatus(), 'Not set');
+  const saved = { hasKey: true, last4: 'AbCd' };
+  assert.equal(keyRowStatus(saved), 'Saved ...AbCd');
+  assert.equal(keyFeedback('gemini', 'saved'), 'Gemini key saved');
+  assert.equal(keyFeedback('gemini', 'deleted'), 'Gemini key deleted');
+  assert.equal(keyRowStatus({ hasKey: false }), 'Not set');
+  assert.equal(keyRowStatus({ hasKey: false, last4: 'AbCd' }), 'Not set');
+  assert.equal(keyFeedback('openai', 'deleted'), 'OpenAI key deleted');
+  assert.equal(keyFeedback('openrouter', 'saved'), 'OpenRouter key saved');
+  assert.equal(keyFeedback('gemini-svg', 'deleted'), 'gemini-svg key deleted');
+  // Failed deletion retains the persisted status; input edits do not change it.
+  assert.equal(keyRowStatus(saved), 'Saved ...AbCd');
+});
+
+
+test('settings feedback is timed, dismissible, and anchored above the mobile safe area', () => {
+  const feedback = readFileSync(new URL('../components/settings/SettingsFeedback.tsx', import.meta.url), 'utf8');
+  assert.match(feedback, /aria-live="polite"/);
+  assert.match(feedback, /aria-label="Dismiss notification"/);
+  assert.match(feedback, /safe-area-inset-bottom/);
+  assert.match(feedback, /sm:left-auto sm:right-5/);
+  assert.match(feedback, /text-\[14px\]/);
+  assert.match(feedback, /4000/);
+  assert.match(settingsPrimitives, /4000/);
+  assert.match(settingsPrimitives, /inlineStatus/);
+  for (const source of settingsPages) assert.doesNotMatch(source, /sticky top-16/);
+});
+
+test('settings tips require hover or visible keyboard focus and clear on leave and blur', () => {
+  const tip = readFileSync(new URL('../components/settings/Tip.tsx', import.meta.url), 'utf8');
+  assert.match(tip, /matches\(':focus-visible'\)/);
+  assert.match(tip, /addEventListener\('pointerenter', show\)/);
+  assert.match(tip, /addEventListener\('pointerleave', hide\)/);
+  assert.match(tip, /addEventListener\('focusout', hide\)/);
+  assert.match(tip, /useState<DOMRect \| null>\(null\)/);
+  const walkthrough = readFileSync(new URL('../e2e/walkthroughs/key-flow.mjs', import.meta.url), 'utf8');
+  assert.match(walkthrough, /name: 'Confirm delete'/);
+  assert.match(walkthrough, /Gemini key deleted/);
+});
+
+
+test('Quick Start stays suppressed in Settings and after intentional key deletion until a new session', () => {
+  assert.match(appSource, /setIsSetupModalOpen\(Boolean\(user && needsSetup && !settingsMode && !setupSuppressedByKeyDeletion\)\)/);
+  assert.match(appSource, /\[isAuthResolved, needsSetup, user\?\.id, settingsMode, setupSuppressedByKeyDeletion\]/);
+  assert.match(appSource, /!welcomeMode && !settingsMode && !setupSuppressedByKeyDeletion && needsSetup && isSetupModalOpen/);
+  assert.match(appSource, /useEffect\(\(\) => \{\s*setSetupSuppressedByKeyDeletion\(false\);\s*\}, \[user\?\.id\]\)/);
+  assert.match(appSource, /const handleKeyDeletion = \(\) => \{\s*setSetupSuppressedByKeyDeletion\(true\);\s*setIsSetupModalOpen\(false\)/);
+  assert.match(appSource, /onKeyDeletion=\{handleKeyDeletion\}/);
+  for (const source of settingsPages) {
+    // Notify before async writes can change needsSetup, for individual and bulk deletion.
+    assert.match(source, /const handleClearOverride = async \(modelId: string\) => \{\s*onKeyDeletion\(\)/);
+    assert.match(source, /const handleDeleteAllKeys = async \(\) => \{\s*onKeyDeletion\(\)/);
+  }
+});
+
+test('settings toast escapes page stacking contexts and sits above overlays and the footer', () => {
+  const feedback = readFileSync(new URL('../components/settings/SettingsFeedback.tsx', import.meta.url), 'utf8');
+  assert.match(feedback, /return createPortal\(/);
+  assert.match(feedback, /document\.body/);
+  assert.match(feedback, /fixed bottom-.*z-\[500\]/);
+});

@@ -1,0 +1,24 @@
+.settings-surface { font-size: 14px; }
+.settings-surface :where(input:not([type='checkbox']):not([type='file']), button) { min-height: 44px; }
+.settings-surface :where(input, textarea) { min-width: 0; }
+.settings-surface :where(button) { cursor: pointer; }
+.settings-surface :where(button:disabled) { cursor: not-allowed; }
+.settings-surface :where(label:has(input[type='checkbox'])) { min-height: 44px; }
+.settings-surface :where(p, span, label, button, input, textarea) { overflow-wrap: anywhere; }
+.settings-surface :where(button:focus-visible) { outline: 2px solid var(--color-brand-teal); outline-offset: 2px; }
+.settings-surface :where(input[type='checkbox']) { accent-color: var(--color-brand-teal); }
+.settings-surface :where(.text-sm, .text-xs) { font-size: 14px; }
+.settings-surface :where([class*='text-[10px]'], [class*='text-[11px]']) { font-size: 12px; }
+@media (min-width: 640px) {
+  .settings-surface :where(input:not([type='checkbox']):not([type='file']), button) { min-height: 34px; }
+  .settings-surface :where(label:has(input[type='checkbox'])) { min-height: 34px; }
+}
+.settings-surface summary { min-height: 44px; align-content: center; }
+.settings-surface textarea { font-size: 14px; }
+@media (max-width: 639px) {
+  .settings-surface input[type='checkbox'] { width: 24px; height: 24px; margin: 10px; flex-shrink: 0; }
+  .settings-surface button { min-width: 44px; }
+}
+@media (min-width: 640px) {
+  .settings-surface summary { min-height: 34px; }
+}
