@@ -431,6 +431,17 @@ const App: React.FC = () => {
   >(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  const [setupSuppressedByKeyDeletion, setSetupSuppressedByKeyDeletion] = useState(false);
+
+  // Deleting keys is intentional. Remember that choice until the next auth session.
+  useEffect(() => {
+    setSetupSuppressedByKeyDeletion(false);
+  }, [user?.id]);
+
+  const handleKeyDeletion = () => {
+    setSetupSuppressedByKeyDeletion(true);
+    setIsSetupModalOpen(false);
+  };
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const closeFeedback = useCallback(() => setIsFeedbackOpen(false), []);
 
@@ -1448,8 +1459,8 @@ const App: React.FC = () => {
   // studio without a second onboarding layer sitting on top of it.
   useEffect(() => {
     if (!isAuthResolved) return;
-    setIsSetupModalOpen(Boolean(user && needsSetup));
-  }, [isAuthResolved, needsSetup, user?.id]);
+    setIsSetupModalOpen(Boolean(user && needsSetup && !settingsMode && !setupSuppressedByKeyDeletion));
+  }, [isAuthResolved, needsSetup, user?.id, settingsMode, setupSuppressedByKeyDeletion]);
 
   // If the currently selected model has no usable API key but the user has
   // configured a key for some other supported model, auto-switch to that
@@ -4178,6 +4189,7 @@ const App: React.FC = () => {
               onBack={() => setSettingsMode(false)}
               user={user}
               onSave={handleSaveSettings}
+              onKeyDeletion={handleKeyDeletion}
               graphicTypes={graphicTypes}
               visualStyles={visualStyles}
               brandColors={brandColors}
@@ -4944,7 +4956,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {isAuthResolved && user && !welcomeMode && needsSetup && isSetupModalOpen && (
+      {isAuthResolved && user && !welcomeMode && !settingsMode && !setupSuppressedByKeyDeletion && needsSetup && isSetupModalOpen && (
         <div
           className="fixed inset-0 z-[140] flex items-center justify-center p-3 sm:p-6 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
           onClick={() => setIsSetupModalOpen(false)}

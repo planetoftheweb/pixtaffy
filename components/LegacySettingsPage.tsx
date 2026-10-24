@@ -1,3 +1,7 @@
+import { SettingsToast, useSettingsFeedback } from './settings/SettingsFeedback';
+import { SettingsSurface, SettingsButton, SettingsInput, SettingsSelect, KeyRow, DeleteAllKeys } from './settings/SettingsPrimitives';
+import { SHOW_TEAMS_SETTINGS, keyFeedback } from './settings/keyPresentation';
+import { Tip } from './settings/Tip';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { UserSettings, AspectRatioDefinition, GraphicTypeDefinition, User, Team, VisualStyleDefinition, BrandColorDefinition } from '../types';
 import { ArrowLeft, Settings as SettingsIcon, Save, User as UserIcon, Camera, Loader2, Users, Plus, Key, CheckCircle, Layout, PenTool, Palette, Maximize, Sparkles, ChevronDown, X } from 'lucide-react';
@@ -10,10 +14,10 @@ import { SUPPORTED_MODELS, MODEL_GROUP_ORDER, OPENROUTER_CURATED_MODELS } from '
 import { getAspectRatiosForModel, getSafeAspectRatioForModel } from '../services/aspectRatioService';
 import { isLikelyOpenRouterKey } from '../services/correctionAnalysisRouter';
 import { listOpenRouterImageModels } from '../services/openRouterService';
-import { RichSelect } from './RichSelect';
 
 interface SettingsPageProps {
   onBack: () => void;
+  onKeyDeletion: () => void;
   user: User;
   onSave: (
     newSettings: UserSettings,
@@ -32,6 +36,7 @@ interface SettingsPageProps {
 
 export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
   onBack,
+  onKeyDeletion,
   user,
   onSave,
   graphicTypes,
@@ -55,6 +60,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
     }
     return keys;
   });
+  const [savedKeys, setSavedKeys] = useState(apiKeys);
   const [selectedModel, setSelectedModel] = useState<string>(user.preferences.selectedModel || 'gemini');
   const [systemPrompt, setSystemPrompt] = useState<string>(user.preferences.systemPrompt || '');
   // Enabled OpenRouter model slugs (undefined pref = curated defaults).
@@ -95,6 +101,8 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const { keyMessage, setKeyMessage, feedbackId } = useSettingsFeedback();
+  const [keyError, setKeyError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Per-model key overrides are hidden by default to reduce clutter: every
@@ -133,6 +141,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
     const legacyGemini = user.preferences.geminiApiKey?.trim();
     if (!keys['gemini']?.trim() && legacyGemini) keys['gemini'] = legacyGemini;
     setApiKeys(keys);
+    setSavedKeys(keys);
     setSelectedModel(user.preferences.selectedModel || 'gemini');
     setSystemPrompt(user.preferences.systemPrompt || '');
     setShowOverrides(
@@ -149,7 +158,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
       )
     );
     setOrModels(user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug));
-    loadTeams();
+    if (SHOW_TEAMS_SETTINGS) loadTeams();
   }, [user]);
 
   useEffect(() => {
@@ -293,6 +302,9 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
+      setSaveSuccess(false);
+      setKeyError(true);
+      setKeyMessage('Could not save changes. Please try again.');
       console.error("Failed to save settings:", err);
     } finally {
       setIsSaving(false);
@@ -304,14 +316,20 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const handleClearOverride = async (modelId: string) => {
+    onKeyDeletion();
     const next = { ...apiKeys };
     delete next[modelId];
     setApiKeys(next);
     try {
       await persistPreferences(next);
+      setKeyError(false);
+      setKeyMessage(keyFeedback(modelId, 'deleted'));
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
+      setSaveSuccess(false);
+      setKeyError(true);
+      setKeyMessage('Could not save changes. Please try again.');
       console.error("Failed to clear API key override:", err);
     }
   };
@@ -320,6 +338,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
     // Use local state as the source of truth; pass apiKeys['gemini'] directly (no `||`
     // fallback) so clearing the Nano Banana key is actually persisted. sanitizePreferences
     // in authService strips empty-string entries.
+    const editedSlots = Object.keys({ ...savedKeys, ...nextApiKeys }).filter(slot => savedKeys[slot] !== nextApiKeys[slot]);
     await onSave(
       localSettings,
       { name, username, photoURL, photoDataUrl },
@@ -329,6 +348,9 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
       nextApiKeys,
       nextOrModels
     );
+    setKeyError(false);
+    setSavedKeys({ ...nextApiKeys });
+    setKeyMessage(editedSlots.map(slot => keyFeedback(slot, nextApiKeys[slot]?.trim() ? 'saved' : 'deleted')).join('. '));
   };
 
   const hasOpenRouterKey = isLikelyOpenRouterKey((apiKeys['openrouter'] || '').trim());
@@ -351,6 +373,9 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
+      setSaveSuccess(false);
+      setKeyError(true);
+      setKeyMessage('Could not save changes. Please try again.');
       console.error('Failed to save OpenRouter models:', err);
     }
   };
@@ -422,12 +447,29 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
     }
   };
 
+  const handleDeleteAllKeys = async () => {
+    onKeyDeletion();
+    try {
+      setApiKeys({});
+      await persistPreferences({});
+      setKeyError(false);
+      setKeyMessage('All keys deleted');
+    } catch {
+      setSaveSuccess(false);
+      setKeyError(true);
+      setKeyMessage('Could not delete all keys. Please try again.');
+    }
+  };
+
   const handleApiKeyBlur = async (_modelId: string) => {
     try {
       await persistPreferences();
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
+      setSaveSuccess(false);
+      setKeyError(true);
+      setKeyMessage('Could not save changes. Please try again.');
       console.error("Failed to save API key:", err);
     }
   };
@@ -476,88 +518,69 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0d1117] transition-colors duration-200">
-      {/* Success Toast */}
-      {saveSuccess && (
-        <div className="fixed top-20 right-6 z-50 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-          <CheckCircle size={20} />
-          <span className="text-sm font-medium">Settings saved successfully!</span>
-        </div>
-      )}
-
+    <SettingsSurface>
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-3 sm:px-5 py-4">
         {/* Page Header */}
-        <div className="mb-8 flex items-center gap-4">
-          <button 
+        <div className="mb-3 flex items-center gap-3">
+          <SettingsButton
             onClick={onBack}
             aria-label="Back to studio"
             className="p-2 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
           >
             <ArrowLeft size={20} className="text-slate-600 dark:text-slate-300" />
-          </button>
+          </SettingsButton>
           <div className="flex items-center gap-2">
             <SettingsIcon size={24} className="text-brand-teal" />
             <h1 data-key-storage-mode="legacy" className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          
+        <SettingsToast message={keyMessage || 'Settings saved successfully!'} error={keyError} eventId={feedbackId} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 items-start gap-4">
+
+
           {/* LEFT COLUMN: API Key */}
-          <div className="xl:col-span-1">
-            <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-6 space-y-4 sticky top-20">
+          <div className="min-w-0">
+            <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 space-y-3">
               <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
                 <Key size={14} /> API Configuration
               </h4>
-              
+
               {/* Provider API keys. Every Gemini variant shares the Google
-                  Gemini key, so we present two provider-level inputs instead
+                  Gemini key, so we present provider-level inputs instead
                   of one per model. Per-model overrides live in the Advanced
                   section below and are optional. */}
               <div className="space-y-2.5">
                 {API_PROVIDERS.map((provider) => (
-                  <div
-                    key={provider.keyId}
-                    className="rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] p-2.5 space-y-1"
-                  >
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      {provider.label}
-                    </label>
-                    <p className="text-xs text-slate-500">{provider.description}</p>
-                    <input
-                      type="password"
-                      aria-label={`${provider.label} key`}
-                      data-key-slot={provider.keyId}
-                      value={apiKeys[provider.keyId] || ''}
-                      onChange={(e) => handleApiKeyChange(provider.keyId, e.target.value)}
-                      onBlur={() => handleApiKeyBlur(provider.keyId)}
-                      className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
-                      placeholder={provider.placeholder}
-                      autoComplete="off"
-                    />
-                    <p className="text-[11px] text-slate-500">{provider.helpText}</p>
-                  </div>
+                  <KeyRow feedback={keyError ? '' : keyMessage} feedbackId={feedbackId} key={provider.keyId} slot={provider.keyId} label={provider.label}
+                    description={`${provider.description} ${provider.helpText}`}
+                    value={apiKeys[provider.keyId] || ''} status={{ hasKey: !!savedKeys[provider.keyId]?.trim(), last4: savedKeys[provider.keyId]?.trim().slice(-4) }}
+                    placeholder={provider.placeholder}
+                    onChange={value => handleApiKeyChange(provider.keyId, value)}
+                    onBlur={() => handleApiKeyBlur(provider.keyId)}
+                    onDelete={() => handleClearOverride(provider.keyId)} />
                 ))}
                 <p className="text-xs text-slate-500">
                   Keys are stored on your account and only used for your own requests.
                 </p>
               </div>
 
+              <DeleteAllKeys disabled={!Object.values(savedKeys).some(value => value?.trim())} onDelete={handleDeleteAllKeys} />
               {/* OpenRouter model roster - which extra models show in the
                   picker. Vendors already covered by a direct key are routed
                   to the direct API and hidden from the picker. */}
               {hasOpenRouterKey && (
-                <div className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
-                  <div>
-                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <details className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
+                  <summary className="cursor-pointer">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                       OpenRouter models
-                    </h5>
+                    </span><Tip text="Choose which OpenRouter models appear in the studio." /></summary>
                     <p className="mt-1 text-xs text-slate-500">
                       Checked models appear in the model picker. Defaults are the top
                       image models by benchmark for infographic work.
                     </p>
-                  </div>
                   {OPENROUTER_CURATED_MODELS.map((m) => {
                     const enabled = orModels.includes(m.slug);
                     const routedDirect =
@@ -570,20 +593,20 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                           routedDirect ? 'opacity-60' : ''
                         }`}
                       >
-                        <input
+                        <SettingsInput
                           type="checkbox"
                           checked={enabled}
                           onChange={() => toggleOrModel(m.slug)}
                           className="mt-0.5 accent-teal-600"
                         />
                         <span className="min-w-0">
-                          <span className="block text-sm font-medium text-slate-900 dark:text-white">
+                          <span className="block text-[14px] font-medium text-slate-900 dark:text-white">
                             {m.name}
-                            <span className="ml-2 text-[11px] font-normal text-slate-500">{m.slug}</span>
+                            <span className="ml-2 text-[12px] font-normal text-slate-500">{m.slug}</span>
                           </span>
-                          <span className="block text-[11px] leading-snug text-slate-500">{m.goodAt}</span>
+                          <span className="block text-[12px] leading-snug text-slate-500">{m.goodAt}</span>
                           {routedDirect && (
-                            <span className="block mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                            <span className="block mt-1 text-[12px] font-medium text-amber-600 dark:text-amber-400">
                               Covered by your direct {m.slug.startsWith('google/') ? 'Google' : 'OpenAI'} key -
                               hidden from the picker; the direct API is used instead.
                             </span>
@@ -599,21 +622,21 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                         key={slug}
                         className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] px-2.5 py-2"
                       >
-                        <span className="min-w-0 truncate text-sm text-slate-900 dark:text-white">
+                        <span className="min-w-0 truncate text-[14px] text-slate-900 dark:text-white">
                           {slug}
-                          <span className="ml-2 text-[11px] text-slate-500">custom</span>
+                          <span className="ml-2 text-[12px] text-slate-500">custom</span>
                         </span>
-                        <button
+                        <SettingsButton
                           type="button"
                           onClick={() => persistOrModels(orModels.filter((s) => s !== slug))}
-                          className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors shrink-0"
+                          className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors shrink-0"
                         >
                           <X size={12} /> Remove
-                        </button>
+                        </SettingsButton>
                       </div>
                     ))}
                   <div className="flex items-center gap-2">
-                    <input
+                    <SettingsInput
                       type="text"
                       value={orCustomSlug}
                       onChange={(e) => {
@@ -626,26 +649,26 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                           handleAddOrCustomSlug();
                         }
                       }}
-                      className="flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
+                      className="min-w-0 flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2 text-[14px] focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
                       placeholder="Add a model slug - e.g. sourceful/riverflow-v2.5-pro"
                       autoComplete="off"
                     />
-                    <button
+                    <SettingsButton
                       type="button"
                       onClick={handleAddOrCustomSlug}
                       disabled={!orCustomSlug.trim()}
-                      className="px-3 py-2 text-sm font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-teal-600 transition-colors shrink-0"
+                      className="px-3 py-2 text-[14px] font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-teal-600 transition-colors shrink-0"
                     >
                       Add
-                    </button>
+                    </SettingsButton>
                   </div>
                   {orSlugWarning && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400">{orSlugWarning}</p>
+                    <p className="text-[12px] text-amber-600 dark:text-amber-400">{orSlugWarning}</p>
                   )}
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[12px] text-slate-500">
                     Browse the full list at openrouter.ai/models (filter by image output).
                   </p>
-                </div>
+                </details>
               )}
 
               {/* Advanced: per-model key overrides. Only needed if you want a
@@ -653,7 +676,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   provider key above. */}
               {OVERRIDE_MODELS.length > 0 && (
                 <div className="pt-3 border-t border-gray-200 dark:border-[#30363d]">
-                  <button
+                  <SettingsButton
                     type="button"
                     onClick={() => setShowOverrides((v) => !v)}
                     className="w-full flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
@@ -664,7 +687,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                       size={14}
                       className={`transition-transform ${showOverrides ? 'rotate-180' : ''}`}
                     />
-                  </button>
+                  </SettingsButton>
 
                   {showOverrides && (
                     <div className="mt-3 space-y-3">
@@ -674,35 +697,12 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                       {OVERRIDE_MODELS.map((model) => {
                         const override = apiKeys[model.id] || '';
                         return (
-                          <div
-                            key={model.id}
-                            className="rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] p-3 space-y-1.5"
-                          >
-                            <div className="flex items-center justify-between">
-                              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                {model.name} override
-                              </label>
-                              {override && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleClearOverride(model.id)}
-                                  className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                                  title={`Remove override for ${model.name}`}
-                                >
-                                  <X size={12} /> Clear
-                                </button>
-                              )}
-                            </div>
-                            <input
-                              type="password"
-                              value={override}
-                              onChange={(e) => handleApiKeyChange(model.id, e.target.value)}
-                              onBlur={() => handleApiKeyBlur(model.id)}
-                              className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
-                              placeholder={`Use Google Gemini key (default)`}
-                              autoComplete="off"
-                            />
-                          </div>
+                          <KeyRow feedback={keyError ? '' : keyMessage} feedbackId={feedbackId} key={model.id} slot={model.id} label={`${model.name} override`}
+                            description="Leave blank to use the shared provider key."
+                            value={override} status={{ hasKey: !!savedKeys[model.id]?.trim(), last4: savedKeys[model.id]?.trim().slice(-4) }} placeholder={'Use Google Gemini key (default)'}
+                            onChange={value => handleApiKeyChange(model.id, value)}
+                            onBlur={() => handleApiKeyBlur(model.id)}
+                            onDelete={() => handleClearOverride(model.id)} />
                         );
                       })}
                     </div>
@@ -712,10 +712,10 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
 
               {/* Personal API tokens - external access for MCP servers,
                   scripts, and other apps. Plaintext is shown exactly once. */}
-              <div className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
-                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <details className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
+                <summary className="cursor-pointer text-[13px] font-semibold text-slate-500">
                   API access
-                </h5>
+                <Tip text="Manage personal tokens for external tools and scripts." /></summary>
                 <p className="text-xs text-slate-500">
                   Personal tokens let external tools (the PixTaffy MCP server, scripts, other
                   apps) generate images as your account, using your own model keys. Calls are
@@ -723,27 +723,27 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                 </p>
                 {freshToken && (
                   <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-2.5 space-y-1.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    <p className="text-[12px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                       Copy this token now - it won't be shown again
                     </p>
-                    <code className="block break-all text-[11px] text-slate-800 dark:text-slate-100">{freshToken}</code>
+                    <code className="block break-all text-[12px] text-slate-800 dark:text-slate-100">{freshToken}</code>
                     <div className="flex gap-2">
-                      <button
+                      <SettingsButton
                         type="button"
                         onClick={() => {
                           void navigator.clipboard.writeText(freshToken).then(() => setFreshTokenCopied(true));
                         }}
-                        className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-brand-teal text-white hover:bg-teal-600"
+                        className="px-2.5 py-1 text-[12px] font-semibold rounded-md bg-brand-teal text-white hover:bg-teal-600"
                       >
                         {freshTokenCopied ? 'Copied ✓' : 'Copy token'}
-                      </button>
-                      <button
+                      </SettingsButton>
+                      <SettingsButton
                         type="button"
                         onClick={() => setFreshToken(null)}
-                        className="px-2.5 py-1 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-[#30363d] text-slate-600 dark:text-slate-300"
+                        className="px-2.5 py-1 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-[#30363d] text-slate-600 dark:text-slate-300"
                       >
                         Done
-                      </button>
+                      </SettingsButton>
                     </div>
                   </div>
                 )}
@@ -753,50 +753,50 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                     className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-gray-50/60 dark:bg-[#0f141c] px-2.5 py-2"
                   >
                     <div className="min-w-0">
-                      <span className="block text-sm font-medium text-slate-900 dark:text-white truncate">
+                      <span className="block text-[14px] font-medium text-slate-900 dark:text-white truncate">
                         {t.name}
-                        <span className="ml-2 text-[11px] font-normal text-slate-500 font-mono">{t.prefix}</span>
+                        <span className="ml-2 text-[12px] font-normal text-slate-500 font-mono">{t.prefix}</span>
                       </span>
-                      <span className="block text-[11px] text-slate-500">
+                      <span className="block text-[12px] text-slate-500">
                         {t.lastUsedAt ? `Last used ${new Date(t.lastUsedAt).toLocaleDateString()}` : 'Never used'}
                         {t.createdAt ? ` · created ${new Date(t.createdAt).toLocaleDateString()}` : ''}
                       </span>
                     </div>
-                    <button
+                    <SettingsButton
                       type="button"
                       onClick={() => revokeConfirm.trigger(t.tokenHash)}
-                      className={`shrink-0 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                      className={`shrink-0 px-2 py-1 rounded-md text-[12px] font-semibold transition-colors ${
                         revokeConfirm.isArmed(t.tokenHash)
                           ? 'bg-amber-500 text-white animate-pulse'
                           : 'text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10'
                       }`}
                     >
                       {revokeConfirm.isArmed(t.tokenHash) ? 'Sure?' : 'Revoke'}
-                    </button>
+                    </SettingsButton>
                   </div>
                 ))}
                 <div className="flex items-center gap-2">
-                  <input
+                  <SettingsInput
                     type="text"
                     value={apiTokenName}
                     onChange={(e) => setApiTokenName(e.target.value)}
                     maxLength={60}
                     placeholder="Token name - e.g. Claude MCP, writAIble"
-                    className="flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
+                    className="min-w-0 flex-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-[14px] focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
                   />
-                  <button
+                  <SettingsButton
                     type="button"
                     onClick={() => void handleCreateApiToken()}
                     disabled={apiTokenBusy}
-                    className="px-3 py-1.5 text-sm font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 hover:bg-teal-600 transition-colors shrink-0"
+                    className="px-3 py-1.5 text-[14px] font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 hover:bg-teal-600 transition-colors shrink-0"
                   >
                     {apiTokenBusy ? 'Creating…' : 'Create token'}
-                  </button>
+                  </SettingsButton>
                 </div>
                 {apiTokenError && (
-                  <p className="text-[11px] text-red-500">{apiTokenError}</p>
+                  <p className="text-[12px] text-red-500">{apiTokenError}</p>
                 )}
-              </div>
+              </details>
 
               <div className="space-y-2 pt-3 border-t border-gray-200 dark:border-[#30363d]">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -805,10 +805,12 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                 <textarea
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
-                  rows={3}
-                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
+                  aria-label="System prompt"
+                  rows={2}
+                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-[14px] focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
                   placeholder="Optional instruction sent with every generation/refinement (e.g., brand voice, safety constraints)."
                 />
+                <Tip text="Optional instructions applied to every AI request. Save changes to apply." wide />
                 <p className="text-xs text-slate-500">
                   Prepended as a system instruction to every AI request: generation, refinement, prompt expansion, and brand/image analysis.
                 </p>
@@ -817,19 +819,19 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
           </div>
 
           {/* MIDDLE COLUMN: Profile & Preferences */}
-          <div className="xl:col-span-1 space-y-6">
-            
+          <div className="min-w-0 space-y-4">
+
             {/* Profile Section */}
-            <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-6 space-y-4">
+            <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 space-y-3">
               <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
                 <UserIcon size={14} /> Profile
               </h4>
-              
-              <div className="grid grid-cols-[auto_1fr] gap-4">
+
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
                 {/* Photo Upload - Left Side */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="relative group">
-                    <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 dark:bg-[#21262d] flex items-center justify-center border-2 border-gray-200 dark:border-[#30363d]">
+                    <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-200 dark:bg-[#21262d] flex items-center justify-center border-2 border-gray-200 dark:border-[#30363d]">
                       {isUploading ? (
                         <Loader2 size={24} className="animate-spin text-brand-teal" />
                       ) : photoURL || photoDataUrl ? (
@@ -845,15 +847,15 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                         <span className="text-2xl font-bold text-slate-400">{name.charAt(0).toUpperCase()}</span>
                       )}
                     </div>
-                    <button 
+                    <SettingsButton
                       onClick={() => fileInputRef.current?.click()}
                       className="absolute bottom-0 right-0 p-1.5 bg-brand-teal text-white rounded-full shadow-lg hover:bg-teal-600 transition-colors"
-                      title="Upload Photo"
+                      aria-label="Upload Photo"
                     >
                       <Camera size={14} />
-                    </button>
-                    <input 
-                      type="file" 
+                    </SettingsButton>
+                    <SettingsInput
+                      type="file"
                       ref={fileInputRef}
                       className="hidden"
                       accept="image/*"
@@ -869,11 +871,11 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                       Display Name
                     </label>
-                    <input
+                    <SettingsInput
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
+                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-2.5 py-1.5 text-[14px] focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
                       placeholder="Your Name"
                     />
                   </div>
@@ -883,12 +885,12 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                       Username (for Community)
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">@</span>
-                      <input
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[14px] font-bold">@</span>
+                      <SettingsInput
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg py-2.5 pl-7 pr-3 text-sm focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
+                        className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg py-1.5 pl-7 pr-3 text-[14px] focus:ring-1 focus:ring-brand-teal focus:outline-none text-slate-900 dark:text-white"
                         placeholder="username"
                       />
                     </div>
@@ -898,19 +900,19 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
             </div>
 
             {/* Preferences Section */}
-            <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-6 space-y-4">
+            <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 space-y-3">
               <h4 className="text-xs font-bold text-slate-500 uppercase">Defaults</h4>
-              
-              <div className="flex items-start gap-3">
-                <input 
-                  type="checkbox" 
+
+              <div className="flex items-start gap-3 min-h-11">
+                <SettingsInput
+                  type="checkbox"
                   id="contributeDefault"
                   checked={localSettings.contributeByDefault}
                   onChange={(e) => setLocalSettings(prev => ({ ...prev, contributeByDefault: e.target.checked }))}
                   className="mt-1 w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-red cursor-pointer"
                 />
                 <div>
-                  <label htmlFor="contributeDefault" className="block text-sm font-medium cursor-pointer text-slate-900 dark:text-white">
+                  <label htmlFor="contributeDefault" className="block text-[14px] font-medium cursor-pointer text-slate-900 dark:text-white">
                     Contribute to Community Catalog by Default
                   </label>
                   <p className="text-xs text-slate-500 mt-1">
@@ -923,10 +925,12 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                 <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Generation Defaults</h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                       Type
                     </label>
-                    <RichSelect
+                    <SettingsSelect
+                      compact
+                      expandMenuToContent={false}
                       value={localSettings.defaultGraphicTypeId || ''}
                       onChange={(value) => setLocalSettings(prev => ({ ...prev, defaultGraphicTypeId: value }))}
                       options={graphicTypeOptions}
@@ -938,10 +942,12 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                       Style
                     </label>
-                    <RichSelect
+                    <SettingsSelect
+                      compact
+                      expandMenuToContent={false}
                       value={localSettings.defaultVisualStyleId || ''}
                       onChange={(value) => setLocalSettings(prev => ({ ...prev, defaultVisualStyleId: value }))}
                       options={visualStyleOptions}
@@ -953,10 +959,12 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                       Colors
                     </label>
-                    <RichSelect
+                    <SettingsSelect
+                      compact
+                      expandMenuToContent={false}
                       value={localSettings.defaultColorSchemeId || ''}
                       onChange={(value) => setLocalSettings(prev => ({ ...prev, defaultColorSchemeId: value }))}
                       options={brandColorOptions}
@@ -968,10 +976,12 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                       Size
                     </label>
-                    <RichSelect
+                    <SettingsSelect
+                      compact
+                      expandMenuToContent={false}
                       value={localSettings.defaultAspectRatio || ''}
                       onChange={(value) => setLocalSettings(prev => ({ ...prev, defaultAspectRatio: value }))}
                       options={aspectRatioOptions}
@@ -982,10 +992,12 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                       Model
                     </label>
-                    <RichSelect
+                    <SettingsSelect
+                      compact
+                      expandMenuToContent={false}
                       value={selectedModel}
                       onChange={setSelectedModel}
                       options={modelOptions}
@@ -993,7 +1005,6 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                       subLabel="Model"
                       searchable
                       groupOrder={[...MODEL_GROUP_ORDER]}
-                      hideOptionDescriptions
                     />
                     <p className="text-xs text-slate-500 mt-1">
                       {selectedModel === 'openai-2' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare'
@@ -1012,27 +1023,27 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                 <h4 className="text-xs font-bold text-slate-500 uppercase">Confirmations</h4>
 
                 <label className="flex items-start gap-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
+                  <SettingsInput
+                    type="checkbox"
                     checked={localSettings.confirmDeleteHistory ?? true}
                     onChange={(e) => setLocalSettings(prev => ({ ...prev, confirmDeleteHistory: e.target.checked }))}
                     className="mt-1 w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-red cursor-pointer"
                   />
                   <div>
-                    <span className="block text-sm font-medium text-slate-900 dark:text-white">Confirm before deleting recent generations</span>
+                    <span className="block text-[14px] font-medium text-slate-900 dark:text-white">Confirm before deleting recent generations</span>
                     <p className="text-xs text-slate-500 mt-1">Show a prompt before removing items from history.</p>
                   </div>
                 </label>
 
                 <label className="flex items-start gap-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
+                  <SettingsInput
+                    type="checkbox"
                     checked={localSettings.confirmDeleteCurrent ?? true}
                     onChange={(e) => setLocalSettings(prev => ({ ...prev, confirmDeleteCurrent: e.target.checked }))}
                     className="mt-1 w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-red cursor-pointer"
                   />
                   <div>
-                    <span className="block text-sm font-medium text-slate-900 dark:text-white">Confirm before deleting current preview</span>
+                    <span className="block text-[14px] font-medium text-slate-900 dark:text-white">Confirm before deleting current preview</span>
                     <p className="text-xs text-slate-500 mt-1">Show a prompt before clearing the main preview image.</p>
                   </div>
                 </label>
@@ -1041,76 +1052,76 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
           </div>
 
           {/* RIGHT COLUMN: Teams Management */}
-          <div className="xl:col-span-1 space-y-6">
-            <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-6 space-y-4">
+          {SHOW_TEAMS_SETTINGS && <div className="min-w-0 space-y-4">
+            <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
                    <Users size={14} /> My Teams
                 </h4>
-                <button 
+                <SettingsButton
                   onClick={() => setIsCreatingTeam(!isCreatingTeam)}
                   className="text-xs text-brand-teal hover:underline font-bold"
                 >
                    {isCreatingTeam ? 'Cancel' : '+ New Team'}
-                </button>
+                </SettingsButton>
               </div>
 
               {/* Create Team Form */}
               {isCreatingTeam && (
                   <div className="p-3 bg-brand-teal/5 rounded-lg border border-brand-teal/20 animate-in fade-in slide-in-from-top-2">
-                     <input
+                     <SettingsInput
                        type="text"
                        value={newTeamName}
                        onChange={(e) => setNewTeamName(e.target.value)}
                        placeholder="Team Name"
-                       className="w-full mb-2 p-2 text-sm border border-gray-200 dark:border-[#30363d] rounded bg-gray-50 dark:bg-[#0d1117] text-slate-900 dark:text-white"
+                       className="w-full mb-2 p-2 text-[14px] border border-gray-200 dark:border-[#30363d] rounded bg-gray-50 dark:bg-[#0d1117] text-slate-900 dark:text-white"
                        autoFocus
                      />
-                     <button 
+                     <SettingsButton
                        onClick={handleCreateTeam}
                        className="w-full py-1.5 bg-brand-teal text-white text-xs font-bold rounded hover:bg-teal-600 transition-colors"
                      >
                          Create Team
-                     </button>
+                     </SettingsButton>
                   </div>
               )}
 
               {/* Teams List */}
               <div className="space-y-3">
                  {teams.length === 0 ? (
-                     <p className="text-sm text-slate-500 italic">You aren't in any teams yet.</p>
+                     <p className="text-[14px] text-slate-500 italic">You aren't in any teams yet.</p>
                  ) : (
                      teams.map(team => (
                          <div key={team.id} className="border border-gray-200 dark:border-[#30363d] rounded-lg overflow-hidden">
-                             <div 
+                             <div
                                  className="p-3 bg-gray-50 dark:bg-[#0d1117] flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-[#161b22]"
                                  onClick={() => setActiveTeamId(activeTeamId === team.id ? null : team.id)}
                              >
-                                 <span className="font-bold text-sm text-slate-900 dark:text-white">{team.name}</span>
+                                 <span className="font-bold text-[14px] text-slate-900 dark:text-white">{team.name}</span>
                                  <span className="text-xs text-slate-500">{team.members.length} members</span>
                              </div>
-                             
+
                              {/* Team Details (Expanded) */}
                              {activeTeamId === team.id && (
                                  <div className="p-3 border-t border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22]">
                                      <div className="flex gap-2 mb-3">
-                                         <input
+                                         <SettingsInput
                                            type="email"
                                            value={inviteEmail}
                                            onChange={(e) => setInviteEmail(e.target.value)}
                                            placeholder="user@example.com"
                                            className="flex-1 p-1.5 text-xs border border-gray-200 dark:border-[#30363d] rounded bg-gray-50 dark:bg-[#0d1117] text-slate-900 dark:text-white"
                                          />
-                                         <button 
+                                         <SettingsButton
                                            onClick={() => handleInviteMember(team.id)}
                                            className="p-1.5 bg-slate-100 dark:bg-[#30363d] text-slate-600 dark:text-slate-300 rounded hover:text-brand-teal"
-                                           title="Invite Member"
+                                           aria-label="Invite Member"
                                          >
                                              <Plus size={14} />
-                                         </button>
+                                         </SettingsButton>
                                      </div>
                                      <div className="space-y-1">
-                                         <p className="text-[10px] uppercase font-bold text-slate-400">Members</p>
+                                         <p className="text-[12px] uppercase font-bold text-slate-400">Members</p>
                                          <div className="text-xs text-slate-600 dark:text-slate-400">
                                              {team.members.map(mid => (
                                                  <div key={mid} className="flex items-center gap-2">
@@ -1129,23 +1140,23 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                  )}
               </div>
             </div>
-          </div>
+          </div>}
 
         </div>
 
         {/* Footer Save Button */}
-        <div className="mt-8 flex justify-end gap-3">
-          <button 
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <SettingsButton
             onClick={onBack}
             aria-label="Back to studio"
-            className="px-6 py-2.5 text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg font-medium text-sm transition-colors"
+            className="px-6 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg font-medium text-[14px] transition-colors"
           >
             Cancel
-          </button>
-          <button 
+          </SettingsButton>
+          <SettingsButton
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-brand-teal hover:bg-teal-600 text-white rounded-lg font-medium transition-colors text-sm shadow-lg shadow-brand-teal/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-1.5 bg-brand-teal hover:bg-teal-600 text-white rounded-lg font-medium transition-colors text-[14px] shadow-lg shadow-brand-teal/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <>
@@ -1160,9 +1171,9 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                 <Save size={16} /> Save Changes
               </>
             )}
-          </button>
+          </SettingsButton>
         </div>
       </div>
-    </div>
+    </SettingsSurface>
   );
 };

@@ -149,17 +149,18 @@ export default async function ({ page, context, baseUrl, env, step, requests, re
   });
   await step('Delete Gemini key', async () => {
     await openSettings();
-    if (!server) {
-      const input = page.locator('[data-key-slot="gemini"]');
-      await input.fill('');
-      await input.blur();
-      await page.getByText('Settings saved successfully!', { exact: true }).waitFor();
-      await page.reload();
-      await openSettings();
-      assert.equal(await page.locator('[data-key-slot="gemini"]').inputValue(), '');
-      return;
-    }
-    await page.locator('[data-key-slot="gemini"]').locator('..').getByRole('button', { name: 'Delete key', exact: true }).click();
-    await waitFor('Gemini key placeholder to reset after Delete key', async () => await page.locator('[data-key-slot="gemini"]').getAttribute('placeholder') === 'AIza...');
+    const row = page.locator('[data-key-row="gemini"]');
+    const input = row.locator('[data-key-slot="gemini"]');
+    const deleteButton = row.getByRole('button', { name: 'Delete key', exact: true });
+    await deleteButton.click();
+    await row.getByRole('button', { name: 'Confirm delete', exact: true }).click();
+    await page.getByText('Gemini key deleted', { exact: true }).waitFor();
+    await row.getByText('Not set', { exact: true }).waitFor();
+    await waitFor('Gemini key input to clear after deletion', async () => await input.inputValue() === '');
+    if (server) assert.equal(await input.getAttribute('placeholder'), 'AIza...');
+    await page.reload();
+    await openSettings();
+    await row.getByText('Not set', { exact: true }).waitFor();
+    assert.equal(await input.inputValue(), '');
   });
 }
