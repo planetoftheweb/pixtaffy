@@ -415,3 +415,9 @@ test('What’s New validation bypass exits successfully with a clear diagnostic'
   assert.equal(result.status, 0);
   assert.match(result.stdout, /check skipped via SKIP_WHATS_NEW_CHECK=1/);
 });
+
+test('the client bundle never receives the server Gemini key', () => {
+  const viteConfigSource = read('vite.config.ts');
+  assert.doesNotMatch(viteConfigSource, /GEMINI_API_KEY/);
+  assert.doesNotMatch(viteConfigSource, /process\.env\.API_KEY/);
+});
