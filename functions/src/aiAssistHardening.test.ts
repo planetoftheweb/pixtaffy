@@ -179,16 +179,11 @@ for (const differentReservation of [false, true]) {
 test(`runAiAssist settles the stored delivery after an ambiguous write (${differentReservation ? "defensive different reservation" : "deterministic same reservation"})`, async (t) => {
   const billing = require("./billing");
   const deliveries = require("./paidDelivery");
-  const firestore = require("firebase-admin/firestore");
   const genai = require("@google/genai");
-  let spend: Record<string, unknown> = {};
-  t.mock.method(firestore, "getFirestore", () => ({
-    doc: () => ({}),
-    runTransaction: async (callback: any) => callback({ get: async () => ({ data: () => spend }), set: (_ref: unknown, data: any) => { spend = { ...spend, ...data }; } }),
-  }));
+  const store = fakeFirestore(t);
   t.mock.method(require("./rateLimit"), "enforceRateLimit", async () => {});
   t.mock.method(billing, "ensureStarterGrant", async () => {});
-  t.mock.method(billing, "reserveCredits", async () => ({ reservationId: delivery.reservationId, balanceMilliCredits: 900 }));
+  t.mock.method(billing, "reserveAssistCredits", async () => ({ reservationId: delivery.reservationId, balanceMilliCredits: 900 }));
   const release = t.mock.method(billing, "releaseReservation", async () => {});
   const commit = t.mock.method(billing, "commitReservation", async () => {});
   t.mock.method(deliveries, "readPaidAssistDelivery", async () => null);
@@ -216,25 +211,18 @@ test(`runAiAssist settles the stored delivery after an ambiguous write (${differ
   if (differentReservation) assert.equal(release.mock.calls[0].arguments[0].reservationId, delivery.reservationId);
   assert.equal(commit.mock.callCount(), 1);
   assert.equal(commit.mock.calls[0].arguments[0].reservationId, differentReservation ? "winner" : delivery.reservationId);
-  assert.equal(spend.geminiReservedUsd, 0);
-  assert.ok(Number(spend.geminiUsd) > 0);
+  assert.equal(store.spend().geminiReservedUsd, 0);
+  assert.ok(Number(store.spend().geminiUsd) > 0);
 });
 }
 
 function mockAssist(t: import("node:test").TestContext, response: Record<string, unknown>) {
   const billing = require("./billing");
   const deliveries = require("./paidDelivery");
-  let spend: Record<string, any> = {};
-  t.mock.method(require("firebase-admin/firestore"), "getFirestore", () => ({
-    doc: () => ({}),
-    runTransaction: async (callback: any) => callback({
-      get: async () => ({ data: () => spend }),
-      set: (_ref: unknown, data: any) => { spend = { ...spend, ...data }; },
-    }),
-  }));
+  const store = fakeFirestore(t);
   t.mock.method(require("./rateLimit"), "enforceRateLimit", async () => {});
   t.mock.method(billing, "ensureStarterGrant", async () => {});
-  const reserve = t.mock.method(billing, "reserveCredits", async () => ({ reservationId: delivery.reservationId, balanceMilliCredits: 900 }));
+  const reserve = t.mock.method(billing, "reserveAssistCredits", async () => ({ reservationId: delivery.reservationId, balanceMilliCredits: 900 }));
   const release = t.mock.method(billing, "releaseReservation", async () => {});
   const commit = t.mock.method(billing, "commitReservation", async () => {});
   t.mock.method(deliveries, "readPaidAssistDelivery", async () => null);
@@ -242,7 +230,7 @@ function mockAssist(t: import("node:test").TestContext, response: Record<string,
   t.mock.method(require("@google/genai"), "GoogleGenAI", class {
     models = { generateContent: async () => { providerCalls++; return response; } };
   });
-  return { billing, deliveries, reserve, release, commit, spend: () => spend, providerCalls: () => providerCalls };
+  return { billing, deliveries, reserve, release, commit, store, spend: store.spend, providerCalls: () => providerCalls };
 }
 
 const assistRequest = (action = "expand_prompt") => ({
@@ -280,48 +268,18 @@ for (const conflict of [false, true]) {
       } as unknown as AssistFile, noWait));
     await assert.rejects(runAiAssist.run(assistRequest()), (error: unknown) =>
       error instanceof HttpsError && error.code === "unavailable"
-      && error.message.includes("same request id") && !error.message.includes("private"));
+      && error.message.includes("Try again in a moment.") && !error.message.includes("private"));
     assert.equal(saves, conflict ? 2 : 3);
     assert.equal(mocks.release.mock.callCount(), 0);
+    assert.ok(mocks.store.docs.get(`billingReservations/${delivery.reservationId}`).deliveryFailedAt);
     assert.equal(mocks.commit.mock.callCount(), 0);
     assertSpend(mocks.spend());
     const result = await runAiAssist.run(assistRequest());
     assert.equal(result.result, providerResponse.text);
     assert.equal(mocks.commit.mock.calls[0].arguments[0].reservationId, delivery.reservationId);
-    assert.equal(mocks.reserve.mock.callCount(), 1);
+    assert.equal(mocks.reserve.mock.callCount(), 2);
     assert.equal(mocks.providerCalls(), 1);
     assertSpend(mocks.spend());
-  });
-}
-
-for (const state of ["released", "reserved", "committed"]) {
-  test(`cached assist replay with a ${state} reservation uses real idempotent settlement`, async (t) => {
-    const realCommit = require("./billing").commitReservation;
-    const mocks = mockAssist(t, providerResponse);
-    mocks.commit.mock.mockImplementation(realCommit);
-    t.mock.method(mocks.deliveries, "readPaidAssistDelivery", async () => delivery);
-    let reservation = { uid: "user", state, milliCredits: 100, action: delivery.action };
-    const debits: unknown[] = [];
-    t.mock.method(require("firebase-admin/firestore"), "getFirestore", () => ({
-      doc: (path: string) => path,
-      runTransaction: async (callback: any) => callback({
-        get: async () => ({ exists: true, data: () => reservation }),
-        update: (_ref: unknown, data: any) => { reservation = { ...reservation, ...data }; },
-        set: (_ref: unknown, data: any) => { debits.push(data); },
-      }),
-    }));
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (state === "released") {
-        await assert.rejects(runAiAssist.run(assistRequest()), (error: unknown) =>
-          error instanceof HttpsError && error.code === "unavailable"
-          && !error.message.includes("Reservation is not active"));
-      } else {
-        assert.equal((await runAiAssist.run(assistRequest())).result, delivery.result);
-      }
-    }
-    assert.equal(debits.length, state === "reserved" ? 1 : 0);
-    assert.equal(mocks.providerCalls(), 0);
-    assert.equal(mocks.reserve.mock.callCount(), 0);
   });
 }
 
@@ -338,3 +296,238 @@ for (const scenario of ["safety", "invalid JSON", "empty"]) {
     assert.equal(mocks.commit.mock.callCount(), 0);
   });
 }
+
+// Serialize atomic transactions and discard failed writes, as Firestore does after conflicts.
+function fakeFirestore(t: import("node:test").TestContext) {
+  const docs = new Map<string, any>();
+  const path = (ref: any) => typeof ref === "string" ? ref : ref.path;
+  let queue = Promise.resolve();
+  let failAfterCommit = false;
+  const firestore = {
+    doc: (name: string) => ({ path: name, update: async (data: any) => { docs.set(name, { ...docs.get(name), ...data }); } }),
+    runTransaction: (callback: any) => {
+      const pending = queue.then(async () => {
+        const writes: Array<() => void> = [];
+        const result = await callback({
+          get: async (ref: any) => {
+            assert.equal(writes.length, 0, "all reads precede writes");
+            const data = structuredClone(docs.get(path(ref)));
+            return { exists: data !== undefined, data: () => data };
+          },
+          set: (ref: any, data: any, options?: any) => writes.push(() => docs.set(path(ref), options?.merge ? { ...docs.get(path(ref)), ...data } : data)),
+          update: (ref: any, data: any) => writes.push(() => docs.set(path(ref), { ...docs.get(path(ref)), ...data })),
+          delete: (ref: any) => writes.push(() => docs.delete(path(ref))),
+        });
+        writes.forEach(write => write());
+        if (failAfterCommit) { failAfterCommit = false; throw new Error("lost commit acknowledgement"); }
+        return result;
+      });
+      queue = pending.then(() => {}, () => {});
+      return pending;
+    },
+  };
+  t.mock.method(require("firebase-admin/firestore"), "getFirestore", () => firestore);
+  return {
+    docs,
+    spend: () => docs.get(`systemSpend/${new Date().toISOString().slice(0, 10)}`) ?? {},
+    loseAcknowledgement: () => { failAfterCommit = true; },
+  };
+}
+
+const reservationInput = { uid: "user", milliCredits: 100, idempotencyKey: "request-123", action: "expand_prompt" };
+function fund(store: ReturnType<typeof fakeFirestore>, amount = 1000) {
+  store.docs.set("users/user/private/billing", {
+    balanceMilliCredits: amount,
+    buckets: [{ id: "credits", source: "purchase", grantedMilliCredits: amount, remainingMilliCredits: amount, createdAt: 1, expiresAt: null }],
+  });
+}
+function reservationDoc(store: ReturnType<typeof fakeFirestore>, id: string | null) {
+  return store.docs.get(`billingReservations/${id}`);
+}
+const billingModule = () => require("./billing") as typeof import("./billing");
+
+test("assist reserves once, rejects in-flight work, releases and re-reserves fresh allocations", async (t) => {
+  const store = fakeFirestore(t); fund(store);
+  const billing = billingModule();
+  const first = await billing.reserveAssistCredits(reservationInput);
+  assert.equal(first.balanceMilliCredits, 900);
+  assert.equal(reservationDoc(store, first.reservationId).attempt, 1);
+  await assert.rejects(billing.reserveAssistCredits(reservationInput), { code: "already-exists" });
+  await billing.releaseReservation({ uid: "user", reservationId: first.reservationId, reason: "provider failure" });
+  assert.equal(store.docs.get("users/user/private/billing").balanceMilliCredits, 1000);
+  const next = await billing.reserveAssistCredits(reservationInput);
+  assert.equal(next.reservationId, first.reservationId);
+  assert.equal(next.balanceMilliCredits, 900);
+  assert.equal(reservationDoc(store, next.reservationId).attempt, 2);
+  await billing.commitReservation({ uid: "user", reservationId: next.reservationId });
+  assert.equal((await billing.reserveAssistCredits(reservationInput)).alreadyCommitted, true);
+  assert.equal(store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
+});
+
+for (const marker of ["deliveryFailedAt", "expired", "legacyExpired"]) {
+  test(`assist ${marker} reclaim has one concurrent winner without a second debit`, async (t) => {
+    const store = fakeFirestore(t); fund(store);
+    const billing = billingModule();
+    const first = await billing.reserveAssistCredits(reservationInput);
+    const doc = reservationDoc(store, first.reservationId);
+    if (marker === "deliveryFailedAt") doc.deliveryFailedAt = Date.now();
+    else {
+      doc.reservedAt = Date.now() - 330_001;
+      if (marker === "legacyExpired") delete doc.attemptAt;
+      else doc.attemptAt = doc.reservedAt;
+    }
+    const results = await Promise.allSettled([billing.reserveAssistCredits(reservationInput), billing.reserveAssistCredits(reservationInput)]);
+    assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+    const loser = results.find(result => result.status === "rejected") as PromiseRejectedResult;
+    assert.equal(loser.reason.code, "already-exists");
+    assert.equal(reservationDoc(store, first.reservationId).deliveryFailedAt, null);
+    assert.equal(reservationDoc(store, first.reservationId).attempt, 2);
+    assert.equal(store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
+  });
+}
+
+test("assist refuses mismatched owners and amounts and insufficient re-reservation", async (t) => {
+  const store = fakeFirestore(t); fund(store);
+  const billing = billingModule();
+  const first = await billing.reserveAssistCredits(reservationInput);
+  const doc = reservationDoc(store, first.reservationId);
+  for (const state of ["reserved", "released", "committed"]) {
+    doc.state = state; doc.uid = "other";
+    await assert.rejects(billing.reserveAssistCredits(reservationInput), { code: "already-exists" });
+    doc.uid = "user"; doc.milliCredits = 101;
+    await assert.rejects(billing.reserveAssistCredits(reservationInput), { code: "already-exists" });
+    doc.milliCredits = 100;
+  }
+  doc.state = "released"; fund(store, 50);
+  await assert.rejects(billing.reserveAssistCredits(reservationInput), { code: "resource-exhausted" });
+  assert.equal(doc.state, "released");
+});
+
+test("ordinary reserveCredits still rejects all existing reservation states", async (t) => {
+  const store = fakeFirestore(t); fund(store);
+  const billing = billingModule();
+  const first = await billing.reserveCredits(reservationInput);
+  const doc = reservationDoc(store, first.reservationId);
+  assert.equal(doc.attemptAt, undefined);
+  for (const state of ["released", "reserved", "committed"]) {
+    doc.state = state; doc.deliveryFailedAt = 1; doc.reservedAt = 1;
+    await assert.rejects(billing.reserveCredits(reservationInput), { code: "already-exists" });
+  }
+});
+
+for (const state of ["released", "reserved", "committed"]) {
+  test(`cached assist replay with ${state} reservation charges exactly once`, async (t) => {
+    const mocks = mockAssist(t, providerResponse);
+    mocks.reserve.mock.restore(); mocks.commit.mock.restore(); mocks.release.mock.restore();
+    const billing = billingModule(); fund(mocks.store);
+    const first = await billing.reserveAssistCredits(reservationInput);
+    if (state === "released") await billing.releaseReservation({ uid: "user", reservationId: first.reservationId, reason: "stale" });
+    if (state === "committed") await billing.commitReservation({ uid: "user", reservationId: first.reservationId });
+    t.mock.method(mocks.deliveries, "readPaidAssistDelivery", async () => ({ ...delivery, reservationId: first.reservationId }));
+    for (let attempt = 0; attempt < 2; attempt++) assert.equal((await runAiAssist.run(assistRequest())).result, delivery.result);
+    assert.equal(mocks.store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
+    assert.equal(reservationDoc(mocks.store, first.reservationId).state, "committed");
+    assert.equal([...mocks.store.docs.keys()].filter(key => key.includes("/billingLedger/debit-")).length, 1);
+    assert.equal(mocks.providerCalls(), 0);
+  });
+}
+
+test("cached replay settles the newly acquired reservation when the cache has no reservation", async (t) => {
+  const mocks = mockAssist(t, providerResponse);
+  mocks.reserve.mock.restore(); mocks.commit.mock.restore(); fund(mocks.store);
+  t.mock.method(mocks.deliveries, "readPaidAssistDelivery", async () => ({ ...delivery, reservationId: null }));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal((await runAiAssist.run(assistRequest())).result, delivery.result);
+  }
+  const reservations = [...mocks.store.docs.entries()].filter(([key]) => key.startsWith("billingReservations/"));
+  assert.equal(reservations.length, 1);
+  assert.equal(reservations[0][1].state, "committed");
+  assert.equal(mocks.store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
+  assert.equal([...mocks.store.docs.keys()].filter(key => key.includes("/billingLedger/debit-")).length, 1);
+  assert.equal(mocks.providerCalls(), 0);
+});
+
+test("released replay without enough balance returns a clean retryable error", async (t) => {
+  const mocks = mockAssist(t, providerResponse);
+  mocks.reserve.mock.restore(); mocks.release.mock.restore(); fund(mocks.store);
+  const first = await billingModule().reserveAssistCredits(reservationInput);
+  await billingModule().releaseReservation({ uid: "user", reservationId: first.reservationId, reason: "stale" });
+  fund(mocks.store, 0);
+  t.mock.method(mocks.deliveries, "readPaidAssistDelivery", async () => ({ ...delivery, reservationId: first.reservationId }));
+  await assert.rejects(runAiAssist.run(assistRequest()), (error: any) => error.code === "unavailable" && error.message.includes("Try again in a moment."));
+  assert.equal(mocks.providerCalls(), 0);
+});
+
+for (const failure of ["provider", "cache"]) {
+  test(`${failure} failure permits a same-key retry with one debit`, async (t) => {
+    const mocks = mockAssist(t, providerResponse);
+    mocks.reserve.mock.restore(); mocks.commit.mock.restore(); mocks.release.mock.restore();
+    fund(mocks.store);
+    let calls = 0, writes = 0;
+    t.mock.method(require("@google/genai"), "GoogleGenAI", class {
+      models = { generateContent: async () => { if (++calls === 1 && failure === "provider") throw { status: 503 }; return providerResponse; } };
+    });
+    t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => {
+      if (++writes === 1 && failure === "cache") throw new Error("storage failure");
+      return value;
+    });
+    await assert.rejects(runAiAssist.run(assistRequest()), { code: "unavailable" });
+    const res = [...mocks.store.docs.entries()].find(([key]) => key.startsWith("billingReservations/"))![1];
+    assert.equal(res.state, failure === "provider" ? "released" : "reserved");
+    if (failure === "cache") assert.ok(res.deliveryFailedAt);
+    assert.equal((await runAiAssist.run(assistRequest())).result, providerResponse.text);
+    assert.equal(calls, 2);
+    assert.equal(mocks.store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
+  });
+}
+
+test("committed reservation without cache never calls the provider again", async (t) => {
+  const mocks = mockAssist(t, providerResponse);
+  mocks.reserve.mock.restore(); mocks.commit.mock.restore(); fund(mocks.store);
+  const first = await billingModule().reserveAssistCredits(reservationInput);
+  await billingModule().commitReservation({ uid: "user", reservationId: first.reservationId });
+  await assert.rejects(runAiAssist.run(assistRequest()), { code: "unavailable" });
+  assert.equal(mocks.providerCalls(), 0);
+});
+
+test("spend holds settle once even after lost acknowledgements and across midnight", async (t) => {
+  const store = fakeFirestore(t);
+  const { reserveSpendCapacity, recordSpend, releaseSpendCapacity } = require("./paidAi") as typeof import("./paidAi");
+  const day = "2020-01-01", first = `${day}-first`, second = `${day}-second`;
+  await reserveSpendCapacity("gemini", 0.05, first);
+  await reserveSpendCapacity("gemini", 0.05, first);
+  await reserveSpendCapacity("gemini", 0.05, second);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0.1);
+  assert.equal(store.docs.get(`systemSpend/${day}/holds/${first}`).day, day);
+  store.loseAcknowledgement();
+  await assert.rejects(recordSpend("gemini", 0.01, "expand_prompt", 0.05, first));
+  await releaseSpendCapacity("gemini", 0.05, first);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0.05);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiUsd, 0.01);
+  // An absent hold still records cost, but never subtracts a different call's hold.
+  await recordSpend("gemini", 0.01, "expand_prompt", 0.05, first);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0.05);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiUsd, 0.02);
+  const third = `${day}-third`;
+  await reserveSpendCapacity("gemini", 0.05, third);
+  await releaseSpendCapacity("gemini", 0.05, second);
+  await releaseSpendCapacity("gemini", 0.05, second);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0.05);
+  await releaseSpendCapacity("gemini", 0.05, third);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0);
+  assert.equal([...store.docs.keys()].filter(key => key.includes("/holds/")).length, 0);
+  assert.equal(store.docs.size, 1);
+});
+
+test("no-holdId spend path preserves counter behavior and makes no hold docs", async (t) => {
+  const store = fakeFirestore(t);
+  const { reserveSpendCapacity, recordSpend, releaseSpendCapacity } = require("./paidAi") as typeof import("./paidAi");
+  await reserveSpendCapacity("openrouter", 1);
+  await reserveSpendCapacity("openrouter", 1);
+  await recordSpend("openrouter", 0.25, "image", 1);
+  assert.equal(store.spend().openrouterReservedUsd, 1);
+  assert.equal(store.spend().openrouterUsd, 0.25);
+  await releaseSpendCapacity("openrouter", 1);
+  assert.equal(store.spend().openrouterReservedUsd, 0);
+  assert.equal(store.docs.size, 1);
+});

@@ -299,6 +299,80 @@ export async function reserveCredits(input: {
   });
 }
 
+export async function reserveAssistCredits(input: {
+  uid: string;
+  milliCredits: number;
+  idempotencyKey: string;
+  action: string;
+  modelId?: string | null;
+  isAdmin?: boolean;
+  cachedDelivery?: boolean;
+}): Promise<ReservationResult & { alreadyCommitted?: boolean }> {
+  if (input.isAdmin) {
+    return { reservationId: null, balanceMilliCredits: Number.MAX_SAFE_INTEGER, adminBypass: true };
+  }
+  const now = Date.now();
+  const reservationId = safeId(`${input.uid}:${input.idempotencyKey}`);
+  const ref = billingRef(input.uid);
+  const resRef = reservationRef(reservationId);
+  return db().runTransaction(async (tx) => {
+    const [billingSnap, existingReservation] = await Promise.all([tx.get(ref), tx.get(resRef)]);
+    const billing = readBilling(billingSnap.data(), now);
+    const existing = existingReservation.data();
+    if (existing) {
+      if (existing.uid !== input.uid || existing.milliCredits !== input.milliCredits) {
+        throw new HttpsError("already-exists", "This request key was already used.");
+      }
+      if (existing.state === "committed") {
+        return { reservationId, balanceMilliCredits: billing.balanceMilliCredits, adminBypass: false, alreadyCommitted: true };
+      }
+      if (existing.state === "reserved") {
+        // A cached delivery can be settled immediately without invoking the provider.
+        if (!input.cachedDelivery && existing.deliveryFailedAt == null
+          && now - (existing.attemptAt ?? existing.reservedAt) <= 330_000) {
+          throw new HttpsError("already-exists", "This AI request is in progress. Try again in a moment.");
+        }
+        tx.update(resRef, { attemptAt: now, deliveryFailedAt: null, attempt: (existing.attempt ?? 1) + 1 });
+        return { reservationId, balanceMilliCredits: billing.balanceMilliCredits, adminBypass: false };
+      }
+      if (existing.state !== "released") throw new HttpsError("already-exists", "This request key was already used.");
+    }
+    if (billing.debtMilliCredits > 0) {
+      throw new HttpsError("failed-precondition", "Your PixTaffy balance is negative after a payment reversal. Resolve it before using site-funded AI.");
+    }
+    const reserved = reserveFromBuckets(billing.buckets, input.milliCredits, now);
+    if (!reserved) {
+      throw new HttpsError("resource-exhausted", "Not enough PixTaffy credits.");
+    }
+    tx.set(ref, {
+      ...billing,
+      buckets: reserved.buckets,
+      balanceMilliCredits: reserved.balanceMilliCredits,
+      updatedAt: now,
+    });
+    tx.set(resRef, {
+      uid: input.uid,
+      state: "reserved",
+      milliCredits: Math.floor(input.milliCredits),
+      allocations: reserved.allocations,
+      action: input.action,
+      modelId: input.modelId ?? null,
+      idempotencyKey: input.idempotencyKey,
+      reservedAt: now,
+      attemptAt: now,
+      attempt: (existing?.attempt ?? 0) + 1,
+      deliveryFailedAt: null,
+      committedAt: null,
+      releasedAt: null,
+    });
+    return {
+      reservationId,
+      balanceMilliCredits: reserved.balanceMilliCredits,
+      adminBypass: false,
+    };
+  });
+}
+
 export async function commitReservation(input: {
   uid: string;
   reservationId: string | null;

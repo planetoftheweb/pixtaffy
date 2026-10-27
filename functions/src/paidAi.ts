@@ -1,7 +1,7 @@
 import { geminiAssistCost } from "./geminiRates";
 import { enforceRateLimit } from './rateLimit';
 import { stagingOrigins } from "./corsOrigins";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { getFirestore } from "firebase-admin/firestore";
 import { GoogleGenAI } from "@google/genai";
 import { buildRunAiAssistOptions, resolveAiAssistBackend, resolveAiAssistVertexConfig } from "./aiAssistBackend";
@@ -17,6 +17,7 @@ import {
   releaseBatchReservationItem,
   releaseReservation,
   reserveCredits,
+  reserveAssistCredits,
 } from "./billing";
 import { AI_ASSIST_MILLICREDITS, getPaidModelPrice, paidModelPrices, type AiAssistAction } from "./pricing";
 import { generateOpenRouterImageCore } from "./openRouterProvider";
@@ -84,10 +85,15 @@ function validateIdempotencyKey(value: unknown): string {
 
 const dateKey = () => new Date().toISOString().slice(0, 10);
 
-async function reserveSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number): Promise<void> {
-  const ref = db().doc(`systemSpend/${dateKey()}`);
+export async function reserveSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number, holdId?: string): Promise<void> {
+  const day = holdId ? holdId.slice(0, 10) : dateKey();
+  const ref = db().doc(`systemSpend/${day}`);
+  // Rules restrict systemSpend and its holds to admins; ordinary clients have no access.
+  const holdRef = holdId ? db().doc(`systemSpend/${day}/holds/${holdId}`) : null;
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
+    const hold = holdRef ? await tx.get(holdRef) : null;
+    if (hold?.exists) return;
     const spent = Number(snap.data()?.[`${provider}Usd`] ?? 0);
     const reservedField = `${provider}ReservedUsd`;
     const reserved = Number(snap.data()?.[reservedField] ?? 0);
@@ -99,34 +105,47 @@ async function reserveSpendCapacity(provider: "openrouter" | "gemini", maximumCo
       );
     }
     tx.set(ref, { [reservedField]: reserved + maximumCostUsd, updatedAt: Date.now() }, { merge: true });
+    if (holdRef) tx.set(holdRef, { amount: maximumCostUsd, provider, state: "held", day });
   });
 }
 
-async function releaseSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number): Promise<void> {
-  const ref = db().doc(`systemSpend/${dateKey()}`);
+export async function releaseSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number, holdId?: string): Promise<void> {
+  const day = holdId ? holdId.slice(0, 10) : dateKey();
+  const ref = db().doc(`systemSpend/${day}`);
+  const holdRef = holdId ? db().doc(`systemSpend/${day}/holds/${holdId}`) : null;
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
+    const hold = holdRef ? await tx.get(holdRef) : null;
+    if (holdRef && !hold?.exists) return;
+    const amount = holdRef ? Number(hold!.data()!.amount) : maximumCostUsd;
+    if (holdRef) tx.delete(holdRef);
     const field = `${provider}ReservedUsd`;
     const current = Number(snap.data()?.[field] ?? 0);
-    tx.set(ref, { [field]: Math.max(0, current - maximumCostUsd), updatedAt: Date.now() }, { merge: true });
+    tx.set(ref, { [field]: Math.max(0, current - amount), updatedAt: Date.now() }, { merge: true });
   });
 }
 
-async function recordSpend(
+export async function recordSpend(
   provider: "openrouter" | "gemini",
   costUsd: number,
   modelOrAction: string,
   reservedCostUsd = 0,
+  holdId?: string,
 ): Promise<number> {
   const safeCost = Number.isFinite(costUsd) ? Math.max(0, costUsd) : 0;
-  const ref = db().doc(`systemSpend/${dateKey()}`);
+  const day = holdId ? holdId.slice(0, 10) : dateKey();
+  const ref = db().doc(`systemSpend/${day}`);
+  const holdRef = holdId ? db().doc(`systemSpend/${day}/holds/${holdId}`) : null;
   return db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
+    const hold = holdRef ? await tx.get(holdRef) : null;
+    const amount = holdRef ? Number(hold?.data()?.amount ?? 0) : reservedCostUsd;
+    if (holdRef && hold?.exists) tx.delete(holdRef);
     const field = `${provider}Usd`;
     const total = Number(snap.data()?.[field] ?? 0) + safeCost;
     const byModel = { ...(snap.data()?.[`${provider}ByModel`] ?? {}) };
     const reservedField = `${provider}ReservedUsd`;
-    const remainingReserved = Math.max(0, Number(snap.data()?.[reservedField] ?? 0) - reservedCostUsd);
+    const remainingReserved = Math.max(0, Number(snap.data()?.[reservedField] ?? 0) - amount);
     const reportingKey = createHash("sha256").update(modelOrAction).digest("hex").slice(0, 16);
     byModel[reportingKey] = Number(byModel[reportingKey] ?? 0) + safeCost;
     tx.set(ref, {
@@ -736,22 +755,27 @@ export const runAiAssist = onCall(
     const idempotencyKey = validateIdempotencyKey(request.data?.idempotencyKey);
     const cachedAssist = await readPaidAssistDelivery(uid, idempotencyKey).catch((error) => {
       logger.error("Paid assist delivery lookup failed", { action, error });
-      throw new HttpsError("unavailable", "PixTaffy could not safely check this AI request. Try again with the same request id.");
+      throw new HttpsError("unavailable", "PixTaffy could not safely check this AI request. Try again in a moment.");
     });
     if (cachedAssist) {
       if (cachedAssist.action !== action) throw new HttpsError("already-exists", "This request id belongs to a different AI action.");
-      await commitReservation({
-        uid,
-        reservationId: cachedAssist.reservationId,
-        provider: "gemini",
-        providerRequestId: null,
-        actualCostUsd: cachedAssist.actualCostUsd,
-        usage: cachedAssist.usage,
-      }).catch((error) => {
-        // Refuse unsettled replays, including released reservations, rather than
-        // returning a free result or attempting a second debit.
+      await (async () => {
+        const replay = await reserveAssistCredits({
+          uid, milliCredits: AI_ASSIST_MILLICREDITS[action], idempotencyKey,
+          action, modelId: "gemini-flash-latest", isAdmin, cachedDelivery: true,
+        });
+        if (replay.alreadyCommitted) return;
+        await commitReservation({
+          uid,
+          reservationId: replay.reservationId,
+          provider: "gemini",
+          providerRequestId: null,
+          actualCostUsd: cachedAssist.actualCostUsd,
+          usage: cachedAssist.usage,
+        });
+      })().catch((error) => {
         logger.error("Cached AI assist settlement failed", { action, error });
-        throw new HttpsError("unavailable", "PixTaffy could not settle this AI request. Try again with the same request id.");
+        throw new HttpsError("unavailable", "PixTaffy could not settle this AI request. Try again in a moment.");
       });
       return {
         result: cachedAssist.result,
@@ -766,7 +790,7 @@ export const runAiAssist = onCall(
     }
     await enforceRateLimit(uid, "helpers", { perHour: 60, perDay: 300 });
     await ensureStarterGrant(uid, request.auth?.token?.email_verified === true);
-    const reservation = await reserveCredits({
+    const reservation = await reserveAssistCredits({
       uid,
       milliCredits: AI_ASSIST_MILLICREDITS[action],
       idempotencyKey,
@@ -775,11 +799,16 @@ export const runAiAssist = onCall(
       isAdmin,
     });
 
+    if (reservation.alreadyCommitted) {
+      throw new HttpsError("unavailable", "This AI request was already charged but its result is unavailable. Try again in a moment.");
+    }
+    // The day prefix locates this hold even if settlement happens after midnight UTC.
+    const holdId = `${dateKey()}-${randomUUID()}`;
     const helperSpendReserveUsd = 0.05;
     let spendCapacityHeld = false;
     let cacheWriteAttempted = false;
     try {
-      await reserveSpendCapacity("gemini", helperSpendReserveUsd);
+      await reserveSpendCapacity("gemini", helperSpendReserveUsd, holdId);
       spendCapacityHeld = true;
       const vertexConfig = AI_ASSIST_BACKEND === "vertex" ? resolveAiAssistVertexConfig(process.env) : undefined;
       const ai = vertexConfig
@@ -810,7 +839,7 @@ export const runAiAssist = onCall(
       });
       if (unknownModel) logger.warn("Unknown AI assist model; using maximum spend rates.");
       // Provider usage is billable even when validation or delivery later fails.
-      await recordSpend("gemini", actualCostUsd, action, helperSpendReserveUsd)
+      await recordSpend("gemini", actualCostUsd, action, helperSpendReserveUsd, holdId)
         .then(() => { spendCapacityHeld = false; })
         .catch((error) => {
           logger.error("Gemini spend settlement deferred", { action, error });
@@ -871,14 +900,18 @@ export const runAiAssist = onCall(
       const raw = error as { status?: unknown; code?: unknown; message?: unknown };
       logger.error("AI assist failed", { status: raw?.status, code: raw?.code, message: error instanceof SyntaxError ? "Invalid AI response JSON" : raw?.message });
       if (spendCapacityHeld) {
-        await releaseSpendCapacity("gemini", helperSpendReserveUsd).catch((releaseError) => {
+        await releaseSpendCapacity("gemini", helperSpendReserveUsd, holdId).catch((releaseError) => {
           logger.error("Unable to release Gemini spend capacity", { action, releaseError });
         });
       }
       if (cacheWriteAttempted) {
+        if (reservation.reservationId) {
+          await db().doc(`billingReservations/${reservation.reservationId}`)
+            .update({ deliveryFailedAt: Date.now() }).catch(() => {});
+        }
         // A failed save may be durable. Keep credits reserved so a same-key
         // replay or the stale job commits the cached delivery instead of refunding it.
-        throw new HttpsError("unavailable", "PixTaffy could not deliver this AI result. Try again with the same request id.");
+        throw new HttpsError("unavailable", "PixTaffy could not deliver this AI result. Try again in a moment.");
       }
       await releaseReservation({
         uid,
