@@ -504,10 +504,10 @@ test("spend holds settle once even after lost acknowledgements and across midnig
   await releaseSpendCapacity("gemini", 0.05, first);
   assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0.05);
   assert.equal(store.docs.get(`systemSpend/${day}`).geminiUsd, 0.01);
-  // An absent hold still records cost, but never subtracts a different call's hold.
+  // A settled hold makes a transaction retry a no-op.
   await recordSpend("gemini", 0.01, "expand_prompt", 0.05, first);
   assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0.05);
-  assert.equal(store.docs.get(`systemSpend/${day}`).geminiUsd, 0.02);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiUsd, 0.01);
   const third = `${day}-third`;
   await reserveSpendCapacity("gemini", 0.05, third);
   await releaseSpendCapacity("gemini", 0.05, second);
@@ -515,8 +515,10 @@ test("spend holds settle once even after lost acknowledgements and across midnig
   assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0.05);
   await releaseSpendCapacity("gemini", 0.05, third);
   assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0);
-  assert.equal([...store.docs.keys()].filter(key => key.includes("/holds/")).length, 0);
-  assert.equal(store.docs.size, 1);
+  assert.equal([...store.docs.keys()].filter(key => key.includes("/holds/")).length, 3);
+  assert.equal(store.docs.get(`systemSpend/${day}/holds/${first}`).state, "settled");
+  assert.equal(store.docs.get(`systemSpend/${day}/holds/${second}`).state, "released");
+  assert.equal(store.docs.get(`systemSpend/${day}/holds/${third}`).expireAt.toMillis(), Date.parse("2020-01-04T00:00:00Z"));
 });
 
 test("no-holdId spend path preserves counter behavior and makes no hold docs", async (t) => {
@@ -531,3 +533,85 @@ test("no-holdId spend path preserves counter behavior and makes no hold docs", a
   assert.equal(store.spend().openrouterReservedUsd, 0);
   assert.equal(store.docs.size, 1);
 });
+
+for (const state of ["reserved", "released"]) {
+  test(`assist ${state} reclaim refreshes stale sweep timestamp`, async (t) => {
+    const store = fakeFirestore(t); fund(store);
+    const billing = billingModule();
+    const first = await billing.reserveAssistCredits(reservationInput);
+    if (state === "released") await billing.releaseReservation({ uid: "user", reservationId: first.reservationId, reason: "retry" });
+    const old = reservationDoc(store, first.reservationId);
+    old.reservedAt = Date.now() - 31 * 60_000;
+    old.deliveryFailedAt = 1;
+    const now = Date.now();
+    t.mock.method(Date, "now", () => now);
+    await billing.reserveAssistCredits(reservationInput);
+    const reclaimed = reservationDoc(store, first.reservationId);
+    assert.equal(reclaimed.reservedAt, now);
+    assert.equal(reclaimed.reservedAt <= now - 30 * 60_000, false);
+  });
+}
+
+for (const failures of [0, 2, 3]) {
+  test(`delivery failure marker retries with ${failures} failed writes`, async (t) => {
+    const store = fakeFirestore(t);
+    const admin = require("firebase-admin/firestore");
+    const firestore = admin.getFirestore();
+    let calls = 0;
+    t.mock.method(firestore, "doc", (path: string) => ({ update: async (data: any) => {
+      if (++calls <= failures) throw new Error("marker unavailable");
+      store.docs.set(path, data);
+    } }));
+    const log = t.mock.method(require("firebase-functions/logger"), "error", () => {});
+    const delays: number[] = [];
+    await require("./paidAi").markAssistDeliveryFailed("reservation", { sleep: async (ms: number) => { delays.push(ms); } });
+    assert.equal(calls, failures === 0 ? 1 : 3);
+    assert.deepEqual(delays, failures === 0 ? [] : [200, 600]);
+    assert.equal(log.mock.callCount(), failures === 3 ? 1 : 0);
+    if (failures < 3) assert.ok(store.docs.get("billingReservations/reservation").deliveryFailedAt);
+    else assert.deepEqual(log.mock.calls[0].arguments, ["Unable to mark AI assist delivery failed", { reservationId: "reservation", message: "marker unavailable" }]);
+  });
+}
+
+test("released and missing holds bill once and cannot reserve again after settlement", async (t) => {
+  const store = fakeFirestore(t);
+  const { reserveSpendCapacity, recordSpend, releaseSpendCapacity } = require("./paidAi");
+  const day = "2020-01-01";
+  for (const suffix of ["released", "missing"]) {
+    const id = `${day}-${suffix}`;
+    if (suffix === "released") {
+      await reserveSpendCapacity("gemini", 0.05, id);
+      await releaseSpendCapacity("gemini", 0.05, id);
+      await reserveSpendCapacity("gemini", 0.05, id);
+      assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0);
+    }
+    await recordSpend("gemini", 0.01, "expand_prompt", 0.05, id);
+    await recordSpend("gemini", 0.01, "expand_prompt", 0.05, id);
+    await reserveSpendCapacity("gemini", 0.05, id);
+    await releaseSpendCapacity("gemini", 0.05, id);
+  }
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiUsd, 0.02);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, 0);
+});
+
+for (const lostAt of ["reserve", "settle"]) {
+  test(`runAiAssist releases safely after lost ${lostAt} acknowledgement`, async (t) => {
+    const mocks = mockAssist(t, lostAt === "settle" ? { ...providerResponse, text: "" } : providerResponse);
+    mocks.store.docs.set(`systemSpend/${new Date().toISOString().slice(0, 10)}`, { geminiReservedUsd: 0.1 });
+    if (lostAt === "reserve") mocks.store.loseAcknowledgement();
+    else t.mock.method(require("@google/genai"), "GoogleGenAI", class {
+      models = { generateContent: async () => { mocks.store.loseAcknowledgement(); return { ...providerResponse, text: "" }; } };
+    });
+    await assert.rejects(runAiAssist.run(assistRequest()));
+    const [path, hold] = [...mocks.store.docs.entries()].find(([key]) => key.includes("/holds/"))!;
+    assert.equal(hold.state, lostAt === "reserve" ? "released" : "settled");
+    assert.ok(Math.abs(mocks.spend().geminiReservedUsd - 0.1) < 1e-10);
+    if (lostAt === "reserve") assert.equal(mocks.providerCalls(), 0);
+    else {
+      const cost = mocks.spend().geminiUsd;
+      await require("./paidAi").recordSpend("gemini", cost, "expand_prompt", 0.05, path.split("/").pop());
+      assert.equal(mocks.spend().geminiUsd, cost);
+      assert.ok(Math.abs(mocks.spend().geminiReservedUsd - 0.1) < 1e-10);
+    }
+  });
+}

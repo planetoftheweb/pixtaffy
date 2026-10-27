@@ -332,7 +332,7 @@ export async function reserveAssistCredits(input: {
           && now - (existing.attemptAt ?? existing.reservedAt) <= 330_000) {
           throw new HttpsError("already-exists", "This AI request is in progress. Try again in a moment.");
         }
-        tx.update(resRef, { attemptAt: now, deliveryFailedAt: null, attempt: (existing.attempt ?? 1) + 1 });
+        tx.update(resRef, { reservedAt: now, attemptAt: now, deliveryFailedAt: null, attempt: (existing.attempt ?? 1) + 1 });
         return { reservationId, balanceMilliCredits: billing.balanceMilliCredits, adminBypass: false };
       }
       if (existing.state !== "released") throw new HttpsError("already-exists", "This request key was already used.");

@@ -2,7 +2,7 @@ import { geminiAssistCost } from "./geminiRates";
 import { enforceRateLimit } from './rateLimit';
 import { stagingOrigins } from "./corsOrigins";
 import { createHash, randomUUID } from "node:crypto";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { GoogleGenAI } from "@google/genai";
 import { buildRunAiAssistOptions, resolveAiAssistBackend, resolveAiAssistVertexConfig } from "./aiAssistBackend";
 import * as logger from "firebase-functions/logger";
@@ -84,6 +84,7 @@ function validateIdempotencyKey(value: unknown): string {
 }
 
 const dateKey = () => new Date().toISOString().slice(0, 10);
+const holdExpiry = (day: string) => Timestamp.fromMillis(Date.parse(`${day}T00:00:00Z`) + 3 * 24 * 60 * 60 * 1_000);
 
 export async function reserveSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number, holdId?: string): Promise<void> {
   const day = holdId ? holdId.slice(0, 10) : dateKey();
@@ -105,7 +106,7 @@ export async function reserveSpendCapacity(provider: "openrouter" | "gemini", ma
       );
     }
     tx.set(ref, { [reservedField]: reserved + maximumCostUsd, updatedAt: Date.now() }, { merge: true });
-    if (holdRef) tx.set(holdRef, { amount: maximumCostUsd, provider, state: "held", day });
+    if (holdRef) tx.set(holdRef, { amount: maximumCostUsd, provider, state: "held", day, expireAt: holdExpiry(day) });
   });
 }
 
@@ -116,9 +117,9 @@ export async function releaseSpendCapacity(provider: "openrouter" | "gemini", ma
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const hold = holdRef ? await tx.get(holdRef) : null;
-    if (holdRef && !hold?.exists) return;
+    if (holdRef && (!hold?.exists || hold.data()?.state !== "held")) return;
     const amount = holdRef ? Number(hold!.data()!.amount) : maximumCostUsd;
-    if (holdRef) tx.delete(holdRef);
+    if (holdRef) tx.update(holdRef, { state: "released", releasedAt: Date.now(), expireAt: holdExpiry(day) });
     const field = `${provider}ReservedUsd`;
     const current = Number(snap.data()?.[field] ?? 0);
     tx.set(ref, { [field]: Math.max(0, current - amount), updatedAt: Date.now() }, { merge: true });
@@ -139,9 +140,10 @@ export async function recordSpend(
   return db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const hold = holdRef ? await tx.get(holdRef) : null;
-    const amount = holdRef ? Number(hold?.data()?.amount ?? 0) : reservedCostUsd;
-    if (holdRef && hold?.exists) tx.delete(holdRef);
     const field = `${provider}Usd`;
+    if (hold?.data()?.state === "settled") return { total: Number(snap.data()?.[field] ?? 0), recorded: false };
+    const amount = holdRef ? (hold?.data()?.state === "held" ? Number(hold.data()!.amount) : 0) : reservedCostUsd;
+    if (holdRef) tx.set(holdRef, { state: "settled", settledAt: Date.now(), expireAt: holdExpiry(day), day }, { merge: true });
     const total = Number(snap.data()?.[field] ?? 0) + safeCost;
     const byModel = { ...(snap.data()?.[`${provider}ByModel`] ?? {}) };
     const reservedField = `${provider}ReservedUsd`;
@@ -155,14 +157,35 @@ export async function recordSpend(
       reportingLabels: { ...(snap.data()?.reportingLabels ?? {}), [reportingKey]: modelOrAction },
       updatedAt: Date.now(),
     }, { merge: true });
-    return total;
-  }).then((total) => {
+    return { total, recorded: true };
+  }).then(({ total, recorded }) => {
+    if (!recorded) return total;
     const warningThresholds = provider === "openrouter" ? [10, 20] : [2, 4];
     const crossed = warningThresholds.filter((threshold) => total >= threshold && total - safeCost < threshold);
     for (const threshold of crossed) {
       logger.warn("PixTaffy provider spend warning", { provider, thresholdUsd: threshold, totalUsd: total });
     }
     return total;
+  });
+}
+
+export async function markAssistDeliveryFailed(
+  reservationId: string,
+  opts: { sleep?: (ms: number) => Promise<void> } = {},
+): Promise<void> {
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  let failure: unknown;
+  for (const delay of [0, 200, 600]) {
+    try {
+      if (delay > 0) await sleep(delay);
+      await db().doc(`billingReservations/${reservationId}`).update({ deliveryFailedAt: Date.now() });
+      return;
+    } catch (error) {
+      failure = error;
+    }
+  }
+  logger.error("Unable to mark AI assist delivery failed", {
+    reservationId, message: failure instanceof Error ? failure.message : String(failure),
   });
 }
 
@@ -805,11 +828,9 @@ export const runAiAssist = onCall(
     // The day prefix locates this hold even if settlement happens after midnight UTC.
     const holdId = `${dateKey()}-${randomUUID()}`;
     const helperSpendReserveUsd = 0.05;
-    let spendCapacityHeld = false;
     let cacheWriteAttempted = false;
     try {
       await reserveSpendCapacity("gemini", helperSpendReserveUsd, holdId);
-      spendCapacityHeld = true;
       const vertexConfig = AI_ASSIST_BACKEND === "vertex" ? resolveAiAssistVertexConfig(process.env) : undefined;
       const ai = vertexConfig
         ? new GoogleGenAI({ vertexai: true, project: vertexConfig.project, location: vertexConfig.location })
@@ -840,7 +861,6 @@ export const runAiAssist = onCall(
       if (unknownModel) logger.warn("Unknown AI assist model; using maximum spend rates.");
       // Provider usage is billable even when validation or delivery later fails.
       await recordSpend("gemini", actualCostUsd, action, helperSpendReserveUsd, holdId)
-        .then(() => { spendCapacityHeld = false; })
         .catch((error) => {
           logger.error("Gemini spend settlement deferred", { action, error });
         });
@@ -899,15 +919,14 @@ export const runAiAssist = onCall(
     } catch (error) {
       const raw = error as { status?: unknown; code?: unknown; message?: unknown };
       logger.error("AI assist failed", { status: raw?.status, code: raw?.code, message: error instanceof SyntaxError ? "Invalid AI response JSON" : raw?.message });
-      if (spendCapacityHeld) {
+      if (holdId) {
         await releaseSpendCapacity("gemini", helperSpendReserveUsd, holdId).catch((releaseError) => {
           logger.error("Unable to release Gemini spend capacity", { action, releaseError });
         });
       }
       if (cacheWriteAttempted) {
         if (reservation.reservationId) {
-          await db().doc(`billingReservations/${reservation.reservationId}`)
-            .update({ deliveryFailedAt: Date.now() }).catch(() => {});
+          await markAssistDeliveryFailed(reservation.reservationId);
         }
         // A failed save may be durable. Keep credits reserved so a same-key
         // replay or the stale job commits the cached delivery instead of refunding it.
