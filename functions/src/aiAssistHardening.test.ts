@@ -250,6 +250,150 @@ function assertSpend(spend: Record<string, any>) {
   assert.equal(spend.geminiReservedUsd, 0);
 }
 
+function skipRetrySleeps(t: import("node:test").TestContext) {
+  const delays: number[] = [];
+  t.mock.method(globalThis, "setTimeout", ((callback: () => void, ms: number) => {
+    delays.push(ms);
+    callback();
+  }) as typeof setTimeout);
+  return delays;
+}
+
+function failSpendWrites(t: import("node:test").TestContext, store: ReturnType<typeof fakeFirestore>, failures: number) {
+  const runTransaction = store.firestore.runTransaction;
+  let attempts = 0, writes = 0, releases = 0;
+  t.mock.method(store.firestore, "runTransaction", (callback: any) => runTransaction(async (tx: any) => {
+    const set = tx.set, update = tx.update;
+    tx.set = (ref: any, data: any, options: any) => {
+      if (/^systemSpend\/[^/]+$/.test(ref.path) && "geminiUsd" in data) {
+        if (++attempts <= failures) throw new Error("private transient spend write failure");
+        writes++;
+      }
+      set(ref, data, options);
+    };
+    tx.update = (ref: any, data: any) => {
+      if (ref.path.includes("/holds/") && data.state === "released") releases++;
+      update(ref, data);
+    };
+    return callback(tx);
+  }));
+  return { attempts: () => attempts, writes: () => writes, releases: () => releases };
+}
+
+test("runAiAssist retries two failed spend writes and settles its hold exactly once", async (t) => {
+  const mocks = mockAssist(t, providerResponse);
+  const delays = skipRetrySleeps(t);
+  const spendWrites = failSpendWrites(t, mocks.store, 2);
+  const log = t.mock.method(require("firebase-functions/logger"), "error", () => {});
+  t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+  const result = await runAiAssist.run(assistRequest());
+  assert.equal(result.result, providerResponse.text);
+  assert.deepEqual(delays, [200, 600]);
+  assert.equal(spendWrites.attempts(), 3);
+  assert.equal(spendWrites.writes(), 1);
+  assert.equal(spendWrites.releases(), 0);
+  const holds = [...mocks.store.docs.values()].filter(doc => doc.state === "settled");
+  assert.equal(holds.length, 1);
+  assert.equal(holds[0].amount, 0.05);
+  assertSpend(mocks.spend());
+  assert.equal(log.mock.callCount(), 0);
+  assert.equal(mocks.commit.mock.callCount(), 1);
+});
+
+for (const outcome of ["success", "safety", "invalid JSON", "empty", "delivery failure"]) {
+  test(`runAiAssist retains capacity after all spend writes fail with ${outcome}`, async (t) => {
+    const mocks = mockAssist(t, {
+      ...providerResponse,
+      ...(outcome === "safety" ? { promptFeedback: { blockReason: "SAFETY" } }
+        : outcome === "invalid JSON" ? { text: "invalid JSON" }
+        : outcome === "empty" ? { text: "" } : {}),
+    });
+    const request = assistRequest(outcome === "invalid JSON" ? "correction_analysis" : "expand_prompt");
+    const delays = skipRetrySleeps(t);
+    const spendWrites = failSpendWrites(t, mocks.store, 3);
+    const log = t.mock.method(require("firebase-functions/logger"), "error", () => {});
+    t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => {
+      if (outcome === "delivery failure") throw new Error("private delivery failure");
+      return value;
+    });
+    if (outcome === "success") {
+      assert.equal((await runAiAssist.run(request)).result, providerResponse.text);
+      assert.equal(mocks.commit.mock.callCount(), 1);
+    } else {
+      await assert.rejects(runAiAssist.run(request), (error: any) =>
+        error.code === (outcome === "safety" ? "failed-precondition"
+          : outcome === "delivery failure" ? "unavailable" : "internal")
+        && !error.message.includes("private"));
+      assert.equal(mocks.commit.mock.callCount(), 0);
+    }
+    assert.deepEqual(delays, [200, 600]);
+    assert.equal(spendWrites.attempts(), 3);
+    assert.equal(spendWrites.writes(), 0);
+    assert.equal(spendWrites.releases(), 0);
+    // No capacity-release transaction runs after the reserve and three spend attempts.
+    assert.equal((mocks.store.firestore.runTransaction as any).mock.callCount(), 4);
+    assert.equal(mocks.spend().geminiUsd, undefined);
+    assert.equal(mocks.spend().geminiReservedUsd, 0.05);
+    const holds = [...mocks.store.docs.values()].filter(doc => doc.state === "held");
+    assert.equal(holds.length, 1);
+    assert.equal(holds[0].amount, 0.05);
+    assert.equal(mocks.release.mock.callCount(), ["safety", "invalid JSON", "empty"].includes(outcome) ? 1 : 0);
+    const accountingErrors = log.mock.calls.filter((call: { arguments: unknown[] }) => String(call.arguments[0]).startsWith("Provider spend"));
+    assert.deepEqual(accountingErrors.map((call: { arguments: unknown[] }) => call.arguments), [
+      ["Provider spend settlement deferred; reserved capacity retained", { provider: "gemini" }],
+    ]);
+  });
+}
+
+test("gemini failed spend settlement retains its hold against the daily cap", async (t) => {
+  const store = fakeFirestore(t);
+  const paidAi = require("./paidAi") as typeof import("./paidAi");
+  const day = "2020-01-01";
+  const holdId = `${day}-failed-settlement`;
+  const cap = 5;
+  await paidAi.reserveSpendCapacity("gemini", 0.5, holdId);
+  await paidAi.reserveSpendCapacity("gemini", cap - 0.5, `${day}-other`);
+  const writes = failSpendWrites(t, store, 3);
+  const log = t.mock.method(require("firebase-functions/logger"), "error", () => {});
+  const delays: number[] = [];
+  assert.equal(await paidAi.recordSpendWithRetry("gemini", 0.1, "test", 0.5, holdId, {
+    sleep: async (ms) => { delays.push(ms); },
+  }), false);
+  await assert.rejects(paidAi.reserveSpendCapacity("gemini", 0.01, `${day}-over-cap`),
+    (error: unknown) => error instanceof HttpsError && error.code === "unavailable");
+  assert.deepEqual(delays, [200, 600]);
+  assert.equal(writes.attempts(), 3);
+  assert.equal(writes.writes(), 0);
+  assert.equal(writes.releases(), 0);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiReservedUsd, cap);
+  assert.equal(store.docs.get(`systemSpend/${day}`).geminiUsd, undefined);
+  assert.equal(store.docs.get(`systemSpend/${day}/holds/${holdId}`).state, "held");
+  assert.equal(store.docs.has(`systemSpend/${day}/holds/${day}-over-cap`), false);
+  assert.deepEqual(log.mock.calls.map((call: { arguments: unknown[] }) => call.arguments), [
+    ["Provider spend settlement deferred; reserved capacity retained", { provider: "gemini" }],
+  ]);
+});
+
+test("gemini spend retry recovers a lost commit acknowledgement without double counting", async (t) => {
+  const store = fakeFirestore(t);
+  const paidAi = require("./paidAi") as typeof import("./paidAi");
+  const id = "2020-01-01-retry";
+  await paidAi.reserveSpendCapacity("gemini", 0.05, id);
+  await paidAi.reserveSpendCapacity("gemini", 0.05, "2020-01-01-other");
+  const writes = failSpendWrites(t, store, 0);
+  store.loseAcknowledgement();
+  const delays: number[] = [];
+  assert.equal(await paidAi.recordSpendWithRetry("gemini", 0.01, "test", 0.05, id, {
+    sleep: async (ms) => { delays.push(ms); },
+  }), true);
+  assert.deepEqual(delays, [200]);
+  assert.equal(writes.writes(), 1);
+  const spend = store.docs.get("systemSpend/2020-01-01");
+  assert.equal(spend.geminiUsd, 0.01);
+  assert.equal(spend.geminiReservedUsd, 0.05);
+  assert.equal(store.docs.get(`systemSpend/2020-01-01/holds/${id}`).state, "settled");
+});
+
 for (const conflict of [false, true]) {
   test(`runAiAssist keeps ambiguous delivery reserved when ${conflict ? "conflict read-back fails" : "all save attempts fail with 503"}`, async (t) => {
     const mocks = mockAssist(t, providerResponse);
@@ -301,10 +445,57 @@ for (const scenario of ["safety", "invalid JSON", "empty"]) {
 function fakeFirestore(t: import("node:test").TestContext) {
   const docs = new Map<string, any>();
   const path = (ref: any) => typeof ref === "string" ? ref : ref.path;
+  const queryReads: Array<{ name: string; group: boolean; after: string; size: number }> = [];
+  const snapshot = (name: string) => {
+    const data = structuredClone(docs.get(name));
+    return { id: name.split("/").pop()!, ref: firestore.doc(name), exists: data !== undefined, data: () => data };
+  };
+  const query = (
+    name: string, group = false, filters: Array<[string, unknown]> = [],
+    ordered = false, after = "", maximum = Infinity,
+  ): any => ({
+    doc: (id: string) => firestore.doc(`${name}/${id}`),
+    where: (field: string, op: string, value: unknown) => {
+      assert.equal(op, "==");
+      return query(name, group, [...filters, [field, value]], ordered, after, maximum);
+    },
+    orderBy: (field: any) => {
+      assert.ok(field.isEqual(require("firebase-admin/firestore").FieldPath.documentId()));
+      return query(name, group, filters, true, after, maximum);
+    },
+    startAfter: (cursor: any) => {
+      assert.ok(ordered);
+      assert.ok(cursor.ref.path > after, "cursor must advance even if its document changed state");
+      return query(name, group, filters, ordered, cursor.ref.path, maximum);
+    },
+    limit: (size: number) => {
+      assert.equal(size, 200);
+      return query(name, group, filters, ordered, after, size);
+    },
+    get: async () => {
+      assert.ok(ordered);
+      assert.ok(queryReads.length < 20, "sweep must terminate");
+      const matches = [...docs.keys()].filter(key => {
+        const parts = key.split("/");
+        const inCollection = group ? parts[parts.length - 2] === name
+          : key.startsWith(`${name}/`) && !key.slice(name.length + 1).includes("/");
+        return inCollection && key > after && filters.every(([field, value]) => docs.get(key)[field] === value);
+      }).sort().slice(0, maximum).map(snapshot);
+      queryReads.push({ name, group, after, size: matches.length });
+      return { docs: matches, size: matches.length };
+    },
+  });
   let queue = Promise.resolve();
   let failAfterCommit = false;
   const firestore = {
-    doc: (name: string) => ({ path: name, update: async (data: any) => { docs.set(name, { ...docs.get(name), ...data }); } }),
+    doc: (name: string): any => ({
+      path: name, id: name.split("/").pop()!,
+      collection: (child: string) => query(`${name}/${child}`),
+      get: async () => snapshot(name),
+      update: async (data: any) => { docs.set(name, { ...docs.get(name), ...data }); },
+    }),
+    collection: (name: string) => query(name),
+    collectionGroup: (name: string) => query(name, true),
     runTransaction: (callback: any) => {
       const pending = queue.then(async () => {
         const writes: Array<() => void> = [];
@@ -328,7 +519,7 @@ function fakeFirestore(t: import("node:test").TestContext) {
   };
   t.mock.method(require("firebase-admin/firestore"), "getFirestore", () => firestore);
   return {
-    docs,
+    docs, firestore, queryReads,
     spend: () => docs.get(`systemSpend/${new Date().toISOString().slice(0, 10)}`) ?? {},
     loseAcknowledgement: () => { failAfterCommit = true; },
   };
@@ -548,9 +739,77 @@ for (const state of ["reserved", "released"]) {
     await billing.reserveAssistCredits(reservationInput);
     const reclaimed = reservationDoc(store, first.reservationId);
     assert.equal(reclaimed.reservedAt, now);
-    assert.equal(reclaimed.reservedAt <= now - 30 * 60_000, false);
+    const stale = await billing.reserveAssistCredits({ ...reservationInput, idempotencyKey: "stale-request-123" });
+    reservationDoc(store, stale.reservationId).reservedAt = now - 31 * 60_000;
+    t.mock.method(require("./paidDelivery"), "readPaidAssistDelivery", async () => null);
+    await billing.sweepStaleReservations();
+    assert.equal(reservationDoc(store, first.reservationId).state, "reserved");
+    assert.equal(reservationDoc(store, stale.reservationId).state, "released");
+    assert.equal(reservationDoc(store, stale.reservationId).releaseReason, "stale_ai_assist_timeout");
+    assert.equal(store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
   });
 }
+
+test("stale sweep pages past 200 and 400 fresh reservations and batch items", async (t) => {
+  const store = fakeFirestore(t); fund(store);
+  const billing = billingModule();
+  const now = Date.now();
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(require("./paidDelivery"), "readPaidAssistDelivery", async () => null);
+  t.mock.method(require("./paidDelivery"), "readPaidDelivery", async () => null);
+  const staleIndices = new Set([200, 399, 400, 404]);
+  for (let index = 0; index < 405; index++) {
+    const id = String(index).padStart(3, "0");
+    const value = {
+      uid: "user", state: "reserved", milliCredits: 100, allocations: [],
+      reservedAt: now - (staleIndices.has(index) ? 31 * 60_000 : 0),
+      idempotencyKey: `request-${id}`,
+    };
+    store.docs.set(`billingReservations/single-${id}`, {
+      ...value, action: index === 400 ? "image_generation" : "expand_prompt",
+    });
+    // Identical item ids under different parents require full-path document cursors.
+    store.docs.set(`billingReservations/batch-${id}/items/same-item`, {
+      ...value, action: "image_generation", parentReservationId: `batch-${id}`,
+    });
+  }
+  await billing.sweepStaleReservations();
+  for (let index = 0; index < 405; index++) {
+    const id = String(index).padStart(3, "0");
+    const expected = staleIndices.has(index) ? "released" : "reserved";
+    assert.equal(store.docs.get(`billingReservations/single-${id}`).state, expected, `single ${id}`);
+    assert.equal(store.docs.get(`billingReservations/batch-${id}/items/same-item`).state, expected, `item ${id}`);
+  }
+  for (const group of [false, true]) {
+    const pages = store.queryReads.filter(read => read.group === group);
+    assert.deepEqual(pages.map(page => page.size), [200, 200, 5]);
+    assert.deepEqual(pages.map(page => page.after), group
+      ? ["", "billingReservations/batch-199/items/same-item", "billingReservations/batch-399/items/same-item"]
+      : ["", "billingReservations/single-199", "billingReservations/single-399"]);
+  }
+});
+
+test("stale sweep isolates document failures and terminates after an exact full page", async (t) => {
+  const store = fakeFirestore(t); fund(store);
+  const now = Date.now();
+  const log = t.mock.method(require("firebase-functions/logger"), "error", () => {});
+  t.mock.method(require("./paidDelivery"), "readPaidAssistDelivery", async (_uid: string, key: string) => {
+    if (key === "request-000") throw new Error("cache unavailable");
+    return key === "request-200" ? delivery : null;
+  });
+  for (let index = 0; index < 400; index++) {
+    const id = String(index).padStart(3, "0");
+    store.docs.set(`billingReservations/single-${id}`, {
+      uid: "user", state: "reserved", action: "expand_prompt", milliCredits: 100, allocations: [],
+      idempotencyKey: `request-${id}`, reservedAt: index % 200 === 0 ? now - 31 * 60_000 : now,
+    });
+  }
+  await billingModule().sweepStaleReservations();
+  assert.equal(reservationDoc(store, "single-000").state, "reserved");
+  assert.equal(reservationDoc(store, "single-200").state, "committed");
+  assert.deepEqual(store.queryReads.filter(read => !read.group).map(page => page.size), [200, 200, 0]);
+  assert.equal(log.mock.callCount(), 1);
+});
 
 for (const failures of [0, 2, 3]) {
   test(`delivery failure marker retries with ${failures} failed writes`, async (t) => {
@@ -597,6 +856,7 @@ test("released and missing holds bill once and cannot reserve again after settle
 for (const lostAt of ["reserve", "settle"]) {
   test(`runAiAssist releases safely after lost ${lostAt} acknowledgement`, async (t) => {
     const mocks = mockAssist(t, lostAt === "settle" ? { ...providerResponse, text: "" } : providerResponse);
+    skipRetrySleeps(t);
     mocks.store.docs.set(`systemSpend/${new Date().toISOString().slice(0, 10)}`, { geminiReservedUsd: 0.1 });
     if (lostAt === "reserve") mocks.store.loseAcknowledgement();
     else t.mock.method(require("@google/genai"), "GoogleGenAI", class {

@@ -169,6 +169,28 @@ export async function recordSpend(
   });
 }
 
+export async function recordSpendWithRetry(
+  provider: "gemini",
+  costUsd: number,
+  modelOrAction: string,
+  reservedCostUsd: number,
+  holdId: string,
+  opts: { sleep?: (ms: number) => Promise<void> } = {},
+): Promise<boolean> {
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  for (const delay of [0, 200, 600]) {
+    try {
+      if (delay > 0) await sleep(delay);
+      await recordSpend(provider, costUsd, modelOrAction, reservedCostUsd, holdId);
+      return true;
+    } catch {
+      // A lost acknowledgement is safe to retry because each hold settles once.
+    }
+  }
+  logger.error("Provider spend settlement deferred; reserved capacity retained", { provider });
+  return false;
+}
+
 export async function markAssistDeliveryFailed(
   reservationId: string,
   opts: { sleep?: (ms: number) => Promise<void> } = {},
@@ -829,6 +851,7 @@ export const runAiAssist = onCall(
     const holdId = `${dateKey()}-${randomUUID()}`;
     const helperSpendReserveUsd = 0.05;
     let cacheWriteAttempted = false;
+    let spendSettlementFailed = false;
     try {
       await reserveSpendCapacity("gemini", helperSpendReserveUsd, holdId);
       const vertexConfig = AI_ASSIST_BACKEND === "vertex" ? resolveAiAssistVertexConfig(process.env) : undefined;
@@ -860,10 +883,7 @@ export const runAiAssist = onCall(
       });
       if (unknownModel) logger.warn("Unknown AI assist model; using maximum spend rates.");
       // Provider usage is billable even when validation or delivery later fails.
-      await recordSpend("gemini", actualCostUsd, action, helperSpendReserveUsd, holdId)
-        .catch((error) => {
-          logger.error("Gemini spend settlement deferred", { action, error });
-        });
+      spendSettlementFailed = !await recordSpendWithRetry("gemini", actualCostUsd, action, helperSpendReserveUsd, holdId);
       if (isAssistBlocked(response)) throw mapAiAssistError(response);
       const text = response.text?.trim();
       if (!text) throw new Error("Gemini returned an empty response.");
@@ -919,7 +939,7 @@ export const runAiAssist = onCall(
     } catch (error) {
       const raw = error as { status?: unknown; code?: unknown; message?: unknown };
       logger.error("AI assist failed", { status: raw?.status, code: raw?.code, message: error instanceof SyntaxError ? "Invalid AI response JSON" : raw?.message });
-      if (holdId) {
+      if (!spendSettlementFailed) {
         await releaseSpendCapacity("gemini", helperSpendReserveUsd, holdId).catch((releaseError) => {
           logger.error("Unable to release Gemini spend capacity", { action, releaseError });
         });

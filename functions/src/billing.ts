@@ -1,6 +1,6 @@
 import { stagingOrigins } from "./corsOrigins";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { getFirestore, DocumentData } from "firebase-admin/firestore";
+import { getFirestore, DocumentData, FieldPath } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest, type CallableRequest } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
@@ -746,18 +746,25 @@ export const releaseImageBatchRemainder = onCall(callableOptions, async (request
   return { balanceMilliCredits };
 });
 
-export const releaseStaleImageBatches = onSchedule(
-  { schedule: "every 15 minutes", region: REGION, timeZone: "UTC" },
-  async () => {
+export async function sweepStaleReservations(): Promise<void> {
     const cutoff = Date.now() - 30 * 60 * 1_000;
-    const [parentSnap, itemSnap] = await Promise.all([
-      db().collection("billingReservations").where("state", "==", "reserved").limit(200).get(),
-      db().collectionGroup("items").where("state", "==", "reserved").limit(200).get(),
-    ]);
+    const sweep = async (
+      query: FirebaseFirestore.Query,
+      reconcile: (doc: FirebaseFirestore.QueryDocumentSnapshot) => Promise<void>,
+    ): Promise<void> => {
+      for (;;) {
+        const page = await query.limit(200).get();
+        await Promise.all(page.docs
+          .filter((doc) => Number(doc.data().reservedAt ?? 0) <= cutoff)
+          .map(reconcile));
+        if (page.size < 200) return;
+        // Snapshots retain the cursor even when reconciliation changes state.
+        query = query.startAfter(page.docs[page.size - 1]);
+      }
+    };
 
-    await Promise.all(itemSnap.docs
-      .filter((doc) => Number(doc.data().reservedAt ?? 0) <= cutoff)
-      .map(async (doc) => {
+    await sweep(db().collectionGroup("items").where("state", "==", "reserved").orderBy(FieldPath.documentId()),
+      async (doc) => {
         const item = doc.data();
         try {
           const cached = await readPaidDelivery(String(item.uid), String(item.idempotencyKey));
@@ -781,11 +788,10 @@ export const releaseStaleImageBatches = onSchedule(
         } catch (error) {
           logger.error("Unable to reconcile stale batch item", { itemReservationId: doc.id, error });
         }
-      }));
+      });
 
-    await Promise.all(parentSnap.docs
-      .filter((doc) => Number(doc.data().reservedAt ?? 0) <= cutoff)
-      .map(async (doc) => {
+    await sweep(db().collection("billingReservations").where("state", "==", "reserved").orderBy(FieldPath.documentId()),
+      async (doc) => {
         const reservation = doc.data();
         try {
           if (reservation.action === "image_batch") {
@@ -830,8 +836,12 @@ export const releaseStaleImageBatches = onSchedule(
         } catch (error) {
           logger.error("Unable to reconcile stale paid reservation", { reservationId: doc.id, error });
         }
-      }));
-  },
+      });
+}
+
+export const releaseStaleImageBatches = onSchedule(
+  { schedule: "every 15 minutes", region: REGION, timeZone: "UTC" },
+  sweepStaleReservations,
 );
 
 async function revokePurchasedCredits(input: {
