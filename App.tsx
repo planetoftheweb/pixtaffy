@@ -400,7 +400,7 @@ const App: React.FC = () => {
   const setBillingMode = (open: boolean) => {
     updateBillingMode(open);
     if (open) navigate('/pricing');
-    else if (window.location.pathname !== '/') navigate('/');
+    else navigate('/');
   };
   useEffect(() => {
     const syncRoute = () => {
@@ -3330,7 +3330,7 @@ const App: React.FC = () => {
   // can recall a frequently-used combination in one click. Persisted on the
   // user document under preferences.presets via presetService.
   const handleSavePreset = async (name: string, customInstructions?: string) => {
-    if (!user) throw new Error('Sign in to save presets.');
+    if (!user) throw new Error('Log in to save presets.');
     const instructions = (customInstructions ?? config.customInstructions)?.trim();
     const snapshot: Omit<ToolbarPreset, 'id' | 'name' | 'createdAt'> = {
       graphicTypeId: config.graphicTypeId || undefined,
@@ -3394,7 +3394,7 @@ const App: React.FC = () => {
   // instructions are the currently ACTIVE ones, swap the active copy too so
   // the next generation uses the edit without re-applying the preset.
   const handleEditPresetInstructions = async (presetId: string, instructions: string) => {
-    if (!user) throw new Error('Sign in to edit presets.');
+    if (!user) throw new Error('Log in to edit presets.');
     const prev = user.preferences.presets?.find(p => p.id === presetId)?.customInstructions?.trim();
     const value = instructions.trim() || undefined;
     const presets = await presetService.updatePreset(user, presetId, { customInstructions: value });
@@ -3415,7 +3415,7 @@ const App: React.FC = () => {
   // equivalent shape - keeping name + createdAt intact via presetService so
   // the row identity (and sort order) survives the rewrite.
   const handleUpdatePreset = async (presetId: string) => {
-    if (!user) throw new Error('Sign in to update presets.');
+    if (!user) throw new Error('Log in to update presets.');
     const snapshot: Omit<ToolbarPreset, 'id' | 'name' | 'createdAt'> = {
       graphicTypeId: config.graphicTypeId || undefined,
       visualStyleId: config.visualStyleId || undefined,
@@ -3525,7 +3525,7 @@ const App: React.FC = () => {
   };
 
   const handleRenamePreset = async (presetId: string, name: string) => {
-    if (!user) throw new Error('Sign in to rename presets.');
+    if (!user) throw new Error('Log in to rename presets.');
     const trimmed = name.trim();
     if (!trimmed) throw new Error('Preset name is required.');
     const presets = await presetService.updatePreset(user, presetId, { name: trimmed });

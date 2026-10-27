@@ -6,7 +6,7 @@ export const isKnownPath = (path: string): path is AppPath =>
   KNOWN_PATHS.some(known => known === path);
 
 export function navigate(path: AppPath) {
-  if (window.location.pathname === path && !window.location.search) return;
+  if (window.location.pathname + window.location.search === path) return;
   window.history.pushState(null, '', path);
   window.dispatchEvent(new PopStateEvent('popstate'));
 }

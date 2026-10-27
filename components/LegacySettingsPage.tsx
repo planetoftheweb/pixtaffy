@@ -408,7 +408,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
   const callManageTokens = async (payload: Record<string, unknown>) => {
     const { auth, getFunctionUrl } = await import('../services/firebase');
     const idToken = await auth.currentUser?.getIdToken();
-    if (!idToken) throw new Error('Sign in again to manage API tokens.');
+    if (!idToken) throw new Error('Log in again to manage API tokens.');
     const resp = await fetch(getFunctionUrl('manageApiTokens'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },

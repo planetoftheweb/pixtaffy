@@ -157,7 +157,7 @@ test('welcome exposes pricing without requiring an authenticated billing query',
 
 test('pricing shows the balance only for signed-in users', () => {
   assert.match(pricingSource, /\{user && \([\s\S]*?Your balance/);
-  assert.doesNotMatch(pricingSource, /Sign in to view your PixTaffy credit balance/);
+  assert.doesNotMatch(pricingSource, /Log in to view your PixTaffy credit balance/);
   assert.doesNotMatch(pricingSource, />Sign in<\/span>/);
 });
 

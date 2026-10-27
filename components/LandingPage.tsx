@@ -74,7 +74,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 type="button"
                 onClick={onEnterStudio}
-                className="group inline-flex whitespace-nowrap min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-red via-brand-pink to-brand-purple px-6 py-3.5 text-base font-black leading-tight text-white shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#080d18]"
+                className="group inline-flex whitespace-nowrap min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#c9234d] via-[#bc2076] to-[#8030c4] px-6 py-3.5 text-base font-black leading-tight text-white shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#080d18]"
               >
                 <Play size={18} fill="currentColor" />
                 {primaryLabel}
@@ -238,7 +238,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <span>Already made something?</span>
                 <button type="button" onClick={onLogin} className="inline-flex min-h-[44px] items-center font-black text-white underline decoration-white/40 underline-offset-4 transition-colors duration-150 hover:decoration-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#eb2d65]">Log in</button>
                 <span aria-hidden="true">or</span>
-                <button type="button" onClick={onSignUp} className="inline-flex min-h-[44px] items-center font-black text-white underline decoration-white/40 underline-offset-4 transition-colors duration-150 hover:decoration-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#eb2d65]">create an account</button>
+                <button type="button" onClick={onSignUp} className="inline-flex min-h-[44px] items-center font-black text-white underline decoration-white/40 underline-offset-4 transition-colors duration-150 hover:decoration-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#eb2d65]">Sign up</button>
               </div>
             )}
           </div>

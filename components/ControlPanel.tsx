@@ -97,7 +97,7 @@ const presetToolbarDiffersFromSnapshot = (
   );
 };
 
-const ToolbarPanel: React.FC<{ name: string | null; className: string; children: React.ReactNode }> = ({ name, className, children }) => {
+const ToolbarPanel: React.FC<{ name: string | null; className: string; width: number; children: React.ReactNode }> = ({ name, className, width: originalWidth, children }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const position = () => {
@@ -105,7 +105,7 @@ const ToolbarPanel: React.FC<{ name: string | null; className: string; children:
       const panel = panelRef.current;
       if (!trigger || !panel) return;
       const anchor = trigger.getBoundingClientRect();
-      const width = Math.min(256, window.innerWidth - 16);
+      const width = Math.min(originalWidth, window.innerWidth - 16);
       panel.style.width = `${width}px`;
       panel.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))}px`;
       const below = window.innerHeight - anchor.bottom - 16;
@@ -119,7 +119,7 @@ const ToolbarPanel: React.FC<{ name: string | null; className: string; children:
     window.addEventListener('resize', position);
     window.addEventListener('scroll', position, true);
     return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); };
-  }, [name]);
+  }, [name, originalWidth]);
   return createPortal(<div ref={panelRef} className={className} style={{ position: 'fixed', margin: 0, zIndex: 120, overflowY: 'auto' }}>{children}</div>, document.body);
 };
 
@@ -973,7 +973,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setIsExpandingPrompt(true);
     try {
       if (!user) {
-        console.warn('Expand prompt: sign in and add credits first.');
+        console.warn('Expand prompt: log in and add credits first.');
         return;
       }
       const ctx = { ...options, aspectRatios: options.aspectRatios };
@@ -1005,7 +1005,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     const trigger = activeDropdown === 'batch-count'
       ? batchCountTriggerRef.current?.querySelector<HTMLElement>('button')
       : document.querySelector<HTMLElement>(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`);
-    const close = () => { setActiveDropdown(null); requestAnimationFrame(() => {
+    const close = (restoreFocus = false) => { setActiveDropdown(null); requestAnimationFrame(() => {
+      if (!restoreFocus && document.activeElement !== document.body) return;
       const currentTrigger = activeDropdown === 'batch-count'
         ? batchCountTriggerRef.current?.querySelector<HTMLElement>('button')
         : document.querySelector<HTMLElement>(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`);
@@ -1015,7 +1016,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();
-      close();
+      close(true);
     };
     const handlePointerOutside = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
@@ -1343,7 +1344,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const handlePromptImageToPrompt = async () => {
     if (!promptImageFile) return;
     if (!user) {
-      setPromptImageError('Sign in and add credits to analyze dropped images.');
+      setPromptImageError('Log in and add credits to analyze dropped images.');
       return;
     }
 
@@ -1378,7 +1379,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const handlePromptImageAsStyle = async (influenceMode: PromptImageStyleInfluenceMode) => {
     if (!promptImageFile) return;
     if (!user) {
-      setPromptImageError('Sign in and add credits to analyze dropped images.');
+      setPromptImageError('Log in and add credits to analyze dropped images.');
       return;
     }
 
@@ -1425,7 +1426,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
     setIsAnalysingOption(true);
     try {
-      if (!user) throw new Error('Sign in and add credits to analyze images.');
+      if (!user) throw new Error('Log in and add credits to analyze images.');
       const result = await analyzeFileOptionPaid(file, modalType);
       
       setNewItemName(result.name);
@@ -2015,7 +2016,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-teal dark:text-brand-cyan"
               />
               {activeDropdown === 'type' && (
-                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} width={256} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={options.graphicTypes} 
@@ -2043,7 +2044,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-purple"
               />
                {activeDropdown === 'style' && (
-                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} width={288} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={filteredStyles} 
@@ -2072,7 +2073,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'svgmode' && (
-                  <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <ToolbarPanel name={activeDropdown} width={224} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {([
                       { id: 'static' as SvgMode, label: 'Static', icon: Pause, desc: 'No animations' },
                       { id: 'animated' as SvgMode, label: 'Animated', icon: Play, desc: 'CSS/SMIL animations' },
@@ -2120,7 +2121,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-pink"
               />
               {activeDropdown === 'color' && (
-                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} width={256} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={options.brandColors} 
@@ -2148,7 +2149,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-teal dark:text-brand-cyan"
               />
               {activeDropdown === 'size' && (
-                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} width={224} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={modelAspectRatios} 
@@ -2180,7 +2181,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-pink"
               />
               {activeDropdown === 'model' && (
-                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} width={288} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <button
                     type="button"
                     onClick={() => {
@@ -2400,7 +2401,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'quality' && (
-                  <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <ToolbarPanel name={activeDropdown} width={224} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {([
                       { id: 'auto' as const, label: 'Auto', desc: 'Model picks the best' },
                       { id: 'low' as const, label: 'Low', desc: 'Fastest, cheapest' },
@@ -2457,7 +2458,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'background' && (
-                  <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <ToolbarPanel name={activeDropdown} width={224} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {([
                       { id: 'auto' as const, label: 'Auto', desc: 'Model picks the best' },
                       { id: 'opaque' as const, label: 'Opaque', desc: 'Solid filled background' },
@@ -2509,7 +2510,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   // right-0: Presets is the toolbar's right-most control, so a
                   // left-anchored panel runs past the viewport edge and clips
                   // its right column (the ⋯ per-preset actions!).
-                  <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <ToolbarPanel name={activeDropdown} width={320} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {/* Active art direction — free text riding along with every
                         generation (seeded by a preset or typed at save time).
                         Shown here so it never steers prompts invisibly. */}

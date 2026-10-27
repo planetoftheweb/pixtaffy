@@ -1870,7 +1870,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   const handleAutoName = async () => {
     if (!image || naming || build.steps.length === 0) return;
     if (!userId) {
-      flashStatus('Sign in and add credits to use AI naming.');
+      flashStatus('Log in and add credits to use AI naming.');
       return;
     }
     setNaming(true);
@@ -1897,7 +1897,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   const handleAutoSelect = async () => {
     if (!image || autoSelecting) return;
     if (!userId) {
-      flashStatus('Sign in and add credits to use AI auto-select.');
+      flashStatus('Log in and add credits to use AI auto-select.');
       return;
     }
     setAutoSelecting(true);

@@ -114,6 +114,15 @@ test('routes recognize only public SPA paths and preserve history navigation', a
     navigate('/');
     assert.deepEqual(entries, ['/pricing', '/privacy', '/terms', '/']);
     assert.equal(updates, 4);
+    for (const search of ['?checkout=success', '?billing=1']) {
+      window.location = { pathname: '/', search };
+      navigate('/');
+      assert.deepEqual(window.location, { pathname: '/', search: '' });
+      const count = entries.length;
+      navigate('/');
+      assert.equal(entries.length, count);
+    }
+    assert.equal(updates, 6);
   } finally {
     globalThis.window = previousWindow;
     globalThis.PopStateEvent = previousPopStateEvent;

@@ -66,7 +66,12 @@ export const RichSelect: React.FC<RichSelectProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    const close = () => { setIsOpen(false); requestAnimationFrame(() => triggerRef.current?.focus()); };
+    const close = (restoreFocus = false) => {
+      setIsOpen(false);
+      requestAnimationFrame(() => {
+        if (restoreFocus || document.activeElement === document.body) triggerRef.current?.focus();
+      });
+    };
     const handleClickOutside = (event: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         close();
@@ -76,7 +81,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
-        close();
+        close(true);
       }
     };
 
