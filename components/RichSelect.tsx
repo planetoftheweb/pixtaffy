@@ -61,29 +61,33 @@ export const RichSelect: React.FC<RichSelectProps> = ({
   const [menuVerticalAlign, setMenuVerticalAlign] = useState<'down' | 'up'>('down');
   const [menuListMaxHeight, setMenuListMaxHeight] = useState(288);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!isOpen) return;
+    const close = () => { setIsOpen(false); requestAnimationFrame(() => triggerRef.current?.focus()); };
     const handleClickOutside = (event: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        close();
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsOpen(false);
+        event.stopPropagation();
+        close();
       }
     };
 
     document.addEventListener('pointerdown', handleClickOutside, true);
-    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleEscape, true);
 
     return () => {
       document.removeEventListener('pointerdown', handleClickOutside, true);
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', handleEscape, true);
     };
-  }, []);
+  }, [isOpen]);
 
   useEffect(() => {
     if (disabled) {
@@ -196,6 +200,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => {
           if (!isInteractive) return;
@@ -272,7 +277,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
       {isOpen && (
         <div
           ref={menuRef}
-          className={`absolute ${verticalPositionClass} ${menuAlign === 'right' ? 'right-0' : 'left-0'} z-[120] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
+          className={`absolute ${verticalPositionClass} ${menuAlign === 'right' ? 'right-0' : 'left-0'} z-[120] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
             expandMenuToContent
               ? 'min-w-full w-max max-w-[min(40rem,calc(100vw-1.5rem))]'
               : 'w-full'

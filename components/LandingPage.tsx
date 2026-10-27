@@ -42,7 +42,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onLogin,
   onSignUp,
 }) => {
-  const primaryLabel = isMember ? 'Back to the studio' : 'Create your first image';
+  const primaryLabel = isMember ? 'Back to the studio' : 'Create an image';
 
   return (
     <main className="min-w-0 overflow-hidden bg-brand-cream/45 text-slate-950 dark:bg-[#080d18] dark:text-white">
@@ -70,11 +70,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               PixTaffy remembers your look, brings the best image models into one studio, and helps you stretch a single generation into the next image, slide, or video frame.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="mt-8 flex flex-col flex-wrap gap-3 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={onEnterStudio}
-                className="group inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-red via-brand-pink to-brand-purple px-6 py-3.5 text-base font-black leading-tight text-white shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#080d18]"
+                className="group inline-flex whitespace-nowrap min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-red via-brand-pink to-brand-purple px-6 py-3.5 text-base font-black leading-tight text-white shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#080d18]"
               >
                 <Play size={18} fill="currentColor" />
                 {primaryLabel}
@@ -82,14 +82,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </button>
               <a
                 href="#features"
-                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition-colors duration-150 hover:border-brand-cyan hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-cyan dark:hover:text-brand-cyan dark:focus-visible:ring-offset-[#080d18]"
+                className="inline-flex whitespace-nowrap min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition-colors duration-150 hover:border-brand-cyan hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-cyan dark:hover:text-brand-cyan dark:focus-visible:ring-offset-[#080d18]"
               >
                 Explore features
               </a>
               <button
                 type="button"
                 onClick={onViewPricing}
-                className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition-colors duration-150 hover:border-brand-pink hover:text-brand-pink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-pink dark:focus-visible:ring-offset-[#080d18]"
+                className="inline-flex whitespace-nowrap min-h-14 items-center justify-center rounded-2xl border border-slate-300/80 bg-white/70 px-6 py-3.5 text-base font-bold leading-tight text-slate-800 backdrop-blur transition-colors duration-150 hover:border-brand-pink hover:text-brand-pink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-brand-pink dark:focus-visible:ring-offset-[#080d18]"
               >
                 Pricing
               </button>
@@ -227,7 +227,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button
               type="button"
               onClick={onEnterStudio}
-              className="group mt-7 inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-base font-black text-[#751c69] shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#ff711f]"
+              className="group mt-7 inline-flex whitespace-nowrap min-h-14 items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-base font-black text-[#751c69] shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#ff711f]"
             >
               <Sparkles size={18} />
               {primaryLabel}

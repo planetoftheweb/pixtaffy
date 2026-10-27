@@ -78,10 +78,44 @@ test('App persists prefer studio on enter and generation without clearing on vie
   // Casual "View welcome page" must flip welcomeMode without clearing the flag.
   assert.match(
     appSource,
-    /onClick=\{\(\) => \{\s*setWelcomeMode\(true\);/
+    /onClick=\{\(\) => \{\s*setBillingMode\(false\);\s*setWelcomeMode\(true\);/
   );
   assert.doesNotMatch(
     appSource,
     /localStorage\.removeItem\(['"]pixtaffy_prefer_studio['"]\)/
   );
+});
+
+// Routes are intentionally small: query-driven views stay on the root path.
+test('routes recognize only public SPA paths and preserve history navigation', async () => {
+  const { KNOWN_PATHS, isKnownPath, navigate } = await import('../utils/routes.ts');
+  assert.deepEqual(KNOWN_PATHS, ['/', '/pricing', '/privacy', '/terms']);
+  for (const path of KNOWN_PATHS) assert.equal(isKnownPath(path), true);
+  for (const path of ['/studio', '/missing', '/pricing/extra']) assert.equal(isKnownPath(path), false);
+  const previousWindow = globalThis.window;
+  const previousPopStateEvent = globalThis.PopStateEvent;
+  const target = new EventTarget();
+  const entries = [];
+  let updates = 0;
+  target.addEventListener('popstate', () => updates++);
+  globalThis.PopStateEvent = Event;
+  globalThis.window = Object.assign(target, {
+    location: { pathname: '/', search: '?whatsnew=v0.32.0' },
+    history: { pushState: (_state, _unused, path) => {
+      entries.push(path);
+      globalThis.window.location = { pathname: path, search: '' };
+    } },
+  });
+  try {
+    navigate('/pricing');
+    navigate('/pricing');
+    navigate('/privacy');
+    navigate('/terms');
+    navigate('/');
+    assert.deepEqual(entries, ['/pricing', '/privacy', '/terms', '/']);
+    assert.equal(updates, 4);
+  } finally {
+    globalThis.window = previousWindow;
+    globalThis.PopStateEvent = previousPopStateEvent;
+  }
 });

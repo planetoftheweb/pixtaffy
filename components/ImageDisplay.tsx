@@ -1716,13 +1716,7 @@ ${version.svgCode}
     }
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center h-full min-h-[60vh] text-slate-900 dark:text-white">
-        <div className="w-24 h-24 rounded-3xl bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] flex items-center justify-center mb-6 shadow-xl shadow-slate-200 dark:shadow-black/50 rotate-3 transition-transform hover:rotate-0">
-          <ImageIcon size={40} className="text-slate-400 dark:text-slate-600" />
-        </div>
-        <h2 className="text-2xl font-bold tracking-tight">Ready to Create</h2>
-        <p className="text-slate-500 dark:text-slate-400 max-w-md mt-3 text-sm leading-relaxed">
-          Configure your brand settings in the toolbar above and enter a prompt to generate professional, consistent graphics instantly.
-        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Pick a type and style above, then describe what you want.</p>
       </div>
     );
   }

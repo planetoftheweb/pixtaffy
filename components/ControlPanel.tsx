@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Tip } from './settings/Tip';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { GenerationConfig, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, User, Team, SvgMode, ToolbarPreset, GeneratedImage, PromptImageStyleInfluenceMode, PromptImageStyleReference } from '../types';
 import { analyzeFileOptionPaid, describeImagePaid, expandPromptPaid } from '../services/paidAiService';
@@ -94,6 +95,32 @@ const presetToolbarDiffersFromSnapshot = (
     normalizeOpenAIImageBackground(preset.openaiImageBackground) !==
       normalizeOpenAIImageBackground(current.openaiImageBackground)
   );
+};
+
+const ToolbarPanel: React.FC<{ name: string | null; className: string; children: React.ReactNode }> = ({ name, className, children }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const position = () => {
+      const trigger = document.querySelector<HTMLElement>(`[data-toolbar-dropdown-trigger="${name}"]`);
+      const panel = panelRef.current;
+      if (!trigger || !panel) return;
+      const anchor = trigger.getBoundingClientRect();
+      const width = Math.min(256, window.innerWidth - 16);
+      panel.style.width = `${width}px`;
+      panel.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))}px`;
+      const below = window.innerHeight - anchor.bottom - 16;
+      const above = anchor.top - 16;
+      const up = below < 240 && above > below;
+      panel.style.top = up ? 'auto' : `${anchor.bottom + 8}px`;
+      panel.style.bottom = up ? `${window.innerHeight - anchor.top + 8}px` : 'auto';
+      panel.style.maxHeight = `${Math.max(44, up ? above : below)}px`;
+    };
+    position();
+    window.addEventListener('resize', position);
+    window.addEventListener('scroll', position, true);
+    return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); };
+  }, [name]);
+  return createPortal(<div ref={panelRef} className={className} style={{ position: 'fixed', margin: 0, zIndex: 120, overflowY: 'auto' }}>{children}</div>, document.body);
 };
 
 interface ControlPanelProps {
@@ -975,6 +1002,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   useEffect(() => {
     if (!activeDropdown) return;
 
+    const trigger = activeDropdown === 'batch-count'
+      ? batchCountTriggerRef.current?.querySelector<HTMLElement>('button')
+      : document.querySelector<HTMLElement>(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`);
+    const close = () => { setActiveDropdown(null); requestAnimationFrame(() => {
+      const currentTrigger = activeDropdown === 'batch-count'
+        ? batchCountTriggerRef.current?.querySelector<HTMLElement>('button')
+        : document.querySelector<HTMLElement>(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`);
+      (currentTrigger || trigger)?.focus();
+    }); };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    };
     const handlePointerOutside = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
       const insidePortal = target.closest?.('[data-preset-popover], [data-batch-count-popover]');
@@ -982,17 +1024,18 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
       if (activeDropdown === 'batch-count') {
         if (batchCountTriggerRef.current?.contains(target)) return;
-        setActiveDropdown(null);
+        close();
         return;
       }
 
       if (target.closest?.('.mobile-dropdown-panel')) return;
       if (target.closest?.(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`)) return;
-      setActiveDropdown(null);
+      close();
     };
 
+    document.addEventListener('keydown', handleEscape, true);
     document.addEventListener('pointerdown', handlePointerOutside, true);
-    return () => document.removeEventListener('pointerdown', handlePointerOutside, true);
+    return () => { document.removeEventListener('pointerdown', handlePointerOutside, true); document.removeEventListener('keydown', handleEscape, true); };
   }, [activeDropdown]);
 
   // Clear search when dropdown changes
@@ -1724,7 +1767,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         onClick={onClick}
         data-toolbar-dropdown-trigger={dropdownName}
         disabled={disabled}
-        title={titleText}
         aria-label={titleText}
         className={`h-11 rounded-md flex items-center transition-colors group shrink-0 lg:shrink lg:min-w-0
           w-11 justify-center p-0
@@ -1738,6 +1780,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
           }`}
       >
+        <Tip title={subLabel} text={typeof label === 'string' ? label : titleText || 'Choose a setting'} />
         <Icon
           size={20}
           className={`shrink-0 ${
@@ -1972,7 +2015,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-teal dark:text-brand-cyan"
               />
               {activeDropdown === 'type' && (
-                <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={options.graphicTypes} 
@@ -1984,7 +2027,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                        <Plus size={14} /> Add Custom Type
                     </button>
                   )}
-                </div>
+                </ToolbarPanel>
               )}
             </div>
 
@@ -2000,7 +2043,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-purple"
               />
                {activeDropdown === 'style' && (
-                <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={filteredStyles} 
@@ -2012,7 +2055,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                        <Plus size={14} /> Add Custom Style
                     </button>
                   )}
-                </div>
+                </ToolbarPanel>
               )}
             </div>
 
@@ -2029,7 +2072,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'svgmode' && (
-                  <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {([
                       { id: 'static' as SvgMode, label: 'Static', icon: Pause, desc: 'No animations' },
                       { id: 'animated' as SvgMode, label: 'Animated', icon: Play, desc: 'CSS/SMIL animations' },
@@ -2059,7 +2102,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       </button>
                       );
                     })}
-                  </div>
+                  </ToolbarPanel>
                 )}
               </div>
             )}
@@ -2077,7 +2120,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-pink"
               />
               {activeDropdown === 'color' && (
-                <div className="mobile-dropdown-panel absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={options.brandColors} 
@@ -2089,7 +2132,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                        <Plus size={14} /> Add Custom Palette
                     </button>
                   )}
-                </div>
+                </ToolbarPanel>
               )}
             </div>
 
@@ -2105,7 +2148,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-teal dark:text-brand-cyan"
               />
               {activeDropdown === 'size' && (
-                <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <SearchInput />}
                   <GroupedList 
                     items={modelAspectRatios} 
@@ -2121,7 +2164,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                           ? 'Showing only ratios GPT Image outputs natively.'
                           : 'Showing only ratios Nano Banana models support natively.'}
                   </div>
-                </div>
+                </ToolbarPanel>
               )}
             </div>
             {/* Model Selector (fancy dropdown) */}
@@ -2137,7 +2180,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 accentClass="text-brand-pink"
               />
               {activeDropdown === 'model' && (
-                <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-72 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                   {user && <button
                     type="button"
                     onClick={() => {
@@ -2309,7 +2352,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-[11px] text-slate-600 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-400">
                     Number = PixTaffy credit cost; your own key is free. No number = own key required.
                   </div>
-                </div>
+                </ToolbarPanel>
               )}
               {activeDropdown === 'model' && modelTip && createPortal(
                 <div
@@ -2357,7 +2400,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'quality' && (
-                  <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {([
                       { id: 'auto' as const, label: 'Auto', desc: 'Model picks the best' },
                       { id: 'low' as const, label: 'Low', desc: 'Fastest, cheapest' },
@@ -2390,7 +2433,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       </button>
                       );
                     })}
-                  </div>
+                  </ToolbarPanel>
                 )}
               </div>
             )}
@@ -2414,7 +2457,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   accentClass="text-orange-700 dark:text-brand-orange"
                 />
                 {activeDropdown === 'background' && (
-                  <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {([
                       { id: 'auto' as const, label: 'Auto', desc: 'Model picks the best' },
                       { id: 'opaque' as const, label: 'Opaque', desc: 'Solid filled background' },
@@ -2444,7 +2487,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       </button>
                       );
                     })}
-                  </div>
+                  </ToolbarPanel>
                 )}
               </div>
             )}
@@ -2466,7 +2509,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   // right-0: Presets is the toolbar's right-most control, so a
                   // left-anchored panel runs past the viewport edge and clips
                   // its right column (the ⋯ per-preset actions!).
-                  <div className="mobile-dropdown-panel absolute top-full right-0 mt-2 w-80 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+                  <ToolbarPanel name={activeDropdown} className="mobile-dropdown-panel bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
                     {/* Active art direction — free text riding along with every
                         generation (seeded by a preset or typed at save time).
                         Shown here so it never steers prompts invisibly. */}
@@ -2698,7 +2741,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         <BookmarkPlus size={14} /> Save current as preset
                       </button>
                     )}
-                  </div>
+                  </ToolbarPanel>
                 )}
                 {activeActionPreset && actionMenuAnchor && (
                   <PresetActionPopover
@@ -2743,9 +2786,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             inert={isOptionsCollapsed}
           >
             <div className="flex flex-col gap-1.5 min-w-0 overflow-hidden min-h-0">
-            <div className="flex flex-nowrap items-stretch gap-2 min-w-0 w-full">
+            <div className="flex flex-col sm:flex-row sm:flex-nowrap items-stretch gap-2 min-w-0 w-full">
               <div
-                className={`relative flex-1 basis-0 min-w-0 rounded-lg transition-shadow ${
+                className={`relative w-full sm:flex-1 sm:basis-0 min-w-0 rounded-lg transition-shadow ${
                   isPromptDropActive ? 'ring-2 ring-brand-teal ring-offset-2 ring-offset-white dark:ring-offset-[#0d1117]' : ''
                 }`}
                 onDragOver={handlePromptDragOver}
@@ -2755,8 +2798,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <textarea 
                   value={config.prompt}
                   onChange={(e) => handleChange('prompt', e.target.value)}
-                  placeholder='Prompt, or drop an image / brand PDF ({a,b} or ["tile 1","tile 2"])...'
-                  className="min-h-[48px] h-12 focus:h-32 w-full min-w-0 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg py-3 pl-4 pr-11 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red transition-all duration-200 ease-in-out placeholder-slate-400 dark:placeholder-slate-600 shadow-sm dark:shadow-inner resize-y overflow-y-auto"
+                  placeholder="Describe your image"
+                  className="min-h-[48px] h-12 focus:h-32 w-full min-w-0 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg py-3 pl-4 pr-14 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red transition-all duration-200 ease-in-out placeholder-slate-400 dark:placeholder-slate-600 shadow-sm dark:shadow-inner resize-y overflow-y-auto"
                 />
                 {isPromptDropActive && (
                   <div className="pointer-events-none absolute inset-0 rounded-lg border-2 border-dashed border-brand-teal bg-brand-teal/10 flex items-center justify-center text-xs font-semibold text-brand-teal">
@@ -2766,21 +2809,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsPromptModalOpen(true)}
-                  className="absolute top-2 right-2 p-1.5 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
-                  title="Open full-screen prompt editor"
+                  className="absolute top-0.5 right-0.5 sm:top-2 sm:right-2 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center p-1.5 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
                   aria-label="Open full-screen prompt editor"
                 >
-                  <Maximize2 size={14} />
+                  <Maximize2 size={14} /><Tip title="Open full-screen prompt editor" text='Drop an image or brand PDF into the prompt. Create batches with {a,b} or ["tile 1","tile 2"].' />
                 </button>
               </div>
 
-              <>
+              <div className="flex items-center justify-end gap-2">
                 {/* Variations: typable number with a 1–5 quick-pick dropdown. */}
                 <div
                   ref={batchCountTriggerRef}
-                  className="relative group flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] shadow-sm"
-                  title={`Variations per prompt${Number.isFinite(batchCap) ? ` (max ${batchCapLabel})` : ''}`}
+                  className="relative group flex h-12 w-auto sm:w-12 shrink-0 items-center justify-center rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] shadow-sm"
                 >
+                  <Tip title="Variations per prompt" text={`Choose a count${Number.isFinite(batchCap) ? ` (max ${batchCapLabel})` : ''}`} />
                   <label htmlFor="batch-count-input" className="sr-only">Variations per prompt</label>
                   <div className="flex items-center justify-center leading-none">
                     <input
@@ -2800,7 +2842,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         const clamped = Math.max(1, Math.min(Math.floor(raw), hardMax));
                         setBatchCount(clamped);
                       }}
-                      className="w-6 bg-transparent text-slate-900 dark:text-white text-base font-semibold text-center tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 w-6 bg-transparent text-slate-900 dark:text-white text-base font-semibold text-center tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       aria-label="Variations per prompt"
                     />
                   </div>
@@ -2817,7 +2859,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     aria-haspopup="listbox"
                     aria-expanded={activeDropdown === 'batch-count'}
                     aria-label="Pick a preset count"
-                    className="h-8 w-4 sm:w-5 flex items-center justify-center rounded-md text-slate-500 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                    className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 h-8 w-4 sm:w-5 flex items-center justify-center rounded-md text-slate-500 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
                   >
                     <ChevronDown
                       size={14}
@@ -2882,9 +2924,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   aria-label="Expand prompt with additional creative detail"
                 >
                   {isExpandingPrompt ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                  <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                    Expand prompt
-                  </span>
+                  <Tip text="Expand prompt" side="top" />
                 </button>
 
                 <button
@@ -2897,7 +2937,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     onGenerate(safeBatchCount);
                   }}
                   disabled={generateButtonDisabled}
-                  title={generateButtonTitle}
                   className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-bold shadow-md transition-all active:translate-y-0.5 group ${
                     generateButtonDisabled
                       ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
@@ -2910,11 +2949,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   ) : (
                     <Send size={16} className="text-white" />
                   )}
-                  <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                    {generateButtonTitle}
-                  </span>
+                  <Tip text={generateButtonTitle} side="top" />
                 </button>
-              </>
+              </div>
             </div>
 
             {activePromptImageStyleReference && (

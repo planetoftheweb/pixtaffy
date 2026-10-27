@@ -1,3 +1,4 @@
+import { Tip } from './settings/Tip';
 import React, { useEffect, useRef, useState } from 'react';
 import { Bug, ExternalLink, ImagePlus, Lightbulb, MessageCircleQuestion, Send, X } from 'lucide-react';
 import type { User } from '../types';
@@ -175,8 +176,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
               PixTaffy created GitHub issue #{issue.number}. You can follow the conversation there, even without a GitHub account.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <a href={issue.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-red/20 transition-colors hover:bg-red-700">
-                View issue <ExternalLink size={16} />
+              <a href={issue.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-teal px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600">
+                View issue <ExternalLink size={16} /><Tip text="View issue" />
               </a>
               <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:text-slate-200">
                 Done
@@ -236,8 +237,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
 
             <div className="sticky bottom-0 -mx-5 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur dark:border-[#30363d] dark:bg-[#0d1117]/95 sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
               <button type="button" onClick={onClose} disabled={busy} className="min-h-11 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-[#30363d] dark:text-slate-200">Cancel</button>
-              <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-red px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-red/20 transition-colors hover:bg-red-700 disabled:cursor-wait disabled:opacity-60">
-                <Send size={16} /> {busy ? 'Sending…' : 'Send feedback'}
+              <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600 disabled:cursor-wait disabled:opacity-60">
+                <Send size={16} /> {busy ? 'Sending…' : 'Send feedback'}<Tip text="Send feedback" />
               </button>
             </div>
           </form>

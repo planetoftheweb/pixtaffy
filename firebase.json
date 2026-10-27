@@ -33,7 +33,19 @@
       ],
       "rewrites": [
         {
-          "source": "**",
+          "source": "/",
+          "destination": "/index.html"
+        },
+        {
+          "source": "/pricing",
+          "destination": "/index.html"
+        },
+        {
+          "source": "/privacy",
+          "destination": "/index.html"
+        },
+        {
+          "source": "/terms",
           "destination": "/index.html"
         }
       ],

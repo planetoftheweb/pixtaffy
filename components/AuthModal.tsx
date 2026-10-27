@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { X, Mail, Lock, User as UserIcon, Loader2, ArrowRight, Layers } from 'lucide-react';
+import { Tip } from './settings/Tip';
 import { authService } from '../services/authService';
 import { User } from '../types';
 
@@ -104,9 +105,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         
         <button 
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
+          aria-label="Close"
+          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
         >
-          <X size={20} />
+          <X size={20} /><Tip text="Close" />
         </button>
 
         <div className="p-8">
@@ -144,7 +146,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {!isLogin && (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Full Name</label>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider ml-1">Full name</label>
                   <div className="relative">
                     <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
@@ -158,7 +160,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Username</label>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider ml-1">Username</label>
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">@</div>
                     <input
@@ -175,8 +177,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             )}
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                {isLogin ? "Email or Username" : "Email Address"}
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider ml-1">
+                {isLogin ? "Email or username" : "Email address"}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -194,15 +196,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="button"
                   onClick={handlePasswordReset}
                   disabled={isResetting || isLoading}
-                  className="ml-auto block text-xs font-semibold text-brand-red dark:text-brand-orange hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center ml-auto text-xs font-semibold text-brand-red dark:text-brand-orange hover:underline disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isResetting ? 'Sending reset link…' : 'Forgot password?'}
+                  {isResetting ? 'Sending reset link…' : 'Forgot password?'}<Tip text="Forgot password?" />
                 </button>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider ml-1">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
@@ -219,13 +221,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="submit"
               disabled={isLoading || isResetting}
-              className="w-full bg-brand-red hover:bg-red-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-brand-red/25 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="w-full bg-brand-teal hover:bg-teal-600 text-white font-bold py-3.5 rounded-lg shadow-lg shadow-brand-teal/20 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]"
             >
               {isLoading ? (
                 <Loader2 size={20} className="animate-spin" />
               ) : (
                 <>
-                  {isLogin ? 'Sign In' : 'Create Account'}
+                  {isLogin ? 'Log in' : 'Create account'}<Tip text={isLogin ? 'Log in' : 'Create account'} />
                   <ArrowRight size={18} />
                 </>
               )}
@@ -237,9 +239,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {isLogin ? "Don't have an account? " : "Already have an account? "}
               <button 
                 onClick={toggleMode}
-                className="text-brand-red dark:text-brand-orange font-bold hover:underline"
+                className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center text-brand-teal font-bold hover:underline"
               >
-                {isLogin ? 'Sign up' : 'Sign in'}
+                {isLogin ? 'Sign up' : 'Log in'}<Tip text={isLogin ? 'Sign up' : 'Log in'} />
               </button>
             </p>
           </div>

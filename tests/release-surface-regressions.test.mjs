@@ -81,7 +81,7 @@ test('guest messaging distinguishes browser-local work from free cloud sync', ()
   assert.match(appSource, /create a free account to sync it across browsers/i);
   assert.match(landingSource, /Your work stays in this browser, ready to download/);
   assert.match(pricingSource, /Registration is free and moves the guest image into cloud history/);
-  assert.match(landingSource, /isMember \? 'Back to the studio' : 'Create your first image'/);
+  assert.match(landingSource, /isMember \? 'Back to the studio' : 'Create an image'/);
 });
 
 test('cold visitors see public content before Firebase auth settles', () => {
@@ -155,10 +155,10 @@ test('welcome exposes pricing without requiring an authenticated billing query',
   assert.match(pricingSource, /if \(!user\) \{[\s\S]*?setLoading\(false\)/);
 });
 
-test('the logged-out pricing balance opens the login flow instead of looking inert', () => {
-  assert.match(pricingSource, /onLogin: \(\) => void/);
-  assert.match(pricingSource, /!user \? \([\s\S]*?<button[\s\S]*?onClick=\{onLogin\}[\s\S]*?aria-label="Sign in to view your PixTaffy credit balance"/);
-  assert.match(appSource, /<PricingPage[\s\S]*?onLogin=\{\(\) => openAuthModal\('login'\)\}/);
+test('pricing shows the balance only for signed-in users', () => {
+  assert.match(pricingSource, /\{user && \([\s\S]*?Your balance/);
+  assert.doesNotMatch(pricingSource, /Sign in to view your PixTaffy credit balance/);
+  assert.doesNotMatch(pricingSource, />Sign in<\/span>/);
 });
 
 test('the compact wordmark keeps Pix light and Taffy heavy with the candy gradient', () => {
