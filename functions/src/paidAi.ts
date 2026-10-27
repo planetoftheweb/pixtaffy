@@ -1,3 +1,4 @@
+import { enforceRateLimit } from './rateLimit';
 import { stagingOrigins } from "./corsOrigins";
 import { createHash } from "node:crypto";
 import { getFirestore } from "firebase-admin/firestore";
@@ -77,35 +78,6 @@ function validateIdempotencyKey(value: unknown): string {
 }
 
 const dateKey = () => new Date().toISOString().slice(0, 10);
-
-async function enforceRateLimit(uid: string, kind: "images" | "helpers"): Promise<void> {
-  const now = Date.now();
-  const hourMs = 60 * 60 * 1_000;
-  const dayMs = 24 * hourMs;
-  const hourLimit = kind === "images" ? 20 : 60;
-  const dayLimit = kind === "images" ? 100 : 300;
-  const ref = db().doc(`users/${uid}/private/rate-${kind}`);
-  await db().runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.data() ?? {};
-    const hourStart = Number(data.hourStart ?? now);
-    const dayStart = Number(data.dayStart ?? now);
-    const inHour = now - hourStart < hourMs;
-    const inDay = now - dayStart < dayMs;
-    const hourCount = inHour ? Number(data.hourCount ?? 0) : 0;
-    const dayCount = inDay ? Number(data.dayCount ?? 0) : 0;
-    if (hourCount >= hourLimit || dayCount >= dayLimit) {
-      throw new HttpsError("resource-exhausted", `PixTaffy ${kind} rate limit reached. Try again later.`);
-    }
-    tx.set(ref, {
-      hourStart: inHour ? hourStart : now,
-      hourCount: hourCount + 1,
-      dayStart: inDay ? dayStart : now,
-      dayCount: dayCount + 1,
-      updatedAt: now,
-    });
-  });
-}
 
 async function reserveSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number): Promise<void> {
   const ref = db().doc(`systemSpend/${dateKey()}`);
@@ -444,7 +416,7 @@ export const generateGuestImage = onCall(
     if (!pricing) throw new HttpsError("failed-precondition", "This model is not available with guest credits.");
     const ip = guestRequestIp(request, uid);
     const claimInput = { uid, installId, ip, idempotencyKey, modelId, milliCredits: pricing.milliCredits };
-    await Promise.all([enforceRateLimit(uid, "images"), assertModelEnabled(modelId)]);
+    await Promise.all([enforceRateLimit(uid, "images", { perHour: 20, perDay: 100 }), assertModelEnabled(modelId)]);
     const balanceMilliCredits = await reserveGuestClaim(claimInput);
 
     let spendCapacityHeld = false;
@@ -556,7 +528,7 @@ export const generateWithCredits = onCall(
       });
       return cached.payload;
     }
-    await Promise.all([enforceRateLimit(uid, "images"), assertModelEnabled(modelId)]);
+    await Promise.all([enforceRateLimit(uid, "images", { perHour: 20, perDay: 100 }), assertModelEnabled(modelId)]);
     await ensureStarterGrant(uid, request.auth?.token?.email_verified === true);
     const batchItem = batchReservationId && !isAdmin
       ? await claimBatchReservationItem({
@@ -750,7 +722,7 @@ export const runAiAssist = onCall(
     if (imageBase64 && imageBase64.length > 20_000_000) {
       throw new HttpsError("invalid-argument", "The uploaded file is too large for AI analysis.");
     }
-    await enforceRateLimit(uid, "helpers");
+    await enforceRateLimit(uid, "helpers", { perHour: 60, perDay: 300 });
     await ensureStarterGrant(uid, request.auth?.token?.email_verified === true);
     const reservation = await reserveCredits({
       uid,

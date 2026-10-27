@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
@@ -98,6 +98,15 @@ test('emulator: migration, CRUD, server generation, CLI dry run and migration', 
     assert.ok((await read('userApiKeys', ownerToken)).status === 403);
     assert.ok((await read('userApiKeys', strangerToken)).status === 403);
     assert.ok((await read('users', strangerToken)).status === 403);
+    for (const path of [`users/${auth.uid}/private/rate-userkey-manage`, 'config/featureFlags']) {
+      const denied = await fetch(`http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/demo-pixtaffy/databases/(default)/documents/${path}`, { headers: { Authorization: `Bearer ${strangerToken}` } });
+      assert.equal(denied.status, 403);
+    }
+    const strangerClaims = await require('firebase-admin/auth').getAuth().verifyIdToken(strangerToken);
+    const strangerRequest = { auth: { uid: strangerClaims.uid, token: strangerClaims }, data: { uid: auth.uid } };
+    await assert.rejects(api.clearUserApiKeys.run(strangerRequest), { code: 'permission-denied' });
+    await assert.rejects(api.listUserKeyProfiles.run(strangerRequest), { code: 'permission-denied' });
+    await assert.rejects(api.generateWithUserKey.run({ ...strangerRequest, data: { uid: auth.uid, model: 'gemini', prompt: 'Test isolation' } }), { code: 'failed-precondition' });
     const ownProfile = await read('users', ownerToken);
     assert.ok(ownProfile.ok && !(await ownProfile.text()).includes(key));
   }
@@ -201,5 +210,125 @@ test('emulator: migration, CRUD, server generation, CLI dry run and migration', 
   await setStage(0);
   await api.clearUserApiKeys.run(request({}));
   assert.deepEqual(await flags.getKeyStorageMode.run(request({})), { serverKeys: false });
+  // Real emulator transactions verify thresholds and rollback without provider traffic.
+  await setStage(2);
+  const manageRef = db.doc(`users/${auth.uid}/private/rate-userkey-manage`);
+  const generateRef = db.doc(`users/${auth.uid}/private/rate-userkey-generate`);
+  const secureFlags = async (appCheck, rateLimit) => {
+    await db.doc('config/featureFlags').set({ enforceAppCheckUserKeys: appCheck, rateLimitUserKeys: rateLimit }, { merge: true });
+    flags.resetFeatureFlagCache();
+  };
+  auth.token.admin = true;
+  for (const [stage, allowlistUids, gated] of [[0, [auth.uid], false], [1, ['other'], false], [1, [auth.uid], true], [2, [], true]]) {
+    await secureFlags({ stage, allowlistUids, allowAdmins: false }, { stage: 0 });
+    if (gated) {
+      for (const callable of [api.getUserApiKeyStatus, api.setUserApiKey, api.deleteUserApiKey, api.clearUserApiKeys, api.generateWithUserKey, api.listUserKeyProfiles]) {
+        await assert.rejects(callable.run(request({})), { code: 'failed-precondition', message: 'App Check required.' });
+      }
+      await api.getUserApiKeyStatus.run({ ...request({}), app: { appId: 'emulator-test' } });
+    } else await api.getUserApiKeyStatus.run(request({}));
+  }
+  for (const [stage, allowlistUids, gated] of [[0, [auth.uid], false], [1, ['other'], false], [1, [auth.uid], true], [2, [], true]]) {
+    await secureFlags({ stage: 0 }, { stage, allowlistUids, allowAdmins: false });
+    await Promise.all([manageRef.delete(), generateRef.delete()]);
+    for (let i = 0; i < 30; i++) await api.getUserApiKeyStatus.run(request({}));
+    if (gated) {
+      for (const callable of [api.getUserApiKeyStatus, api.setUserApiKey, api.deleteUserApiKey, api.clearUserApiKeys]) {
+        await assert.rejects(callable.run(request({})), { code: 'resource-exhausted' });
+      }
+      assert.equal((await manageRef.get()).data().minuteCount, 30);
+    } else {
+      await api.getUserApiKeyStatus.run(request({}));
+      assert.equal((await manageRef.get()).exists, false);
+    }
+    for (let i = 0; i < 20; i++) await assert.rejects(api.generateWithUserKey.run(request({ model: 'invalid' })), { code: 'invalid-argument' });
+    await assert.rejects(api.generateWithUserKey.run(request({ model: 'invalid' })), { code: gated ? 'resource-exhausted' : 'invalid-argument' });
+    if (gated) assert.equal((await generateRef.get()).data().hourCount, 20);
+    else assert.equal((await generateRef.get()).exists, false);
+    await api.listUserKeyProfiles.run(request({ countOnly: true }));
+  }
+  await secureFlags({ stage: 0 }, { stage: 0 });
+  await api.getUserApiKeyStatus.run(request({}));
+  await assert.rejects(api.generateWithUserKey.run(request({ model: 'invalid' })), { code: 'invalid-argument' });
+  await Promise.all([manageRef.delete(), generateRef.delete()]);
   await Promise.all([profile.delete(), store.delete()]);
+});
+
+test('callable security stages, independent flags and shared rate buckets', async () => {
+  const { initializeApp, deleteApp } = require('firebase-admin/app');
+  const { getFirestore } = require('firebase-admin/firestore');
+  const flags = require('../functions/lib/featureFlags.js');
+  const app = initializeApp({ projectId: 'demo-pixtaffy' }, 'security-unit');
+  // Callables use the default app, which may already exist in emulator tests.
+  const { getApps } = require('firebase-admin/app');
+  const existing = getApps().find(a => a.name === '[DEFAULT]');
+  const defaultApp = existing || initializeApp({ projectId: 'demo-pixtaffy' });
+  const defaultDb = getFirestore(defaultApp);
+  let config = {};
+  const counters = new Map();
+  const reads = [];
+  const doc = mock.method(defaultDb, 'doc', path => ({
+    path,
+    get: async () => {
+      reads.push(path);
+      return { data: () => path === 'config/featureFlags' ? config : {} };
+    },
+  }));
+  const transaction = mock.method(defaultDb, 'runTransaction', async fn => fn({
+    get: async ref => ({ data: () => counters.get(ref.path) || {} }),
+    set: (ref, value) => counters.set(ref.path, value),
+  }));
+  const auth = { uid: 'security-owner', token: { admin: true } };
+  const manage = [api.getUserApiKeyStatus, api.setUserApiKey, api.deleteUserApiKey, api.clearUserApiKeys];
+  const all = [...manage, api.generateWithUserKey, api.listUserKeyProfiles];
+  const request = { auth, data: {} };
+  try {
+    for (const [stage, allowlistUids, gated] of [[0, [auth.uid], false], [1, ['other'], false], [1, [auth.uid], true], [2, [], true]]) {
+      config = { enforceAppCheckUserKeys: { stage, allowlistUids, allowAdmins: false } };
+      flags.resetFeatureFlagCache();
+      for (const callable of all) {
+        // Invalid admin-list input is validated before the gate, so use a valid input.
+        if (gated) {
+          reads.length = 0;
+          await assert.rejects(callable.run(request), { code: 'failed-precondition', message: 'App Check required.' });
+          assert.ok(reads.every(path => path === 'config/featureFlags'));
+        } else if (callable !== api.listUserKeyProfiles) {
+          await assert.rejects(callable.run(request), { code: 'failed-precondition', message: 'server-side keys are not enabled for this account' });
+        }
+      }
+      if (gated) {
+        await assert.rejects(api.getUserApiKeyStatus.run({ ...request, app: { appId: 'test' } }), { message: 'server-side keys are not enabled for this account' });
+      }
+    }
+    for (const [stage, allowlistUids, gated] of [[0, [auth.uid], false], [1, ['other'], false], [1, [auth.uid], true], [2, [], true]]) {
+      config = { rateLimitUserKeys: { stage, allowlistUids } };
+      flags.resetFeatureFlagCache();
+      counters.clear();
+      for (let i = 0; i < 30; i++) {
+        await assert.rejects(manage[i % manage.length].run(request), { code: 'failed-precondition' });
+      }
+      for (const callable of manage) {
+        await assert.rejects(callable.run(request), { code: gated ? 'resource-exhausted' : 'failed-precondition' });
+      }
+      for (let i = 0; i < 20; i++) await assert.rejects(api.generateWithUserKey.run(request), { code: 'failed-precondition' });
+      await assert.rejects(api.generateWithUserKey.run(request), { code: gated ? 'resource-exhausted' : 'failed-precondition' });
+      if (gated) {
+        assert.equal(counters.get('users/security-owner/private/rate-userkey-manage').minuteCount, 30);
+        assert.equal(counters.get('users/security-owner/private/rate-userkey-generate').hourCount, 20);
+      } else assert.equal(counters.size, 0);
+      // Count-only admin listing never consumes a rate bucket.
+      const countDoc = mock.method(defaultDb, 'collection', () => ({ count: () => ({ get: async () => ({ data: () => ({ count: 0 }) }) }) }));
+      try { assert.deepEqual(await api.listUserKeyProfiles.run({ auth, data: { countOnly: true } }), { count: 0 }); }
+      finally { countDoc.mock.restore(); }
+      assert.ok(![...counters.keys()].some(path => !path.startsWith('users/security-owner/private/rate-userkey-')));
+    }
+    config = { rateLimitUserKeys: { stage: 0 }, enforceAppCheckUserKeys: { stage: 0 } };
+    flags.resetFeatureFlagCache();
+    await assert.rejects(api.getUserApiKeyStatus.run(request), { message: 'server-side keys are not enabled for this account' });
+    await assert.rejects(api.clearUserApiKeys.run({ auth: { uid: 'stranger', token: {} }, data: { uid: auth.uid } }), { code: 'permission-denied' });
+  } finally {
+    doc.mock.restore(); transaction.mock.restore(); flags.resetFeatureFlagCache();
+    await deleteApp(app);
+    if (!existing) await deleteApp(defaultApp);
+  }
 });

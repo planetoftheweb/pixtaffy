@@ -57,3 +57,49 @@ test('storage mode keeps migrated users sticky unless stage 0 forces legacy', as
     await deleteApp(app);
   }
 });
+
+test('named flags default off, stage correctly and cache independently', async () => {
+  const { namedFlagEnabled } = await import('./featureFlags');
+  const app = initializeApp({ projectId: 'demo-pixtaffy' });
+  let data: Record<string, unknown> | undefined;
+  let reads = 0;
+  let now = 1000;
+  const clock = mock.method(Date, 'now', () => now);
+  const stub = mock.method(getFirestore(), 'doc', () => ({
+    get: async () => { reads++; return { data: () => data }; },
+  }));
+  try {
+    resetFeatureFlagCache();
+    assert.equal(await namedFlagEnabled('enforceAppCheckUserKeys', user), false);
+    data = { enforceAppCheckUserKeys: { stage: 2 }, rateLimitUserKeys: { stage: 2 } };
+    assert.equal(await namedFlagEnabled('enforceAppCheckUserKeys', user), false);
+    assert.equal(await namedFlagEnabled('rateLimitUserKeys', user), true);
+    assert.equal(reads, 2);
+    now += 30000;
+    assert.equal(await namedFlagEnabled('enforceAppCheckUserKeys', user), true);
+    assert.equal(reads, 3);
+    resetFeatureFlagCache();
+    assert.equal(await namedFlagEnabled('enforceAppCheckUserKeys', user), true);
+    for (const [flag, expectedUser, expectedAdmin] of [
+      [undefined, false, false],
+      [{ stage: 0, allowAdmins: true, allowlistUids: ['owner'] }, false, false],
+      [{ stage: 1 }, false, false],
+      [{ stage: 1, allowlistUids: ['owner'] }, true, false],
+      [{ stage: 1, allowAdmins: true }, false, true],
+      [{ stage: 1, allowAdmins: false }, false, false],
+      [{ stage: 2 }, true, true],
+      [{ stage: '2' }, false, false],
+    ] as const) {
+      data = { rateLimitUserKeys: flag };
+      resetFeatureFlagCache();
+      assert.equal(await namedFlagEnabled('rateLimitUserKeys', user), expectedUser);
+      assert.equal(await namedFlagEnabled('rateLimitUserKeys', admin), expectedAdmin);
+      assert.equal(await namedFlagEnabled('rateLimitUserKeys', undefined), false);
+    }
+  } finally {
+    stub.mock.restore();
+    clock.mock.restore();
+    resetFeatureFlagCache();
+    await deleteApp(app);
+  }
+});

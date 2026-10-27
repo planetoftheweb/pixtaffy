@@ -1,4 +1,5 @@
-import { serverSideUserKeysEnabled, userKeysMode } from './featureFlags';
+import { enforceRateLimit } from './rateLimit';
+import { namedFlagEnabled, serverSideUserKeysEnabled, userKeysMode } from './featureFlags';
 import { generateOpenRouterImageCore } from './openRouterProvider';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -73,8 +74,19 @@ function slotOf(value: unknown): string {
   if (typeof value !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(value) || !/^[a-z0-9:_-][a-z0-9:._/-]{0,159}$/i.test(value)) throw new HttpsError('invalid-argument', 'Invalid key slot.');
   return value;
 }
-async function enabled(request: CallableRequest): Promise<string> {
+export function requireAppCheck(enforce: boolean, app: unknown): void {
+  if (enforce && app === undefined) throw new HttpsError('failed-precondition', 'App Check required.');
+}
+async function guard(request: CallableRequest, bucket?: 'userkey-manage' | 'userkey-generate'): Promise<void> {
   const uid = authenticated(request);
+  requireAppCheck(await namedFlagEnabled('enforceAppCheckUserKeys', request.auth), request.app);
+  if (bucket && await namedFlagEnabled('rateLimitUserKeys', request.auth)) {
+    await enforceRateLimit(uid, bucket, bucket === 'userkey-generate' ? { perHour: 20, perDay: 100 } : { perMinute: 30, perDay: 300 });
+  }
+}
+async function enabled(request: CallableRequest, bucket: 'userkey-manage' | 'userkey-generate' = 'userkey-manage', guarded = false): Promise<string> {
+  const uid = authenticated(request);
+  if (!guarded) await guard(request, bucket);
   if (!await userKeysMode(request.auth)) throw new HttpsError('failed-precondition', 'server-side keys are not enabled for this account');
   if (await serverSideUserKeysEnabled(request.auth)) await ensureUserApiKeysMigrated(uid);
   return uid;
@@ -109,12 +121,13 @@ export const clearUserApiKeys = onCall(options, async request => {
   const target = request.data?.uid ?? uid;
   if (typeof target !== 'string' || !target || target.includes('/')) throw new HttpsError('invalid-argument', 'Invalid user.');
   if (target !== uid && request.auth?.token.admin !== true) throw new HttpsError('permission-denied', 'Admin required.');
-  if (target === uid) await enabled(request);
+  await guard(request, 'userkey-manage');
+  if (target === uid) await enabled(request, 'userkey-manage', true);
   return mutate(target, undefined, undefined, target !== uid);
 });
 
 export const generateWithUserKey = onCall(options, async request => {
-  const uid = await enabled(request);
+  const uid = await enabled(request, 'userkey-generate');
   const { model = 'gemini', action = 'generate', prompt = '', config = {}, context = {}, image, svg, systemPrompt = '', quality = 'auto', background = 'auto' } = request.data || {};
   if (typeof model !== 'string' || !(['gemini', 'gemini-svg', 'gemini-3.1-flash-image-preview', 'gemini-3.1-flash-lite-image', 'openai', 'openai-2', 'openai-2.5', 'openai-flare', 'openai-mini', 'openrouter'].includes(model) || /^openrouter:[a-z0-9._/-]+$/i.test(model))) {
     throw new HttpsError('invalid-argument', 'Unsupported model.');
@@ -182,6 +195,7 @@ export const listUserKeyProfiles = onCall(options, async request => {
   if (uid !== undefined && (typeof uid !== 'string' || !uid || uid.includes('/'))) throw new HttpsError('invalid-argument', 'Invalid user.');
   const cursor = request.data?.cursor;
   if (cursor !== undefined && (typeof cursor !== 'string' || !cursor || cursor.includes('/'))) throw new HttpsError('invalid-argument', 'Invalid cursor.');
+  await guard(request);
   const db = getFirestore();
   if (request.data?.countOnly) return { count: (await db.collection('users').count().get()).data().count };
   let query = db.collection('users').orderBy('__name__').limit(100);

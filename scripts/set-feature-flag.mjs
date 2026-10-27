@@ -8,7 +8,8 @@ const args = process.argv.slice(2);
 const value = name => args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
 const project = value('--project');
 if (!project || project.startsWith('--')) throw new Error('--project is required');
-if (value('--flag') !== 'serverSideUserKeys') throw new Error('--flag serverSideUserKeys is required');
+const flag = value('--flag');
+if (!['serverSideUserKeys', 'enforceAppCheckUserKeys', 'rateLimitUserKeys'].includes(flag)) throw new Error('A supported --flag is required');
 if (!['0', '1', '2'].includes(value('--stage'))) throw new Error('--stage must be 0, 1, or 2');
 const allowlistUids = args.flatMap((arg, i) => arg === '--allow-uid' ? [args[i + 1]] : []);
 if (allowlistUids.some(uid => !uid || uid.startsWith('--'))) throw new Error('--allow-uid requires a UID');
@@ -22,4 +23,4 @@ for (const email of emails) {
 const ref = getFirestore().doc('config/featureFlags');
 const after = { stage: Number(value('--stage')), allowAdmins: args.includes('--allow-admins'), forceLegacy: args.includes('--force-legacy'), allowlistUids: [...new Set(allowlistUids)] };
 console.log(JSON.stringify({ after }));
-if (!args.includes('--dry-run')) await ref.set({ serverSideUserKeys: after }, { merge: true });
+if (!args.includes('--dry-run')) await ref.set({ [flag]: after }, { merge: true });
