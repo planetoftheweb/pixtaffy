@@ -25,7 +25,9 @@ export const Tip: React.FC<{
     const host = anchorRef.current?.parentElement;
     if (!host) return;
     // An open menu owns the space under its trigger, so the tip stays hidden while it is expanded.
-    const expanded = () => host.getAttribute('aria-expanded') === 'true';
+    // A neighbouring toolbar trigger's tip would land on top of the open panel, so toolbar tips wait until it closes.
+    const expanded = () => host.getAttribute('aria-expanded') === 'true'
+      || (host.matches('[data-toolbar-dropdown-trigger]') && !!document.querySelector('[data-toolbar-dropdown-trigger][aria-expanded="true"]'));
     const show = () => { if (!expanded() && !host.matches(':disabled') && !host.querySelector(':disabled')) setHostRect(host.getBoundingClientRect()); };
     const showPointer = (event: PointerEvent) => { if (event.pointerType !== 'touch') show(); };
     const showFocus = (event: FocusEvent) => {

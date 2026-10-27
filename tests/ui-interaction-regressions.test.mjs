@@ -151,6 +151,7 @@ test('settings tips require hover or visible keyboard focus and clear on leave a
   assert.match(tip, /addEventListener\('pointerenter', showPointer\)/);
   assert.match(tip, /attributeFilter: \['aria-expanded'\]/);
   assert.match(tip, /lastInputWasKeyboard &&/);
+  assert.match(tip, /\[data-toolbar-dropdown-trigger\]\[aria-expanded="true"\]/);
   assert.match(tip, /addEventListener\('pointerleave', hide\)/);
   assert.match(tip, /addEventListener\('focusout', hide\)/);
   assert.match(tip, /useState<DOMRect \| null>\(null\)/);
