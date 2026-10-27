@@ -696,7 +696,7 @@ function requireAssistAction(value: unknown): AiAssistAction {
 }
 
 export const runAiAssist = onCall(
-  buildRunAiAssistOptions(baseOptions, AI_ASSIST_BACKEND, () => PIXTAFFY_GEMINI_API_KEY!),
+  buildRunAiAssistOptions(baseOptions, process.env, () => PIXTAFFY_GEMINI_API_KEY!),
   async (request) => {
     const { uid, isAdmin } = requireAuth(request);
     const action = requireAssistAction(request.data?.action);

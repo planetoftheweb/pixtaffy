@@ -6,6 +6,11 @@ export const AI_ASSIST_BACKEND_BY_PROJECT: Readonly<Record<string, AiAssistBacke
   "pixtaffy-staging": "vertex",
 };
 
+// Runtime identity must also be available during source discovery.
+export const AI_ASSIST_SERVICE_ACCOUNT_BY_PROJECT: Readonly<Record<string, string>> = {
+  "pixtaffy-staging": "pixtaffy-aiassist-runtime@pixtaffy-staging.iam.gserviceaccount.com",
+};
+
 export function resolveAiAssistBackend(env: Record<string, string | undefined>): AiAssistBackend {
   const project = env.GCLOUD_PROJECT || env.GOOGLE_CLOUD_PROJECT;
   return project && Object.prototype.hasOwnProperty.call(AI_ASSIST_BACKEND_BY_PROJECT, project)
@@ -27,8 +32,16 @@ export function resolveAiAssistVertexConfig(env: Record<string, string | undefin
 
 export function buildRunAiAssistOptions<Base extends object, Secret>(
   base: Base,
-  backend: AiAssistBackend,
+  env: Record<string, string | undefined>,
   getSecret: () => Secret,
-): Base & { secrets?: Secret[] } {
-  return backend === "apikey" ? { ...base, secrets: [getSecret()] } : { ...base };
+): Base & { secrets?: Secret[]; serviceAccount?: string } {
+  const project = env.GCLOUD_PROJECT || env.GOOGLE_CLOUD_PROJECT;
+  const serviceAccount = project && Object.prototype.hasOwnProperty.call(AI_ASSIST_SERVICE_ACCOUNT_BY_PROJECT, project)
+    ? AI_ASSIST_SERVICE_ACCOUNT_BY_PROJECT[project]
+    : undefined;
+  return {
+    ...base,
+    ...(resolveAiAssistBackend(env) === "apikey" ? { secrets: [getSecret()] } : {}),
+    ...(serviceAccount ? { serviceAccount } : {}),
+  };
 }
