@@ -1,17 +1,39 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRunAiAssistOptions, parseAiAssistBackend, resolveAiAssistVertexConfig } from "./aiAssistBackend";
+import { buildRunAiAssistOptions, resolveAiAssistBackend, resolveAiAssistVertexConfig } from "./aiAssistBackend";
 
-test("AI assist defaults to apikey for missing, blank, apikey and unknown values", () => {
-  for (const raw of [undefined, "", "   ", "APIKEY", "apikey", "bogus"]) {
-    assert.equal(parseAiAssistBackend(raw), "apikey");
+test("AI assist defaults to apikey for production, missing, empty and unknown projects", () => {
+  for (const project of ["brandoit", undefined, "", "unknown", "toString", "__proto__"]) {
+    assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: project }), "apikey");
   }
+  assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "", GOOGLE_CLOUD_PROJECT: "" }), "apikey");
 });
 
-test("AI assist selects vertex only for the normalized vertex value", () => {
-  for (const raw of ["vertex", "VERTEX", " Vertex "]) {
-    assert.equal(parseAiAssistBackend(raw), "vertex");
+test("discovery selects vertex with only the staging GCLOUD_PROJECT set", () => {
+  const env = { GCLOUD_PROJECT: "pixtaffy-staging" };
+  const backend = resolveAiAssistBackend(env);
+  assert.equal(backend, "vertex");
+  assert.deepEqual(buildRunAiAssistOptions({}, backend, () => {
+    assert.fail("Discovery must not declare a Gemini secret for staging");
+  }), {});
+  assert.deepEqual(resolveAiAssistVertexConfig(env), {
+    project: "pixtaffy-staging",
+    location: "global",
+    model: "gemini-3.8-flash",
+  });
+});
+
+test("backend project fallback treats empty GCLOUD_PROJECT as missing", () => {
+  for (const project of [undefined, ""]) {
+    assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: project, GOOGLE_CLOUD_PROJECT: "pixtaffy-staging" }), "vertex");
   }
+  assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "brandoit", GOOGLE_CLOUD_PROJECT: "pixtaffy-staging" }), "apikey");
+});
+
+test("runtime backend env cannot override the committed project map", () => {
+  assert.equal(resolveAiAssistBackend({ AI_ASSIST_BACKEND: "vertex" }), "apikey");
+  assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "brandoit", AI_ASSIST_BACKEND: "vertex" }), "apikey");
+  assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "pixtaffy-staging", AI_ASSIST_BACKEND: "apikey" }), "vertex");
 });
 
 test("Vertex config defaults for missing, empty and whitespace settings", () => {
@@ -33,14 +55,17 @@ test("Vertex config honors overrides and prefers GCLOUD_PROJECT", () => {
 });
 
 test("Vertex project falls back to GOOGLE_CLOUD_PROJECT", () => {
-  assert.equal(resolveAiAssistVertexConfig({ GOOGLE_CLOUD_PROJECT: "fallback-project" }).project, "fallback-project");
+  for (const project of [undefined, ""]) {
+    assert.equal(resolveAiAssistVertexConfig({ GCLOUD_PROJECT: project, GOOGLE_CLOUD_PROJECT: "fallback-project" }).project, "fallback-project");
+  }
+  assert.equal(resolveAiAssistVertexConfig({ GCLOUD_PROJECT: "", GOOGLE_CLOUD_PROJECT: "" }).project, undefined);
 });
 
 test("apikey options preserve base options and bind the Gemini secret param", () => {
   const base = { region: "us-central1", enforceAppCheck: true };
   const secret = { name: "PIXTAFFY_GEMINI_API_KEY" };
   let calls = 0;
-  const options = buildRunAiAssistOptions(base, "apikey", () => {
+  const options = buildRunAiAssistOptions(base, resolveAiAssistBackend({ GCLOUD_PROJECT: "brandoit" }), () => {
     calls += 1;
     return secret;
   });
@@ -52,7 +77,7 @@ test("apikey options preserve base options and bind the Gemini secret param", ()
 
 test("vertex options preserve base options without secrets or invoking the secret factory", () => {
   const base = { region: "us-central1", enforceAppCheck: true };
-  const options = buildRunAiAssistOptions(base, "vertex", () => {
+  const options = buildRunAiAssistOptions(base, resolveAiAssistBackend({ GCLOUD_PROJECT: "pixtaffy-staging" }), () => {
     assert.fail("Vertex must never request a secret");
   });
   assert.deepEqual(options, base);

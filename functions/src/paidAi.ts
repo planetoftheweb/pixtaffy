@@ -3,7 +3,7 @@ import { stagingOrigins } from "./corsOrigins";
 import { createHash } from "node:crypto";
 import { getFirestore } from "firebase-admin/firestore";
 import { GoogleGenAI } from "@google/genai";
-import { buildRunAiAssistOptions, parseAiAssistBackend, resolveAiAssistVertexConfig } from "./aiAssistBackend";
+import { buildRunAiAssistOptions, resolveAiAssistBackend, resolveAiAssistVertexConfig } from "./aiAssistBackend";
 import * as logger from "firebase-functions/logger";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
@@ -41,8 +41,7 @@ import {
 
 const REGION = "us-central1";
 const OPENROUTER_API_KEY = defineSecret("OPENROUTER_API_KEY");
-const AI_ASSIST_BACKEND = parseAiAssistBackend(process.env.AI_ASSIST_BACKEND);
-const AI_ASSIST_VERTEX_CONFIG = resolveAiAssistVertexConfig(process.env);
+const AI_ASSIST_BACKEND = resolveAiAssistBackend(process.env);
 const PIXTAFFY_GEMINI_API_KEY = AI_ASSIST_BACKEND === "apikey"
   ? defineSecret("PIXTAFFY_GEMINI_API_KEY")
   : undefined;
@@ -743,15 +742,16 @@ export const runAiAssist = onCall(
     try {
       await reserveSpendCapacity("gemini", helperSpendReserveUsd);
       spendCapacityHeld = true;
-      const ai = AI_ASSIST_BACKEND === "vertex"
-        ? new GoogleGenAI({ vertexai: true, project: AI_ASSIST_VERTEX_CONFIG.project, location: AI_ASSIST_VERTEX_CONFIG.location })
+      const vertexConfig = AI_ASSIST_BACKEND === "vertex" ? resolveAiAssistVertexConfig(process.env) : undefined;
+      const ai = vertexConfig
+        ? new GoogleGenAI({ vertexai: true, project: vertexConfig.project, location: vertexConfig.location })
         : new GoogleGenAI({ apiKey: PIXTAFFY_GEMINI_API_KEY!.value() });
       const parts: any[] = [{ text: actionPrompt(action, payload) }];
       if (imageBase64) {
         parts.unshift({ inlineData: { data: imageBase64, mimeType: payload.mimeType || "image/png" } });
       }
       const response = await ai.models.generateContent({
-        model: AI_ASSIST_BACKEND === "vertex" ? AI_ASSIST_VERTEX_CONFIG.model : "gemini-flash-latest",
+        model: vertexConfig ? vertexConfig.model : "gemini-flash-latest",
         contents: [{ role: "user", parts }],
         config: {
           temperature: action === "expand_prompt" ? 0.7 : 0.2,
