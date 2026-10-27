@@ -41,7 +41,7 @@ pubsub-debug.log*
 # Env files (never commit secrets)
 .env*
 !.env.example
-!functions/.env.pixtaffy-staging
+# functions/.env.pixtaffy-staging is intentionally tracked and guarded by CI.
 
 e2e-results/
 

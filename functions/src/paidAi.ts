@@ -1,3 +1,4 @@
+import { geminiAssistCost } from "./geminiRates";
 import { enforceRateLimit } from './rateLimit';
 import { stagingOrigins } from "./corsOrigins";
 import { createHash } from "node:crypto";
@@ -695,9 +696,41 @@ function requireAssistAction(value: unknown): AiAssistAction {
   return action;
 }
 
+const ASSIST_BLOCK_REASONS = new Set(["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION"]);
+
+export function isAssistBlocked(response: {
+  promptFeedback?: { blockReason?: string };
+  candidates?: Array<{ finishReason?: string }>;
+}): boolean {
+  const reason = response.promptFeedback?.blockReason;
+  return Boolean(reason && reason !== "BLOCK_REASON_UNSPECIFIED")
+    || Boolean(response.candidates?.some((candidate) => ASSIST_BLOCK_REASONS.has(candidate.finishReason ?? "")));
+}
+
+export function mapAiAssistError(error: unknown): HttpsError {
+  if (error instanceof HttpsError) return error;
+  if (error instanceof SyntaxError) return new HttpsError("internal", "AI assist failed. Try again.");
+  const raw = (error ?? {}) as { status?: unknown; code?: unknown; message?: unknown; name?: unknown };
+  const description = [raw.status, raw.code, raw.name, raw.message].map(String).join(" ");
+  if (isAssistBlocked(error as Parameters<typeof isAssistBlocked>[0] ?? {})) {
+    return new HttpsError("failed-precondition", "The AI could not complete this request. Try rephrasing it.");
+  }
+  if (/429|RESOURCE_EXHAUSTED|quota/i.test(description)) {
+    return new HttpsError("resource-exhausted", "PixTaffy AI is busy right now. Wait a moment and try again.");
+  }
+  if (/504|DEADLINE_EXCEEDED|timeout|timed[ -]?out|abort/i.test(description)) {
+    return new HttpsError("deadline-exceeded", "The AI request timed out. Wait a moment and try again.");
+  }
+  if (/\b5\d\d\b|UNAVAILABLE|INTERNAL|network|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|socket/i.test(description)) {
+    return new HttpsError("unavailable", "PixTaffy AI is temporarily unavailable. Wait a moment and try again.");
+  }
+  return new HttpsError("internal", "AI assist failed. Try again.");
+}
+
 export const runAiAssist = onCall(
   buildRunAiAssistOptions(baseOptions, process.env, () => PIXTAFFY_GEMINI_API_KEY!),
   async (request) => {
+    const requestedAt = Date.now();
     const { uid, isAdmin } = requireAuth(request);
     const action = requireAssistAction(request.data?.action);
     const idempotencyKey = validateIdempotencyKey(request.data?.idempotencyKey);
@@ -760,15 +793,22 @@ export const runAiAssist = onCall(
             : { responseMimeType: "application/json" }),
         },
       });
+      if (isAssistBlocked(response)) throw mapAiAssistError(response);
       const text = response.text?.trim();
       if (!text) throw new Error("Gemini returned an empty response.");
       const usage = response.usageMetadata as any;
-      const inputTokens = Number(usage?.promptTokenCount ?? 0);
-      const outputTokens = Number(usage?.candidatesTokenCount ?? 0);
-      const actualCostUsd = (inputTokens * 0.30 + outputTokens * 2.50) / 1_000_000;
+      const { actualCostUsd, unknownModel } = geminiAssistCost({
+        backend: AI_ASSIST_BACKEND,
+        location: vertexConfig?.location,
+        model: vertexConfig?.model ?? "gemini-flash-latest",
+        modelVersion: response.modelVersion,
+        requestedAt,
+        usage,
+      });
+      if (unknownModel) logger.warn("Unknown AI assist model; using maximum spend rates.");
       const isJson = action !== "expand_prompt" && action !== "image_description";
       const result = isJson ? parseJsonText(text) : text;
-      await writePaidAssistDeliveryWithRetry({
+      const delivery = await writePaidAssistDeliveryWithRetry({
         version: 1,
         uid,
         idempotencyKey,
@@ -781,6 +821,11 @@ export const runAiAssist = onCall(
         actualCostUsd,
         usage: usage ?? null,
       });
+      if (delivery.reservationId !== reservation.reservationId) {
+        await releaseReservation({
+          uid, reservationId: reservation.reservationId, reason: "Existing AI delivery won the request race",
+        }).catch(() => logger.error("Unable to release superseded AI assist reservation"));
+      }
       await recordSpend("gemini", actualCostUsd, action, helperSpendReserveUsd)
         .then(() => { spendCapacityHeld = false; })
         .catch((error) => {
@@ -792,11 +837,11 @@ export const runAiAssist = onCall(
         try {
           await commitReservation({
             uid,
-            reservationId: reservation.reservationId,
+            reservationId: delivery.reservationId,
             provider: "gemini",
             providerRequestId: null,
-            actualCostUsd,
-            usage: usage ?? null,
+            actualCostUsd: delivery.actualCostUsd,
+            usage: delivery.usage,
           });
           commitError = null;
           break;
@@ -810,11 +855,13 @@ export const runAiAssist = onCall(
         logger.error("Gemini credit settlement deferred", { action, commitError });
       }
       return {
-        result,
-        milliCreditsCharged: AI_ASSIST_MILLICREDITS[action],
-        balanceMilliCredits: reservation.balanceMilliCredits,
+        result: delivery.result,
+        milliCreditsCharged: delivery.milliCreditsCharged,
+        balanceMilliCredits: delivery.balanceMilliCredits,
       };
     } catch (error) {
+      const raw = error as { status?: unknown; code?: unknown; message?: unknown };
+      logger.error("AI assist failed", { status: raw?.status, code: raw?.code, message: error instanceof SyntaxError ? "Invalid AI response JSON" : raw?.message });
       if (spendCapacityHeld) {
         await releaseSpendCapacity("gemini", helperSpendReserveUsd).catch((releaseError) => {
           logger.error("Unable to release Gemini spend capacity", { action, releaseError });
@@ -825,9 +872,7 @@ export const runAiAssist = onCall(
         reservationId: reservation.reservationId,
         reason: error instanceof Error ? error.message : "Gemini request failed",
       });
-      throw error instanceof HttpsError
-        ? error
-        : new HttpsError("internal", error instanceof Error ? error.message : "AI assist failed.");
+      throw mapAiAssistError(error);
     }
   },
 );
