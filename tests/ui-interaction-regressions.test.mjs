@@ -3,6 +3,33 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const appSource = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+
+test('#54 header reserves wordmark width and focus clearance beside auth controls', () => {
+  const header = appSource.match(/<header\b[\s\S]*?<\/header>/)?.[0];
+  assert.ok(header, 'main header was not found');
+  const wrapper = header.match(/<header[^>]*>\s*<div className="([^"]+)"/);
+  assert.ok(wrapper, 'wordmark wrapper was not found');
+  assert.match(wrapper[1], /\bmin-w-max\b/);
+  assert.match(wrapper[1], /\bshrink-0\b/);
+  assert.match(header, /<header className="[^"]*\bgap-3\b/);
+  assert.match(header, /<div className="flex shrink-0 items-center gap-2 sm:gap-3">/);
+  const wordmark = header.match(/<button\b[\s\S]*?<\/button>/)?.[0];
+  assert.ok(wordmark, 'wordmark button was not found');
+  assert.match(wordmark, /focus-visible:ring-brand-teal\b/);
+  assert.match(wordmark, /focus-visible:ring-2\b/);
+  assert.match(wordmark, /focus-visible:ring-offset-2\b/);
+  assert.match(wordmark, /<img\b[^>]*className="[^"]*\bshrink-0\b/);
+  assert.match(wordmark, /<span\s+aria-label="PixTaffy"\s+className="[^"]*\bwhitespace-nowrap\b/);
+  for (const mode of ['login', 'signup']) {
+    const button = header.match(new RegExp(`<button\\s+onClick=\\{\\(\\) => openAuthModal\\('${mode}'\\)\\}[\\s\\S]*?</button>`))?.[0];
+    assert.ok(button, `${mode} button was not found`);
+    assert.match(button, /min-h-\[44px\]/);
+    assert.match(button, /min-w-\[44px\]/);
+    assert.match(button, /\btext-xs\b/);
+    assert.match(button, /focus-visible:ring-brand-teal\b/);
+  }
+});
+
 const buildStudioSource = readFileSync(
   new URL('../components/BuildStudio.tsx', import.meta.url),
   'utf8'

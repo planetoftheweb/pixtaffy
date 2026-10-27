@@ -3836,7 +3836,7 @@ const App: React.FC = () => {
 
       {/* 1. Dedicated Header Row */}
       <header className="w-full flex items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] sticky top-0 z-50">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-max flex-1 shrink-0">
           <button 
             onClick={() => {
               writePreferStudioFlag();
