@@ -17,7 +17,7 @@ const cleanup = () => { if (created && existsSync(secretPath)) unlinkSync(secret
 process.on('exit', cleanup);
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { child?.kill(signal); cleanup(); process.exit(1); });
 const run = (cmd, args) => new Promise(resolve => {
-  child = spawn(cmd, args, { stdio: 'inherit', env: { ...process.env, FEATURE_FLAG_CACHE_MS: '100', XDG_CONFIG_HOME: cliConfig } });
+  child = spawn(cmd, args, { stdio: 'inherit', env: { ...process.env, WALKTHROUGH_SECURITY_STAGES: 'true', FEATURE_FLAG_CACHE_MS: '100', XDG_CONFIG_HOME: cliConfig } });
   child.on('error', () => resolve(1));
   child.on('exit', code => resolve(code ?? 1));
 });

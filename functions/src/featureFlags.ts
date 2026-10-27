@@ -1,8 +1,8 @@
 import { getFirestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 type Auth = { uid: string; token: Record<string, unknown> } | undefined;
-let cached: { value: unknown; expires: number } | undefined;
-export function resetFeatureFlagCache(): void { cached = undefined; }
+const cached = new Map<string, { value: unknown; expires: number }>();
+export function resetFeatureFlagCache(): void { cached.clear(); }
 export function flagEnabled(value: unknown, auth: Auth): boolean {
   if (!auth || !value || typeof value !== 'object' || Array.isArray(value)) return false;
   const flag = value as Record<string, unknown>;
@@ -11,12 +11,17 @@ export function flagEnabled(value: unknown, auth: Auth): boolean {
     || (flag.allowlistUids !== undefined && (!Array.isArray(flag.allowlistUids) || !flag.allowlistUids.every(uid => typeof uid === 'string')))) return false;
   return flag.stage === 2 || (flag.stage === 1 && ((flag.allowAdmins === true && auth.token.admin === true) || (flag.allowlistUids as string[] | undefined)?.includes(auth.uid) === true));
 }
-async function getFlag(): Promise<unknown> {
-  if (!cached || cached.expires <= Date.now()) {
+async function getFlag(name = 'serverSideUserKeys'): Promise<unknown> {
+  let entry = cached.get(name);
+  if (!entry || entry.expires <= Date.now()) {
     const doc = await getFirestore().doc('config/featureFlags').get();
-    cached = { value: doc.data()?.serverSideUserKeys, expires: Date.now() + (process.env.FUNCTIONS_EMULATOR === 'true' && /^\d+$/.test(process.env.FEATURE_FLAG_CACHE_MS || '') ? Math.min(30000, Number(process.env.FEATURE_FLAG_CACHE_MS)) : 30000) };
+    entry = { value: doc.data()?.[name], expires: Date.now() + (process.env.FUNCTIONS_EMULATOR === 'true' && /^\d+$/.test(process.env.FEATURE_FLAG_CACHE_MS || '') ? Math.min(30000, Number(process.env.FEATURE_FLAG_CACHE_MS)) : 30000) };
+    cached.set(name, entry);
   }
-  return cached.value;
+  return entry.value;
+}
+export async function namedFlagEnabled(name: string, auth: Auth): Promise<boolean> {
+  return !!auth && flagEnabled(await getFlag(name), auth);
 }
 export async function serverSideUserKeysEnabled(auth: Auth): Promise<boolean> {
   return !!auth && flagEnabled(await getFlag(), auth);
