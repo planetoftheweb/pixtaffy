@@ -1,3 +1,4 @@
+import { handleMenuKeyboard } from './utils/menuKeyboard';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Tip } from './settings/Tip';
 import { Check, ChevronDown, Search, type LucideIcon } from 'lucide-react';
@@ -90,17 +91,22 @@ export const RichSelect: React.FC<RichSelectProps> = ({
     const inMenu = (target: EventTarget | null) => target instanceof Node && !!menuRef.current?.contains(target);
     const handleFocusOut = (event: FocusEvent) => {
       const fromTrigger = event.target instanceof Node && !!triggerRef.current?.contains(event.target);
-      if ((inMenu(event.target) || fromTrigger) && !inMenu(event.relatedTarget)) setIsOpen(false);
+      if ((inMenu(event.target) || fromTrigger) && !inMenu(event.relatedTarget) && !(event.relatedTarget instanceof Node && triggerRef.current?.contains(event.relatedTarget))) setIsOpen(false);
     };
     const handleFocusIn = (event: FocusEvent) => {
       if (!inMenu(event.target) && !(event.target instanceof Node && triggerRef.current?.contains(event.target))) setIsOpen(false);
     };
+    const handleNavigation = (event: KeyboardEvent) => {
+      if (triggerRef.current && menuRef.current) handleMenuKeyboard(event, triggerRef.current, menuRef.current, () => setIsOpen(false));
+    };
+    document.addEventListener('keydown', handleNavigation, true);
     document.addEventListener('focusout', handleFocusOut, true);
     document.addEventListener('focusin', handleFocusIn, true);
     document.addEventListener('pointerdown', handleClickOutside, true);
     document.addEventListener('keydown', handleEscape, true);
 
     return () => {
+      document.removeEventListener('keydown', handleNavigation, true);
       document.removeEventListener('focusout', handleFocusOut, true);
       document.removeEventListener('focusin', handleFocusIn, true);
       document.removeEventListener('pointerdown', handleClickOutside, true);
@@ -207,6 +213,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
 
   const handleSelect = (nextValue: string) => {
     onChange(nextValue);
+    triggerRef.current?.focus();
     setIsOpen(false);
   };
 

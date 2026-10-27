@@ -1,3 +1,4 @@
+import { handleMenuKeyboard } from './utils/menuKeyboard';
 import { Tip } from './settings/Tip';
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useId } from 'react';
 import { createPortal } from 'react-dom';
@@ -121,6 +122,88 @@ const ToolbarPanel: React.FC<{ name: string | null; className: string; width: nu
     return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); };
   }, [name, originalWidth]);
   return createPortal(<div ref={panelRef} data-toolbar-panel={name} className={className} style={{ position: 'fixed', margin: 0, zIndex: 120, overflowY: 'auto' }}>{children}</div>, document.body);
+};
+
+const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false, accentClass, dropdownName }: any) => {
+  // Menu-style item (no per-button border). Five responsive tiers driven by pure CSS:
+  //   - base  (< md):   icon-only 44x44 tap target (tooltip shows label)
+  //   - md+  (>=768):   icon + UPPERCASE category label (TYPE, STYLE, ...)
+  //   - lg+  (>=1024):  icon + selected value (Infographic, Hand Drawn, ...)
+  //   - xl+  (>=1280):  icon + stacked SUBLABEL/value + chevron
+  //   - 2xl+ (>=1536):  adds color-palette preview strip under value
+  // The compact category-label tier replaces the old icon-only-only tier
+  // at tablet widths so users can still recognize each control by name.
+  const titleText =
+    subLabel && (typeof label === 'string' || typeof label === 'number')
+      ? `${subLabel}: ${label}`
+      : typeof subLabel === 'string'
+        ? subLabel
+        : undefined;
+  return (
+    <button
+      onClick={onClick}
+      data-toolbar-dropdown-trigger={dropdownName}
+      disabled={disabled}
+      aria-label={titleText}
+      aria-haspopup="listbox"
+      aria-expanded={Boolean(isActive)}
+      className={`h-11 rounded-md flex items-center transition-colors group shrink-0 lg:shrink lg:min-w-0
+        w-11 justify-center p-0
+        md:w-auto md:justify-start md:px-2.5 md:gap-2
+        xl:px-3 xl:gap-2.5
+        ${
+          isActive
+            ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal'
+            : disabled
+              ? 'text-slate-500 dark:text-slate-300 cursor-default'
+              : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
+        }`}
+    >
+      <Tip title={subLabel} text={typeof label === 'string' ? label : titleText || 'Choose a setting'} />
+      <Icon
+        size={20}
+        className={`shrink-0 ${
+          isActive
+            ? 'text-brand-teal'
+            : `${accentClass || 'text-slate-500 dark:text-slate-400'} group-hover:text-brand-teal`
+        }`}
+      />
+      {/* Compact category label, md through lg (when there's no room for the full value). */}
+      <span className={`hidden md:inline xl:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
+        isActive ? 'text-brand-teal' : 'text-slate-600 dark:text-slate-300 group-hover:text-brand-teal'
+      }`}>
+        {subLabel}
+      </span>
+      {/* Selected value and optional stacked sublabel and palette, xl+ */}
+      <div className="hidden xl:flex flex-col flex-1 min-w-0 text-left">
+        <span className="hidden xl:block text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
+          {subLabel}
+        </span>
+        {typeof label === 'string' || typeof label === 'number' ? (
+          <span className={`truncate font-semibold text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
+            isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
+          }`}>{label}</span>
+        ) : (
+          <div className={`min-w-0 truncate text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
+            isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
+          }`}>{label}</div>
+        )}
+        {colors && colors.length > 0 && (
+          <div className="hidden 2xl:flex h-[3px] mt-1 rounded-sm overflow-hidden ring-1 ring-black/5 dark:ring-white/10 opacity-90">
+            {colors.map((hex: string, i: number) => (
+              <div key={i} className="flex-1 h-full" style={{ backgroundColor: hex }} />
+            ))}
+          </div>
+        )}
+      </div>
+      <ChevronDown
+        size={14}
+        className={`hidden xl:block shrink-0 ml-0.5 transition-transform duration-200 text-slate-400 dark:text-slate-500 ${
+          isActive ? 'rotate-180 text-brand-teal' : ''
+        }`}
+      />
+    </button>
+  );
 };
 
 interface ControlPanelProps {
@@ -905,7 +988,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         : 'Generate';
   const generateButtonDisabled = !hasSetupAction && (!config.prompt || exceedsBatchCap);
   const generateReasonId = useId();
-  const generateButtonTitle = hasSetupAction
+  const generateButtonTitle = generateButtonDisabled
+    ? !config.prompt
+      ? 'Type a prompt to generate'
+      : `Will run ${totalBatchRuns} generations, which exceeds your ${batchCapLabel} cap. Reduce the count, prompt-list entries, brace options, or selected models.`
+    : hasSetupAction
     ? (setupActionDescription || generateButtonLabel)
     : freeFirstGeneration
       ? 'Create your first image free'
@@ -1031,7 +1118,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       }
 
       if (target.closest?.('.mobile-dropdown-panel')) return;
-      if (target.closest?.(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`)) return;
+      if (target.closest?.('[data-toolbar-dropdown-trigger]')) return;
       close(!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label'));
     };
 
@@ -1039,22 +1126,30 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       !!target.closest(`[data-toolbar-panel="${activeDropdown}"]`)
       || !!target.closest('[data-preset-popover], [data-batch-count-popover]')
     );
+    const isTrigger = (target: EventTarget | null) => target instanceof Element && !!target.closest('[data-toolbar-dropdown-trigger]');
     const handleFocusOut = (event: FocusEvent) => {
+      if (isTrigger(event.relatedTarget) || event.relatedTarget instanceof Node && trigger?.contains(event.relatedTarget)) return;
       const fromTrigger = event.target instanceof Node && !!trigger?.contains(event.target);
       if ((inPanel(event.target) || fromTrigger) && !inPanel(event.relatedTarget)) {
         setActiveDropdown(null);
       }
     };
     const handleFocusIn = (event: FocusEvent) => {
+      if (isTrigger(event.target)) return;
       if (!inPanel(event.target) && !(event.target instanceof Node && trigger?.contains(event.target))) {
         setActiveDropdown(null);
       }
     };
+    const handleNavigation = (event: KeyboardEvent) => {
+      const panel = document.querySelector<HTMLElement>(`[data-toolbar-panel="${activeDropdown}"], [data-batch-count-popover]`);
+      if (trigger && panel) handleMenuKeyboard(event, trigger, panel, () => setActiveDropdown(null));
+    };
+    document.addEventListener('keydown', handleNavigation, true);
     document.addEventListener('focusout', handleFocusOut, true);
     document.addEventListener('focusin', handleFocusIn, true);
     document.addEventListener('keydown', handleEscape, true);
     document.addEventListener('pointerdown', handlePointerOutside, true);
-    return () => { document.removeEventListener('focusout', handleFocusOut, true); document.removeEventListener('focusin', handleFocusIn, true); document.removeEventListener('pointerdown', handlePointerOutside, true); document.removeEventListener('keydown', handleEscape, true); };
+    return () => { document.removeEventListener('keydown', handleNavigation, true); document.removeEventListener('focusout', handleFocusOut, true); document.removeEventListener('focusin', handleFocusIn, true); document.removeEventListener('pointerdown', handlePointerOutside, true); document.removeEventListener('keydown', handleEscape, true); };
   }, [activeDropdown]);
 
   // Clear search when dropdown changes
@@ -1174,6 +1269,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     return (
                         <div
                             key={item.id || item.value}
+                            role="option"
+                            tabIndex={0}
+                            onKeyDown={(event) => {
+                              if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                                event.preventDefault();
+                                event.currentTarget.click();
+                              }
+                            }}
                             aria-selected={isSelected}
                             className={`group relative flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
                                 isSelected
@@ -1182,6 +1285,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                             }`}
                             onClick={() => {
                                 handleChange(configKey, item.id || item.value);
+                                document.querySelector<HTMLElement>(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`)?.focus();
                                 setActiveDropdown(null);
                             }}
                         >
@@ -1765,87 +1869,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     confirmCatalogDelete.trigger(`${type}:${idOrValue}`);
   };
 
-  const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false, accentClass, dropdownName }: any) => {
-    // Menu-style item (no per-button border). Five responsive tiers driven by pure CSS:
-    //   - base  (< md):   icon-only 44x44 tap target (tooltip shows label)
-    //   - md+  (>=768):   icon + UPPERCASE category label (TYPE, STYLE, ...)
-    //   - lg+  (>=1024):  icon + selected value (Infographic, Hand Drawn, ...)
-    //   - xl+  (>=1280):  icon + stacked SUBLABEL/value + chevron
-    //   - 2xl+ (>=1536):  adds color-palette preview strip under value
-    // The compact category-label tier replaces the old icon-only-only tier
-    // at tablet widths so users can still recognize each control by name.
-    const titleText =
-      subLabel && (typeof label === 'string' || typeof label === 'number')
-        ? `${subLabel}: ${label}`
-        : typeof subLabel === 'string'
-          ? subLabel
-          : undefined;
-    return (
-      <button
-        onClick={onClick}
-        data-toolbar-dropdown-trigger={dropdownName}
-        disabled={disabled}
-        aria-label={titleText}
-        aria-haspopup="listbox"
-        aria-expanded={Boolean(isActive)}
-        className={`h-11 rounded-md flex items-center transition-colors group shrink-0 lg:shrink lg:min-w-0
-          w-11 justify-center p-0
-          md:w-auto md:justify-start md:px-2.5 md:gap-2
-          xl:px-3 xl:gap-2.5
-          ${
-            isActive
-              ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal'
-              : disabled
-                ? 'text-slate-500 dark:text-slate-300 cursor-default'
-                : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
-          }`}
-      >
-        <Tip title={subLabel} text={typeof label === 'string' ? label : titleText || 'Choose a setting'} />
-        <Icon
-          size={20}
-          className={`shrink-0 ${
-            isActive
-              ? 'text-brand-teal'
-              : `${accentClass || 'text-slate-500 dark:text-slate-400'} group-hover:text-brand-teal`
-          }`}
-        />
-        {/* Compact category label, md through lg (when there's no room for the full value). */}
-        <span className={`hidden md:inline xl:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
-          isActive ? 'text-brand-teal' : 'text-slate-600 dark:text-slate-300 group-hover:text-brand-teal'
-        }`}>
-          {subLabel}
-        </span>
-        {/* Selected value and optional stacked sublabel and palette, xl+ */}
-        <div className="hidden xl:flex flex-col flex-1 min-w-0 text-left">
-          <span className="hidden xl:block text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
-            {subLabel}
-          </span>
-          {typeof label === 'string' || typeof label === 'number' ? (
-            <span className={`truncate font-semibold text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
-              isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
-            }`}>{label}</span>
-          ) : (
-            <div className={`min-w-0 truncate text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
-              isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
-            }`}>{label}</div>
-          )}
-          {colors && colors.length > 0 && (
-            <div className="hidden 2xl:flex h-[3px] mt-1 rounded-sm overflow-hidden ring-1 ring-black/5 dark:ring-white/10 opacity-90">
-              {colors.map((hex: string, i: number) => (
-                <div key={i} className="flex-1 h-full" style={{ backgroundColor: hex }} />
-              ))}
-            </div>
-          )}
-        </div>
-        <ChevronDown
-          size={14}
-          className={`hidden xl:block shrink-0 ml-0.5 transition-transform duration-200 text-slate-400 dark:text-slate-500 ${
-            isActive ? 'rotate-180 text-brand-teal' : ''
-          }`}
-        />
-      </button>
-    );
-  };
 
   const currentType = options.graphicTypes.find(t => t.id === config.graphicTypeId);
   const isSvgModel = SUPPORTED_MODELS.find(m => m.id === selectedModel)?.format === 'vector';

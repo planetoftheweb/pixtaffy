@@ -236,3 +236,76 @@ test('outside pointer focus restoration uses the target rather than animation ti
     assert.doesNotMatch(source, /document.activeElement === document.body|document.activeElement !== document.body/);
   }
 });
+
+test('toolbar trigger identity survives menu toggles and neighbouring triggers can switch menus', () => {
+  assert.ok(controlPanelSource.indexOf('const DropdownButton =') < controlPanelSource.indexOf('interface ControlPanelProps'));
+  assert.match(controlPanelSource, /if \(target\.closest\?\.\('\[data-toolbar-dropdown-trigger\]'\)\) return/);
+  assert.match(controlPanelSource, /if \(isTrigger\(event\.relatedTarget\)/);
+  assert.match(controlPanelSource, /if \(isTrigger\(event\.target\)\) return/);
+  assert.match(controlPanelSource, /role="option"\s+tabIndex=\{0\}/);
+});
+
+test('both menu families explicitly navigate portal boundaries and retain trigger focus', () => {
+  const rich = readFileSync(new URL('../components/RichSelect.tsx', import.meta.url), 'utf8');
+  const keyboard = readFileSync(new URL('../components/utils/menuKeyboard.ts', import.meta.url), 'utf8');
+  for (const source of [controlPanelSource, rich]) {
+    assert.match(source, /handleMenuKeyboard\(event,/);
+    assert.match(source, /removeEventListener\('keydown', handleNavigation, true\)/);
+  }
+  assert.match(rich, /event\.relatedTarget instanceof Node && triggerRef\.current\?\.contains\(event\.relatedTarget\)/);
+  assert.match(keyboard, /event.key === 'Tab'/);
+  assert.match(keyboard, /event.key === 'ArrowDown' \|\| event.key === 'ArrowUp'/);
+  assert.match(keyboard, /event.preventDefault\(\)/);
+  assert.match(keyboard, /trigger.focus\(\)/);
+  assert.match(keyboard, /\(next \|\| trigger\)\.focus\(\);\s+close\(\)/);
+  assert.match(keyboard, /!panel.contains\(element\)/);
+});
+
+test('disabled Generate explains the prompt and batch cap conditions', () => {
+  assert.match(controlPanelSource, /const generateButtonTitle = generateButtonDisabled\s+\? !config.prompt\s+\? 'Type a prompt to generate'/);
+  assert.match(controlPanelSource, /exceeds your \$\{batchCapLabel\} cap\. Reduce the count/);
+});
+
+test('menu keyboard traversal enters options, returns to trigger, and exits in trigger order', async () => {
+  const { handleMenuKeyboard } = await import('../components/utils/menuKeyboard.ts');
+  const originalNode = globalThis.Node;
+  const originalDocument = globalThis.document;
+  let focused;
+  class FocusNode {
+    constructor(name, children = []) { this.name = name; this.children = children; this.tabIndex = 0; }
+    contains(node) { return node === this || this.children.some(child => child.contains(node)); }
+    querySelectorAll() { return this.children; }
+    getClientRects() { return [{}]; }
+    focus() { focused = this; }
+  }
+  const previous = new FocusNode('previous');
+  const trigger = new FocusNode('trigger');
+  const next = new FocusNode('next');
+  const first = new FocusNode('first');
+  const last = new FocusNode('last');
+  const panel = new FocusNode('panel', [first, last]);
+  // The portal appears after other page controls, independently of the trigger.
+  globalThis.Node = FocusNode;
+  globalThis.document = new FocusNode('document', [previous, trigger, next, first, last]);
+  let closed = false;
+  const press = (target, key, shiftKey = false) => {
+    let prevented = false;
+    handleMenuKeyboard({ target, key, shiftKey, preventDefault() { prevented = true; } }, trigger, panel, () => { closed = true; });
+    assert.ok(prevented);
+  };
+  try {
+    press(trigger, 'Tab'); assert.equal(focused, first); assert.equal(closed, false);
+    press(first, 'Tab'); assert.equal(focused, last);
+    press(last, 'Tab', true); assert.equal(focused, first);
+    press(first, 'Tab', true); assert.equal(focused, trigger); assert.equal(closed, false);
+    press(trigger, 'ArrowUp'); assert.equal(focused, last);
+    press(last, 'ArrowDown'); assert.equal(focused, first);
+    press(first, 'ArrowUp'); assert.equal(focused, last);
+    press(last, 'Tab'); assert.equal(focused, next); assert.equal(closed, true);
+    closed = false;
+    press(trigger, 'Tab', true); assert.equal(focused, previous); assert.equal(closed, true);
+  } finally {
+    if (originalNode === undefined) delete globalThis.Node; else globalThis.Node = originalNode;
+    if (originalDocument === undefined) delete globalThis.document; else globalThis.document = originalDocument;
+  }
+});
