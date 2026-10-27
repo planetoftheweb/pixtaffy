@@ -1769,6 +1769,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         data-toolbar-dropdown-trigger={dropdownName}
         disabled={disabled}
         aria-label={titleText}
+        aria-haspopup="listbox"
+        aria-expanded={Boolean(isActive)}
         className={`h-11 rounded-md flex items-center transition-colors group shrink-0 lg:shrink lg:min-w-0
           w-11 justify-center p-0
           md:w-auto md:justify-start md:px-2.5 md:gap-2
