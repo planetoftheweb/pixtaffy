@@ -93,7 +93,7 @@ export const FeatureDemoGrid: React.FC<FeatureDemoGridProps> = ({ className = ''
           <div className="relative flex-1 p-6 sm:p-7">
             <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${feature.wash}`} />
             <div className="relative">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Feature demo</p>
+              <p className="text-[12px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Feature demo</p>
               <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950 dark:text-white">{feature.title}</h3>
               <p className="mt-3 leading-7 text-slate-700 dark:text-slate-300">{feature.copy}</p>
             </div>

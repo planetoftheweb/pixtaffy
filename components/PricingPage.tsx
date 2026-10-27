@@ -122,7 +122,7 @@ const MascotWindow: React.FC<{ position: string; label: string; className?: stri
 const Estimate: React.FC<{ value: number; label: string; color: string }> = ({ value, label, color }) => (
   <div className="rounded-xl bg-white/75 px-3 py-2 text-center ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
     <p className={'pixtaffy-counter text-xl font-bold ' + color}>{value}</p>
-    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+    <p className="mt-0.5 text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
   </div>
 );
 
@@ -225,7 +225,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
               {user && (
                 <div className="mt-6 inline-flex items-center gap-4 rounded-2xl border border-white/10 bg-white/10 px-5 py-3 backdrop-blur">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Your balance</p>
+                    <p className="text-[12px] font-black uppercase tracking-[0.16em] text-slate-400">Your balance</p>
                     <p className="pixtaffy-counter mt-0.5 text-3xl font-extrabold">{billing?.isAdmin ? 'Unlimited' : billing ? formatCredits(billing.balanceMilliCredits) : '...'}</p>
                   </div>
                   {!billing?.isAdmin && <span className="rounded-full bg-brand-orange px-2.5 py-1 text-xs font-black text-[#261307]">credits</span>}
@@ -269,10 +269,10 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
                 <div className={'h-2 bg-gradient-to-r ' + product.accent} />
                 <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#fff0dd] via-[#ffe5f3] to-[#dffbff] dark:from-white/10 dark:via-brand-pink/10 dark:to-brand-cyan/10 sm:h-52">
                   <img src={product.image} alt={product.imageAlt} loading="lazy" className="h-full w-full object-cover object-center" />
-                  {product.featured && <span className="absolute right-4 top-4 rounded-full bg-[#11172a] px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-brand-cyan">Most popular</span>}
+                  {product.featured && <span className="absolute right-4 top-4 rounded-full bg-[#11172a] px-3 py-1.5 text-[12px] font-black uppercase tracking-wider text-brand-cyan">Most popular</span>}
                 </div>
                 <div className="p-6">
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-brand-purple dark:text-brand-cyan">{product.eyebrow}</p>
+                  <p className="text-[12px] font-black uppercase tracking-[0.16em] text-brand-purple dark:text-brand-cyan">{product.eyebrow}</p>
                   <h3 className="pixtaffy-display mt-1 text-2xl font-bold text-slate-950 dark:text-white">{product.name}</h3>
                   <div className="mt-4 flex items-end gap-3">
                     <p className="pixtaffy-counter text-5xl font-black text-slate-950 dark:text-white">{product.price}</p>
