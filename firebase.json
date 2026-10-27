@@ -68,6 +68,148 @@
             }
           ]
         }
+      ],
+      "redirects": [
+        {
+          "source": "/studio",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/app",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/create",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/login",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/signin",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/sign-in",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/signup",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/sign-up",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/register",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/home",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/index",
+          "destination": "/",
+          "type": 301
+        },
+        {
+          "source": "/whats-new",
+          "destination": "/?whatsnewpage=1",
+          "type": 301
+        },
+        {
+          "source": "/whatsnew",
+          "destination": "/?whatsnewpage=1",
+          "type": 301
+        },
+        {
+          "source": "/changelog",
+          "destination": "/?whatsnewpage=1",
+          "type": 301
+        },
+        {
+          "source": "/releases",
+          "destination": "/?whatsnewpage=1",
+          "type": 301
+        },
+        {
+          "source": "/updates",
+          "destination": "/?whatsnewpage=1",
+          "type": 301
+        },
+        {
+          "source": "/billing",
+          "destination": "/pricing",
+          "type": 301
+        },
+        {
+          "source": "/checkout",
+          "destination": "/pricing",
+          "type": 301
+        },
+        {
+          "source": "/plans",
+          "destination": "/pricing",
+          "type": 301
+        },
+        {
+          "source": "/credits",
+          "destination": "/pricing",
+          "type": 301
+        },
+        {
+          "source": "/buy",
+          "destination": "/pricing",
+          "type": 301
+        },
+        {
+          "source": "/privacy-policy",
+          "destination": "/privacy",
+          "type": 301
+        },
+        {
+          "source": "/legal/privacy",
+          "destination": "/privacy",
+          "type": 301
+        },
+        {
+          "source": "/tos",
+          "destination": "/terms",
+          "type": 301
+        },
+        {
+          "source": "/terms-of-service",
+          "destination": "/terms",
+          "type": 301
+        },
+        {
+          "source": "/terms-of-use",
+          "destination": "/terms",
+          "type": 301
+        },
+        {
+          "source": "/legal/terms",
+          "destination": "/terms",
+          "type": 301
+        },
+        {
+          "source": "/favicon.ico",
+          "destination": "/pixtaffy.png",
+          "type": 302
+        }
       ]
     }
   ],

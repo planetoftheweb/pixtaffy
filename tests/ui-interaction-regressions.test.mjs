@@ -181,3 +181,31 @@ test('settings toast escapes page stacking contexts and sits above overlays and 
   assert.match(feedback, /document\.body/);
   assert.match(feedback, /fixed bottom-.*z-\[500\]/);
 });
+
+test('disabled Generate has a wrapper hint and an accessible reason', () => {
+  assert.match(controlPanelSource, /aria-describedby=\{generateButtonDisabled \? generateReasonId : undefined\}/);
+  assert.match(controlPanelSource, /!generateButtonDisabled && <Tip text=\{generateButtonTitle\}/);
+  assert.match(controlPanelSource, /generateButtonDisabled && <Tip text=\{generateButtonTitle\} side="top" allowDisabledChildren/);
+  assert.match(controlPanelSource, /id=\{generateReasonId\} className="sr-only">\{generateButtonTitle\}/);
+});
+
+test('tips hand visibility to one owner and release ownership on cleanup', () => {
+  const tip = readFileSync(new URL('../components/settings/Tip.tsx', import.meta.url), 'utf8');
+  assert.match(tip, /if \(hideVisibleTip !== hide\) hideVisibleTip\?\.\(\)/);
+  assert.match(tip, /hideVisibleTip = hide/);
+  assert.match(tip, /if \(hideVisibleTip === hide\) hideVisibleTip = null/);
+  assert.match(tip, /return \(\) => \{\s*hide\(\);/);
+});
+
+test('toolbar and rich menus dismiss focus departures without restoring focus', () => {
+  const richSelect = readFileSync(new URL('../components/RichSelect.tsx', import.meta.url), 'utf8');
+  for (const source of [controlPanelSource, richSelect]) {
+    assert.match(source, /addEventListener\('focusout', handleFocusOut, true\)/);
+    assert.match(source, /addEventListener\('focusin', handleFocusIn, true\)/);
+    assert.match(source, /event\.relatedTarget/);
+    const handler = source.slice(source.indexOf('const handleFocusOut'), source.indexOf("document.addEventListener('focusout'"));
+    assert.doesNotMatch(handler, /\.focus\(|close\(/);
+  }
+  assert.match(controlPanelSource, /data-toolbar-panel=\{name\}/);
+  assert.match(richSelect, /menuRef\.current\?\.contains\(target\)/);
+});

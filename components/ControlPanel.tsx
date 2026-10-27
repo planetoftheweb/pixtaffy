@@ -1,5 +1,5 @@
 import { Tip } from './settings/Tip';
-import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { GenerationConfig, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, User, Team, SvgMode, ToolbarPreset, GeneratedImage, PromptImageStyleInfluenceMode, PromptImageStyleReference } from '../types';
 import { analyzeFileOptionPaid, describeImagePaid, expandPromptPaid } from '../services/paidAiService';
@@ -120,7 +120,7 @@ const ToolbarPanel: React.FC<{ name: string | null; className: string; width: nu
     window.addEventListener('scroll', position, true);
     return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); };
   }, [name, originalWidth]);
-  return createPortal(<div ref={panelRef} className={className} style={{ position: 'fixed', margin: 0, zIndex: 120, overflowY: 'auto' }}>{children}</div>, document.body);
+  return createPortal(<div ref={panelRef} data-toolbar-panel={name} className={className} style={{ position: 'fixed', margin: 0, zIndex: 120, overflowY: 'auto' }}>{children}</div>, document.body);
 };
 
 interface ControlPanelProps {
@@ -904,6 +904,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         ? `Generate x${totalBatchRuns}`
         : 'Generate';
   const generateButtonDisabled = !hasSetupAction && (!config.prompt || exceedsBatchCap);
+  const generateReasonId = useId();
   const generateButtonTitle = hasSetupAction
     ? (setupActionDescription || generateButtonLabel)
     : freeFirstGeneration
@@ -1034,9 +1035,26 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       close();
     };
 
+    const inPanel = (target: EventTarget | null) => target instanceof Element && (
+      !!target.closest(`[data-toolbar-panel="${activeDropdown}"]`)
+      || !!target.closest('[data-preset-popover], [data-batch-count-popover]')
+    );
+    const handleFocusOut = (event: FocusEvent) => {
+      const fromTrigger = event.target instanceof Node && !!trigger?.contains(event.target);
+      if ((inPanel(event.target) || fromTrigger) && !inPanel(event.relatedTarget)) {
+        setActiveDropdown(null);
+      }
+    };
+    const handleFocusIn = (event: FocusEvent) => {
+      if (!inPanel(event.target) && !(event.target instanceof Node && trigger?.contains(event.target))) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener('focusout', handleFocusOut, true);
+    document.addEventListener('focusin', handleFocusIn, true);
     document.addEventListener('keydown', handleEscape, true);
     document.addEventListener('pointerdown', handlePointerOutside, true);
-    return () => { document.removeEventListener('pointerdown', handlePointerOutside, true); document.removeEventListener('keydown', handleEscape, true); };
+    return () => { document.removeEventListener('focusout', handleFocusOut, true); document.removeEventListener('focusin', handleFocusIn, true); document.removeEventListener('pointerdown', handlePointerOutside, true); document.removeEventListener('keydown', handleEscape, true); };
   }, [activeDropdown]);
 
   // Clear search when dropdown changes
@@ -2930,30 +2948,35 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <Tip text="Expand prompt" side="top" />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (hasSetupAction) {
-                      onSetupAction?.();
-                      return;
-                    }
-                    onGenerate(safeBatchCount);
-                  }}
-                  disabled={generateButtonDisabled}
-                  className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-bold shadow-md transition-all active:translate-y-0.5 group ${
-                    generateButtonDisabled
-                      ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                      : 'bg-gradient-to-br from-brand-orange via-brand-red to-brand-purple hover:saturate-125 text-white shadow-brand-pink/25'
-                  }`}
-                  aria-label={generateButtonTitle}
-                >
-                  {hasSetupAction ? (
-                    user ? <KeyRound size={16} className="text-white" /> : <UserPlus size={16} className="text-white" />
-                  ) : (
-                    <Send size={16} className="text-white" />
-                  )}
-                  <Tip text={generateButtonTitle} side="top" />
-                </button>
+                <span className="relative inline-flex h-12 w-12 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (hasSetupAction) {
+                        onSetupAction?.();
+                        return;
+                      }
+                      onGenerate(safeBatchCount);
+                    }}
+                    disabled={generateButtonDisabled}
+                    aria-describedby={generateButtonDisabled ? generateReasonId : undefined}
+                    className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-bold shadow-md transition-all active:translate-y-0.5 group ${
+                      generateButtonDisabled
+                        ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
+                        : 'bg-gradient-to-br from-brand-orange via-brand-red to-brand-purple hover:saturate-125 text-white shadow-brand-pink/25'
+                    }`}
+                    aria-label={generateButtonTitle}
+                  >
+                    {hasSetupAction ? (
+                      user ? <KeyRound size={16} className="text-white" /> : <UserPlus size={16} className="text-white" />
+                    ) : (
+                      <Send size={16} className="text-white" />
+                    )}
+                    {!generateButtonDisabled && <Tip text={generateButtonTitle} side="top" />}
+                  </button>
+                  {generateButtonDisabled && <Tip text={generateButtonTitle} side="top" allowDisabledChildren />}
+                  <span id={generateReasonId} className="sr-only">{generateButtonTitle}</span>
+                </span>
               </div>
             </div>
 
