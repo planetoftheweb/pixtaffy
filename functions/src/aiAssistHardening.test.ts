@@ -6,7 +6,7 @@ import { resolve, basename } from "node:path";
 import { HttpsError } from "firebase-functions/v2/https";
 import { writePaidAssistDeliveryWithRetry, type CachedPaidAssistDelivery } from "./paidDelivery";
 import { geminiAssistCost } from "./geminiRates";
-import { isAssistBlocked, mapAiAssistError, runAiAssist } from "./paidAi";
+import { isAssistBlocked, mapAiAssistError, resolveAiAssistTimeoutMs, runAiAssist } from "./paidAi";
 
 const delivery: CachedPaidAssistDelivery = {
   version: 1, uid: "user", idempotencyKey: "request-123", action: "expand_prompt",
@@ -118,6 +118,7 @@ test("assist error mapper classifies provider errors without exposing internals"
     [{ status: 429, message: '{"error":{"status":"RESOURCE_EXHAUSTED","message":"private quota"}}' }, "resource-exhausted"],
     [Object.assign(new Error("private"), { code: "RESOURCE_EXHAUSTED" }), "resource-exhausted"],
     [new Error("quota exceeded private"), "resource-exhausted"],
+    [new HttpsError("deadline-exceeded", "Please try again."), "deadline-exceeded"],
     [{ status: 504 }, "deadline-exceeded"], [Object.assign(new Error("private"), { code: "DEADLINE_EXCEEDED" }), "deadline-exceeded"],
     [Object.assign(new Error("private"), { name: "AbortError" }), "deadline-exceeded"], [new Error("timeout private"), "deadline-exceeded"],
     [{ status: 500 }, "unavailable"], [{ status: 503 }, "unavailable"], [{ code: "UNAVAILABLE" }, "unavailable"], [{ code: "INTERNAL" }, "unavailable"],
@@ -216,19 +217,20 @@ test(`runAiAssist settles the stored delivery after an ambiguous write (${differ
 });
 }
 
-function mockAssist(t: import("node:test").TestContext, response: Record<string, unknown>) {
+function mockAssist(t: import("node:test").TestContext,
+  response: Record<string, unknown> | ((input: any) => Promise<Record<string, unknown>>), realBilling = false) {
   const billing = require("./billing");
   const deliveries = require("./paidDelivery");
   const store = fakeFirestore(t);
   t.mock.method(require("./rateLimit"), "enforceRateLimit", async () => {});
   t.mock.method(billing, "ensureStarterGrant", async () => {});
-  const reserve = t.mock.method(billing, "reserveAssistCredits", async () => ({ reservationId: delivery.reservationId, balanceMilliCredits: 900 }));
-  const release = t.mock.method(billing, "releaseReservation", async () => {});
-  const commit = t.mock.method(billing, "commitReservation", async () => {});
+  const reserve = t.mock.method(billing, "reserveAssistCredits", realBilling ? billing.reserveAssistCredits : async () => ({ reservationId: delivery.reservationId, balanceMilliCredits: 900 }));
+  const release = t.mock.method(billing, "releaseReservation", realBilling ? billing.releaseReservation : async () => {});
+  const commit = t.mock.method(billing, "commitReservation", realBilling ? billing.commitReservation : async () => {});
   t.mock.method(deliveries, "readPaidAssistDelivery", async () => null);
   let providerCalls = 0;
   t.mock.method(require("@google/genai"), "GoogleGenAI", class {
-    models = { generateContent: async () => { providerCalls++; return response; } };
+    models = { generateContent: async (input: any) => { providerCalls++; return typeof response === "function" ? response(input) : response; } };
   });
   return { billing, deliveries, reserve, release, commit, store, spend: store.spend, providerCalls: () => providerCalls };
 }
@@ -252,9 +254,12 @@ function assertSpend(spend: Record<string, any>) {
 
 function skipRetrySleeps(t: import("node:test").TestContext) {
   const delays: number[] = [];
+  const realSetTimeout = globalThis.setTimeout;
   t.mock.method(globalThis, "setTimeout", ((callback: () => void, ms: number) => {
+    if (ms >= 5_000) return realSetTimeout(callback, ms);
     delays.push(ms);
     callback();
+    return undefined;
   }) as typeof setTimeout);
   return delays;
 }
@@ -875,3 +880,132 @@ for (const lostAt of ["reserve", "settle"]) {
     }
   });
 }
+
+test("assist timeout resolver defaults safely and clamps below the service limit", () => {
+  assert.equal(resolveAiAssistTimeoutMs({}), 75_000);
+  for (const [value, expected] of [
+    [undefined, 75_000], ["", 75_000], ["garbage", 75_000], ["75oops", 75_000],
+    ["0", 75_000], ["-1", 75_000], ["Infinity", 75_000], ["NaN", 75_000],
+    ["90000", 90_000], ["1", 5_000], ["999999", 240_000],
+  ] as const) {
+    const timeout = resolveAiAssistTimeoutMs({ AI_ASSIST_TIMEOUT_MS: value });
+    assert.equal(timeout, expected);
+    assert.ok(timeout < 300_000);
+  }
+});
+
+function assistDeadlineClock(t: import("node:test").TestContext) {
+  const previous = process.env.AI_ASSIST_TIMEOUT_MS;
+  process.env.AI_ASSIST_TIMEOUT_MS = "5000";
+  t.after(() => {
+    if (previous === undefined) delete process.env.AI_ASSIST_TIMEOUT_MS;
+    else process.env.AI_ASSIST_TIMEOUT_MS = previous;
+  });
+  const timers = new Map<ReturnType<typeof setTimeout>, () => void>();
+  const set = t.mock.method(globalThis, "setTimeout", ((callback: () => void, ms: number) => {
+    assert.equal(ms, 5_000);
+    const handle = {} as ReturnType<typeof setTimeout>;
+    timers.set(handle, callback);
+    return handle;
+  }) as typeof setTimeout);
+  const clear = t.mock.method(globalThis, "clearTimeout", ((handle: ReturnType<typeof setTimeout>) => {
+    assert.ok(timers.delete(handle));
+  }) as typeof clearTimeout);
+  return { timers, set, clear, expire: () => {
+    assert.equal(timers.size, 1);
+    [...timers.values()][0]();
+  } };
+}
+
+for (const lateOutcome of ["resolve", "reject"] as const) {
+  test(`runAiAssist releases holds on a stalled provider and ignores its late ${lateOutcome}`, async (t) => {
+    const clock = assistDeadlineClock(t);
+    let started!: () => void;
+    const providerStarted = new Promise<void>(resolve => { started = resolve; });
+    let resolveProvider!: (value: Record<string, unknown>) => void;
+    let rejectProvider!: (error: Error) => void;
+    let signal!: AbortSignal;
+    const mocks = mockAssist(t, async (input) => {
+      signal = input.config.abortSignal;
+      assert.equal(input.config.httpOptions.timeout, 5_000);
+      started();
+      return new Promise((resolve, reject) => { resolveProvider = resolve; rejectProvider = reject; });
+    }, true);
+    fund(mocks.store);
+    const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+    t.mock.method(require("firebase-functions/logger"), "error", () => {});
+    const pending = runAiAssist.run(assistRequest());
+    const rejected = assert.rejects(pending, (error: unknown) => {
+      assert.ok(error instanceof HttpsError);
+      assert.equal(error.code, "deadline-exceeded");
+      assert.match(error.message, /try again/i);
+      assert.equal(mapAiAssistError(error).code, "deadline-exceeded");
+      return true;
+    });
+    await providerStarted;
+    assert.equal(signal.aborted, false);
+    clock.expire();
+    await rejected;
+    assert.equal(signal.aborted, true);
+    if (lateOutcome === "resolve") resolveProvider(providerResponse);
+    else rejectProvider(new Error("late upstream failure"));
+    await new Promise<void>(resolve => setImmediate(resolve));
+    await assertAssistBillingReleased(mocks);
+    assert.equal(cache.mock.callCount(), 0);
+    assert.equal(mocks.providerCalls(), 1);
+    assert.equal(clock.clear.mock.callCount(), 1);
+    assert.equal(clock.timers.size, 0);
+  });
+}
+
+async function assertAssistBillingReleased(mocks: ReturnType<typeof mockAssist>) {
+  // Await the spy's async reservation result before inspecting its document.
+  const reservation = await mocks.reserve.mock.calls[0].result;
+  assert.equal(reservationDoc(mocks.store, reservation.reservationId).state, "released");
+  assert.equal(mocks.release.mock.callCount(), 1);
+  assert.equal(mocks.commit.mock.callCount(), 0);
+  const holds = [...mocks.store.docs.entries()].filter(([path]) => path.includes("/holds/"));
+  assert.equal(holds.length, 1);
+  assert.equal(holds[0][1].state, "released");
+  assert.equal(mocks.spend().geminiReservedUsd, 0);
+  assert.equal(mocks.spend().geminiUsd, undefined);
+  assert.equal(mocks.store.docs.get("users/user/private/billing").balanceMilliCredits, 1000);
+  assert.equal([...mocks.store.docs.keys()].some(path => path.includes("/billingLedger/debit-")), false);
+}
+
+test("runAiAssist releases real billing reservations on generic upstream failure", async (t) => {
+  const clock = assistDeadlineClock(t);
+  const mocks = mockAssist(t, async () => { throw new Error("upstream failure"); }, true);
+  fund(mocks.store);
+  const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+  t.mock.method(require("firebase-functions/logger"), "error", () => {});
+  await assert.rejects(runAiAssist.run(assistRequest()), (error: unknown) =>
+    error instanceof HttpsError && error.code === mapAiAssistError(new Error("upstream failure")).code
+      && !error.message.includes("upstream"));
+  await assertAssistBillingReleased(mocks);
+  assert.equal(cache.mock.callCount(), 0);
+  assert.equal(clock.clear.mock.callCount(), 1);
+  assert.equal(clock.timers.size, 0);
+});
+
+test("runAiAssist completes before its deadline, settles once and clears the timer", async (t) => {
+  const clock = assistDeadlineClock(t);
+  const mocks = mockAssist(t, providerResponse, true);
+  fund(mocks.store);
+  const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+  const writes = failSpendWrites(t, mocks.store, 0);
+  assert.equal((await runAiAssist.run(assistRequest())).result, providerResponse.text);
+  assert.equal(mocks.commit.mock.callCount(), 1);
+  assert.equal(mocks.release.mock.callCount(), 0);
+  const reservation = await mocks.reserve.mock.calls[0].result;
+  assert.equal(reservationDoc(mocks.store, reservation.reservationId).state, "committed");
+  assert.equal(mocks.store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
+  assert.equal(cache.mock.callCount(), 1);
+  assert.equal(writes.writes(), 1);
+  assert.equal([...mocks.store.docs.values()].filter(doc => doc.state === "settled").length, 1);
+  assert.equal([...mocks.store.docs.keys()].filter(path => path.includes("/billingLedger/debit-")).length, 1);
+  assertSpend(mocks.spend());
+  assert.equal(clock.set.mock.callCount(), 1);
+  assert.equal(clock.clear.mock.callCount(), 1);
+  assert.equal(clock.timers.size, 0);
+});

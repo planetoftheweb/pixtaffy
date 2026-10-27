@@ -1,4 +1,5 @@
 import { assistRequestKeys } from './assistRequestKey';
+import { AI_ASSIST_TIMEOUT_MS, withAiAssistGuard } from './aiAssistGuard';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import type { GeneratedImage } from '../types';
@@ -209,12 +210,12 @@ export const billingService = {
     const call = httpsCallable<
       { action: string; payload: Record<string, unknown>; idempotencyKey: string },
       { result: T; milliCreditsCharged: number; balanceMilliCredits: number }
-    >(functions, 'runAiAssist', { timeout: 300_000 });
+    >(functions, 'runAiAssist', { timeout: AI_ASSIST_TIMEOUT_MS });
     const automaticKey = input.idempotencyKey == null
       ? await assistRequestKeys.acquire(input.action, input.payload, () => makeRequestId(`assist-${input.action}`))
       : null;
     try {
-      const response = await call({ ...input, idempotencyKey: input.idempotencyKey ?? automaticKey!.key });
+      const response = await withAiAssistGuard(() => call({ ...input, idempotencyKey: input.idempotencyKey ?? automaticKey!.key }));
       if (automaticKey) assistRequestKeys.finish(automaticKey, { success: true });
       cachedState = null;
       return response.data.result;
