@@ -176,7 +176,7 @@ test("env guard rejects secret patterns and extra keys without disclosing values
 });
 
 for (const differentReservation of [false, true]) {
-test(`runAiAssist settles the stored delivery after an ambiguous write (different reservation: ${differentReservation})`, async (t) => {
+test(`runAiAssist settles the stored delivery after an ambiguous write (${differentReservation ? "defensive different reservation" : "deterministic same reservation"})`, async (t) => {
   const billing = require("./billing");
   const deliveries = require("./paidDelivery");
   const firestore = require("firebase-admin/firestore");
@@ -219,4 +219,122 @@ test(`runAiAssist settles the stored delivery after an ambiguous write (differen
   assert.equal(spend.geminiReservedUsd, 0);
   assert.ok(Number(spend.geminiUsd) > 0);
 });
+}
+
+function mockAssist(t: import("node:test").TestContext, response: Record<string, unknown>) {
+  const billing = require("./billing");
+  const deliveries = require("./paidDelivery");
+  let spend: Record<string, any> = {};
+  t.mock.method(require("firebase-admin/firestore"), "getFirestore", () => ({
+    doc: () => ({}),
+    runTransaction: async (callback: any) => callback({
+      get: async () => ({ data: () => spend }),
+      set: (_ref: unknown, data: any) => { spend = { ...spend, ...data }; },
+    }),
+  }));
+  t.mock.method(require("./rateLimit"), "enforceRateLimit", async () => {});
+  t.mock.method(billing, "ensureStarterGrant", async () => {});
+  const reserve = t.mock.method(billing, "reserveCredits", async () => ({ reservationId: delivery.reservationId, balanceMilliCredits: 900 }));
+  const release = t.mock.method(billing, "releaseReservation", async () => {});
+  const commit = t.mock.method(billing, "commitReservation", async () => {});
+  t.mock.method(deliveries, "readPaidAssistDelivery", async () => null);
+  let providerCalls = 0;
+  t.mock.method(require("@google/genai"), "GoogleGenAI", class {
+    models = { generateContent: async () => { providerCalls++; return response; } };
+  });
+  return { billing, deliveries, reserve, release, commit, spend: () => spend, providerCalls: () => providerCalls };
+}
+
+const assistRequest = (action = "expand_prompt") => ({
+  auth: { uid: "user", token: {} },
+  data: { action, idempotencyKey: "request-123", payload: { prompt: "example" } },
+} as any);
+const providerResponse = {
+  text: "provider result", modelVersion: "gemini-3.8-flash",
+  usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 100, thoughtsTokenCount: 100 },
+};
+function assertSpend(spend: Record<string, any>) {
+  const expected = geminiAssistCost({
+    backend: "apikey", model: "gemini-flash-latest", modelVersion: providerResponse.modelVersion,
+    requestedAt: Date.now(), usage: providerResponse.usageMetadata,
+  }).actualCostUsd;
+  assert.equal(spend.geminiUsd, expected);
+  assert.equal(spend.geminiReservedUsd, 0);
+}
+
+for (const conflict of [false, true]) {
+  test(`runAiAssist keeps ambiguous delivery reserved when ${conflict ? "conflict read-back fails" : "all save attempts fail with 503"}`, async (t) => {
+    const mocks = mockAssist(t, providerResponse);
+    const writeDelivery = writePaidAssistDeliveryWithRetry;
+    let stored: CachedPaidAssistDelivery | null = null;
+    let saves = 0;
+    t.mock.method(mocks.deliveries, "readPaidAssistDelivery", async () => stored);
+    t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) =>
+      writeDelivery(value, {
+        save: async (data: unknown) => {
+          saves++;
+          stored ??= JSON.parse(String(data));
+          throw { code: conflict && saves > 1 ? 412 : 503, message: "private storage failure" };
+        },
+        download: async () => { throw new Error("private download failure"); },
+      } as unknown as AssistFile, noWait));
+    await assert.rejects(runAiAssist.run(assistRequest()), (error: unknown) =>
+      error instanceof HttpsError && error.code === "unavailable"
+      && error.message.includes("same request id") && !error.message.includes("private"));
+    assert.equal(saves, conflict ? 2 : 3);
+    assert.equal(mocks.release.mock.callCount(), 0);
+    assert.equal(mocks.commit.mock.callCount(), 0);
+    assertSpend(mocks.spend());
+    const result = await runAiAssist.run(assistRequest());
+    assert.equal(result.result, providerResponse.text);
+    assert.equal(mocks.commit.mock.calls[0].arguments[0].reservationId, delivery.reservationId);
+    assert.equal(mocks.reserve.mock.callCount(), 1);
+    assert.equal(mocks.providerCalls(), 1);
+    assertSpend(mocks.spend());
+  });
+}
+
+for (const state of ["released", "reserved", "committed"]) {
+  test(`cached assist replay with a ${state} reservation uses real idempotent settlement`, async (t) => {
+    const realCommit = require("./billing").commitReservation;
+    const mocks = mockAssist(t, providerResponse);
+    mocks.commit.mock.mockImplementation(realCommit);
+    t.mock.method(mocks.deliveries, "readPaidAssistDelivery", async () => delivery);
+    let reservation = { uid: "user", state, milliCredits: 100, action: delivery.action };
+    const debits: unknown[] = [];
+    t.mock.method(require("firebase-admin/firestore"), "getFirestore", () => ({
+      doc: (path: string) => path,
+      runTransaction: async (callback: any) => callback({
+        get: async () => ({ exists: true, data: () => reservation }),
+        update: (_ref: unknown, data: any) => { reservation = { ...reservation, ...data }; },
+        set: (_ref: unknown, data: any) => { debits.push(data); },
+      }),
+    }));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (state === "released") {
+        await assert.rejects(runAiAssist.run(assistRequest()), (error: unknown) =>
+          error instanceof HttpsError && error.code === "unavailable"
+          && !error.message.includes("Reservation is not active"));
+      } else {
+        assert.equal((await runAiAssist.run(assistRequest())).result, delivery.result);
+      }
+    }
+    assert.equal(debits.length, state === "reserved" ? 1 : 0);
+    assert.equal(mocks.providerCalls(), 0);
+    assert.equal(mocks.reserve.mock.callCount(), 0);
+  });
+}
+
+for (const scenario of ["safety", "invalid JSON", "empty"]) {
+  test(`runAiAssist records spend and releases capacity for discarded ${scenario} response`, async (t) => {
+    const mocks = mockAssist(t, {
+      ...providerResponse,
+      ...(scenario === "safety" ? { promptFeedback: { blockReason: "SAFETY" }, text: undefined }
+        : { text: scenario === "empty" ? "" : "private invalid JSON" }),
+    });
+    await assert.rejects(runAiAssist.run(assistRequest(scenario === "invalid JSON" ? "correction_analysis" : "expand_prompt")));
+    assertSpend(mocks.spend());
+    assert.equal(mocks.release.mock.callCount(), 1);
+    assert.equal(mocks.commit.mock.callCount(), 0);
+  });
 }

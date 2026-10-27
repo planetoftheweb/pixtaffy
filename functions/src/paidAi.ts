@@ -747,7 +747,12 @@ export const runAiAssist = onCall(
         providerRequestId: null,
         actualCostUsd: cachedAssist.actualCostUsd,
         usage: cachedAssist.usage,
-      }).catch((error) => logger.error("Cached AI assist settlement is still pending", { action, error }));
+      }).catch((error) => {
+        // Refuse unsettled replays, including released reservations, rather than
+        // returning a free result or attempting a second debit.
+        logger.error("Cached AI assist settlement failed", { action, error });
+        throw new HttpsError("unavailable", "PixTaffy could not settle this AI request. Try again with the same request id.");
+      });
       return {
         result: cachedAssist.result,
         milliCreditsCharged: cachedAssist.milliCreditsCharged,
@@ -772,6 +777,7 @@ export const runAiAssist = onCall(
 
     const helperSpendReserveUsd = 0.05;
     let spendCapacityHeld = false;
+    let cacheWriteAttempted = false;
     try {
       await reserveSpendCapacity("gemini", helperSpendReserveUsd);
       spendCapacityHeld = true;
@@ -793,9 +799,6 @@ export const runAiAssist = onCall(
             : { responseMimeType: "application/json" }),
         },
       });
-      if (isAssistBlocked(response)) throw mapAiAssistError(response);
-      const text = response.text?.trim();
-      if (!text) throw new Error("Gemini returned an empty response.");
       const usage = response.usageMetadata as any;
       const { actualCostUsd, unknownModel } = geminiAssistCost({
         backend: AI_ASSIST_BACKEND,
@@ -806,8 +809,18 @@ export const runAiAssist = onCall(
         usage,
       });
       if (unknownModel) logger.warn("Unknown AI assist model; using maximum spend rates.");
+      // Provider usage is billable even when validation or delivery later fails.
+      await recordSpend("gemini", actualCostUsd, action, helperSpendReserveUsd)
+        .then(() => { spendCapacityHeld = false; })
+        .catch((error) => {
+          logger.error("Gemini spend settlement deferred", { action, error });
+        });
+      if (isAssistBlocked(response)) throw mapAiAssistError(response);
+      const text = response.text?.trim();
+      if (!text) throw new Error("Gemini returned an empty response.");
       const isJson = action !== "expand_prompt" && action !== "image_description";
       const result = isJson ? parseJsonText(text) : text;
+      cacheWriteAttempted = true;
       const delivery = await writePaidAssistDeliveryWithRetry({
         version: 1,
         uid,
@@ -826,11 +839,6 @@ export const runAiAssist = onCall(
           uid, reservationId: reservation.reservationId, reason: "Existing AI delivery won the request race",
         }).catch(() => logger.error("Unable to release superseded AI assist reservation"));
       }
-      await recordSpend("gemini", actualCostUsd, action, helperSpendReserveUsd)
-        .then(() => { spendCapacityHeld = false; })
-        .catch((error) => {
-          logger.error("Gemini spend settlement deferred", { action, error });
-        });
       let commitError: unknown = null;
       for (const delay of [0, 200, 600]) {
         if (delay > 0) await new Promise<void>((resolve) => setTimeout(resolve, delay));
@@ -866,6 +874,11 @@ export const runAiAssist = onCall(
         await releaseSpendCapacity("gemini", helperSpendReserveUsd).catch((releaseError) => {
           logger.error("Unable to release Gemini spend capacity", { action, releaseError });
         });
+      }
+      if (cacheWriteAttempted) {
+        // A failed save may be durable. Keep credits reserved so a same-key
+        // replay or the stale job commits the cached delivery instead of refunding it.
+        throw new HttpsError("unavailable", "PixTaffy could not deliver this AI result. Try again with the same request id.");
       }
       await releaseReservation({
         uid,
