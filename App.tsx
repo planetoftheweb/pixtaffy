@@ -1879,7 +1879,7 @@ const App: React.FC = () => {
           finishedAt: Date.now(),
           message: savedInBrowser
             ? `Your image is ready and stored in this browser. You have ${result.balanceMilliCredits / 1_000} guest credit${result.balanceMilliCredits === 1_000 ? '' : 's'} left.`
-            : 'Your image is ready, but this browser could not store it. Download it now, then create an account to save future work.',
+            : 'Your image is ready, but this browser could not store it. Download it now, then sign up to save future work.',
           modelProgress: {
             [selectedModel]: { total: 1, completed: 1, failed: 0, inFlight: 0 },
           },

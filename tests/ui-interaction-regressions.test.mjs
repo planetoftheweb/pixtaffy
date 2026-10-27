@@ -148,7 +148,9 @@ test('settings feedback is timed, dismissible, and anchored above the mobile saf
 test('settings tips require hover or visible keyboard focus and clear on leave and blur', () => {
   const tip = readFileSync(new URL('../components/settings/Tip.tsx', import.meta.url), 'utf8');
   assert.match(tip, /matches\(':focus-visible'\)/);
-  assert.match(tip, /addEventListener\('pointerenter', show\)/);
+  assert.match(tip, /addEventListener\('pointerenter', showPointer\)/);
+  assert.match(tip, /attributeFilter: \['aria-expanded'\]/);
+  assert.match(tip, /lastInputWasKeyboard &&/);
   assert.match(tip, /addEventListener\('pointerleave', hide\)/);
   assert.match(tip, /addEventListener\('focusout', hide\)/);
   assert.match(tip, /useState<DOMRect \| null>\(null\)/);

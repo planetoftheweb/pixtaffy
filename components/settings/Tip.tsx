@@ -1,6 +1,13 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 
+// Tracks whether the most recent input was a key press, so focus tips only appear for keyboard users.
+let lastInputWasKeyboard = false;
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', () => { lastInputWasKeyboard = true; }, true);
+  window.addEventListener('pointerdown', () => { lastInputWasKeyboard = false; }, true);
+}
+
 // Portal tooltip adapted from the studio's Tip component.
 export const Tip: React.FC<{
   text: string;
@@ -17,19 +24,28 @@ export const Tip: React.FC<{
   useEffect(() => {
     const host = anchorRef.current?.parentElement;
     if (!host) return;
-    const show = () => { if (!host.matches(':disabled') && !host.querySelector(':disabled')) setHostRect(host.getBoundingClientRect()); };
+    // An open menu owns the space under its trigger, so the tip stays hidden while it is expanded.
+    const expanded = () => host.getAttribute('aria-expanded') === 'true';
+    const show = () => { if (!expanded() && !host.matches(':disabled') && !host.querySelector(':disabled')) setHostRect(host.getBoundingClientRect()); };
+    const showPointer = (event: PointerEvent) => { if (event.pointerType !== 'touch') show(); };
     const showFocus = (event: FocusEvent) => {
-      if (event.target instanceof HTMLElement && event.target.matches(':focus-visible')) show();
+      // Programmatic focus (for example a menu returning focus to its trigger) is not a hover request.
+      if (lastInputWasKeyboard && event.target instanceof HTMLElement && event.target.matches(':focus-visible')) show();
     };
     const hide = () => setHostRect(null);
-    host.addEventListener('pointerenter', show);
+    const observer = new MutationObserver(() => { if (expanded()) hide(); });
+    observer.observe(host, { attributes: true, attributeFilter: ['aria-expanded'] });
+    host.addEventListener('click', hide);
+    host.addEventListener('pointerenter', showPointer);
     host.addEventListener('focusin', showFocus);
     host.addEventListener('focusout', hide);
     host.addEventListener('pointerleave', hide);
     window.addEventListener('scroll', hide, true);
     host.addEventListener('pointerdown', hide); // gestures shouldn't fight the tip
     return () => {
-      host.removeEventListener('pointerenter', show);
+      observer.disconnect();
+      host.removeEventListener('click', hide);
+      host.removeEventListener('pointerenter', showPointer);
       host.removeEventListener('focusin', showFocus);
       host.removeEventListener('focusout', hide);
       host.removeEventListener('pointerleave', hide);

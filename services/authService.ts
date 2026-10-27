@@ -438,7 +438,7 @@ const loginErrorMessage = (error: unknown): string => {
     return 'Enter a valid email address.';
   }
   if (code === 'auth/too-many-requests') {
-    return 'Sign-in is temporarily blocked on this browser after too many attempts. Wait a few minutes, then try once, or reset your password.';
+    return 'Logging in is temporarily blocked on this browser after too many attempts. Wait a few minutes, then try once, or reset your password.';
   }
   if (code === 'auth/user-disabled') {
     return 'This account has been disabled. Contact PixTaffy support for help.';
@@ -628,7 +628,7 @@ export const authService = {
 
   resendVerification: async (): Promise<void> => {
     const current = auth.currentUser;
-    if (!current) throw new Error('Sign in before requesting a verification email.');
+    if (!current) throw new Error('Log in before requesting a verification email.');
     if (current.emailVerified) return;
     await sendEmailVerification(current, { url: `${window.location.origin}/?verified=1` });
   },

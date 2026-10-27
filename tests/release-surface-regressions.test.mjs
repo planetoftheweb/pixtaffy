@@ -138,7 +138,7 @@ test('signup copy only promises to save an image when one is pending', () => {
 
 test('login throttling is explained and offers a password reset recovery path', () => {
   assert.match(authServiceSource, /code === 'auth\/too-many-requests'/);
-  assert.match(authServiceSource, /Sign-in is temporarily blocked on this browser after too many attempts/);
+  assert.match(authServiceSource, /Logging in is temporarily blocked on this browser after too many attempts/);
   assert.doesNotMatch(authServiceSource, /throw new Error\(error\.message \|\| "Failed to login\."\)/);
   assert.match(authServiceSource, /requestPasswordReset:[\s\S]*?sendPasswordResetEmail/);
   assert.match(authModalSource, /isSubmittingRef\.current/);
