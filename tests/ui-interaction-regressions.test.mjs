@@ -232,7 +232,8 @@ test('reviewed controls compact only for fine pointers and values appear at xl',
 test('outside pointer focus restoration uses the target rather than animation timing', () => {
   const rich = readFileSync(new URL('../components/RichSelect.tsx', import.meta.url), 'utf8');
   for (const source of [controlPanelSource, rich]) {
-    assert.ok(source.includes(`close(!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label'))`));
+    assert.ok(source.includes(`const restoreFocus = !target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label')`));
+    assert.match(source, /if \(restoreFocus\) (?:e|event)\.preventDefault\(\);\s*close\(restoreFocus\)/);
     assert.doesNotMatch(source, /document.activeElement === document.body|document.activeElement !== document.body/);
   }
 });
@@ -308,4 +309,38 @@ test('menu keyboard traversal enters options, returns to trigger, and exits in t
     if (originalNode === undefined) delete globalThis.Node; else globalThis.Node = originalNode;
     if (originalDocument === undefined) delete globalThis.document; else globalThis.document = originalDocument;
   }
+});
+
+
+test('blank panel mouse defaults are cancelled without blocking touch scrolling', () => {
+  const rich = readFileSync(new URL('../components/RichSelect.tsx', import.meta.url), 'utf8');
+  for (const source of [controlPanelSource, rich]) {
+    const handler = source.slice(source.indexOf('const handleBlankMouseDown'), source.indexOf('const handleFocusOut'));
+    assert.match(handler, /in(?:Panel|Menu)\(event.target\)/);
+    assert.ok(handler.includes(`!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label')`));
+    assert.match(handler, /event.preventDefault\(\)/);
+    assert.match(source, /addEventListener\('mousedown', handleBlankMouseDown, true\)/);
+    assert.match(source, /removeEventListener\('mousedown', handleBlankMouseDown, true\)/);
+    assert.doesNotMatch(source, /touchmove|touchstart/);
+  }
+});
+
+test('Generate remains focusable with a stable action name and guarded activation', () => {
+  assert.match(controlPanelSource, /aria-label="Generate image"/);
+  assert.match(controlPanelSource, /aria-disabled=\{generateButtonDisabled\}/);
+  assert.doesNotMatch(controlPanelSource, /\sdisabled=\{generateButtonDisabled\}|aria-label=\{generateButtonTitle\}/);
+  assert.match(controlPanelSource, /onClick=\{\(\) => \{\s*if \(generateButtonDisabled\) return;/);
+  assert.match(controlPanelSource, /if \(!generateButtonDisabled\) \{[\s\S]*?onGenerate\(safeBatchCount\)/);
+  assert.equal((controlPanelSource.match(/onGenerate\(safeBatchCount\)/g) || []).length, 2);
+  const button = controlPanelSource.slice(controlPanelSource.indexOf('aria-disabled={generateButtonDisabled}'), controlPanelSource.indexOf('aria-label="Generate image"'));
+  assert.doesNotMatch(button, /pointer-events-none/);
+});
+
+test('auth Escape keeps focus in the dialog and dismissal restores a connected opener', () => {
+  const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
+  assert.match(auth, /target.blur\(\);\s*panelRef.current\?\.focus\(\);\s*return;/);
+  assert.match(auth, /ref=\{panelRef\} tabIndex=\{-1\} role="dialog" aria-modal="true"/);
+  assert.match(auth, /openerRef.current = document.activeElement instanceof HTMLElement/);
+  assert.match(auth, /if \(openerRef.current\?\.isConnected\) openerRef.current.focus\(\)/);
+  assert.match(auth, /useLayoutEffect\([\s\S]*?\}, \[isOpen\]\)/);
 });

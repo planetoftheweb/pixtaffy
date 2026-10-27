@@ -77,7 +77,10 @@ export const RichSelect: React.FC<RichSelectProps> = ({
     const handleClickOutside = (event: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         const target = event.target as HTMLElement;
-        close(!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label'));
+        const restoreFocus = !target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label');
+        // Cancel the compatibility mouse focus change after a held touch tap.
+        if (restoreFocus) event.preventDefault();
+        close(restoreFocus);
       }
     };
 
@@ -89,6 +92,14 @@ export const RichSelect: React.FC<RichSelectProps> = ({
     };
 
     const inMenu = (target: EventTarget | null) => target instanceof Node && !!menuRef.current?.contains(target);
+    // Mouse defaults move focus to BODY on panel padding. Touch pointerdown
+    // stays uncancelled inside the panel so swiping can still scroll the list.
+    const handleBlankMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (inMenu(event.target) && target instanceof Element && !target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label')) {
+        event.preventDefault();
+      }
+    };
     const handleFocusOut = (event: FocusEvent) => {
       const fromTrigger = event.target instanceof Node && !!triggerRef.current?.contains(event.target);
       if ((inMenu(event.target) || fromTrigger) && !inMenu(event.relatedTarget) && !(event.relatedTarget instanceof Node && triggerRef.current?.contains(event.relatedTarget))) setIsOpen(false);
@@ -100,6 +111,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
       if (triggerRef.current && menuRef.current) handleMenuKeyboard(event, triggerRef.current, menuRef.current, () => setIsOpen(false));
     };
     document.addEventListener('keydown', handleNavigation, true);
+    document.addEventListener('mousedown', handleBlankMouseDown, true);
     document.addEventListener('focusout', handleFocusOut, true);
     document.addEventListener('focusin', handleFocusIn, true);
     document.addEventListener('pointerdown', handleClickOutside, true);
@@ -107,6 +119,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
 
     return () => {
       document.removeEventListener('keydown', handleNavigation, true);
+      document.removeEventListener('mousedown', handleBlankMouseDown, true);
       document.removeEventListener('focusout', handleFocusOut, true);
       document.removeEventListener('focusin', handleFocusIn, true);
       document.removeEventListener('pointerdown', handleClickOutside, true);

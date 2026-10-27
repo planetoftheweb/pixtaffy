@@ -1113,13 +1113,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
       if (activeDropdown === 'batch-count') {
         if (batchCountTriggerRef.current?.contains(target)) return;
-        close(!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label'));
+        const restoreFocus = !target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label');
+        // Cancel the compatibility mouse focus change after a held touch tap.
+        if (restoreFocus) e.preventDefault();
+        close(restoreFocus);
         return;
       }
 
       if (target.closest?.('.mobile-dropdown-panel')) return;
       if (target.closest?.('[data-toolbar-dropdown-trigger]')) return;
-      close(!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label'));
+      const restoreFocus = !target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label');
+      // Cancel the compatibility mouse focus change after a held touch tap.
+      if (restoreFocus) e.preventDefault();
+      close(restoreFocus);
     };
 
     const inPanel = (target: EventTarget | null) => target instanceof Element && (
@@ -1127,6 +1133,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       || !!target.closest('[data-preset-popover], [data-batch-count-popover]')
     );
     const isTrigger = (target: EventTarget | null) => target instanceof Element && !!target.closest('[data-toolbar-dropdown-trigger]');
+    // Mouse defaults move focus to BODY on panel padding. Touch pointerdown
+    // stays uncancelled inside the panel so swiping can still scroll the list.
+    const handleBlankMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (inPanel(event.target) && target instanceof Element && !target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label')) {
+        event.preventDefault();
+      }
+    };
     const handleFocusOut = (event: FocusEvent) => {
       if (isTrigger(event.relatedTarget) || event.relatedTarget instanceof Node && trigger?.contains(event.relatedTarget)) return;
       const fromTrigger = event.target instanceof Node && !!trigger?.contains(event.target);
@@ -1145,11 +1159,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       if (trigger && panel) handleMenuKeyboard(event, trigger, panel, () => setActiveDropdown(null));
     };
     document.addEventListener('keydown', handleNavigation, true);
+    document.addEventListener('mousedown', handleBlankMouseDown, true);
     document.addEventListener('focusout', handleFocusOut, true);
     document.addEventListener('focusin', handleFocusIn, true);
     document.addEventListener('keydown', handleEscape, true);
     document.addEventListener('pointerdown', handlePointerOutside, true);
-    return () => { document.removeEventListener('keydown', handleNavigation, true); document.removeEventListener('focusout', handleFocusOut, true); document.removeEventListener('focusin', handleFocusIn, true); document.removeEventListener('pointerdown', handlePointerOutside, true); document.removeEventListener('keydown', handleEscape, true); };
+    return () => { document.removeEventListener('keydown', handleNavigation, true); document.removeEventListener('mousedown', handleBlankMouseDown, true); document.removeEventListener('focusout', handleFocusOut, true); document.removeEventListener('focusin', handleFocusIn, true); document.removeEventListener('pointerdown', handlePointerOutside, true); document.removeEventListener('keydown', handleEscape, true); };
   }, [activeDropdown]);
 
   // Clear search when dropdown changes
@@ -2971,20 +2986,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      if (generateButtonDisabled) return;
                       if (hasSetupAction) {
                         onSetupAction?.();
                         return;
                       }
                       onGenerate(safeBatchCount);
                     }}
-                    disabled={generateButtonDisabled}
+                    aria-disabled={generateButtonDisabled}
                     aria-describedby={generateButtonDisabled ? generateReasonId : undefined}
                     className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-bold shadow-md transition-all active:translate-y-0.5 group ${
                       generateButtonDisabled
-                        ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
+                        ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
                         : 'bg-gradient-to-br from-brand-orange via-brand-red to-brand-purple hover:saturate-125 text-white shadow-brand-pink/25'
                     }`}
-                    aria-label={generateButtonTitle}
+                    aria-label="Generate image"
                   >
                     {hasSetupAction ? (
                       user ? <KeyRound size={16} className="text-white" /> : <UserPlus size={16} className="text-white" />
