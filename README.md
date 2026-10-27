@@ -101,6 +101,8 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 
     PixTaffy's shared OpenRouter, Gemini, and GitHub credentials must not use `VITE_` variables. Store them as Firebase Function secrets named `OPENROUTER_API_KEY`, `PIXTAFFY_GEMINI_API_KEY`, and `GITHUB_TOKEN`. The GitHub token needs Issues read/write access to `planetoftheweb/pixtaffy`.
 
+    `runAiAssist` uses `PIXTAFFY_GEMINI_API_KEY` and `gemini-flash-latest` by default. Projects setting `AI_ASSIST_BACKEND=vertex`, as staging does through `functions/.env.pixtaffy-staging`, use Vertex AI through the function service account's Application Default Credentials with no Gemini key declared or bound. Vertex defaults to location `global` and model `gemini-3.8-flash`, configurable through `AI_ASSIST_VERTEX_LOCATION` and `AI_ASSIST_VERTEX_MODEL`. Prod (`brandoit`) has no backend env entry and defaults to `apikey`; missing, blank, or unknown backend values also use `apikey`.
+
 4.  **Configure Firebase Storage CORS:**
     To allow image uploads from localhost and your production domain, you must apply CORS rules to your Storage bucket.
     
