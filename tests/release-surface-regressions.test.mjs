@@ -421,3 +421,75 @@ test('the client bundle never receives the server Gemini key', () => {
   assert.doesNotMatch(viteConfigSource, /GEMINI_API_KEY/);
   assert.doesNotMatch(viteConfigSource, /process\.env\.API_KEY/);
 });
+
+test('App Check debug token reads are gated before production evaluation', () => {
+  assert.match(firebaseSource, /const localAppCheckDebugToken = import\.meta\.env\.DEV\s*\? String\(import\.meta\.env\.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN \|\| ''\)\.trim\(\)\s*: '';/);
+  assert.match(firebaseSource, /\.env\.development\.local/);
+  assert.equal(JSON.parse(read('package.json')).scripts.postbuild, 'node scripts/check-dist-secrets.mjs');
+});
+
+const scannerPath = fileURLToPath(new URL('../scripts/check-dist-secrets.mjs', import.meta.url));
+const scannerEnv = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => !/TOKEN|SECRET|DEBUG/.test(key)));
+
+test('production Vite output excludes the synthetic App Check token and passes scanning', async () => {
+  const { build } = await import('vite');
+  const fixture = mkdtempSync(join(tmpdir(), 'pixtaffy-token-build-'));
+  const canary = 'synthetic-appcheck-canary-for-regression';
+  try {
+    const define = {
+      'import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN': JSON.stringify(canary),
+    };
+    for (const suffix of ['API_KEY', 'AUTH_DOMAIN', 'PROJECT_ID', 'STORAGE_BUCKET', 'MESSAGING_SENDER_ID', 'APP_ID']) {
+      define[`import.meta.env.VITE_FIREBASE_${suffix}`] = JSON.stringify('synthetic-config');
+    }
+    const result = await build({
+      root: fixture, configFile: false, envFile: false, publicDir: false,
+      mode: 'production', logLevel: 'silent', define,
+      build: {
+        outDir: 'dist',
+        rollupOptions: { input: fileURLToPath(new URL('../services/firebase.ts', import.meta.url)), preserveEntrySignatures: 'strict' },
+      },
+    });
+    const outputs = (Array.isArray(result) ? result : [result]).flatMap((item) => item.output);
+    assert.ok(outputs.some((item) => item.type === 'chunk'));
+    assert.ok(outputs.every((item) => !(item.code || String(item.source || '')).includes(canary)), 'production output must exclude canary');
+    const scan = spawnSync(process.execPath, [scannerPath], {
+      cwd: fixture, encoding: 'utf8', env: { ...scannerEnv(), VITE_FIREBASE_APPCHECK_DEBUG_TOKEN: canary },
+    });
+    assert.equal(scan.status, 0, 'clean production output must pass scanning');
+    assert.ok(!(scan.stdout + scan.stderr).includes(canary));
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('dist scanner rejects token and other secret values without disclosing them', () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'pixtaffy-secret-scan-'));
+  try {
+    mkdirSync(join(fixture, 'dist', 'assets'), { recursive: true });
+    const file = join(fixture, 'dist', 'assets', 'bundle.js');
+    const values = {
+      VITE_FIREBASE_APPCHECK_DEBUG_TOKEN: 'synthetic-debug-token-regression',
+      RELEASE_SECRET: 'synthetic-release-secret-regression',
+      TRACE_DEBUG: 'synthetic-trace-debug-regression',
+    };
+    for (const [name, value] of Object.entries(values)) {
+      writeFileSync(file, `console.log(${JSON.stringify(value)});`);
+      const result = spawnSync(process.execPath, [scannerPath, '--mode', 'staging'], {
+        cwd: fixture, encoding: 'utf8', env: { ...scannerEnv(), [name]: value },
+      });
+      assert.equal(result.status, 1);
+      const output = result.stdout + result.stderr;
+      assert.ok(output.includes(name));
+      assert.ok(output.includes('dist/assets/bundle.js'));
+      assert.ok(!output.includes(value), 'scanner must never disclose secret values');
+    }
+    writeFileSync(file, 'true false 1 0');
+    const clean = spawnSync(process.execPath, [scannerPath], {
+      cwd: fixture, encoding: 'utf8', env: { ...scannerEnv(), DEBUG: 'true', FLAG_SECRET: '0', EMPTY_TOKEN: '' },
+    });
+    assert.equal(clean.status, 0);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});

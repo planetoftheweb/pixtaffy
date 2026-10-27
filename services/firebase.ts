@@ -62,14 +62,15 @@ export const isLocalDevelopmentPreview =
   import.meta.env.DEV &&
   localPreviewHostnames.has(window.location.hostname);
 
-const localAppCheckDebugToken = String(
-  import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN || '',
-).trim();
+const localAppCheckDebugToken = import.meta.env.DEV
+  ? String(import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN || '').trim()
+  : '';
 
 // Firebase's production reCAPTCHA attestation intentionally rejects localhost.
 // Local previews that call protected production Functions must use a registered
-// App Check debug token instead. This branch is stripped from production builds,
-// and the token lives only in the ignored local environment file.
+// App Check debug token instead. The DEV-gated read folds the token literal out
+// of production builds. Store it in .env.development.local, not .env.
+// The postbuild secret scanner checks that it never reaches dist/.
 if (isLocalDevelopmentPreview && !useEmulators && localAppCheckDebugToken) {
   (globalThis as typeof globalThis & { FIREBASE_APPCHECK_DEBUG_TOKEN?: string }).FIREBASE_APPCHECK_DEBUG_TOKEN =
     localAppCheckDebugToken;
@@ -221,7 +222,7 @@ if (useEmulators && typeof window !== 'undefined') {
       'color:#10b981;font-weight:bold;'
     );
   } catch (err) {
-    // HMR can reconnect on already-wired singletons — surface once but don't crash.
+    // HMR can reconnect on already-wired singletons; surface once but don't crash.
     console.warn('Failed to connect one or more Firebase emulators:', err);
   }
 }

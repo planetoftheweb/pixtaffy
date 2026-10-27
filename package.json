@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "prebuild": "npm test && node scripts/whats-new.mjs check",
     "build": "vite build",
+    "postbuild": "node scripts/check-dist-secrets.mjs",
     "test": "node --test --experimental-strip-types tests/ui-interaction-regressions.test.mjs tests/release-surface-regressions.test.mjs tests/welcome-mode.test.mjs tests/key-storage-mode.test.mjs tests/dependency-compatibility.test.mjs && npm --prefix functions test",
     "test:cold-start": "node scripts/cold-start-smoke.mjs",
     "test:render": "node scripts/render-smoke.mjs",

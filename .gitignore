@@ -43,3 +43,9 @@ pubsub-debug.log*
 !.env.example
 
 e2e-results/
+
+# Service account credentials
+*service-account*.json
+*-credentials*.json
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
