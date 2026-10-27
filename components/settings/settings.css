@@ -8,7 +8,6 @@
 .settings-surface :where(button:focus-visible) { outline: 2px solid var(--color-brand-teal); outline-offset: 2px; }
 .settings-surface :where(input[type='checkbox']) { accent-color: var(--color-brand-teal); }
 .settings-surface :where(.text-sm, .text-xs) { font-size: 14px; }
-.settings-surface :where([class*='text-[10px]'], [class*='text-[11px]']) { font-size: 12px; }
 @media (min-width: 640px) {
   .settings-surface :where(input:not([type='checkbox']):not([type='file']), button) { min-height: 34px; }
   .settings-surface :where(label:has(input[type='checkbox'])) { min-height: 34px; }

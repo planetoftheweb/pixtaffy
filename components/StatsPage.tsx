@@ -102,7 +102,7 @@ const EstimatedSpendCard: React.FC<{ entries: StatsBucketEntry[] }> = ({ entries
           ))}
         </ul>
       )}
-      <p className="mt-3 text-[11px] text-slate-500">
+      <p className="mt-3 text-[12px] text-slate-500">
         Estimated at standard settings (≈1K output) — providers bill by resolution/quality, so
         actuals vary. Auxiliary calls (prompt expansion, analysis, auto-select) not included.
       </p>
@@ -266,7 +266,7 @@ const DailyBarChart: React.FC<DailyBarChartProps> = ({
       </div>
 
       {/* X-axis: first, middle, last */}
-      <div className="flex justify-between text-[10px] text-slate-400 mt-2 tabular-nums">
+      <div className="flex justify-between text-[12px] text-slate-400 mt-2 tabular-nums">
         <span>{data[0]?.date ?? ''}</span>
         <span>{data[Math.floor(data.length / 2)]?.date ?? ''}</span>
         <span>{data[data.length - 1]?.date ?? ''}</span>
@@ -368,13 +368,13 @@ const FocusedUserView: React.FC<FocusedUserViewProps> = ({ userStats }) => {
               {u.name || '(unnamed)'}
             </h2>
             {u.isLegacyAdminSignal && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-semibold">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[12px] font-semibold">
                 <Crown size={10} />
                 Admin
               </span>
             )}
             {u.isDisabled && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-300 text-[11px] font-semibold">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-300 text-[12px] font-semibold">
                 <Lock size={10} />
                 Suspended
               </span>
@@ -830,7 +830,7 @@ export const StatsPage: React.FC = () => {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-[#0d1117] text-slate-500 uppercase text-[11px] tracking-wider">
+                  <thead className="bg-gray-50 dark:bg-[#0d1117] text-slate-500 uppercase text-[12px] tracking-wide">
                     <tr>
                       <th className="text-left font-semibold px-4 py-2.5">#</th>
                       <th className="text-left font-semibold px-4 py-2.5">User</th>

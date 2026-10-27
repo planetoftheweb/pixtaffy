@@ -127,7 +127,7 @@ const StepMarker: React.FC<{ step: WhatsNewStep }> = ({ step }) => {
       {keys.map((k, i) => (
         <kbd
           key={`${k}-${i}`}
-          className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-gray-100 dark:bg-[#21262d] border border-gray-200 dark:border-[#30363d] rounded text-slate-700 dark:text-slate-200"
+          className="px-1.5 py-0.5 text-[12px] font-mono font-semibold bg-gray-100 dark:bg-[#21262d] border border-gray-200 dark:border-[#30363d] rounded text-slate-700 dark:text-slate-200"
         >
           {k}
         </kbd>
@@ -274,17 +274,17 @@ const ListView: React.FC<{
 
             <div className="md:col-span-3 md:order-1 p-6 md:p-10 flex flex-col justify-center">
               <div className="flex items-center gap-2 flex-wrap mb-4">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-teal/10 text-brand-teal text-[11px] font-bold uppercase tracking-wide">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-teal/10 text-brand-teal text-[12px] font-bold uppercase tracking-wide">
                   <Sparkles size={12} />
                   Latest launch
                 </span>
                 {hero.version && (
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <span className="text-[12px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     v{hero.version}
                   </span>
                 )}
                 {unseenIds.has(hero.id) && (
-                  <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-brand-red/10 text-brand-red border border-brand-red/30">
+                  <span className="text-[12px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-brand-red/10 text-brand-red border border-brand-red/30">
                     New
                   </span>
                 )}
@@ -347,16 +347,16 @@ const ListView: React.FC<{
                   <div className="p-5 flex-1 flex flex-col">
                     <div className="flex items-baseline gap-2 flex-wrap mb-2">
                       {entry.version && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-brand-teal">
+                        <span className="text-[12px] font-bold uppercase tracking-wide text-brand-teal">
                           v{entry.version}
                         </span>
                       )}
                       {isUnseen && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-brand-red/10 text-brand-red border border-brand-red/30">
+                        <span className="text-[12px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-brand-red/10 text-brand-red border border-brand-red/30">
                           New
                         </span>
                       )}
-                      <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-500">
+                      <span className="ml-auto text-[12px] text-slate-500 dark:text-slate-500">
                         {formatLongDate(entry.publishedAt)}
                       </span>
                     </div>
@@ -427,7 +427,7 @@ const DetailView: React.FC<{
       <header className="mt-8">
         <div className="flex items-center gap-2 flex-wrap mb-3">
           {entry.version && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-teal/10 text-brand-teal text-[11px] font-bold uppercase tracking-wide">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-teal/10 text-brand-teal text-[12px] font-bold uppercase tracking-wide">
               <Sparkles size={12} />
               v{entry.version}
             </span>

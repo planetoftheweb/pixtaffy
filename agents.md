@@ -68,6 +68,9 @@ The project uses a **Normalized Database Structure** in Firestore to allow effic
     *   `aspect_ratios`
     *   *Note:* These collections store ALL items. Visibility is controlled by the `scope` field (`system`, `private`, `public`, `team`) and `ownerId` / `teamId`.
 
+All rendered text has a hard 12px minimum. Use `text-[12px] font-semibold`
+for micro-copy and `text-[12px] font-bold uppercase tracking-wide` for micro section labels.
+
 ## Development Guidelines
 1.  **Service-Oriented:** Keep business logic out of UI components. Use services.
 2.  **Sanitization:** Always sanitize data before sending to Firestore (remove symbols/functions).

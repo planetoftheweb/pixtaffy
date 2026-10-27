@@ -129,7 +129,7 @@ const modelLabel = (id?: string) => (id ? MODEL_LABELS[id] || id : 'No model set
 const Tooltip: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <span className="relative group/tip inline-flex items-center">
     {children}
-    <span className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity z-20">
+    <span className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity z-20">
       {label}
     </span>
   </span>
@@ -619,7 +619,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-[#0d1117] text-slate-500 uppercase text-[11px] tracking-wider">
+              <thead className="bg-gray-50 dark:bg-[#0d1117] text-slate-500 uppercase text-[12px] tracking-wide">
                 <tr>
                   <th className="text-left font-semibold px-4 py-3">User</th>
                   <th className="text-left font-semibold px-4 py-3">Last seen</th>
@@ -676,7 +676,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                               {displayName}
                             </span>
                             {row.id === currentUser.id && (
-                              <span className="ml-1 inline-flex items-center rounded bg-brand-teal/10 text-brand-teal px-1.5 py-0.5 text-[10px] font-semibold uppercase">
+                              <span className="ml-1 inline-flex items-center rounded bg-brand-teal/10 text-brand-teal px-1.5 py-0.5 text-[12px] font-semibold uppercase">
                                 You
                               </span>
                             )}
@@ -686,7 +686,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                           <span className="relative group/cell inline-block">
                             {lastSignInRelative}
                             {row.lastSignInAt != null && (
-                              <span className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/cell:opacity-100 transition-opacity z-20">
+                              <span className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/cell:opacity-100 transition-opacity z-20">
                                 {lastSignInFull}
                               </span>
                             )}
@@ -755,7 +755,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                               <div className="flex items-start gap-2">
                                 <AtSign size={14} className="text-slate-400 mt-0.5 shrink-0" />
                                 <div>
-                                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                  <dt className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
                                     Username
                                   </dt>
                                   <dd className="text-slate-800 dark:text-slate-100">
@@ -766,7 +766,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                               <div className="flex items-start gap-2">
                                 <Mail size={14} className="text-slate-400 mt-0.5 shrink-0" />
                                 <div>
-                                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                  <dt className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
                                     Email
                                   </dt>
                                   <dd className="text-slate-800 dark:text-slate-100 break-all">
@@ -777,7 +777,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                               <div className="flex items-start gap-2">
                                 <CalendarPlus size={14} className="text-slate-400 mt-0.5 shrink-0" />
                                 <div>
-                                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                  <dt className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
                                     Created
                                   </dt>
                                   <dd className="text-slate-800 dark:text-slate-100" title={createdFull}>

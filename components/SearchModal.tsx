@@ -128,7 +128,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
                 <X size={15} />
               </button>
             )}
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-slate-500 bg-[#0d1117] border border-[#30363d] rounded font-mono">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[12px] text-slate-500 bg-[#0d1117] border border-[#30363d] rounded font-mono">
               esc
             </kbd>
           </div>
@@ -180,7 +180,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
                         <p className="text-xs text-white line-clamp-2 leading-snug">
                           {highlightMatch(gen.config.prompt, query)}
                         </p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{date}</p>
+                        <p className="text-[12px] text-slate-500 mt-0.5">{date}</p>
                       </div>
                     </button>
                   </li>
@@ -191,7 +191,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
 
           {/* Footer hint */}
           {filtered.length > 0 && (
-            <div className="flex items-center gap-3 px-4 py-2 border-t border-[#30363d] text-[11px] text-slate-600">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 border-t border-[#30363d] text-[12px] text-slate-600">
               <span><kbd className="font-mono">↑↓</kbd> navigate</span>
               <span><kbd className="font-mono">↵</kbd> open</span>
               <span className="ml-auto">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
@@ -221,7 +221,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
             {/* Prompt + metadata */}
             <div className="flex-1 min-h-0 overflow-y-auto p-4 border-t border-[#30363d] custom-scrollbar space-y-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500 mb-1">
                   Prompt
                 </p>
                 <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
@@ -231,10 +231,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
 
               {labelRows.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500 mb-1">
                     Parameters
                   </p>
-                  <dl className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1 text-[11px]">
+                  <dl className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1 text-[12px]">
                     {labelRows.map((r) => (
                       <React.Fragment key={r.key}>
                         <dt className="text-slate-500">{r.label}</dt>
@@ -246,10 +246,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
               )}
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500 mb-1">
                   Created
                 </p>
-                <p className="text-[11px] text-slate-300">
+                <p className="text-[12px] text-slate-300">
                   {new Date(activeGen.createdAt).toLocaleDateString(undefined, {
                     weekday: 'short',
                     month: 'short',

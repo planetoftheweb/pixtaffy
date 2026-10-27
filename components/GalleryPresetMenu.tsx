@@ -221,7 +221,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
         <ChevronDown size={14} className="opacity-70" aria-hidden />
         <span
           role="tooltip"
-          className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-presets:opacity-100 group-focus-visible/tip-presets:opacity-100 transition-opacity z-20"
+          className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-presets:opacity-100 group-focus-visible/tip-presets:opacity-100 transition-opacity z-20"
         >
           {presets.length === 0 ? 'Presets' : `${presets.length} preset${presets.length === 1 ? '' : 's'}`}
         </span>
@@ -233,7 +233,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
           className="absolute top-full right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-[45] overflow-hidden flex flex-col"
         >
           <div className="px-3 py-2 border-b border-gray-200 dark:border-[#30363d] bg-gray-50 dark:bg-[#0d1117] space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">
               Preset source
             </p>
             <div className="flex rounded-lg border border-gray-200 dark:border-[#30363d] overflow-hidden">
@@ -242,7 +242,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                 role="menuitemradio"
                 aria-checked={presetSource === 'global'}
                 onClick={() => onPresetSourceChange('global')}
-                className={`flex-1 px-2 py-2 text-[11px] font-semibold transition min-h-[44px] sm:min-h-0 ${
+                className={`flex-1 px-2 py-2 text-[12px] font-semibold transition [@media(pointer:coarse)]:min-h-[44px] ${
                   presetSource === 'global'
                     ? 'bg-brand-teal text-white'
                     : 'bg-white dark:bg-[#161b22] text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-[#21262d]'
@@ -255,7 +255,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                 role="menuitemradio"
                 aria-checked={presetSource === 'folder'}
                 onClick={() => onPresetSourceChange('folder')}
-                className={`flex-1 px-2 py-2 text-[11px] font-semibold transition min-h-[44px] sm:min-h-0 ${
+                className={`flex-1 px-2 py-2 text-[12px] font-semibold transition [@media(pointer:coarse)]:min-h-[44px] ${
                   presetSource === 'folder'
                     ? 'bg-brand-teal text-white'
                     : 'bg-white dark:bg-[#161b22] text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-[#21262d]'
@@ -264,7 +264,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                 This folder
               </button>
             </div>
-            <p className="text-[10px] text-slate-500 leading-snug">
+            <p className="text-[12px] text-slate-500 leading-snug">
               {presetSource === 'folder'
                 ? 'Saves and lists presets for this folder only. Switch to Global to use account-wide presets.'
                 : 'Uses your account presets. Switch to This folder to override with folder-specific presets.'}
@@ -311,7 +311,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                           >
                             {preset.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 truncate">
+                          <span className="text-[12px] text-slate-500 truncate">
                             {[preset.selectedModel, preset.aspectRatio]
                               .filter(Boolean)
                               .join(' · ') || 'Toolbar snapshot'}
@@ -372,7 +372,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                     className="w-full bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] text-sm rounded-md px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-brand-teal"
                   />
                   {presetError && (
-                    <p className="text-[11px] text-red-500">{presetError}</p>
+                    <p className="text-[12px] text-red-500">{presetError}</p>
                   )}
                   <div className="flex gap-2">
                     <button

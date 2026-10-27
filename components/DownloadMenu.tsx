@@ -212,7 +212,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
         {triggerTooltip && (
           <span
             role="tooltip"
-            className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/dl-tip:opacity-100 group-focus-visible/dl-tip:opacity-100 transition-opacity z-20"
+            className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/dl-tip:opacity-100 group-focus-visible/dl-tip:opacity-100 transition-opacity z-20"
           >
             {triggerTooltip}
           </span>
@@ -228,7 +228,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
         >
           {canThis && thisFormats.length > 0 && (
             <div className="p-1">
-              <div className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <div className="px-3 pt-2 pb-1 text-[12px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Download this
               </div>
               {thisFormats.map((opt) => (
@@ -266,7 +266,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
 
           {canAll && (
             <div className="p-1">
-              <div className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <div className="px-3 pt-2 pb-1 text-[12px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {allLabel || `Download all (${allCount})`}
               </div>
               {batchOptions.map((opt) => (
@@ -292,7 +292,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
                 className="my-1 border-t border-gray-200 dark:border-[#30363d]"
                 aria-hidden="true"
               />
-              <div className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <div className="px-3 pt-2 pb-1 text-[12px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Slides and carousel
               </div>
               <button

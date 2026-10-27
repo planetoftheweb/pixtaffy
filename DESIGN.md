@@ -100,6 +100,9 @@ Never `zinc`/`neutral`.
 
 ## 3. Typography
 
+**Hard minimum: all rendered text must be at least 12px**, including responsive
+variants, tooltips, badges, SVG text, and standalone HTML pages.
+
 Font: **Mona Sans** (variable, self-hosted `/fonts/Mona-Sans.woff2`), falling
 back to Inter. The Tailwind text scale is **remapped one step up** in
 `index.css` — don't be fooled by the class names:
@@ -111,14 +114,14 @@ back to Inter. The Tailwind text scale is **remapped one step up** in
 | `text-sm` | 16px | Body, standard button labels |
 | `text-xs` | 14px | Labels, dense body |
 | `text-[13px]` | 13px | Tooltips, compact button labels |
-| `text-[11px] font-semibold` | 11px | Micro-copy, chips, segment labels |
-| `text-[10px] font-bold uppercase tracking-wider text-slate-400` | 10px | Micro section labels |
+| `text-[12px] font-semibold` | 12px | Micro-copy, chips, segment labels |
+| `text-[12px] font-bold uppercase tracking-wide text-slate-400` | 12px | Micro section labels |
 
 - Weights: `font-semibold` and `font-bold` for labels/buttons, `font-medium`
   for body. Nothing lighter than normal.
-- **Section/eyebrow labels**: 10–11px, bold/semibold, `uppercase
-  tracking-wider`, slate-400/500. Dropdown section headers:
-  `px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider
+- **Section/eyebrow labels**: 12px, bold/semibold, `uppercase
+  tracking-wide`, slate-400/500. Dropdown section headers:
+  `px-3 pt-2 pb-1 text-[12px] font-bold uppercase tracking-wide
   text-slate-500 dark:text-slate-400`.
 - **Counters and page numbers get `tabular-nums`** (often + `leading-none`) so
   digits don't jitter as values change.
@@ -206,7 +209,7 @@ one — the tooltip is part of the control, not an afterthought.
   `pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2
   whitespace-nowrap text-[13px] font-medium px-3 py-1.5 rounded-lg
   bg-black/90 text-white shadow-xl opacity-0 group-hover/tb:opacity-100
-  transition-opacity` (11px/`px-2 py-1 rounded-md` for the small variant).
+  transition-opacity` (12px/`px-2 py-1 rounded-md` for the small variant).
 - Always `bg-black/90 text-white` — the "dark glass" pill. No delay on show.
 - **Two-part long-form**: bold headline (`block font-semibold`) + muted body
   (`block text-slate-300 font-normal mt-0.5`), or the rich card
@@ -214,7 +217,7 @@ one — the tooltip is part of the control, not an afterthought.
   run-on paragraph.
 - Keyboard shortcuts render as `<kbd>` chips inside tooltips:
   `inline-flex items-center justify-center h-5 min-w-5 px-1 rounded
-  bg-white/10 border border-white/15 text-[10px] font-mono`.
+  bg-white/10 border border-white/15 text-[12px] font-mono`.
 - **Tooltips must never crop.** The two recurring killers: an
   `overflow-hidden` ancestor (round the child buttons instead of clipping the
   group — or portal the tip), and screen-edge overflow (clamp or flip).
@@ -254,7 +257,7 @@ Compact CTA:   px-3 py-1.5 text-sm font-medium rounded-lg bg-brand-teal
 Secondary:     px-3 py-2 rounded-lg border border-gray-200 dark:border-[#30363d]
                bg-white dark:bg-[#0d1117] text-slate-800 dark:text-slate-100
                hover:bg-brand-teal hover:border-brand-teal hover:text-white
-Ghost (teal):  px-2 py-0.5 rounded-md text-brand-teal text-[11px] font-semibold
+Ghost (teal):  px-2 py-0.5 rounded-md text-brand-teal text-[12px] font-semibold
                hover:bg-brand-teal/10
 Icon (canvas): h-11 w-11 rounded-full border border-gray-300/80
                dark:border-white/15 bg-white/90 dark:bg-[#1f252d]/90 shadow-lg
@@ -276,7 +279,7 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
 - Focus convention everywhere: `focus:outline-none focus:ring-1` (or `ring-2`)
   `focus:ring-brand-teal`.
 - Count badge: `absolute -top-1.5 -right-1.5 min-w-6 h-6 px-1.5 rounded-full
-  bg-brand-teal text-white text-[11px] font-bold shadow-lg ring-2 ring-white
+  bg-brand-teal text-white text-[12px] font-bold shadow-lg ring-2 ring-white
   dark:ring-[#0d1117] tabular-nums pointer-events-none`.
 - Settings rows: label left (`text-xs text-slate-400`), control right, one
   line, `min-h-[26px]`.

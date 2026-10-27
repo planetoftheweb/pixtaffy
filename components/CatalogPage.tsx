@@ -109,7 +109,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           <div className="text-center py-20 text-slate-500 flex flex-col items-center">
             <p className="mb-2">No {category}s found in the catalog yet.</p>
             <p className="text-xs mb-6">Be the first to contribute or populate with defaults.</p>
-            <p className="text-[10px] text-slate-400 mt-2 max-w-xs">
+            <p className="text-[12px] text-slate-400 mt-2 max-w-xs">
               System defaults are seeded automatically for admins.
             </p>
           </div>
