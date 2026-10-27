@@ -114,7 +114,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               />
               <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-2xl border border-white/20 bg-[#0b1020]/78 px-4 py-3 text-white shadow-xl backdrop-blur-md sm:inset-x-6 sm:bottom-6 sm:px-5">
                 <div className="min-w-0">
-                  <p className="text-[12px] font-black uppercase tracking-[0.17em] text-brand-cyan sm:text-xs">Creative crew at work</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.17em] text-brand-cyan sm:text-xs">Creative crew at work</p>
                   <p className="truncate text-sm font-bold sm:text-base">Prompt. Generate. Refine. Build.</p>
                 </div>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-orange to-brand-pink shadow-[0_10px_15px_-3px_rgba(0,0,0,0.35)]">
