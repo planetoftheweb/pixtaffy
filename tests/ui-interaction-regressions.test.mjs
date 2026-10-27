@@ -326,13 +326,13 @@ test('blank panel mouse defaults are cancelled without blocking touch scrolling'
 });
 
 test('Generate remains focusable with a stable action name and guarded activation', () => {
-  assert.match(controlPanelSource, /aria-label="Generate image"/);
+  assert.match(controlPanelSource, /aria-label=\{hasSetupAction \? generateButtonLabel : "Generate image"\}/);
   assert.match(controlPanelSource, /aria-disabled=\{generateButtonDisabled\}/);
   assert.doesNotMatch(controlPanelSource, /\sdisabled=\{generateButtonDisabled\}|aria-label=\{generateButtonTitle\}/);
   assert.match(controlPanelSource, /onClick=\{\(\) => \{\s*if \(generateButtonDisabled\) return;/);
   assert.match(controlPanelSource, /if \(!generateButtonDisabled\) \{[\s\S]*?onGenerate\(safeBatchCount\)/);
   assert.equal((controlPanelSource.match(/onGenerate\(safeBatchCount\)/g) || []).length, 2);
-  const button = controlPanelSource.slice(controlPanelSource.indexOf('aria-disabled={generateButtonDisabled}'), controlPanelSource.indexOf('aria-label="Generate image"'));
+  const button = controlPanelSource.slice(controlPanelSource.indexOf('aria-disabled={generateButtonDisabled}'), controlPanelSource.indexOf('aria-label={hasSetupAction ? generateButtonLabel : "Generate image"}'));
   assert.doesNotMatch(button, /pointer-events-none/);
 });
 

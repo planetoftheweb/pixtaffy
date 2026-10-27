@@ -3000,7 +3000,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
                         : 'bg-gradient-to-br from-brand-orange via-brand-red to-brand-purple hover:saturate-125 text-white shadow-brand-pink/25'
                     }`}
-                    aria-label="Generate image"
+                    aria-label={hasSetupAction ? generateButtonLabel : "Generate image"}
                   >
                     {hasSetupAction ? (
                       user ? <KeyRound size={16} className="text-white" /> : <UserPlus size={16} className="text-white" />
