@@ -2,7 +2,7 @@ import React from 'react';
 import { Tip } from './settings/Tip';
 import { navigate } from '../utils/routes';
 
-const contact = <a href="mailto:privacy@pixelprowess.com" className="inline-flex min-h-[44px] items-center break-words text-brand-teal underline sm:min-h-0">privacy@pixelprowess.com<Tip text="Contact Pixel Prowess" /></a>;
+const contact = <a href="mailto:privacy@pixelprowess.com" className="inline-flex min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-w-0 items-center break-words text-brand-teal underline [@media(pointer:fine)]:min-h-0">privacy@pixelprowess.com<Tip text="Contact Pixel Prowess" /></a>;
 const privacySections = [
   ['Accounts', 'Firebase Authentication manages email and password accounts and sends verification emails. We collect your name, username and email address to identify your account.'],
   ['Saved work and browser storage', 'We save generation history, prompts, presets and settings in Cloud Firestore, and generated images in Firebase Storage. Your browser also keeps an IndexedDB image cache and localStorage preferences. Clearing site data removes those local copies.'],
@@ -25,7 +25,7 @@ const termsSections = [
 export const LegalPage: React.FC<{ kind: 'privacy' | 'terms'; onBack: () => void }> = ({ kind, onBack }) => (
   <main className="flex-1 px-5 py-10 sm:px-8">
     <article className="mx-auto max-w-lg text-base leading-relaxed text-slate-800 dark:text-slate-100">
-      <a href="/" onClick={event => { event.preventDefault(); onBack(); }} className="inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal underline sm:min-h-0 sm:min-w-0">Back to studio<Tip text="Back to studio" /></a>
+      <a href="/" onClick={event => { event.preventDefault(); onBack(); }} className="inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal underline [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0">Back to studio<Tip text="Back to studio" /></a>
       <h1 className="mt-6 text-2xl font-bold">{kind === 'privacy' ? 'Privacy policy' : 'Terms of service'}</h1>
       <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Last updated October 27, 2026</p>
       <p className="mt-6">PixTaffy is operated by Eric (Ray) Villalobos, doing business as Pixel Prowess, a Florida sole proprietorship.</p>
@@ -33,7 +33,7 @@ export const LegalPage: React.FC<{ kind: 'privacy' | 'terms'; onBack: () => void
         <section key={title} className="mt-8">
           <h2 className="text-lg font-bold">{title}</h2>
           <p className="mt-2">{text}</p>
-          {title === 'Credits and Studio plan' && <a href="/pricing" onClick={event => { event.preventDefault(); navigate('/pricing'); }} className="inline-flex min-h-[44px] items-center text-brand-teal underline sm:min-h-0">View pricing<Tip text="View pricing" /></a>}
+          {title === 'Credits and Studio plan' && <a href="/pricing" onClick={event => { event.preventDefault(); navigate('/pricing'); }} className="inline-flex min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-w-0 items-center text-brand-teal underline [@media(pointer:fine)]:min-h-0">View pricing<Tip text="View pricing" /></a>}
         </section>
       ))}
       <section className="mt-8"><h2 className="text-lg font-bold">Contact</h2><p className="mt-2">For privacy, account or billing questions, or requests to access, correct or delete your data, contact {contact}.</p></section>

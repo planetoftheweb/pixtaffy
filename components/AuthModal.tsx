@@ -42,6 +42,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      const target = event.target;
+      if (target instanceof HTMLElement && target.matches('input,textarea,[contenteditable="true"]')) {
+        target.blur();
+        return;
+      }
+      onClose();
+    };
+    document.addEventListener('keydown', handleEscape, true);
+    return () => document.removeEventListener('keydown', handleEscape, true);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,13 +116,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
+    <div onClick={onClose} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div onClick={event => event.stopPropagation()} className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
         
         <button 
           onClick={onClose}
           aria-label="Close"
-          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
+          className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
         >
           <X size={20} /><Tip text="Close" />
         </button>
@@ -192,14 +208,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 />
               </div>
               {isLogin && (
+                <div className="flex justify-end">
                 <button
                   type="button"
                   onClick={handlePasswordReset}
                   disabled={isResetting || isLoading}
-                  className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center ml-auto text-xs font-semibold text-brand-red dark:text-brand-orange hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center ml-auto text-xs font-semibold text-brand-red dark:text-brand-orange hover:underline disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isResetting ? 'Sending reset link…' : 'Forgot password?'}<Tip text="Forgot password?" />
                 </button>
+                </div>
               )}
             </div>
 
@@ -221,7 +239,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="submit"
               disabled={isLoading || isResetting}
-              className="w-full bg-brand-teal hover:bg-teal-600 text-white font-bold py-3.5 rounded-lg shadow-lg shadow-brand-teal/20 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="w-full bg-brand-teal hover:bg-teal-600 text-[#0d1117] font-bold py-3.5 rounded-lg shadow-lg shadow-brand-teal/20 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]"
             >
               {isLoading ? (
                 <Loader2 size={20} className="animate-spin" />
@@ -239,7 +257,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {isLogin ? "Don't have an account? " : "Already have an account? "}
               <button 
                 onClick={toggleMode}
-                className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center text-brand-teal font-bold hover:underline"
+                className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center text-brand-teal font-bold hover:underline"
               >
                 {isLogin ? 'Sign up' : 'Log in'}<Tip text={isLogin ? 'Sign up' : 'Log in'} />
               </button>

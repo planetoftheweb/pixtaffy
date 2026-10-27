@@ -70,12 +70,13 @@ export const RichSelect: React.FC<RichSelectProps> = ({
     const close = (restoreFocus = false) => {
       setIsOpen(false);
       requestAnimationFrame(() => {
-        if (restoreFocus || document.activeElement === document.body) triggerRef.current?.focus();
+        if (restoreFocus) triggerRef.current?.focus();
       });
     };
     const handleClickOutside = (event: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        close();
+        const target = event.target as HTMLElement;
+        close(!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label'));
       }
     };
 

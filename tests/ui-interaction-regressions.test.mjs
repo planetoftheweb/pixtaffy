@@ -209,3 +209,30 @@ test('toolbar and rich menus dismiss focus departures without restoring focus', 
   assert.match(controlPanelSource, /data-toolbar-panel=\{name\}/);
   assert.match(richSelect, /menuRef\.current\?\.contains\(target\)/);
 });
+
+test('reviewed controls compact only for fine pointers and values appear at xl', () => {
+  const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
+  const legal = readFileSync(new URL('../components/LegalPage.tsx', import.meta.url), 'utf8');
+  for (const source of [appSource, auth, legal, controlPanelSource]) {
+    assert.doesNotMatch(source, /sm:min-[hw]-0/);
+    assert.match(source, /\[@media\(pointer:fine\)\]:min-h-0/);
+  }
+  assert.match(controlPanelSource, /hidden md:inline xl:hidden/);
+  assert.match(controlPanelSource, /hidden xl:flex flex-col flex-1/);
+  assert.match(controlPanelSource, /focus:ring-1 focus:ring-brand-teal/);
+  assert.match(auth, /flex justify-end/);
+  assert.match(auth, /target\.blur\(\)/);
+  assert.match(auth, /onClick=\{onClose\}/);
+  assert.match(auth, /onClick=\{event => event.stopPropagation\(\)\}/);
+  for (const source of [appSource, auth, readFileSync(new URL('../components/FeedbackModal.tsx', import.meta.url), 'utf8')]) {
+    assert.match(source, /bg-brand-teal[^\n]*text-\[#0d1117\]/);
+  }
+});
+
+test('outside pointer focus restoration uses the target rather than animation timing', () => {
+  const rich = readFileSync(new URL('../components/RichSelect.tsx', import.meta.url), 'utf8');
+  for (const source of [controlPanelSource, rich]) {
+    assert.ok(source.includes(`close(!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label'))`));
+    assert.doesNotMatch(source, /document.activeElement === document.body|document.activeElement !== document.body/);
+  }
+});

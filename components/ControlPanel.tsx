@@ -1007,7 +1007,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       ? batchCountTriggerRef.current?.querySelector<HTMLElement>('button')
       : document.querySelector<HTMLElement>(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`);
     const close = (restoreFocus = false) => { setActiveDropdown(null); requestAnimationFrame(() => {
-      if (!restoreFocus && document.activeElement !== document.body) return;
+      if (!restoreFocus) return;
       const currentTrigger = activeDropdown === 'batch-count'
         ? batchCountTriggerRef.current?.querySelector<HTMLElement>('button')
         : document.querySelector<HTMLElement>(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`);
@@ -1026,13 +1026,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
       if (activeDropdown === 'batch-count') {
         if (batchCountTriggerRef.current?.contains(target)) return;
-        close();
+        close(!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label'));
         return;
       }
 
       if (target.closest?.('.mobile-dropdown-panel')) return;
       if (target.closest?.(`[data-toolbar-dropdown-trigger="${activeDropdown}"]`)) return;
-      close();
+      close(!target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label'));
     };
 
     const inPanel = (target: EventTarget | null) => target instanceof Element && (
@@ -1217,9 +1217,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                             item.scope === 'system' 
                                                 ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20' 
                                                 : 'text-slate-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-[#30363d]'
-                                        }`}
-                                        title={item.scope === 'system' ? "Remove from System Defaults" : "Promote to System Default"}
-                                    >
+                                        }`} aria-label={item.scope === 'system' ? "Remove from System Defaults" : "Promote to System Default"}
+                                    ><Tip text={item.scope === 'system' ? "Remove from System Defaults" : "Promote to System Default"} />
                                         <Settings size={12} fill={item.scope === 'system' ? "currentColor" : "none"} />
                                     </button>
                                 )}
@@ -1810,14 +1809,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               : `${accentClass || 'text-slate-500 dark:text-slate-400'} group-hover:text-brand-teal`
           }`}
         />
-        {/* Compact category label — only md..lg (when there's no room for the full value). */}
-        <span className={`hidden md:inline lg:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
+        {/* Compact category label, md through lg (when there's no room for the full value). */}
+        <span className={`hidden md:inline xl:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
           isActive ? 'text-brand-teal' : 'text-slate-600 dark:text-slate-300 group-hover:text-brand-teal'
         }`}>
           {subLabel}
         </span>
-        {/* Selected value (and optional stacked sublabel + palette) — lg+ */}
-        <div className="hidden lg:flex flex-col flex-1 min-w-0 text-left">
+        {/* Selected value and optional stacked sublabel and palette, xl+ */}
+        <div className="hidden xl:flex flex-col flex-1 min-w-0 text-left">
           <span className="hidden xl:block text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
             {subLabel}
           </span>
@@ -1911,7 +1910,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     return `${getModelLabel(ids[0])} +${ids.length - 1}`;
   })();
 
-  const inputClass = "w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg p-3.5 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red transition-all placeholder-slate-400 dark:placeholder-slate-600";
+  const inputClass = "w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg p-3.5 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal transition-all placeholder-slate-400 dark:placeholder-slate-600";
   const labelClass = "block text-xs md:text-sm font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1";
 
   // Helper to render scope icon
@@ -1926,8 +1925,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     <div className="flex items-center gap-1">
       {/* Scope Badge (Always Visible if not system) */}
       {!item.isSystem && (
-         <div className="mr-1 opacity-70" title={item.scope}>
-           <ScopeIcon scope={item.scope} />
+         <div className="mr-1 opacity-70" aria-label={item.scope}>
+           <ScopeIcon scope={item.scope} /><Tip text={item.scope} />
          </div>
       )}
       
@@ -1939,9 +1938,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <>
             <button 
               onClick={(e) => handleEdit(e, type, item)} 
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-[#30363d] rounded-md text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
-              title="Edit"
-            >
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-[#30363d] rounded-md text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal transition-colors" aria-label="Edit"
+            ><Tip text="Edit" />
               <Pencil size={12} />
             </button>
             {(() => {
@@ -1955,9 +1953,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
                       : 'hover:bg-gray-100 dark:hover:bg-[#30363d] text-slate-500 hover:text-red-500 dark:hover:text-red-400'
                   }`}
-                  title={isArmed ? 'Click again to confirm' : 'Delete'}
                   aria-label={isArmed ? 'Click again to confirm delete' : 'Delete'}
-                >
+                ><Tip text={isArmed ? 'Click again to confirm' : 'Delete'} />
                   {isArmed ? <Check size={12} /> : <Trash2 size={12} />}
                 </button>
               );
@@ -2007,9 +2004,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               `overflow:visible` while expanded so dropdown panels (which
               are absolute children with `top-full`) can still escape this
               box; only the brief collapsed state clips them. At lg+ the
-              row is forced to a single line (`flex-nowrap`); the dropdown
-              buttons truncate their value labels via `lg:min-w-0` when
-              there isn't enough room. Below lg we still allow a wrap
+              row stays on one line. Category labels remain visible through
+              lg; selected values appear at xl. Below lg we still allow a wrap
               fallback so tiny viewports never produce a horizontal
               scrollbar that would clip the dropdown panels. */}
           <div
@@ -2215,7 +2211,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         return next;
                       });
                     }}
-                    title="Toggle multi-model generation. When two or more models are selected, each Generate click runs once per model and tags the results as a comparison batch."
+                    aria-label="Toggle multi-model generation. When two or more models are selected, each Generate click runs once per model and tags the results as a comparison batch."
                     className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium border-b border-gray-100 dark:border-[#30363d] transition-colors ${
                       compareModelsMode
                         ? 'bg-brand-teal/10 text-brand-teal'
@@ -2224,7 +2220,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   >
                     <span className="flex items-center gap-2">
                       <GitCompare size={15} className={compareModelsMode ? 'text-brand-teal' : 'text-slate-500'} />
-                      <span>Compare models</span>
+                      <span>Compare models</span><Tip text="Toggle multi-model generation. When two or more models are selected, each Generate click runs once per model and tags the results as a comparison batch." />
                     </span>
                     <span className={`text-[11px] uppercase tracking-wider font-bold ${compareModelsMode ? 'text-brand-teal' : 'text-slate-400'}`}>
                       {compareModelsMode ? 'On' : 'Off'}
@@ -2246,7 +2242,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                           type="button"
                           onClick={() => setExpandedModelGroup(isExpanded ? null : groupName)}
                           aria-expanded={isExpanded}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-gray-50 dark:bg-[#0d1117] border-b border-gray-100 dark:border-[#30363d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                          className="min-h-[44px] [@media(pointer:fine)]:min-h-0 w-full flex items-center gap-2 px-3 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-gray-50 dark:bg-[#0d1117] border-b border-gray-100 dark:border-[#30363d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                         >
                           <ChevronDown
                             size={12}
@@ -2618,8 +2614,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                 <div
                                   className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
                                   onClick={() => handleApplyPreset(preset)}
-                                  title={`Apply preset: ${preset.name}`}
-                                >
+                                  aria-label={`Apply preset: ${preset.name}`}
+                                ><Tip text={`Apply preset: ${preset.name}`} />
                                   <Bookmark
                                     size={16}
                                     className={`shrink-0 mt-0.5 ${
@@ -2661,7 +2657,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                         ? `Close actions for ${preset.name}`
                                         : `Actions for ${preset.name}`
                                     }
-                                    className={`p-1.5 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 shrink-0 flex items-center justify-center rounded-md transition-colors ${
+                                    className={`p-1.5 min-w-[44px] min-h-[44px] [@media(pointer:fine)]:min-w-0 [@media(pointer:fine)]:min-h-0 shrink-0 flex items-center justify-center rounded-md transition-colors ${
                                       isActionMenuOpen
                                         ? 'bg-gray-200 dark:bg-[#30363d] text-slate-700 dark:text-slate-200'
                                         : 'hover:bg-gray-100 dark:hover:bg-[#30363d] text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
@@ -2820,7 +2816,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   value={config.prompt}
                   onChange={(e) => handleChange('prompt', e.target.value)}
                   placeholder="Describe your image"
-                  className="min-h-[48px] h-12 focus:h-32 w-full min-w-0 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg py-3 pl-4 pr-14 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red transition-all duration-200 ease-in-out placeholder-slate-400 dark:placeholder-slate-600 shadow-sm dark:shadow-inner resize-y overflow-y-auto"
+                  className="min-h-[48px] h-12 focus:h-32 w-full min-w-0 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg py-3 pl-4 pr-14 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal transition-all duration-200 ease-in-out placeholder-slate-400 dark:placeholder-slate-600 shadow-sm dark:shadow-inner resize-y overflow-y-auto"
                 />
                 {isPromptDropActive && (
                   <div className="pointer-events-none absolute inset-0 rounded-lg border-2 border-dashed border-brand-teal bg-brand-teal/10 flex items-center justify-center text-xs font-semibold text-brand-teal">
@@ -2830,7 +2826,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsPromptModalOpen(true)}
-                  className="absolute top-0.5 right-0.5 sm:top-2 sm:right-2 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center p-1.5 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                  className="absolute top-0.5 right-0.5 sm:top-2 sm:right-2 min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center p-1.5 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
                   aria-label="Open full-screen prompt editor"
                 >
                   <Maximize2 size={14} /><Tip title="Open full-screen prompt editor" text='Drop an image or brand PDF into the prompt. Create batches with {a,b} or ["tile 1","tile 2"].' />
@@ -2863,7 +2859,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         const clamped = Math.max(1, Math.min(Math.floor(raw), hardMax));
                         setBatchCount(clamped);
                       }}
-                      className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 w-6 bg-transparent text-slate-900 dark:text-white text-base font-semibold text-center tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 w-6 bg-transparent text-slate-900 dark:text-white text-base font-semibold text-center tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       aria-label="Variations per prompt"
                     />
                   </div>
@@ -2880,7 +2876,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     aria-haspopup="listbox"
                     aria-expanded={activeDropdown === 'batch-count'}
                     aria-label="Pick a preset count"
-                    className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 h-8 w-4 sm:w-5 flex items-center justify-center rounded-md text-slate-500 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                    className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 h-8 w-4 sm:w-5 flex items-center justify-center rounded-md text-slate-500 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
                   >
                     <ChevronDown
                       size={14}
@@ -3109,7 +3105,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   }
                 }}
                 placeholder='Prompt or drop image ({a,b} or ["tile 1","tile 2"])...'
-                className="w-full h-[55vh] min-h-[280px] bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg p-4 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red placeholder-slate-400 dark:placeholder-slate-600 resize-none leading-relaxed"
+                className="w-full h-[55vh] min-h-[280px] bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg p-4 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal placeholder-slate-400 dark:placeholder-slate-600 resize-none leading-relaxed"
               />
               {hasBatchInfo && (
                 <div
@@ -3379,9 +3375,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               ? 'ring-2 ring-brand-teal ring-offset-2 ring-offset-white dark:ring-offset-[#161b22] scale-105'
                               : 'ring-1 ring-black/10 dark:ring-white/10 hover:scale-105'
                           }`}
-                          style={{ backgroundColor: normalizedColor }}
-                          title={`Edit color ${idx + 1}`}
-                        >
+                          style={{ backgroundColor: normalizedColor }} aria-label={`Edit color ${idx + 1}`}
+                        ><Tip text={`Edit color ${idx + 1}`} />
                           <span className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/20" />
                         </button>
                         {newItemColors.length > 1 && (
@@ -3390,9 +3385,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                             onClick={() => {
                               setNewItemColors(newItemColors.filter((_, i) => i !== idx));
                             }}
-                            className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-white dark:bg-[#1f2937] border border-gray-200 dark:border-[#30363d] text-slate-500 hover:text-red-400 transition-colors"
-                            title="Remove color"
-                          >
+                            className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-white dark:bg-[#1f2937] border border-gray-200 dark:border-[#30363d] text-slate-500 hover:text-red-400 transition-colors" aria-label="Remove color"
+                          ><Tip text="Remove color" />
                             <X size={10} />
                           </button>
                         )}
@@ -3402,9 +3396,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                  <button
                    type="button"
                    onClick={handleAddPaletteColor}
-                   className="h-9 px-3 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-500 hover:text-brand-teal hover:border-brand-teal transition-colors flex items-center gap-1"
-                   title="Add Color"
-                 >
+                   className="h-9 px-3 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-500 hover:text-brand-teal hover:border-brand-teal transition-colors flex items-center gap-1" aria-label="Add Color"
+                 ><Tip text="Add Color" />
                    <Plus size={12} />
                    Add
                  </button>
@@ -3425,9 +3418,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                      <button
                        type="button"
                        onClick={() => setActiveColorIndex(null)}
-                       className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-gray-200/70 dark:hover:bg-[#1f2937] transition-colors"
-                       title="Close color picker"
-                     >
+                       className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-gray-200/70 dark:hover:bg-[#1f2937] transition-colors" aria-label="Close color picker"
+                     ><Tip text="Close color picker" />
                        <X size={14} />
                      </button>
                    </div>

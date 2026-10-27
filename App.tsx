@@ -4097,7 +4097,7 @@ const App: React.FC = () => {
               </button>
               <button 
                 onClick={() => openAuthModal('signup')}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg bg-brand-teal px-2 py-2 text-xs sm:px-4 sm:text-sm font-bold text-white shadow-lg shadow-brand-teal/20 transition-all duration-150 hover:bg-teal-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-[#0d1117]"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg bg-brand-teal px-2 py-2 text-xs sm:px-4 sm:text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-all duration-150 hover:bg-teal-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-[#0d1117]"
               >
                 Sign up<Tip text="Sign up" />
               </button>
@@ -4115,7 +4115,7 @@ const App: React.FC = () => {
            {!adminMode && !settingsMode && !billingMode && !catalogMode && !whatsNewMode && !welcomeMode && (
              <button
                onClick={toggleToolbarCollapsed}
-               className="hidden md:inline-flex p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
+               className="hidden md:inline-flex min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 items-center justify-center p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
                aria-pressed={isToolbarCollapsed}
                aria-label={isToolbarCollapsed ? 'Show toolbar and prompt' : 'Hide toolbar and prompt'}
              >
@@ -4172,7 +4172,7 @@ const App: React.FC = () => {
         <main className="flex-1 flex flex-col items-center justify-center p-5">
           <h1 className="sr-only">Page not found</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">That page does not exist.</p>
-          <a href="/" onClick={event => { event.preventDefault(); navigate('/'); enterStudioFromWelcome(); }} className="inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal sm:min-h-0 sm:min-w-0">Back to studio<Tip text="Back to studio" /></a>
+          <a href="/" onClick={event => { event.preventDefault(); navigate('/'); enterStudioFromWelcome(); }} className="inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0">Back to studio<Tip text="Back to studio" /></a>
         </main>
       ) : pathname === '/privacy' || pathname === '/terms' ? (
         <LegalPage kind={pathname === '/privacy' ? 'privacy' : 'terms'} onBack={() => { navigate('/'); enterStudioFromWelcome(); }} />
@@ -4870,7 +4870,7 @@ const App: React.FC = () => {
               |
             </span>
             {(['/privacy', '/terms'] as const).map(path => (
-              <a key={path} href={path} onClick={event => { event.preventDefault(); navigate(path); }} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal hover:underline sm:min-h-0 sm:min-w-0">{path === '/privacy' ? 'Privacy' : 'Terms'}<Tip text={path === '/privacy' ? 'Privacy policy' : 'Terms of service'} /></a>
+              <React.Fragment key={path}><a href={path} onClick={event => { event.preventDefault(); navigate(path); }} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal hover:underline [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0">{path === '/privacy' ? 'Privacy' : 'Terms'}<Tip text={path === '/privacy' ? 'Privacy policy' : 'Terms of service'} /></a><span className="hidden text-slate-300 dark:text-slate-600 sm:inline" aria-hidden="true">|</span></React.Fragment>
             ))}
             <button
               type="button"
