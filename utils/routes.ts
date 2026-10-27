@@ -7,8 +7,18 @@ export const isKnownPath = (path: string): path is AppPath =>
 
 export function navigate(path: AppPath) {
   if (window.location.pathname + window.location.search === path) return;
-  window.history.pushState(null, '', path);
+  // Same page with only a query to drop (for example /?verified=1): replace, so Back does not gain an extra entry.
+  if (window.location.pathname === path) window.history.replaceState(null, '', path);
+  else window.history.pushState(null, '', path);
   window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+// /pricing/ and /pricing are the same page. Drop a trailing slash before the app reads the path.
+export function canonicalizeTrailingSlash() {
+  const { pathname, search, hash } = window.location;
+  if (pathname.length > 1 && pathname.endsWith('/')) {
+    window.history.replaceState(null, '', pathname.replace(/\/+$/, '') + search + hash);
+  }
 }
 
 const subscribe = (notify: () => void) => {

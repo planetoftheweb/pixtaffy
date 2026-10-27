@@ -88,7 +88,7 @@ test('App persists prefer studio on enter and generation without clearing on vie
 
 // Routes are intentionally small: query-driven views stay on the root path.
 test('routes recognize only public SPA paths and preserve history navigation', async () => {
-  const { KNOWN_PATHS, isKnownPath, navigate } = await import('../utils/routes.ts');
+  const { KNOWN_PATHS, isKnownPath, navigate, canonicalizeTrailingSlash } = await import('../utils/routes.ts');
   assert.deepEqual(KNOWN_PATHS, ['/', '/pricing', '/privacy', '/terms']);
   for (const path of KNOWN_PATHS) assert.equal(isKnownPath(path), true);
   for (const path of ['/studio', '/missing', '/pricing/extra']) assert.equal(isKnownPath(path), false);
@@ -96,15 +96,22 @@ test('routes recognize only public SPA paths and preserve history navigation', a
   const previousPopStateEvent = globalThis.PopStateEvent;
   const target = new EventTarget();
   const entries = [];
+  const replaced = [];
   let updates = 0;
   target.addEventListener('popstate', () => updates++);
   globalThis.PopStateEvent = Event;
   globalThis.window = Object.assign(target, {
     location: { pathname: '/', search: '?whatsnew=v0.32.0' },
-    history: { pushState: (_state, _unused, path) => {
-      entries.push(path);
-      globalThis.window.location = { pathname: path, search: '' };
-    } },
+    history: {
+      pushState: (_state, _unused, path) => {
+        entries.push(path);
+        globalThis.window.location = { pathname: path, search: '' };
+      },
+      replaceState: (_state, _unused, path) => {
+        replaced.push(path);
+        globalThis.window.location = { pathname: path, search: '' };
+      },
+    },
   });
   try {
     navigate('/pricing');
@@ -123,6 +130,12 @@ test('routes recognize only public SPA paths and preserve history navigation', a
       assert.equal(entries.length, count);
     }
     assert.equal(updates, 6);
+    // Clearing a query on the same path replaces the entry instead of adding one.
+    assert.deepEqual(replaced, ['/', '/']);
+    assert.deepEqual(entries, ['/pricing', '/privacy', '/terms', '/']);
+    window.location = { pathname: '/pricing/', search: '?x=1', hash: '' };
+    canonicalizeTrailingSlash();
+    assert.equal(replaced.at(-1), '/pricing?x=1');
   } finally {
     globalThis.window = previousWindow;
     globalThis.PopStateEvent = previousPopStateEvent;

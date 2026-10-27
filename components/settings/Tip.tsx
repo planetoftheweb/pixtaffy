@@ -29,7 +29,7 @@ export const Tip: React.FC<{
     const show = () => { if (!expanded() && !host.matches(':disabled') && !host.querySelector(':disabled')) setHostRect(host.getBoundingClientRect()); };
     const showPointer = (event: PointerEvent) => { if (event.pointerType !== 'touch') show(); };
     const showFocus = (event: FocusEvent) => {
-      // Programmatic focus (for example a menu returning focus to its trigger) is not a hover request.
+      // Focus tips are for keyboard users. Focus that follows a pointer press (for example a menu handing focus back) stays quiet.
       if (lastInputWasKeyboard && event.target instanceof HTMLElement && event.target.matches(':focus-visible')) show();
     };
     const hide = () => setHostRect(null);
