@@ -61,6 +61,8 @@ import { RichSelect } from './RichSelect';
 import { useConfirmAction } from '../hooks/useConfirmAction';
 import { AnchorRect, PresetActionPopover } from './PresetActionPopover';
 import { PresetHoverPreview } from './PresetHoverPreview';
+import { setErrorToast as setAiAssistError, useErrorToastClearance } from '../utils/errorToastStore';
+import { dismissErrorToastOnEscape, dismissTopErrorToast, hasVisibleErrorToast } from '../utils/errorToastEscape';
 
 /** Fields persisted when saving/updating a toolbar preset (see App `handleSavePreset`). */
 type ToolbarPresetSnapshot = Omit<ToolbarPreset, 'id' | 'name' | 'createdAt'>;
@@ -942,7 +944,26 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const saturationValueRef = useRef<HTMLDivElement>(null);
   const hueSliderRef = useRef<HTMLDivElement>(null);
 
-  const [aiAssistError, setAiAssistError] = useState<string | null>(null);
+  const errorToastClearance = useErrorToastClearance();
+
+  useEffect(() => {
+    if (!isPromptModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (dismissErrorToastOnEscape(event, hasVisibleErrorToast(), dismissTopErrorToast)) return;
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const field = (event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable="true"]');
+      if (field) {
+        (field as HTMLElement).blur();
+        return;
+      }
+      setIsPromptModalOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
+  }, [isPromptModalOpen]);
 
   const handleExpandPrompt = async () => {
     if (!config.prompt || isExpandingPrompt) return;
@@ -1932,14 +1953,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <>
-      {aiAssistError && createPortal(
-        <div role="alert" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] max-w-[calc(100vw-2rem)] flex items-center gap-2 rounded-lg border border-red-200 dark:border-red-800 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 px-4 py-2 shadow-lg">
-          <span className="text-sm font-medium">{aiAssistError}</span>
-          <button type="button" aria-label="Dismiss AI assist error" onClick={() => setAiAssistError(null)} className="min-h-11 min-w-11 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 flex items-center justify-center">
-            <X size={18} />
-          </button>
-        </div>, document.body,
-      )}
       <div
         className={`sticky top-[73px] z-40 w-full transition-[padding] duration-300 [overflow-anchor:none] ${
           isOptionsCollapsed
@@ -2772,6 +2785,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <textarea 
                   value={config.prompt}
                   onChange={(e) => handleChange('prompt', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Escape') return;
+                    // Esc in a field only leaves the field (DESIGN.md section 11).
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.currentTarget.blur();
+                  }}
                   placeholder='Prompt, or drop an image / brand PDF ({a,b} or ["tile 1","tile 2"])...'
                   className="min-h-[48px] h-12 focus:h-32 w-full min-w-0 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg py-3 pl-4 pr-11 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red transition-all duration-200 ease-in-out placeholder-slate-400 dark:placeholder-slate-600 shadow-sm dark:shadow-inner resize-y overflow-y-auto"
                 />
@@ -3017,9 +3037,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           role="dialog"
           aria-modal="true"
           aria-label="Edit prompt"
+          style={errorToastClearance ? { paddingBottom: errorToastClearance + 16 } : undefined}
         >
           <div
             className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+            style={errorToastClearance ? { maxHeight: `min(85vh, calc(100dvh - ${errorToastClearance + 32}px))` } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center px-5 py-4 border-b border-gray-200 dark:border-[#30363d]">
@@ -3033,7 +3055,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               </button>
             </div>
             <div
-              className="flex-1 overflow-hidden p-5"
+              className="flex-1 min-h-0 overflow-y-auto p-5"
               onDragOver={handlePromptDragOver}
               onDragLeave={handlePromptDragLeave}
               onDrop={(event) => {
@@ -3043,13 +3065,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             >
               <textarea
                 autoFocus
+                style={errorToastClearance ? { minHeight: 0, height: '100%' } : undefined}
                 value={config.prompt}
                 onChange={(e) => handleChange('prompt', e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    setIsPromptModalOpen(false);
-                  }
                   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                     e.preventDefault();
                     if (!generateButtonDisabled) {
@@ -3104,7 +3123,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-200 dark:border-[#30363d]">
+            <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-200 dark:border-[#30363d]">
               <button
                 type="button"
                 onClick={handleExpandPrompt}
@@ -3125,7 +3144,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsPromptModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-brand-red hover:bg-red-700 text-white font-semibold text-sm shadow-md shadow-brand-red/20 transition-colors"
+                  className="px-4 py-2 rounded-lg bg-brand-teal hover:bg-teal-600 text-[#0d1117] font-semibold text-sm shadow-md shadow-brand-teal/20 transition-colors"
                 >
                   Done
                 </button>

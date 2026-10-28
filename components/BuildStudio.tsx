@@ -25,6 +25,8 @@ import {
 import { loadBuildSync, loadRemoteBuild, saveLocalBuild, saveBuild } from '../services/buildStore';
 import { friendlyAiAssistError } from '../services/aiAssistGuard';
 import { autoDetectBuildRegionsPaid, nameBuildRegionsPaid } from '../services/paidAiService';
+import { setErrorToast as setAiAssistError, useErrorToastClearance } from '../utils/errorToastStore';
+import { dismissErrorToastOnEscape, dismissTopErrorToast, hasVisibleErrorToast } from '../utils/errorToastEscape';
 
 type BuildTool = 'freeform' | 'rectangle' | 'brush';
 
@@ -1519,6 +1521,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   // the window listener attaches exactly once.
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   keyHandlerRef.current = (e: KeyboardEvent) => {
+    if (dismissErrorToastOnEscape(e, hasVisibleErrorToast(), dismissTopErrorToast)) return;
     // Build Studio is a modal — keys must never leak to the app's global
     // shortcuts underneath (e.g. holding a digit arms the gallery's
     // "next click adds N Marks"). We listen in the capture phase, so
@@ -1870,7 +1873,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   // result REPLACES the current items but is a single undo away, and every
   // region is a normal rectangle step the existing tools can fine-tune.
   const [autoSelecting, setAutoSelecting] = useState(false);
-  const [aiAssistError, setAiAssistError] = useState<string | null>(null);
+  const errorToastClearance = useErrorToastClearance();
 
   // "AI name items" — one cheap Flash call that labels the existing regions.
   // Explicit button only, never automatic.
@@ -2039,7 +2042,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   const brushErasing = draft ? strokeOpRef.current === 'sub' : tool === 'brush' && altHeld;
 
   return (
-    <div ref={rootRef} className="fixed inset-0 z-[300] flex flex-col bg-[#0d1117]/95 backdrop-blur-sm">
+    <div ref={rootRef} data-error-toast-scope className="fixed inset-0 z-[300] flex flex-col bg-[#0d1117]/95 backdrop-blur-sm">
       {/* Header */}
       {!cleanMode && (
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] shrink-0">
@@ -2551,7 +2554,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             titled sections, item rows carry just a badge/name/duration, and
             everything else appears on hover or selection. */}
         {mode === 'edit' && !cleanMode && sidebarOpen && (
-          <div className="relative shrink-0 border-l border-[#30363d] flex flex-col" style={{ width: sidebarW }}>
+          <div className="relative shrink-0 min-h-0 overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
             {/* Drag the left edge to resize the panel. */}
             <div
               onPointerDown={onSideResizeDown}
@@ -2862,14 +2865,6 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         )}
       </div>
 
-      {aiAssistError && (
-        <div role="alert" className="shrink-0 px-4 py-2 text-sm text-red-200 border-t border-red-800 bg-red-900/30 flex items-center justify-between gap-2">
-          <span>{aiAssistError}</span>
-          <button type="button" aria-label="Dismiss AI assist error" onClick={() => setAiAssistError(null)} className="min-h-11 min-w-11 flex items-center justify-center rounded-lg hover:bg-red-900/50">
-            <X size={18} />
-          </button>
-        </div>
-      )}
       {status && !cleanMode && (
         <div className="shrink-0 px-4 py-2 text-xs text-slate-300 border-t border-[#30363d] bg-black/30">{status}</div>
       )}

@@ -246,7 +246,7 @@ auto-disarm. Everything destructive must also be undoable (⌘Z).
 ## 9. Buttons & controls (recipes)
 
 ```
-Primary CTA:   px-6 py-2 bg-brand-teal hover:bg-teal-600 text-white rounded-lg
+Primary CTA:   px-6 py-2 bg-brand-teal hover:bg-teal-600 text-[#0d1117] rounded-lg
                font-medium text-sm shadow-lg shadow-brand-teal/20
                disabled:opacity-50 disabled:cursor-not-allowed
 Compact CTA:   px-3 py-1.5 text-sm font-medium rounded-lg bg-brand-teal
@@ -296,17 +296,22 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
   they don't self-close their parent.
 - Z-scale: `z-10` click-catchers → `z-20` inline tooltips → `z-30` rich
   tooltips/dropdowns → `z-40` toasts → `z-50` busy banners → `z-[100]` modals
-  → `z-[140–300]` nested/fullscreen layers → `500` portal tips.
+  → `z-[140-300]` nested/fullscreen layers → `z-[400]` error toasts → `500` portal tips.
 
 ## 11. Esc: one obvious escape hatch
 
 Esc peels back **one layer at a time**, never jumps straight to closing:
 
-> typing field (blur only) → draft/drag cancel → play/clean mode → zoom/focus
+> error toast dismiss → typing field (blur only) → draft/drag cancel → play/clean mode → zoom/focus
 > reset → selection clear → close.
 
 Every layer's handler `stopPropagation()`s so parents don't also close. If
-the user is typing in an input/textarea/contenteditable, Esc only blurs.
+the user is typing in an input/textarea/select/contenteditable, Esc dismisses a visible
+error toast first without blurring or closing anything else; otherwise it only blurs.
+In the Edit prompt modal, Esc 1 in a field dismisses the toast and keeps focus,
+Esc 2 blurs the field, and Esc 3 closes the modal. Without a toast, Esc 1 blurs
+the field and Esc 2 closes. If the user is not typing, Esc closes the modal
+after any visible toast has been dismissed.
 
 ## 12. Keyboard
 
@@ -315,16 +320,30 @@ the user is typing in an input/textarea/contenteditable, Esc only blurs.
   editor modals.
 - Enter submits, Shift+Enter newlines (prompt box); ⌘/Ctrl+Enter submits
   modals; ⌘Z / ⇧⌘Z undo/redo covers every destructive structural edit.
-- Hover-revealed controls stay in the DOM so Tab reaches them; toasts carry
-  `role="status" aria-live="polite"`.
+- Hover-revealed controls stay in the DOM so Tab reaches them. Neutral toasts
+  carry `role="status" aria-live="polite"`; error toasts carry `role="alert"`
+  with no extra `aria-live` on the toast or its wrapper.
 
 ## 13. Feedback & status
 
-- Toasts: centered pill, auto-clear ~1.8s, `pointer-events-none fixed inset-0
+- Neutral toasts: centered pill, auto-clear ~1.8s, `pointer-events-none fixed inset-0
   z-40 flex items-center justify-center`, pill `text-white text-sm px-4 py-3
-  rounded-lg shadow-2xl`. Two tones: **neutral** (default) = dark glass
-  `bg-black/90 border-white/10`; **error** = `bg-brand-red border-brand-red/70`.
-  Red is reserved for errors — pass the tone explicitly at error call sites.
+  rounded-lg shadow-2xl`, `role="status" aria-live="polite"`. The default tone
+  is dark glass `bg-black/90 border-white/10`.
+- Error toasts persist until dismissed or the next AI call starts. One single shared slot
+  serves the app: the newest error replaces the older one, and identical messages dedupe
+  without re-announcing. On dismissal, focus returns to the previously focused element
+  if it is still connected, enabled and visible, or a nearby control when available.
+  Layouts reserve the measured toast height plus its 24px bottom offset while it shows
+  so the Edit prompt footer and Build Studio right panel actions remain reachable. They
+  sit bottom-center, portaled above modals and full-screen layers at `z-[400]` (below the 500 portal tips), with `bg-red-900` fill,
+  `border border-brand-red/70` border and `text-white text-sm`. They must have
+  an X with a 44px touch target and a rich Tip tooltip "Dismiss". Esc dismisses
+  what is on screen first, including while typing, without blurring the field or closing
+  its modal. Use `role="alert"` without extra `aria-live`. Red is reserved for errors;
+  pass the tone explicitly at error call sites.
+  This supersedes the old auto-clear pill rule for errors. Existing transient
+  copy/gallery notices keep their auto-clear timing and centered placement.
 - Progress lives in a dockable pill ("2 running · 1 queued") that auto-expands
   on each new run and docks out of the preview's way.
 - Generate clears the previous result **immediately** and shows a
