@@ -201,7 +201,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
             <ArrowLeft size={17} /> Back to studio
           </button>
           {user && (
-            <button onClick={() => void load()} disabled={loading} className="rounded-xl p-3 text-slate-500 hover:bg-white hover:text-brand-pink dark:hover:bg-[#161b22]" aria-label="Refresh billing">
+            <button onClick={() => void load()} disabled={loading} className="rounded-xl p-3 text-slate-500 dark:text-slate-400 hover:bg-white hover:text-brand-pink dark:hover:bg-[#161b22]" aria-label="Refresh billing">
               <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
             </button>
           )}
@@ -222,19 +222,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
               <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
                 Bring your own image key for free, buy credits that never expire, or join the Studio for a fresh monthly balance and a much bigger history.
               </p>
-              {!user ? (
-                <button
-                  type="button"
-                  onClick={onLogin}
-                  aria-label="Sign in to view your PixTaffy credit balance"
-                  className="mt-6 inline-flex cursor-pointer items-center gap-4 rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-left backdrop-blur transition-colors hover:border-brand-cyan/40 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/30"
-                >
-                  <span>
-                    <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Your balance</span>
-                    <span className="pixtaffy-counter mt-0.5 block text-3xl font-extrabold">Sign in</span>
-                  </span>
-                </button>
-              ) : (
+              {user && (
                 <div className="mt-6 inline-flex items-center gap-4 rounded-2xl border border-white/10 bg-white/10 px-5 py-3 backdrop-blur">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Your balance</p>
@@ -288,7 +276,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
                   <h3 className="pixtaffy-display mt-1 text-2xl font-bold text-slate-950 dark:text-white">{product.name}</h3>
                   <div className="mt-4 flex items-end gap-3">
                     <p className="pixtaffy-counter text-5xl font-black text-slate-950 dark:text-white">{product.price}</p>
-                    <p className="pb-1 text-xs font-semibold text-slate-500">{product.note}</p>
+                    <p className="pb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{product.note}</p>
                   </div>
                   <p className="mt-5 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">About this many images</p>
                   <div className="mt-2 grid grid-cols-3 gap-2">
@@ -352,9 +340,9 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
               <div><p className="text-xs font-black uppercase tracking-wider text-brand-teal">Image generation</p><h2 className="pixtaffy-display text-2xl font-bold text-slate-950 dark:text-white">How far credits go</h2></div>
             </div>
             <div className="mt-5 space-y-3 text-sm text-slate-700 dark:text-slate-200">
-              <div className="flex items-start justify-between gap-5 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><div><p className="font-semibold">Standard image</p><p className="mt-1 text-xs text-slate-500">Seedream, Grok, and other models in the Standard band</p></div><span className="shrink-0 rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-brand-teal dark:bg-brand-cyan/10 dark:text-brand-cyan">1 credit</span></div>
-              <div className="flex items-start justify-between gap-5 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><div><p className="font-semibold">Pro image</p><p className="mt-1 text-xs text-slate-500">FLUX.2 Pro, GPT Image 2.5, GPT Image 2, and PixTaffy Gemini models</p></div><span className="shrink-0 rounded-full bg-purple-100 px-3 py-1 text-xs font-black text-brand-purple dark:bg-brand-purple/15 dark:text-purple-200">2 credits</span></div>
-              <div className="flex items-start justify-between gap-5 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><div><p className="font-semibold">Premium image</p><p className="mt-1 text-xs text-slate-500">Recraft V4.1 Pro and models in the Premium band</p></div><span className="shrink-0 rounded-full bg-pink-100 px-3 py-1 text-xs font-black text-brand-pink dark:bg-brand-pink/15 dark:text-pink-200">3 credits</span></div>
+              <div className="flex items-start justify-between gap-5 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><div><p className="font-semibold">Standard image</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Seedream, Grok, and other models in the Standard band</p></div><span className="shrink-0 rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-brand-teal dark:bg-brand-cyan/10 dark:text-brand-cyan">1 credit</span></div>
+              <div className="flex items-start justify-between gap-5 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><div><p className="font-semibold">Pro image</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">FLUX.2 Pro, GPT Image 2.5, GPT Image 2, and PixTaffy Gemini models</p></div><span className="shrink-0 rounded-full bg-purple-100 px-3 py-1 text-xs font-black text-brand-purple dark:bg-brand-purple/15 dark:text-purple-200">2 credits</span></div>
+              <div className="flex items-start justify-between gap-5 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><div><p className="font-semibold">Premium image</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Recraft V4.1 Pro and models in the Premium band</p></div><span className="shrink-0 rounded-full bg-pink-100 px-3 py-1 text-xs font-black text-brand-pink dark:bg-brand-pink/15 dark:text-pink-200">3 credits</span></div>
             </div>
             <p className="mt-4 flex gap-2 text-xs leading-5 text-slate-500 dark:text-slate-400"><Info size={15} className="mt-0.5 shrink-0" /> Estimates assume every credit is spent on images. Using AI helpers or mixing model bands changes the total. PixTaffy always shows the final cost before generation.</p>
           </article>
@@ -365,9 +353,9 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
               <div><p className="text-xs font-black uppercase tracking-wider text-brand-pink">Build Studio</p><h2 className="pixtaffy-display text-2xl font-bold text-slate-950 dark:text-white">Video frames and exports</h2></div>
             </div>
             <ul className="mt-5 space-y-3 text-sm text-slate-700 dark:text-slate-200">
-              <li className="flex gap-3 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><Check size={18} className="mt-0.5 shrink-0 text-brand-teal" /><div><p className="font-black">Manual frames are free</p><p className="mt-1 text-xs leading-5 text-slate-500">Draw, reorder, preview, and animate as many frames as you need without spending credits.</p></div></li>
-              <li className="flex gap-3 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><Check size={18} className="mt-0.5 shrink-0 text-brand-orange" /><div><p className="font-black">Exports are free</p><p className="mt-1 text-xs leading-5 text-slate-500">MP4 video, PowerPoint, and PNG sequence exports render locally in your browser.</p></div></li>
-              <li className="flex gap-3 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><WandSparkles size={18} className="mt-0.5 shrink-0 text-brand-purple" /><div><p className="font-black">Optional AI assists use tiny amounts</p><p className="mt-1 text-xs leading-5 text-slate-500">AI frame detection costs 0.2 credit. AI frame naming costs 0.1 credit.</p></div></li>
+              <li className="flex gap-3 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><Check size={18} className="mt-0.5 shrink-0 text-brand-teal" /><div><p className="font-black">Manual frames are free</p><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Draw, reorder, preview, and animate as many frames as you need without spending credits.</p></div></li>
+              <li className="flex gap-3 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><Check size={18} className="mt-0.5 shrink-0 text-brand-orange" /><div><p className="font-black">Exports are free</p><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">MP4 video, PowerPoint, and PNG sequence exports render locally in your browser.</p></div></li>
+              <li className="flex gap-3 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><WandSparkles size={18} className="mt-0.5 shrink-0 text-brand-purple" /><div><p className="font-black">Optional AI assists use tiny amounts</p><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">AI frame detection costs 0.2 credit. AI frame naming costs 0.1 credit.</p></div></li>
             </ul>
           </article>
         </section>
@@ -411,11 +399,11 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
             <h2 className="font-bold text-slate-950 dark:text-white">Recent credit activity</h2>
             {billing?.stripeCustomerId && <button onClick={() => void billingService.openCustomerPortal()} className="text-sm font-bold text-brand-pink hover:underline">Manage billing</button>}
           </div>
-          {loading ? <Loader2 className="mx-auto my-8 animate-spin text-brand-pink" /> : activity.length === 0 ? <p className="mt-4 text-sm text-slate-500">No credit activity yet.</p> : (
+          {loading ? <Loader2 className="mx-auto my-8 animate-spin text-brand-pink" /> : activity.length === 0 ? <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">No credit activity yet.</p> : (
             <div className="mt-4 divide-y divide-slate-100 dark:divide-white/10">
               {activity.map((entry) => (
                 <div key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm">
-                  <div><p className="font-semibold capitalize text-slate-800 dark:text-slate-200">{activityLabel(entry)}</p><p className="text-xs text-slate-500">{new Date(entry.createdAt).toLocaleString()}</p></div>
+                  <div><p className="font-semibold capitalize text-slate-800 dark:text-slate-200">{activityLabel(entry)}</p><p className="text-xs text-slate-500 dark:text-slate-400">{new Date(entry.createdAt).toLocaleString()}</p></div>
                   <span className={'font-black ' + (entry.deltaMilliCredits >= 0 ? 'text-emerald-600' : 'text-slate-700 dark:text-slate-200')}>{entry.deltaMilliCredits >= 0 ? '+' : ''}{formatCredits(entry.deltaMilliCredits)}</span>
                 </div>
               ))}

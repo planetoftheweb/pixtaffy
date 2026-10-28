@@ -78,7 +78,7 @@ try {
   assert.deepEqual(errors, [], 'Uncaught browser errors');
   assert.ok(welcome, 'Welcome screen did not render within 10 seconds');
   const elapsedMs = Date.now() - started;
-  assert.ok(await evaluate(`Boolean(Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Log In'))`), 'Login trigger is missing');
+  assert.ok(await evaluate(`Boolean(Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Log in'))`), 'Login trigger is missing');
   const assetsDeadline = Date.now() + 10_000;
   let assetsReady = false;
   while (Date.now() < assetsDeadline) {
@@ -91,7 +91,7 @@ try {
     const shot = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(process.env.PIXTAFFY_SMOKE_SCREENSHOT, Buffer.from(shot.data, 'base64'));
   }
-  await evaluate(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Log In').click()`);
+  await evaluate(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Log in').click()`);
   const loginDeadline = Date.now() + 5_000;
   let login = false;
   while (Date.now() < loginDeadline) {

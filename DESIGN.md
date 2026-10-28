@@ -163,8 +163,9 @@ Radius map — smaller radius for smaller things:
 - **Cards are flat** — defined by border, not shadow. Shadows mark *floating*
   things: dropdown panels `shadow-xl`, modals/toasts `shadow-2xl`, floating
   icon buttons `shadow-lg`, primary CTAs `shadow-lg shadow-brand-teal/20`.
-- **Touch targets: 44×44 minimum.** On coarse pointers use
-  `[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`
+- **Touch targets: 44×44 minimum.** Targets stay 44px on any coarse pointer regardless of width.
+  Use `[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`, or the equivalent
+  `min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0` for compact controls,
   so phone and tablet controls stay reachable.
 - **No horizontal overflow.** The page never scrolls horizontally at any width
   from 320 up. Wide rows wrap or scroll inside their own container. Prefer
@@ -229,8 +230,7 @@ one — the tooltip is part of the control, not an afterthought.
   `overflow-hidden` ancestor (round the child buttons instead of clipping the
   group — or portal the tip), and screen-edge overflow (clamp or flip).
   Hover-test after any layout change.
-- Suppress the hover tip while the control is `disabled`; instead, prefer a
-  **disabled button + explanatory tooltip over a thrown error**.
+- Disabled controls still show their tip, explaining why they're disabled; wrap the control or use aria-disabled so the tip can fire.
 
 ## 8. Destructive & paid actions
 
@@ -260,7 +260,7 @@ Primary CTA:   px-6 py-2 bg-brand-teal hover:bg-teal-600 text-[#0d1117] rounded-
                font-medium text-sm shadow-lg shadow-brand-teal/20
                disabled:opacity-50 disabled:cursor-not-allowed
 Compact CTA:   px-3 py-1.5 text-sm font-medium rounded-lg bg-brand-teal
-               text-white hover:bg-teal-600 disabled:opacity-40
+               text-[#0d1117] hover:bg-teal-600 disabled:opacity-40
 Secondary:     px-3 py-2 rounded-lg border border-gray-200 dark:border-[#30363d]
                bg-white dark:bg-[#0d1117] text-slate-800 dark:text-slate-100
                hover:bg-brand-teal hover:border-brand-teal hover:text-white
@@ -274,6 +274,7 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
                bg-black/60 hover:bg-black/75 backdrop-blur-sm
 ```
 
+- #0d1117 on #009EAA is 5.83:1; white is 3.25:1 and fails AA for body-size text.
 - Primary hover is always `hover:bg-teal-600`; secondary/neutral controls
   **fill teal on hover** rather than darkening.
 - Segmented groups: container `inline-flex rounded-md border`, items

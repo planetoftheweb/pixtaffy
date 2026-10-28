@@ -91,7 +91,7 @@ export const billingService = {
   },
 
   getBillingState: async (force = false): Promise<BillingState> => {
-    if (!auth.currentUser) throw new Error('Sign in to view credits.');
+    if (!auth.currentUser) throw new Error('Log in to view credits.');
     if (!force && cachedState && Date.now() - cachedState.at < 30_000) return cachedState.value;
     await auth.currentUser.reload();
     await auth.currentUser.getIdToken(true);

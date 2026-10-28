@@ -369,7 +369,7 @@ test('refine analysis and expansion report one deduped persistent error instead 
 
 test('header signup, auth submit and feedback primary actions use teal with a dark label', () => {
   const classes = [
-    app.match(/className="([^"]+)"\s*>\s*Sign Up\s*<\/button>/)?.[1],
+    app.match(/className="([^"]+)"\s*>\s*Sign [Uu]p(?:<Tip[^>]*\/>)?\s*<\/button>/)?.[1],
     source('components/AuthModal.tsx').match(/type="submit"[\s\S]*?className="([^"]+)"/)?.[1],
     source('components/FeedbackModal.tsx').match(/<button type="submit"[^>]+className="([^"]+)"/)?.[1],
     source('components/FeedbackModal.tsx').match(/<a href=\{issue.url\}[^>]+className="([^"]+)"/)?.[1],
@@ -393,7 +393,7 @@ test('main prompt textarea leaves the field on Escape (second Esc) without bubbl
 });
 
 test('guest and credits primary CTAs in App use teal with a dark label, not brand-red', () => {
-  for (const label of ['Create account for future work', 'Create Free Account', 'View Credits']) {
+  for (const label of ['Create account for future work', 'Create free account', 'View Credits']) {
     const idx = app.indexOf(label.includes('future') ? "'Create account for future work'" : label);
     const before = app.slice(Math.max(0, idx - 900), idx);
     const className = [...before.matchAll(/className="([^"]+)"/g)].pop()?.[1];

@@ -1,6 +1,14 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 
+// Tracks whether the most recent input was a key press, so focus tips only appear for keyboard users.
+let lastInputWasKeyboard = false;
+let hideVisibleTip: (() => void) | null = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', () => { lastInputWasKeyboard = true; }, true);
+  window.addEventListener('pointerdown', () => { lastInputWasKeyboard = false; }, true);
+}
+
 // Portal tooltip adapted from the studio's Tip component.
 export const Tip: React.FC<{
   text: string;
@@ -17,19 +25,39 @@ export const Tip: React.FC<{
   useEffect(() => {
     const host = anchorRef.current?.parentElement;
     if (!host) return;
-    const show = () => { if (!host.matches(':disabled')) setHostRect(host.getBoundingClientRect()); };
-    const showFocus = (event: FocusEvent) => {
-      if (event.target instanceof HTMLElement && event.target.matches(':focus-visible')) show();
+    // An open menu owns the space under its trigger, so the tip stays hidden while it is expanded.
+    // A neighbouring toolbar trigger's tip would land on top of the open panel, so toolbar tips wait until it closes.
+    const expanded = () => host.getAttribute('aria-expanded') === 'true'
+      || (host.matches('[data-toolbar-dropdown-trigger]') && !!document.querySelector('[data-toolbar-dropdown-trigger][aria-expanded="true"]'));
+    const hide = () => {
+      setHostRect(null);
+      if (hideVisibleTip === hide) hideVisibleTip = null;
     };
-    const hide = () => setHostRect(null);
-    host.addEventListener('pointerenter', show);
+    const show = () => {
+      if (expanded() || host.matches(':disabled')) return;
+      if (hideVisibleTip !== hide) hideVisibleTip?.();
+      hideVisibleTip = hide;
+      setHostRect(host.getBoundingClientRect());
+    };
+    const showPointer = (event: PointerEvent) => { if (event.pointerType !== 'touch') show(); };
+    const showFocus = (event: FocusEvent) => {
+      // Focus tips are for keyboard users. Focus that follows a pointer press (for example a menu handing focus back) stays quiet.
+      if (lastInputWasKeyboard && event.target instanceof HTMLElement && event.target.matches(':focus-visible')) show();
+    };
+    const observer = new MutationObserver(() => { if (expanded()) hide(); });
+    observer.observe(host, { attributes: true, attributeFilter: ['aria-expanded'] });
+    host.addEventListener('click', hide);
+    host.addEventListener('pointerenter', showPointer);
     host.addEventListener('focusin', showFocus);
     host.addEventListener('focusout', hide);
     host.addEventListener('pointerleave', hide);
     window.addEventListener('scroll', hide, true);
     host.addEventListener('pointerdown', hide); // gestures shouldn't fight the tip
     return () => {
-      host.removeEventListener('pointerenter', show);
+      hide();
+      observer.disconnect();
+      host.removeEventListener('click', hide);
+      host.removeEventListener('pointerenter', showPointer);
       host.removeEventListener('focusin', showFocus);
       host.removeEventListener('focusout', hide);
       host.removeEventListener('pointerleave', hide);

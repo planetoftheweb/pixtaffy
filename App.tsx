@@ -1,5 +1,7 @@
-import { serverKeysEnabled } from './services/keyStorageMode';
+import { isKnownPath, navigate, usePathname } from './utils/routes';
+import { LegalPage } from './components/LegalPage';
 import { Tip } from './components/settings/Tip';
+import { serverKeysEnabled } from './services/keyStorageMode';
 import { LegacySettingsPage } from './components/LegacySettingsPage';
 import { getUserApiKeyStatus } from './services/userApiKeyService';
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -358,9 +360,10 @@ const App: React.FC = () => {
   const [settingsMode, setSettingsMode] = useState(false);
   const [catalogMode, setCatalogMode] = useState<'style' | 'color' | null>(null);
   const [adminMode, setAdminMode] = useState(false);
-  const [billingMode, setBillingMode] = useState(() => {
+  const pathname = usePathname();
+  const [billingMode, updateBillingMode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.has('billing') || params.has('checkout');
+    return window.location.pathname === '/pricing' || params.has('billing') || params.has('checkout');
   });
   // Full-page "What's new" blog view (siblings: WhatsNewBell dropdown, WhatsNewSpotlight modal).
   // Reachable from the bell footer "View all updates" link, the bell rows
@@ -387,6 +390,41 @@ const App: React.FC = () => {
     })
   );
   
+  // Keep the root view on its history entry so Back restores welcome,
+  // studio, settings or updates rather than guessing from the saved preference.
+  useEffect(() => {
+    if (pathname !== '/' || billingMode) return;
+    window.history.replaceState({
+      ...window.history.state,
+      pixtaffyView: { welcomeMode, settingsMode, catalogMode, adminMode, whatsNewMode, whatsNewEntryId },
+    }, '', window.location.href);
+  }, [pathname, billingMode, welcomeMode, settingsMode, catalogMode, adminMode, whatsNewMode, whatsNewEntryId]);
+
+  const setBillingMode = (open: boolean) => {
+    updateBillingMode(open);
+    if (open) navigate('/pricing');
+    else navigate('/');
+  };
+  useEffect(() => {
+    const syncRoute = () => {
+      const path = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      updateBillingMode(path === '/pricing' || (path === '/' && (params.has('billing') || params.has('checkout'))));
+      if (path === '/') {
+        const view = window.history.state?.pixtaffyView;
+        const updatesLink = params.has('whatsnewpage') || params.has('whatsnew');
+        setWelcomeMode(updatesLink ? false : view?.welcomeMode ?? shouldStartInWelcomeMode({ search: window.location.search, preferStudio: readPreferStudioFlag() }));
+        setSettingsMode(view?.settingsMode ?? false);
+        setAdminMode(view?.adminMode ?? false);
+        setCatalogMode(view?.catalogMode ?? null);
+        setWhatsNewMode(updatesLink || (view?.whatsNewMode ?? false));
+        setWhatsNewEntryId(updatesLink ? params.get('whatsnew') : view?.whatsNewEntryId ?? null);
+      }
+    };
+    window.addEventListener('popstate', syncRoute);
+    return () => window.removeEventListener('popstate', syncRoute);
+  }, []);
+
   // Auth State
   const [user, setUser] = useState<User | null>(null);
   // Latest user state, readable at async flush time (see queuePreferencesWrite).
@@ -992,11 +1030,11 @@ const App: React.FC = () => {
   // call at every entry point.
   const openWhatsNewPage = React.useCallback(
     (entryId: string | null = null) => {
+      setBillingMode(false);
       setWhatsNewMode(true);
       setWhatsNewEntryId(entryId);
       setSettingsMode(false);
       setAdminMode(false);
-      setBillingMode(false);
       setCatalogMode(null);
       setWelcomeMode(false);
       whatsNew.closeBell();
@@ -1678,9 +1716,9 @@ const App: React.FC = () => {
 
   const enterStudioFromWelcome = useCallback(() => {
     writePreferStudioFlag();
+    setBillingMode(false);
     setWelcomeMode(false);
     setSettingsMode(false);
-    setBillingMode(false);
     setAdminMode(false);
     setCatalogMode(null);
     setWhatsNewMode(false);
@@ -1844,7 +1882,7 @@ const App: React.FC = () => {
           finishedAt: Date.now(),
           message: savedInBrowser
             ? `Your image is ready and stored in this browser. You have ${result.balanceMilliCredits / 1_000} guest credit${result.balanceMilliCredits === 1_000 ? '' : 's'} left.`
-            : 'Your image is ready, but this browser could not store it. Download it now, then create an account to save future work.',
+            : 'Your image is ready, but this browser could not store it. Download it now, then sign up to save future work.',
           modelProgress: {
             [selectedModel]: { total: 1, completed: 1, failed: 0, inFlight: 0 },
           },
@@ -3308,7 +3346,7 @@ const App: React.FC = () => {
   // can recall a frequently-used combination in one click. Persisted on the
   // user document under preferences.presets via presetService.
   const handleSavePreset = async (name: string, customInstructions?: string) => {
-    if (!user) throw new Error('Sign in to save presets.');
+    if (!user) throw new Error('Log in to save presets.');
     const instructions = (customInstructions ?? config.customInstructions)?.trim();
     const snapshot: Omit<ToolbarPreset, 'id' | 'name' | 'createdAt'> = {
       graphicTypeId: config.graphicTypeId || undefined,
@@ -3372,7 +3410,7 @@ const App: React.FC = () => {
   // instructions are the currently ACTIVE ones, swap the active copy too so
   // the next generation uses the edit without re-applying the preset.
   const handleEditPresetInstructions = async (presetId: string, instructions: string) => {
-    if (!user) throw new Error('Sign in to edit presets.');
+    if (!user) throw new Error('Log in to edit presets.');
     const prev = user.preferences.presets?.find(p => p.id === presetId)?.customInstructions?.trim();
     const value = instructions.trim() || undefined;
     const presets = await presetService.updatePreset(user, presetId, { customInstructions: value });
@@ -3393,7 +3431,7 @@ const App: React.FC = () => {
   // equivalent shape - keeping name + createdAt intact via presetService so
   // the row identity (and sort order) survives the rewrite.
   const handleUpdatePreset = async (presetId: string) => {
-    if (!user) throw new Error('Sign in to update presets.');
+    if (!user) throw new Error('Log in to update presets.');
     const snapshot: Omit<ToolbarPreset, 'id' | 'name' | 'createdAt'> = {
       graphicTypeId: config.graphicTypeId || undefined,
       visualStyleId: config.visualStyleId || undefined,
@@ -3503,7 +3541,7 @@ const App: React.FC = () => {
   };
 
   const handleRenamePreset = async (presetId: string, name: string) => {
-    if (!user) throw new Error('Sign in to rename presets.');
+    if (!user) throw new Error('Log in to rename presets.');
     const trimmed = name.trim();
     if (!trimmed) throw new Error('Preset name is required.');
     const presets = await presetService.updatePreset(user, presetId, { name: trimmed });
@@ -3787,7 +3825,7 @@ const App: React.FC = () => {
             onClick={handleLogout}
             className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold"
           >
-            <LogOut size={16} /> Sign out
+            <LogOut size={16} /> Log out
           </button>
         </div>
       </div>
@@ -3815,9 +3853,11 @@ const App: React.FC = () => {
 
       {/* 1. Dedicated Header Row */}
       <header className="w-full flex items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] sticky top-0 z-50">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-max flex-1 shrink-0">
           <button 
             onClick={() => {
+              writePreferStudioFlag();
+              navigate('/');
               setCatalogMode(null);
               setSettingsMode(false);
               setAdminMode(false);
@@ -3833,7 +3873,7 @@ const App: React.FC = () => {
               alt="PixTaffy logo"
               className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 object-contain drop-shadow-lg"
             />
-            <h1
+            <span
               aria-label="PixTaffy"
               className="whitespace-nowrap text-lg font-normal tracking-[-0.035em] text-slate-900 dark:text-white sm:text-xl"
             >
@@ -3841,7 +3881,7 @@ const App: React.FC = () => {
               <span className="bg-gradient-to-r from-brand-orange via-brand-red to-brand-purple bg-clip-text font-black text-transparent">
                 Taffy
               </span>
-            </h1>
+            </span>
           </button>
         </div>
 
@@ -3908,8 +3948,8 @@ const App: React.FC = () => {
                         type="button"
                         role="menuitem"
                         onClick={() => {
-                          setWelcomeMode(true);
                           setBillingMode(false);
+                          setWelcomeMode(true);
                           setSettingsMode(false);
                           setAdminMode(false);
                           setCatalogMode(null);
@@ -3951,8 +3991,8 @@ const App: React.FC = () => {
                         type="button"
                         role="menuitem"
                         onClick={() => {
-                          setSettingsMode(true);
                           setBillingMode(false);
+                          setSettingsMode(true);
                           setAdminMode(false);
                           setCatalogMode(null);
                           setWhatsNewMode(false);
@@ -3974,9 +4014,9 @@ const App: React.FC = () => {
                           type="button"
                           role="menuitem"
                           onClick={() => {
+                            setBillingMode(false);
                             setAdminMode(true);
                             setSettingsMode(false);
-                            setBillingMode(false);
                             setCatalogMode(null);
                             setWhatsNewMode(false);
                             setWhatsNewEntryId(null);
@@ -4058,25 +4098,25 @@ const App: React.FC = () => {
                       className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-brand-red hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
                       <LogOut size={16} className="shrink-0" />
-                      <span>Logout</span>
+                      <span>Log out</span>
                     </button>
                   </div>
                 </>
               )}
              </div>
           ) : (
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <button 
                 onClick={() => openAuthModal('login')}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-[0_10px_15px_-3px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:border-brand-teal hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.45)] dark:hover:border-brand-teal dark:hover:text-brand-teal dark:focus-visible:ring-offset-[#0d1117]"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs sm:px-4 sm:text-sm font-bold text-slate-800 shadow-[0_10px_15px_-3px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:border-brand-teal hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.45)] dark:hover:border-brand-teal dark:hover:text-brand-teal dark:focus-visible:ring-offset-[#0d1117]"
               >
-                Log In
+                Log in<Tip text="Log in" />
               </button>
               <button 
                 onClick={() => openAuthModal('signup')}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg bg-brand-teal px-4 py-2 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-all duration-150 hover:bg-teal-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-[#0d1117]"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg bg-brand-teal px-2 py-2 text-xs sm:px-4 sm:text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-all duration-150 hover:bg-teal-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-[#0d1117]"
               >
-                Sign Up
+                Sign up<Tip text="Sign up" />
               </button>
             </div>
           )}
@@ -4092,10 +4132,11 @@ const App: React.FC = () => {
            {!adminMode && !settingsMode && !billingMode && !catalogMode && !whatsNewMode && !welcomeMode && (
              <button
                onClick={toggleToolbarCollapsed}
-               className="relative hidden md:inline-flex p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
+               className="relative hidden md:inline-flex min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 items-center justify-center p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
                aria-pressed={isToolbarCollapsed}
                aria-label={isToolbarCollapsed ? 'Show toolbar and prompt' : 'Hide toolbar and prompt'}
              >
+               
                {isToolbarCollapsed ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
                <Tip text={isToolbarCollapsed ? 'Show toolbar and prompt' : 'Hide toolbar and prompt to focus on preview'} side="top" align="right" />
              </button>
@@ -4103,7 +4144,7 @@ const App: React.FC = () => {
 
            {/* What's New bell - last icon in the row so the unread count
                bubble sits in the corner where users expect notification
-               pings. Guest navigation stays focused on Log In. */}
+               pings. Guest navigation stays focused on Log in. */}
            {user && (
              <WhatsNewBell
                entries={whatsNew.entries}
@@ -4143,14 +4184,23 @@ const App: React.FC = () => {
         </section>
       )}
 
+      {pathname === '/' && !billingMode && !welcomeMode && !whatsNewMode && !adminMode && !settingsMode && !catalogMode && isAuthResolved && <h1 className="sr-only">PixTaffy studio</h1>}
       {/* 2. Content Switching */}
-      {billingMode ? (
+      {!isKnownPath(pathname) ? (
+        <main className="flex-1 flex flex-col items-center justify-center p-5">
+          <h1 className="sr-only">Page not found</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">That page does not exist.</p>
+          <a href="/" onClick={event => { event.preventDefault(); navigate('/'); enterStudioFromWelcome(); }} className="inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0">Back to studio<Tip text="Back to studio" /></a>
+        </main>
+      ) : pathname === '/privacy' || pathname === '/terms' ? (
+        <LegalPage kind={pathname === '/privacy' ? 'privacy' : 'terms'} onBack={() => { navigate('/'); enterStudioFromWelcome(); }} />
+      ) : billingMode ? (
         <Suspense fallback={<LazyPageFallback label="Loading pricing..." />}>
           <PricingPage
             user={user}
             onBack={() => {
               setBillingMode(false);
-              setWelcomeMode(true);
+              enterStudioFromWelcome();
             }}
             onLogin={() => openAuthModal('login')}
             onSignUp={() => openAuthModal('signup')}
@@ -4831,6 +4881,9 @@ const App: React.FC = () => {
             <span className="hidden text-slate-300 dark:text-slate-600 sm:inline" aria-hidden="true">
               |
             </span>
+            {(['/privacy', '/terms'] as const).map(path => (
+              <React.Fragment key={path}><a href={path} onClick={event => { event.preventDefault(); navigate(path); }} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal hover:underline [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0">{path === '/privacy' ? 'Privacy' : 'Terms'}<Tip text={path === '/privacy' ? 'Privacy policy' : 'Terms of service'} /></a><span className="hidden text-slate-300 dark:text-slate-600 sm:inline" aria-hidden="true">|</span></React.Fragment>
+            ))}
             <button
               type="button"
               onClick={() => setIsFeedbackOpen(true)}
@@ -5045,13 +5098,13 @@ const App: React.FC = () => {
                       className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors"
                     >
                       <LogIn size={15} />
-                      Log In
+                      Log in
                     </button>
                     <button
                       onClick={() => openAuthModal('signup')}
                       className="inline-flex items-center gap-2 rounded-xl bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"
                     >
-                      Create Free Account
+                      Create free account
                       <ArrowRight size={15} />
                     </button>
                   </>
@@ -5071,8 +5124,8 @@ const App: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        setSettingsMode(true);
                         setBillingMode(false);
+                        setSettingsMode(true);
                         setIsSetupModalOpen(false);
                       }}
                       className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors"

@@ -442,7 +442,7 @@ test('copy menu clamps its measured position before paint and keeps outside-clic
 test('disabled-control wrappers can show one viewport-clamped shared Tip', () => {
   const tip = source('components/settings/Tip.tsx');
   assert.doesNotMatch(tip, /host.querySelector\(':disabled'\)/);
-  assert.match(tip, /!host.matches\(':disabled'\)/);
+  assert.match(tip, /host.matches\(':disabled'\)/);
   assert.match(tip, /w-72 max-w-\[calc\(100vw-16px\)\]/);
   const download = source('components/DownloadMenu.tsx');
   assert.equal((download.match(/<Tip\b/g) || []).length, 1);

@@ -450,7 +450,7 @@ const FocusedUserView: React.FC<FocusedUserViewProps> = ({ userStats }) => {
           accent="slate"
         />
         <StatTile
-          label="Last sign-in"
+          label="Last login"
           value={formatDate(u.lastSignInAtMs)}
           hint={
             u.lastSignInAtMs ? formatRelative(u.lastSignInAtMs) : 'No record'
@@ -468,7 +468,7 @@ const FocusedUserView: React.FC<FocusedUserViewProps> = ({ userStats }) => {
         <StatTile
           label="Account status"
           value={u.isDisabled ? 'Suspended' : 'Active'}
-          hint={u.isDisabled ? 'Hard-blocked at login' : 'Allowed to sign in'}
+          hint={u.isDisabled ? 'Hard-blocked at login' : 'Allowed to log in'}
           icon={u.isDisabled ? <Lock size={18} /> : <UserIcon size={18} />}
           accent={u.isDisabled ? 'rose' : 'teal'}
         />

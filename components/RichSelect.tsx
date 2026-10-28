@@ -1,3 +1,4 @@
+import { handleMenuKeyboard } from './utils/menuKeyboard';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Tip } from './settings/Tip';
 import { Check, ChevronDown, Search, type LucideIcon } from 'lucide-react';
@@ -62,29 +63,69 @@ export const RichSelect: React.FC<RichSelectProps> = ({
   const [menuVerticalAlign, setMenuVerticalAlign] = useState<'down' | 'up'>('down');
   const [menuListMaxHeight, setMenuListMaxHeight] = useState(288);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!isOpen) return;
+    const close = (restoreFocus = false) => {
+      setIsOpen(false);
+      requestAnimationFrame(() => {
+        if (restoreFocus) triggerRef.current?.focus();
+      });
+    };
     const handleClickOutside = (event: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        const target = event.target as HTMLElement;
+        const restoreFocus = !target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label');
+        // Cancel the compatibility mouse focus change after a held touch tap.
+        if (restoreFocus) event.preventDefault();
+        close(restoreFocus);
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsOpen(false);
+        event.stopPropagation();
+        close(true);
       }
     };
 
+    const inMenu = (target: EventTarget | null) => target instanceof Node && !!menuRef.current?.contains(target);
+    // Mouse defaults move focus to BODY on panel padding. Touch pointerdown
+    // stays uncancelled inside the panel so swiping can still scroll the list.
+    const handleBlankMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (inMenu(event.target) && target instanceof Element && !target.closest('button,a,input,textarea,select,[tabindex],[contenteditable="true"],label')) {
+        event.preventDefault();
+      }
+    };
+    const handleFocusOut = (event: FocusEvent) => {
+      const fromTrigger = event.target instanceof Node && !!triggerRef.current?.contains(event.target);
+      if ((inMenu(event.target) || fromTrigger) && !inMenu(event.relatedTarget) && !(event.relatedTarget instanceof Node && triggerRef.current?.contains(event.relatedTarget))) setIsOpen(false);
+    };
+    const handleFocusIn = (event: FocusEvent) => {
+      if (!inMenu(event.target) && !(event.target instanceof Node && triggerRef.current?.contains(event.target))) setIsOpen(false);
+    };
+    const handleNavigation = (event: KeyboardEvent) => {
+      if (triggerRef.current && menuRef.current) handleMenuKeyboard(event, triggerRef.current, menuRef.current, () => setIsOpen(false));
+    };
+    document.addEventListener('keydown', handleNavigation, true);
+    document.addEventListener('mousedown', handleBlankMouseDown, true);
+    document.addEventListener('focusout', handleFocusOut, true);
+    document.addEventListener('focusin', handleFocusIn, true);
     document.addEventListener('pointerdown', handleClickOutside, true);
-    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleEscape, true);
 
     return () => {
+      document.removeEventListener('keydown', handleNavigation, true);
+      document.removeEventListener('mousedown', handleBlankMouseDown, true);
+      document.removeEventListener('focusout', handleFocusOut, true);
+      document.removeEventListener('focusin', handleFocusIn, true);
       document.removeEventListener('pointerdown', handleClickOutside, true);
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', handleEscape, true);
     };
-  }, []);
+  }, [isOpen]);
 
   useEffect(() => {
     if (disabled) {
@@ -185,6 +226,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
 
   const handleSelect = (nextValue: string) => {
     onChange(nextValue);
+    triggerRef.current?.focus();
     setIsOpen(false);
   };
 
@@ -197,6 +239,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => {
           if (!isInteractive) return;
@@ -273,7 +316,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
       {isOpen && (
         <div
           ref={menuRef}
-          className={`absolute ${verticalPositionClass} ${menuAlign === 'right' ? 'right-0' : 'left-0'} z-[120] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
+          className={`absolute ${verticalPositionClass} ${menuAlign === 'right' ? 'right-0' : 'left-0'} z-[120] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
             expandMenuToContent
               ? 'min-w-full w-max max-w-[min(40rem,calc(100vw-1.5rem))]'
               : 'w-full'

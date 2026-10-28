@@ -195,9 +195,9 @@ export const WhatsNewPage: React.FC<WhatsNewPageProps> = ({
               <Sparkles size={24} />
             </div>
             <div>
-              <h2 className="pixtaffy-display text-2xl font-bold text-slate-900 dark:text-white">
+              <h1 className="pixtaffy-display text-2xl font-bold text-slate-900 dark:text-white">
                 What&rsquo;s new
-              </h2>
+              </h1>
               <p className="text-sm text-slate-500">
                 {selectedEntry
                   ? 'Step-by-step guide for this launch.'
@@ -437,9 +437,9 @@ const DetailView: React.FC<{
           </span>
         </div>
 
-        <h1 className="pixtaffy-display text-3xl md:text-4xl font-bold text-slate-900 dark:text-white leading-tight">
+        <h2 className="pixtaffy-display text-3xl md:text-4xl font-bold text-slate-900 dark:text-white leading-tight">
           {entry.title}
-        </h1>
+        </h2>
 
         <p className="mt-4 text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
           {entry.blurb}
