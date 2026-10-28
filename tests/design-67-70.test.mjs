@@ -730,3 +730,13 @@ test('favorite chips use neutral backgrounds with amber icons and warnings use o
   assert.ok(contrast('ffffff', '1a1a1a') >= 4.5, 'BEST label on its neutral chip');
   assert.ok(contrast('f59e0b', '0d1117') >= 4.5, 'opaque amber-500 text in juxtapose and admin');
 });
+
+test('Build Studio sidebar draws its divider on the matching edge for stacked and side layouts', () => {
+  const studio = source('components/BuildStudio.tsx');
+  const sidebar = studio.match(/<div className="(relative shrink-0 min-h-0 stack:flex-1[^"]*)" style=\{\{ width: sidebarW/);
+  assert.ok(sidebar, 'Build Studio edit sidebar not found');
+  const classes = sidebar[1].split(/\s+/);
+  assert.ok(classes.includes('side:border-l'), 'side layout keeps the left divider');
+  assert.ok(classes.includes('stack:border-t'), 'stacked layout gets a top divider');
+  assert.ok(!classes.includes('border-l'), 'unconditional border-l leaves a stray left border when stacked');
+});
