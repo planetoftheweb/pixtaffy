@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { Tip } from './settings/Tip';
 import {
   X, Plus, Minus, Trash2, Play, Pause, Repeat, Route, Crosshair,
   Film, Pencil, Loader2, Maximize, Minimize,
@@ -273,99 +273,22 @@ const ToolBarButton: React.FC<{
   activeClassName?: string;
   disabled?: boolean;
 }> = ({ icon: Icon, active, onClick, label, activeClassName, disabled }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-pressed={active}
-    disabled={disabled}
-    className={`group/tb relative w-9 h-9 shrink-0 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30 ${
-      active ? activeClassName || 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'
-    }`}
-  >
-    <Icon size={18} />
-    {!disabled && (
-      <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[13px] font-medium px-3 py-1.5 rounded-lg bg-black/90 text-white shadow-xl opacity-0 group-hover/tb:opacity-100 transition-opacity z-30">
-        {label}
-      </span>
-    )}
-  </button>
+  <span className="relative inline-flex shrink-0">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      disabled={disabled}
+      aria-label={label}
+      className={`group/tip relative w-9 h-9 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30 ${
+        active ? activeClassName || 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+      }`}
+    >
+      <Icon size={18} />
+    </button>
+    <Tip text={label} side="bottom" />
+  </span>
 );
-
-/** Rich tooltip — the styled overlay every control uses instead of a native
- * `title`. Host element needs `group/tip relative`. Pick a `side` that has
- * open space: tips inside scroll containers get clipped vertically, so row
- * controls use side="left". `wide` wraps longer descriptions. */
-/** Rendered through a portal with fixed positioning, so no ancestor —
- * overflow clip, scroll container, transform — can ever crop it. It appears
- * above or below its host (never to the side), clamped to the viewport. */
-const Tip: React.FC<{
-  text: string;
-  /** Optional bold headline — use title+text for anything needing a real explanation. */
-  title?: string;
-  side?: 'top' | 'bottom' | 'left'; // 'left' is legacy — treated as 'top'
-  align?: 'center' | 'right'; // kept for call-site compat; clamping handles edges
-  wide?: boolean;
-}> = ({ text, title, side = 'bottom', wide }) => {
-  const anchorRef = useRef<HTMLSpanElement>(null);
-  const tipRef = useRef<HTMLSpanElement>(null);
-  const [hostRect, setHostRect] = useState<DOMRect | null>(null);
-
-  useEffect(() => {
-    const host = anchorRef.current?.parentElement;
-    if (!host) return;
-    const show = () => setHostRect(host.getBoundingClientRect());
-    const hide = () => setHostRect(null);
-    host.addEventListener('mouseenter', show);
-    host.addEventListener('mouseleave', hide);
-    host.addEventListener('pointerdown', hide); // gestures shouldn't fight the tip
-    return () => {
-      host.removeEventListener('mouseenter', show);
-      host.removeEventListener('mouseleave', hide);
-      host.removeEventListener('pointerdown', hide);
-    };
-  }, []);
-
-  // After the tip renders, clamp it inside the viewport.
-  useLayoutEffect(() => {
-    const el = tipRef.current;
-    if (!el || !hostRect) return;
-    const r = el.getBoundingClientRect();
-    let x = hostRect.left + hostRect.width / 2 - r.width / 2;
-    x = Math.max(8, Math.min(window.innerWidth - r.width - 8, x));
-    const below = side !== 'top';
-    let y = below ? hostRect.bottom + 6 : hostRect.top - r.height - 6;
-    if (y < 8) y = hostRect.bottom + 6;
-    if (y + r.height > window.innerHeight - 8) y = hostRect.top - r.height - 6;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    el.style.visibility = 'visible';
-  }, [hostRect, side]);
-
-  return (
-    <span ref={anchorRef} className="hidden" aria-hidden>
-      {hostRect &&
-        createPortal(
-          <span
-            ref={tipRef}
-            style={{ position: 'fixed', left: 0, top: 0, visibility: 'hidden', zIndex: 500 }}
-            className={`pointer-events-none ${
-              wide ? 'w-72 whitespace-normal text-left leading-relaxed' : 'whitespace-nowrap'
-            } text-[13px] font-medium px-3 py-1.5 rounded-lg bg-black/90 text-white shadow-xl`}
-          >
-            {title ? (
-              <>
-                <span className="block font-semibold">{title}</span>
-                <span className="block text-slate-300 font-normal mt-0.5">{text}</span>
-              </>
-            ) : (
-              text
-            )}
-          </span>,
-          document.body
-        )}
-    </span>
-  );
-};
 
 /** Settings row: quiet label left, control right — one line each. */
 const SettingRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -767,13 +690,22 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       // landed a few px off the pointer.
       const cs = window.getComputedStyle(el);
       const availW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      const availH = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const layoutTop = el.parentElement!.parentElement!.getBoundingClientRect().top;
+      const stageTop = el.getBoundingClientRect().top;
+      const availH = window.matchMedia('(max-width:767px), (max-width:1279px) and (orientation:portrait)').matches
+        ? Math.max(0, Math.min(window.innerHeight * 0.5, availW * imgDims.h / imgDims.w,
+            (window.innerHeight - layoutTop) * 0.6 - (stageTop - layoutTop) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)))
+        : el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
       setBox(fitBox(availW, availH, imgDims.w, imgDims.h));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
   }, [imgDims.w, imgDims.h]);
 
   // --- Size the canvas backing store to the image aspect ------------------
@@ -2046,45 +1978,51 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       {/* Header */}
       {!cleanMode && (
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] shrink-0">
-          <Film size={18} className="text-brand-teal" />
-          <h2 className="text-sm font-bold text-white">Build Studio</h2>
+          <Film size={18} className="hidden sm:block shrink-0 text-brand-teal" />
+          <h2 className="min-w-0 truncate text-sm font-bold text-white">Build Studio</h2>
           <span className="text-xs text-slate-400 hidden sm:inline truncate max-w-[30vw]">
             {generation.config.prompt}
           </span>
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto shrink-0 flex items-center gap-1.5">
             {/* Edit/Preview live in the toolbar (Play) and on Return/Esc —
                 the header only carries what the toolbar doesn't: export, close. */}
-            <button
-              onClick={handleExportPptx}
-              disabled={!exportSupported || exportingPptx}
-              aria-label="Export PowerPoint with builds"
-              className="group/tip relative min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
-            >
-              {exportingPptx ? <Loader2 size={15} className="animate-spin" /> : <Presentation size={16} />}
+            <span className="relative inline-flex shrink-0">
+              <button
+                onClick={handleExportPptx}
+                disabled={!exportSupported || exportingPptx}
+                aria-label="Export PowerPoint with builds"
+                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
+              >
+                {exportingPptx ? <Loader2 size={15} className="animate-spin" /> : <Presentation size={16} />}
+              </button>
               <Tip side="bottom" align="right" wide title="Export PowerPoint (.pptx)" text={exportSupported ? 'One slide with every frame as a native click-to-reveal fade build. Opens animated in PowerPoint & Keynote; in Google Slides use File → Import slides and the animations come along.' : 'Add at least one frame first, then export an animated deck.'} />
-            </button>
-            <button
-              onClick={handleExportPngs}
-              disabled={!exportSupported || exportingPngs}
-              aria-label="Export PNGs for slides"
-              className="group/tip relative min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
-            >
-              {exportingPngs ? <Loader2 size={15} className="animate-spin" /> : <Images size={16} />}
+            </span>
+            <span className="relative inline-flex shrink-0">
+              <button
+                onClick={handleExportPngs}
+                disabled={!exportSupported || exportingPngs}
+                aria-label="Export PNGs for slides"
+                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
+              >
+                {exportingPngs ? <Loader2 size={15} className="animate-spin" /> : <Images size={16} />}
+              </button>
               <Tip side="bottom" align="right" wide title="Export PNGs for slides" text={exportSupported ? 'A zip with one still per frame (plus start & end). Drop into Google Slides, PowerPoint, or Keynote — one per slide with a Fade transition — for click-to-advance builds.' : 'Add at least one frame first, then export stills for your slide deck.'} />
-            </button>
-            <button
-              onClick={handleExport}
-              disabled={!exportSupported || exporting}
-              aria-label="Export MP4"
-              className="group/tip relative min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 bg-brand-red text-white text-[11px] font-semibold disabled:opacity-40 hover:bg-red-700"
-            >
-              {exporting ? <Loader2 size={15} className="animate-spin" /> : <Film size={16} />}
-              {exporting && `${Math.round(exportProgress * 100)}%`}
+            </span>
+            <span className="relative inline-flex shrink-0">
+              <button
+                onClick={handleExport}
+                disabled={!exportSupported || exporting}
+                aria-label="Export MP4"
+                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 bg-brand-teal hover:bg-teal-600 text-[#0d1117] text-[12px] font-semibold disabled:opacity-40"
+              >
+                {exporting ? <Loader2 size={15} className="animate-spin" /> : <Film size={16} />}
+                {exporting && `${Math.round(exportProgress * 100)}%`}
+              </button>
               <Tip side="bottom" align="right" wide title="Export MP4" text={exportSupported ? 'H.264 video that plays everywhere (QuickTime, PowerPoint, socials). Rendered locally in your browser.' : 'Add at least one frame first, then export the animation as a video.'} />
-            </button>
+            </span>
             <button
               onClick={onClose}
-              className="group/tip relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#21262d]"
+              className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#21262d]"
               aria-label="Close Build Studio"
             >
               <X size={18} />
@@ -2094,15 +2032,15 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex">
+      <div className="flex-1 min-h-0 flex flex-col side:flex-row">
         {/* Stage */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 stack:flex-none min-w-0 flex flex-col">
           {/* Tool bar — its own strip ABOVE the image, never covering it. */}
           {mode === 'edit' && !cleanMode && image && !loadError && (
-            <div className="shrink-0 flex justify-center pt-3 px-4">
+            <div className="shrink-0 min-w-0 flex justify-center pt-3 px-4">
               <div
                 ref={toolbarRef}
-                className="relative z-30 flex items-center gap-0.5 px-1.5 py-1.5 rounded-xl bg-[#161b22]/95 border border-white/10 shadow-xl"
+                className="relative z-30 flex flex-wrap lg:flex-nowrap justify-center max-w-full items-center gap-0.5 px-1.5 py-1.5 rounded-xl bg-[#161b22]/95 border border-white/10 shadow-xl"
                 style={{ transform: tbOffset.x || tbOffset.y ? `translate(${tbOffset.x}px, ${tbOffset.y}px)` : undefined }}
               >
                 <button
@@ -2112,11 +2050,11 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   onPointerUp={onTbGripUp}
                   onPointerCancel={onTbGripUp}
                   onDoubleClick={resetTbOffset}
-                  className="w-5 h-8 shrink-0 flex items-center justify-center text-slate-500 hover:text-slate-300 cursor-grab active:cursor-grabbing touch-none"
-                  title="Drag to move the toolbar · double-click to reset"
+                  className="group/tip relative w-5 h-8 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 flex items-center justify-center text-slate-500 hover:text-slate-300 cursor-grab active:cursor-grabbing touch-none"
                   aria-label="Move toolbar"
                 >
                   <GripVertical size={14} />
+                  <Tip text="Drag to move the toolbar · double-click to reset" />
                 </button>
                 <ToolBarButton icon={PenTool} active={tool === 'freeform'} onClick={() => setTool('freeform')} label="Freeform selection (F)" />
                 <ToolBarButton icon={Square} active={tool === 'rectangle'} onClick={() => setTool('rectangle')} label="Rectangle selection (R) · hold ⌥ to subtract from the selected frame" />
@@ -2129,27 +2067,29 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   label="Brush (B) · scroll on image resizes · hold ⌥ to erase"
                   activeClassName={tool === 'brush' && altHeld ? 'bg-brand-red text-white' : undefined}
                 />
-                {tool === 'freeform' && <div className="w-px h-6 bg-white/10 mx-1" />}
+                {tool === 'freeform' && <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />}
                 {tool === 'freeform' && (
                   <ToolBarButton icon={Ruler} active={straightLine} onClick={() => setStraightLine((s) => !s)} label="Straight lines (L) · hold Alt/Option to draw freehand" />
                 )}
-                <div className="w-px h-6 bg-white/10 mx-1" />
-                <button
-                  type="button"
-                  onClick={() => void handleAutoSelect()}
-                  disabled={autoSelecting}
-                  aria-label="AI auto-select"
-                  className="group/tip relative h-9 shrink-0 px-1.5 rounded-lg flex items-center gap-1 transition-colors text-brand-teal hover:bg-brand-teal/15 disabled:opacity-60"
-                >
-                  {autoSelecting ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
-                  <span className="text-[10px] font-bold tracking-wide">AI</span>
+                <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />
+                <span className="relative inline-flex shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => void handleAutoSelect()}
+                    disabled={autoSelecting}
+                    aria-label="AI auto-select"
+                    className="group/tip relative h-9 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 px-1.5 rounded-lg flex items-center gap-1 transition-colors text-brand-teal hover:bg-brand-teal/15 disabled:opacity-60"
+                  >
+                    {autoSelecting ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
+                    <span className="text-[10px] font-bold tracking-wide">AI</span>
+                  </button>
                   <Tip
                     side="bottom"
                     wide
                     title="AI auto-select"
                     text="Proposes the frames from the image, in reveal order. Replaces the current frames (⌘Z restores) · costs 0.2 PixTaffy credit · for busy art, run “Clean up image” first."
                   />
-                </button>
+                </span>
 
 
                 {onCleanupRefine && (
@@ -2173,7 +2113,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                       setCleaning(false);
                     }}
                     aria-label="Clean up image for animation"
-                    className={`group/tip relative w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-brand-teal ${
+                    className={`group/tip relative w-9 h-9 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 rounded-lg flex items-center justify-center text-brand-teal ${
                       cleaning ? 'bg-brand-teal/15 cursor-default' : 'hover:bg-brand-teal/15'
                     }`}
                   >
@@ -2181,13 +2121,13 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     <Tip side="bottom" wide title="Clean up for animation" text="AI redraws this image with each block isolated on a solid background, so frames are easy to select. The cleaned image opens right here as a new Mark (your original stays) · uses your image model." />
                   </button>
                 )}
-                <div className="w-px h-6 bg-white/10 mx-1" />
+                <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />
                 <span
                   onPointerDown={onZoomScrubDown}
                   onPointerMove={onZoomScrubMove}
                   onPointerUp={onZoomScrubUp}
                   onPointerCancel={onZoomScrubUp}
-                  className="group/tip relative h-9 min-w-[3.2rem] px-1 rounded-lg flex items-center justify-center text-[11px] font-semibold tabular-nums text-slate-300 hover:bg-white/10 hover:text-white transition-colors select-none touch-none"
+                  className="group/tip relative h-9 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-[3.2rem] px-1 rounded-lg flex items-center justify-center text-xs font-semibold tabular-nums text-slate-300 hover:bg-white/10 hover:text-white transition-colors select-none touch-none"
                   style={{ cursor: 'ew-resize' }}
                 >
                   {Math.round(view.scale * 100)}%
@@ -2196,11 +2136,11 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
 
                 {selectedIdx >= 0 && (
                   <>
-                    <div className="w-px h-6 bg-white/10 mx-1" />
+                    <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />
                     <button
                       type="button"
                       onClick={() => setSelectedStepId(null)}
-                      className="group/tip relative w-6 h-6 shrink-0 rounded-full bg-brand-teal text-white font-bold text-center tabular-nums hover:bg-teal-600 transition-colors"
+                      className="group/tip relative w-6 h-6 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 rounded-full bg-brand-teal text-white font-bold text-center tabular-nums hover:bg-teal-600 transition-colors"
                       style={{ fontSize: selectedIdx + 1 >= 10 ? 10 : 11, lineHeight: '24px' }}
                     >
                       {selectedIdx + 1}
@@ -2215,7 +2155,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   </>
                 )}
 
-                <div className="w-px h-6 bg-white/10 mx-1" />
+                <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />
                 <ToolBarButton
                   icon={Play}
                   onClick={() => enterPlay(selectedIdx >= 0 ? selectedIdx : undefined)}
@@ -2237,7 +2177,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             onPointerMove={onStagePanMove}
             onPointerUp={endPan}
             onPointerCancel={endPan}
-            className={`flex-1 min-h-0 flex items-center justify-center p-4 relative overflow-hidden ${isFullscreen ? 'bg-black' : ''} ${spaceHeld && mode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex-1 stack:flex-none min-h-0 flex items-center justify-center p-4 relative overflow-hidden ${isFullscreen ? 'bg-black' : ''} ${spaceHeld && mode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
             // In Preview on a 'blank' build, the whole stage (letterbox bars
             // included) takes the image's own background color — a frame shown
             // in isolation then sits on the color it was drawn on instead of
@@ -2391,7 +2331,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           onPointerUp={endXform}
                           onPointerCancel={endXform}
                           onDoubleClick={(e) => { e.stopPropagation(); toggleIsolation(s.id); }}
-                          title={sel ? 'Selected — drag to move · double-click to focus' : 'Click to select · drag to move · double-click to focus'}
+                          aria-label={sel ? 'Selected - drag to move · double-click to focus' : 'Click to select · drag to move · double-click to focus'}
                           className={`absolute w-5 h-5 rounded-full text-[10px] font-bold text-center tabular-nums text-white ring-2 ring-transparent hover:ring-white/60 cursor-move touch-none ${sel ? 'bg-brand-teal' : 'bg-brand-red'}`}
                           style={{
                             left: `${c.x * 100}%`,
@@ -2403,6 +2343,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           }}
                         >
                           {i + 1}
+                          <Tip text={sel ? 'Selected - drag to move · double-click to focus' : 'Click to select · drag to move · double-click to focus'} side="top" align="right" />
                         </button>
                       );
                     })}
@@ -2427,7 +2368,6 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           onPointerUp={endXform}
                           onPointerCancel={endXform}
                           aria-label="Resize frame"
-                          title="Drag to resize (anchors the opposite corner)"
                           className="absolute w-2.5 h-2.5 bg-brand-teal ring-1 ring-white rounded-[2px] touch-none hover:bg-teal-400"
                           style={{
                             left: `${cn.x * 100}%`,
@@ -2435,7 +2375,9 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                             transform: `translate(-50%, -50%) scale(${1 / view.scale})`,
                             cursor: cn.cursor,
                           }}
-                        />
+                        >
+                          <Tip text="Drag to resize (anchors the opposite corner)" side="top" align="right" />
+                        </button>
                       ));
                     })()}
                     {build.steps.length === 0 && !draft && !rectDrag && (
@@ -2488,8 +2430,9 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           <span className="text-xs text-slate-300 tabular-nums w-16 text-right">
                             {(Math.min(timeMs, total) / 1000).toFixed(1)}s / {(total / 1000).toFixed(1)}s
                           </span>
-                          <button onClick={() => setLoop((l) => !l)} className={`p-2 rounded-lg ${loop ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-300 hover:bg-white/10'}`} aria-label="Loop" title="Loop">
+                          <button onClick={() => setLoop((l) => !l)} className={`relative p-2 rounded-lg ${loop ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-300 hover:bg-white/10'}`} aria-label="Loop">
                             <Repeat size={15} />
+                            <Tip text="Loop" side="top" align="right" />
                           </button>
                           <div className="inline-flex rounded-lg border border-white/15 overflow-hidden">
                             {SPEED_OPTIONS.map((sp) => (
@@ -2501,9 +2444,12 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                         </>
                       ) : (
                         <>
-                          <button onClick={() => setStopIndex((i) => Math.max(0, i - 1))} disabled={stopIndex <= 0} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 disabled:opacity-30" aria-label="Previous frame" title="Previous (←)">
-                            <ChevronLeft size={16} />
-                          </button>
+                          <span className="relative inline-flex">
+                            <button onClick={() => setStopIndex((i) => Math.max(0, i - 1))} disabled={stopIndex <= 0} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 disabled:opacity-30" aria-label="Previous frame">
+                              <ChevronLeft size={16} />
+                            </button>
+                            <Tip text="Previous (←)" side="top" align="right" />
+                          </span>
                           <span className="text-xs text-slate-300 font-medium tabular-nums min-w-[7rem] text-center">
                             {stopIndex === 0
                               ? 'Start'
@@ -2512,9 +2458,12 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                                 : `Frame ${stopIndex}`}
                             <span className="text-slate-500"> · {stopIndex}/{stops.length - 1}</span>
                           </span>
-                          <button onClick={() => setStopIndex((i) => Math.min(stops.length - 1, i + 1))} disabled={stopIndex >= stops.length - 1} className="p-2 rounded-lg bg-brand-teal text-white hover:bg-teal-600 disabled:opacity-30" aria-label="Next frame" title="Next (→)">
-                            <ChevronRight size={16} />
-                          </button>
+                          <span className="relative inline-flex">
+                            <button onClick={() => setStopIndex((i) => Math.min(stops.length - 1, i + 1))} disabled={stopIndex >= stops.length - 1} className="p-2 rounded-lg bg-brand-teal text-white hover:bg-teal-600 disabled:opacity-30" aria-label="Next frame">
+                              <ChevronRight size={16} />
+                            </button>
+                            <Tip text="Next (→)" side="top" align="right" />
+                          </span>
                           <span className="text-xs text-slate-400 hidden sm:inline">← → step · 1-9 jump · E edits this frame</span>
                         </>
                       )}
@@ -2533,8 +2482,9 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           />
                           Auto-play
                         </label>
-                        <button onClick={toggleFullscreen} className={`p-2 rounded-lg ${isFullscreen ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-300 hover:bg-white/10'}`} title="Fullscreen for recording" aria-label="Fullscreen">
+                        <button onClick={toggleFullscreen} className={`relative p-2 rounded-lg ${isFullscreen ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-300 hover:bg-white/10'}`}  aria-label="Fullscreen">
                           {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
+                          <Tip text="Fullscreen for recording" side="top" align="right" />
                         </button>
                         <button onClick={editCurrentItem} className="group/tip relative p-2 rounded-lg text-slate-300 hover:bg-white/10" aria-label="Edit this frame">
                           <Tip text="Edit this frame (E) · Esc exits without selecting" />
@@ -2554,7 +2504,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             titled sections, item rows carry just a badge/name/duration, and
             everything else appears on hover or selection. */}
         {mode === 'edit' && !cleanMode && sidebarOpen && (
-          <div className="relative shrink-0 min-h-0 overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
+          <div className="relative shrink-0 min-h-0 stack:flex-1 stack:max-h-none stack:min-h-[40%] stack:!w-full overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
             {/* Drag the left edge to resize the panel. */}
             <div
               onPointerDown={onSideResizeDown}
@@ -2570,14 +2520,16 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Frames ({build.steps.length})</h3>
                 <div className="flex items-center gap-1">
                   {build.steps.length > 0 && build.steps.some((s) => !s.label) && (
-                    <button
-                      onClick={() => void handleAutoName()}
-                      disabled={naming}
-                      className="group/tip relative inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-brand-teal text-[11px] font-semibold hover:bg-brand-teal/10 disabled:opacity-60"
-                    >
-                      {naming ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />} AI names
+                    <span className="relative inline-flex shrink-0">
+                      <button
+                        onClick={() => void handleAutoName()}
+                        disabled={naming}
+                        className="group/tip relative inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-brand-teal text-[11px] font-semibold hover:bg-brand-teal/10 disabled:opacity-60"
+                      >
+                        {naming ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />} AI names
+                      </button>
                       <Tip text="AI names each frame from the image · costs 0.1 PixTaffy credit" side="bottom" align="right" />
-                    </button>
+                    </span>
                   )}
                   {selectedStepId && (
                     <button onClick={() => setSelectedStepId(null)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#21262d] text-slate-200 text-[11px] font-semibold hover:bg-[#2d333b]">
@@ -2587,7 +2539,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   {build.steps.length > 0 && (
                     <button
                       onClick={armClearAll}
-                      className={`group/tip relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${confirmClear ? 'bg-amber-500 text-white animate-pulse' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'}`}
+                      className={`group/tip relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${confirmClear ? 'bg-amber-500 text-[#0d1117] animate-pulse' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'}`}
                     >
                       <Trash2 size={11} />
                       {confirmClear && 'Sure?'}
