@@ -690,8 +690,11 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       // landed a few px off the pointer.
       const cs = window.getComputedStyle(el);
       const availW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      const availH = window.innerWidth < 768
-        ? Math.min(window.innerHeight * 0.5, availW * imgDims.h / imgDims.w)
+      const layoutTop = el.parentElement!.parentElement!.getBoundingClientRect().top;
+      const stageTop = el.getBoundingClientRect().top;
+      const availH = (window.innerWidth < 1024 || (window.innerWidth === 1024 && window.matchMedia('(pointer: coarse)').matches))
+        ? Math.max(0, Math.min(window.innerHeight * 0.5, availW * imgDims.h / imgDims.w,
+            (window.innerHeight - layoutTop) * 0.6 - (stageTop - layoutTop) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)))
         : el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
       setBox(fitBox(availW, availH, imgDims.w, imgDims.h));
     };
@@ -1975,12 +1978,12 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       {/* Header */}
       {!cleanMode && (
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] shrink-0">
-          <Film size={18} className="text-brand-teal" />
-          <h2 className="text-sm font-bold text-white">Build Studio</h2>
+          <Film size={18} className="hidden sm:block shrink-0 text-brand-teal" />
+          <h2 className="min-w-0 truncate text-sm font-bold text-white">Build Studio</h2>
           <span className="text-xs text-slate-400 hidden sm:inline truncate max-w-[30vw]">
             {generation.config.prompt}
           </span>
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto shrink-0 flex items-center gap-1.5">
             {/* Edit/Preview live in the toolbar (Play) and on Return/Esc —
                 the header only carries what the toolbar doesn't: export, close. */}
             <span className="relative inline-flex shrink-0">
@@ -1988,7 +1991,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 onClick={handleExportPptx}
                 disabled={!exportSupported || exportingPptx}
                 aria-label="Export PowerPoint with builds"
-                className="group/tip relative min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
+                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
               >
                 {exportingPptx ? <Loader2 size={15} className="animate-spin" /> : <Presentation size={16} />}
               </button>
@@ -1999,7 +2002,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 onClick={handleExportPngs}
                 disabled={!exportSupported || exportingPngs}
                 aria-label="Export PNGs for slides"
-                className="group/tip relative min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
+                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
               >
                 {exportingPngs ? <Loader2 size={15} className="animate-spin" /> : <Images size={16} />}
               </button>
@@ -2010,7 +2013,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 onClick={handleExport}
                 disabled={!exportSupported || exporting}
                 aria-label="Export MP4"
-                className="group/tip relative min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 bg-brand-teal hover:bg-teal-600 text-[#0d1117] text-[12px] font-semibold disabled:opacity-40"
+                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 bg-brand-teal hover:bg-teal-600 text-[#0d1117] text-[12px] font-semibold disabled:opacity-40"
               >
                 {exporting ? <Loader2 size={15} className="animate-spin" /> : <Film size={16} />}
                 {exporting && `${Math.round(exportProgress * 100)}%`}
@@ -2019,7 +2022,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             </span>
             <button
               onClick={onClose}
-              className="group/tip relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#21262d]"
+              className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-[#21262d]"
               aria-label="Close Build Studio"
             >
               <X size={18} />
@@ -2029,9 +2032,9 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row [@media(pointer:coarse)_and_(max-width:1024px)]:flex-col">
         {/* Stage */}
-        <div className="flex-1 max-md:flex-none min-w-0 flex flex-col">
+        <div className="flex-1 max-lg:flex-none [@media(pointer:coarse)_and_(max-width:1024px)]:flex-none min-w-0 flex flex-col">
           {/* Tool bar — its own strip ABOVE the image, never covering it. */}
           {mode === 'edit' && !cleanMode && image && !loadError && (
             <div className="shrink-0 min-w-0 flex justify-center pt-3 px-4">
@@ -2064,11 +2067,11 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   label="Brush (B) · scroll on image resizes · hold ⌥ to erase"
                   activeClassName={tool === 'brush' && altHeld ? 'bg-brand-red text-white' : undefined}
                 />
-                {tool === 'freeform' && <div className="w-px h-6 max-sm:hidden bg-white/10 mx-1" />}
+                {tool === 'freeform' && <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />}
                 {tool === 'freeform' && (
                   <ToolBarButton icon={Ruler} active={straightLine} onClick={() => setStraightLine((s) => !s)} label="Straight lines (L) · hold Alt/Option to draw freehand" />
                 )}
-                <div className="w-px h-6 max-sm:hidden bg-white/10 mx-1" />
+                <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />
                 <span className="relative inline-flex shrink-0">
                   <button
                     type="button"
@@ -2118,7 +2121,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     <Tip side="bottom" wide title="Clean up for animation" text="AI redraws this image with each block isolated on a solid background, so frames are easy to select. The cleaned image opens right here as a new Mark (your original stays) · uses your image model." />
                   </button>
                 )}
-                <div className="w-px h-6 max-sm:hidden bg-white/10 mx-1" />
+                <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />
                 <span
                   onPointerDown={onZoomScrubDown}
                   onPointerMove={onZoomScrubMove}
@@ -2133,7 +2136,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
 
                 {selectedIdx >= 0 && (
                   <>
-                    <div className="w-px h-6 max-sm:hidden bg-white/10 mx-1" />
+                    <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />
                     <button
                       type="button"
                       onClick={() => setSelectedStepId(null)}
@@ -2152,7 +2155,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   </>
                 )}
 
-                <div className="w-px h-6 max-sm:hidden bg-white/10 mx-1" />
+                <div className="w-px h-6 max-lg:hidden [@media(pointer:coarse)_and_(max-width:1024px)]:hidden bg-white/10 mx-1" />
                 <ToolBarButton
                   icon={Play}
                   onClick={() => enterPlay(selectedIdx >= 0 ? selectedIdx : undefined)}
@@ -2174,7 +2177,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             onPointerMove={onStagePanMove}
             onPointerUp={endPan}
             onPointerCancel={endPan}
-            className={`flex-1 max-md:flex-none min-h-0 flex items-center justify-center p-4 relative overflow-hidden ${isFullscreen ? 'bg-black' : ''} ${spaceHeld && mode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex-1 max-lg:flex-none [@media(pointer:coarse)_and_(max-width:1024px)]:flex-none min-h-0 flex items-center justify-center p-4 relative overflow-hidden ${isFullscreen ? 'bg-black' : ''} ${spaceHeld && mode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
             // In Preview on a 'blank' build, the whole stage (letterbox bars
             // included) takes the image's own background color — a frame shown
             // in isolation then sits on the color it was drawn on instead of
@@ -2501,7 +2504,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             titled sections, item rows carry just a badge/name/duration, and
             everything else appears on hover or selection. */}
         {mode === 'edit' && !cleanMode && sidebarOpen && (
-          <div className="relative shrink-0 min-h-0 max-md:flex-1 max-md:max-h-none max-md:min-h-[40%] max-md:!w-full overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
+          <div className="relative shrink-0 min-h-0 max-lg:flex-1 max-lg:max-h-none max-lg:min-h-[40%] max-lg:!w-full [@media(pointer:coarse)_and_(max-width:1024px)]:flex-1 [@media(pointer:coarse)_and_(max-width:1024px)]:max-h-none [@media(pointer:coarse)_and_(max-width:1024px)]:min-h-[40%] [@media(pointer:coarse)_and_(max-width:1024px)]:!w-full overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
             {/* Drag the left edge to resize the panel. */}
             <div
               onPointerDown={onSideResizeDown}

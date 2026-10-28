@@ -583,7 +583,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                 type="button"
                 onClick={handleBootstrapSelfPromote}
                 disabled={bootstrapClaiming}
-                className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium disabled:opacity-50"
+                className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500 text-[#0d1117] hover:bg-amber-400 text-sm font-medium disabled:opacity-50"
               >
                 {bootstrapClaiming ? <Loader2 size={14} className="animate-spin" /> : <Crown size={14} />}
                 Claim admin role

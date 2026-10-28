@@ -132,8 +132,8 @@ test('gallery toolbar wraps within the content box without clipping tooltip over
 
 test('Build Studio wraps its toolbar and measures both pill dimensions when clamping a drag', () => {
   assert.match(studio, /ref=\{toolbarRef\}\s+className="relative z-30 flex flex-wrap lg:flex-nowrap justify-center max-w-full/);
-  assert.match(studio, /flex-1 min-h-0 flex flex-col md:flex-row/);
-  assert.match(studio, /max-md:flex-1 max-md:max-h-none max-md:min-h-\[40%\] max-md:!w-full/);
+  assert.match(studio, /flex-1 min-h-0 flex flex-col lg:flex-row/);
+  assert.match(studio, /max-lg:flex-1 max-lg:max-h-none max-lg:min-h-\[40%\] max-lg:!w-full/);
   assert.match(studio, /toolbarRef\.current\?\.getBoundingClientRect\(\)/);
   assert.match(studio, /rootR\.right - pill\.width/);
   assert.match(studio, /rootR\.bottom - pill\.height/);
@@ -297,27 +297,70 @@ test('admin values, actions, stats labels and uid render one portal hint with th
 
 test('coarse-pointer studio controls keep 44px targets at tablet widths and hide mobile dividers', () => {
   const coarse = '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
-  assert.equal(studio.split(coarse).length - 1, 6, 'shared button, grip, AI, cleanup, zoom, selected frame');
+  assert.equal(studio.split(coarse).length - 1, 10, 'shared button, grip, AI, cleanup, zoom, selected frame, four header buttons');
   assert.doesNotMatch(studio, /max-sm:min-h-11|flex-wrap sm:flex-nowrap/);
   const dividers = studio.match(/className="w-px h-6[^"]*"/g) || [];
   assert.equal(dividers.length, 5);
-  assert.ok(dividers.every(classes => classes.includes('max-sm:hidden')));
+  assert.ok(dividers.every(classes => classes.includes('max-lg:hidden')));
+  const tree = ts.createSourceFile('BuildStudio.tsx', studio, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const headerButtons = [];
+  const scan = node => {
+    if (ts.isJsxOpeningElement(node) && node.tagName.getText(tree) === 'button') {
+      const label = node.attributes.properties.find(attr => attr.name?.getText(tree) === 'aria-label')?.initializer?.text;
+      if (['Export PowerPoint with builds', 'Export PNGs for slides', 'Export MP4', 'Close Build Studio'].includes(label)) {
+        headerButtons.push(label);
+        const classes = node.attributes.properties.find(attr => attr.name?.getText(tree) === 'className')?.initializer?.text;
+        assert.ok(classes?.includes(coarse), label);
+      }
+    }
+    ts.forEachChild(node, scan);
+  };
+  scan(tree);
+  assert.equal(headerButtons.length, 4, 'check every header action, including disabled exports');
 });
 
-test('mobile stage height depends on viewport and image aspect rather than its own height', () => {
-  assert.match(studio, /flex-1 max-md:flex-none min-w-0 flex flex-col/);
-  assert.match(studio, /flex-1 max-md:flex-none min-h-0 flex items-center/);
-  const expression = studio.match(/const availH = ([\s\S]*?);/)[1];
-  const height = new Function('window', 'availW', 'imgDims', 'el', 'cs', `return ${expression}`);
-  const cs = { paddingTop: '16', paddingBottom: '16' };
-  for (const [width, viewportHeight] of [[320, 640], [390, 844]]) {
-    const window = { innerWidth: width, innerHeight: viewportHeight };
-    const expected = Math.min(viewportHeight * 0.5, (width - 32) * 9 / 16);
-    for (const clientHeight of [0, 100, 900]) {
-      assert.equal(height(window, width - 32, { w: 1600, h: 900 }, { clientHeight }, cs), expected);
+test('stage stacks below lg and on 1024px touch screens without measuring its own height', () => {
+  assert.match(studio, /flex-1 max-lg:flex-none[^\n]*min-w-0 flex flex-col/);
+  assert.match(studio, /flex-1 max-lg:flex-none[^\n]*min-h-0 flex items-center/);
+  assert.doesNotMatch(studio, /max-md:|md:flex-row|max-sm:hidden|innerWidth < 768/);
+  const touch = '[@media(pointer:coarse)_and_(max-width:1024px)]:';
+  for (const classes of ['flex-col', 'flex-none', 'flex-1', 'max-h-none', 'min-h-[40%]', '!w-full', 'hidden']) {
+    assert.ok(studio.includes(touch + classes), `1024px touch: ${classes}`);
+  }
+  const measureBody = studio.match(/const measure = \(\) => \{([\s\S]*?)\n    \};/)[1];
+  const compiledMeasure = ts.transpileModule(measureBody, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const measure = new Function('window', 'el', 'imgDims', 'fitBox', 'setBox', compiledMeasure);
+  const cs = { paddingTop: '16', paddingBottom: '16', paddingLeft: '16', paddingRight: '16' };
+  const layoutTop = 69;
+  for (const [width, viewportHeight, coarse] of [[320, 640, true], [390, 844, true], [768, 1024, true], [1023, 768, false], [1024, 768, true]]) {
+    const window = { innerWidth: width, innerHeight: viewportHeight, getComputedStyle: () => cs, matchMedia: query => {
+      assert.equal(query, '(pointer: coarse)');
+      return { matches: coarse };
+    } };
+    for (const toolbarHeight of [70, 116, 162]) {
+      const el = {
+        clientWidth: width,
+        get clientHeight() { throw new Error('stacked measurement must not read its own height'); },
+        getBoundingClientRect: () => ({ top: layoutTop + toolbarHeight }),
+        parentElement: { parentElement: { getBoundingClientRect: () => ({ top: layoutTop }) } },
+      };
+      for (const imgDims of [{ w: 1600, h: 900 }, { w: 900, h: 1600 }]) {
+        const available = (viewportHeight - layoutTop) * 0.6 - toolbarHeight - 32;
+        const expected = Math.max(0, Math.min(viewportHeight * 0.5, (width - 32) * imgDims.h / imgDims.w, available));
+        measure(window, el, imgDims, (_w, h) => h, actual => {
+          assert.equal(actual, expected);
+          assert.ok(actual + toolbarHeight + 32 <= (viewportHeight - layoutTop) * 0.6, 'leave at least 40% for the panel');
+        });
+      }
     }
   }
-  assert.equal(height({ innerWidth: 768 }, 400, { w: 1600, h: 900 }, { clientHeight: 600 }, cs), 568);
+  for (const [width, coarse] of [[1024, false], [1280, false], [1280, true]]) {
+    measure({ innerWidth: width, getComputedStyle: () => cs, matchMedia: () => ({ matches: coarse }) }, {
+      clientWidth: 432, clientHeight: 600,
+      getBoundingClientRect: () => ({ top: 139 }),
+      parentElement: { parentElement: { getBoundingClientRect: () => ({ top: layoutTop }) } },
+    }, { w: 1600, h: 900 }, (_w, h) => h, actual => assert.equal(actual, 568));
+  }
   assert.match(studio, /window.addEventListener\('resize', measure\)/);
 });
 
@@ -356,24 +399,100 @@ test('disabled-control wrappers can show one viewport-clamped shared Tip', () =>
   assert.doesNotMatch(download, /group-hover\/dl-tip|role="tooltip"/);
 });
 
-test('design rules and every armed confirm agree on readable amber styling', () => {
+function classAlternatives(node) {
+  if (!node) return [''];
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return [node.text];
+  if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node)) return classAlternatives(node.expression);
+  if (ts.isConditionalExpression(node)) return [...classAlternatives(node.whenTrue), ...classAlternatives(node.whenFalse)];
+  const combine = (left, right) => left.flatMap(a => right.map(b => a + b));
+  if (ts.isTemplateExpression(node)) {
+    return node.templateSpans.reduce((classes, span) => combine(classes, classAlternatives(span.expression)).map(value => value + span.literal.text), [node.head.text]);
+  }
+  if (ts.isBinaryExpression(node)) {
+    if (node.operatorToken.kind === ts.SyntaxKind.PlusToken) return combine(classAlternatives(node.left), classAlternatives(node.right));
+    return [...classAlternatives(node.left), ...classAlternatives(node.right)];
+  }
+  return [''];
+}
+
+function componentClassLists(text, file = 'fixture.tsx') {
+  const tree = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const lists = [];
+  const scan = node => {
+    if (ts.isJsxAttribute(node) && node.name.getText(tree) === 'className') {
+      const { line } = tree.getLineAndCharacterOfPosition(node.getStart(tree));
+      for (const classes of classAlternatives(node.initializer)) lists.push({ classes, location: `${file}:${line + 1}` });
+    }
+    ts.forEachChild(node, scan);
+  };
+  scan(tree);
+  return lists;
+}
+
+const isAmberWhite = classes => /(?:^|[\s:])bg-amber-\S+/.test(classes) && /(?:^|[\s:])text-white(?:\/\S+)?(?=\s|$)/.test(classes);
+
+test('amber scan catches literal, multiline, hover and conditional combinations without mixing exclusive branches', () => {
+  const unsafe = [
+    '<div className="bg-amber-400 text-white" />',
+    '<div className={`bg-amber-500/90\ntext-white`} />',
+    '<div className={`text-white ${armed ? "bg-amber-500" : "bg-black"}`} />',
+    '<div className={`bg-amber-500 ${armed ? "text-white" : "text-[#0d1117]"}`} />',
+    '<div className={"text-white " + (armed ? "hover:bg-amber-500" : "bg-black")} />',
+    '<div className={armed && "bg-amber-500 text-white"} />',
+  ];
+  for (const fixture of unsafe) assert.ok(componentClassLists(fixture).some(({ classes }) => isAmberWhite(classes)), fixture);
+  for (const fixture of [
+    '<div className={`rounded ${armed ? "bg-amber-500 text-[#0d1117] animate-pulse" : "bg-red-600 text-white"}`} />',
+    '<div className="bg-black/90 text-white"><Star className="text-amber-400" /></div>',
+    '<div className={armed ? "bg-amber-500 text-[#0d1117]" : "bg-black text-white"} />',
+  ]) assert.equal(componentClassLists(fixture).some(({ classes }) => isAmberWhite(classes)), false, fixture);
+});
+
+test('design rules and every component class list keep white off amber, including armed confirms', () => {
   for (const rule of [
-    'Below md, the stage hugs its image; leftover height goes to the panel, never to empty space around the image.',
+    'Below lg, the stage hugs its image; leftover height goes to the panel, never to empty space around the image.',
     'Favorite star icon = amber-400 (icon only, never a fill behind text).',
     'bg-amber-500 text-[#0d1117] animate-pulse',
+    'Amber backgrounds always take #0d1117 text; amber text/icons on photos need a solid dark chip behind them.',
   ]) assert.ok(design.includes(rule), rule);
+  const files = ['App.tsx', ...readdirSync(new URL('../components/', import.meta.url), { recursive: true })
+    .filter(path => path.endsWith('.tsx')).map(path => `components/${path}`)];
   let armedControls = 0;
-  for (const path of readdirSync(new URL('../components/', import.meta.url), { recursive: true }).filter(path => path.endsWith('.tsx'))) {
-    source(`components/${path}`).split('\n').forEach((line, index) => {
-      if (!/(?:^|[\s'"`])bg-amber-500(?=[\s'"`]|$)/.test(line)) return;
-      armedControls++;
-      assert.ok(line.includes('bg-amber-500 text-[#0d1117] animate-pulse') && !line.includes('text-white'), `components/${path}:${index + 1}`);
-    });
+  const violations = [];
+  for (const file of files) {
+    for (const { classes, location } of componentClassLists(source(file), file)) {
+      if (isAmberWhite(classes)) violations.push(location);
+      if (classes.includes('bg-amber-500') && classes.includes('animate-pulse')) {
+        armedControls++;
+        assert.ok(classes.includes('bg-amber-500 text-[#0d1117] animate-pulse'), location);
+      }
+    }
   }
+  assert.deepEqual([...new Set(violations)], []);
   assert.ok(armedControls > 0, 'armed controls must be checked');
-  const luminance = hex => {
-    const channels = hex.match(/\w\w/g).map(value => parseInt(value, 16) / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
-    return channels.reduce((sum, channel, i) => sum + channel * [0.2126, 0.7152, 0.0722][i], 0);
-  };
-  assert.ok((luminance('f59e0b') + 0.05) / (luminance('0d1117') + 0.05) >= 4.5);
+});
+
+const luminance = hex => hex.match(/\w\w/g).map(value => parseInt(value, 16) / 255)
+  .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+  .reduce((sum, channel, i) => sum + channel * [0.2126, 0.7152, 0.0722][i], 0);
+const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
+
+test('favorite chips use neutral backgrounds with amber icons and warnings use opaque dark-on-amber', () => {
+  const best = image.slice(image.indexOf('{generation.starredVersionId && generation.starredVersionId === version.id && ('), image.indexOf('{/* Info overlay'));
+  assert.match(best, /bg-black\/90 text-white border border-white\/10/);
+  assert.match(best, /<Star[^>]*className="text-amber-400 fill-current"/);
+  assert.doesNotMatch(best, /bg-amber/);
+  const rail = image.slice(image.indexOf('aria-pressed={isStarredVersion}'), image.indexOf('Starred - Unstar'));
+  assert.match(rail, /bg-black\/90 text-white/);
+  assert.match(rail, /className=\{isStarredVersion \? 'text-amber-400 fill-current' : 'text-white'\}/);
+  assert.doesNotMatch(rail, /bg-amber|text-amber-300/);
+  const juxtapose = source('components/JuxtaposeSlider.tsx').split('\n').find(line => line.includes('bg-amber-500'));
+  const admin = source('components/AdminPage.tsx').split('\n').find(line => line.includes('bg-amber-500'));
+  for (const classes of [juxtapose, admin]) {
+    assert.match(classes, /bg-amber-500 text-\[#0d1117\]/);
+    assert.doesNotMatch(classes, /bg-amber-\d+\/|text-white|hover:bg-amber-700/);
+  }
+  assert.ok(contrast('fbbf24', '1a1a1a') >= 3, 'amber-400 icon against the worst-case white photo through black/90');
+  assert.ok(contrast('ffffff', '1a1a1a') >= 4.5, 'BEST label on its neutral chip');
+  assert.ok(contrast('f59e0b', '0d1117') >= 4.5, 'opaque amber-500 text in juxtapose and admin');
 });

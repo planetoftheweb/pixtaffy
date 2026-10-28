@@ -2127,16 +2127,16 @@ ${version.svgCode}
                         }}
                         aria-label={isStarredVersion ? `Unstar ${v.label}` : `Star ${v.label} as the best Mark`}
                         aria-pressed={isStarredVersion}
-                        className={`group/tip absolute top-1 left-1 z-10 inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70 ${
+                        className={`group/tip absolute top-1 left-1 z-10 inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70 bg-black/90 text-white ${
                           isStarredVersion
-                            ? 'opacity-100 bg-amber-400 text-white hover:bg-amber-300'
-                            : 'opacity-0 group-hover/railThumb:opacity-100 bg-black/50 text-white hover:bg-amber-400'
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover/railThumb:opacity-100'
                         }`}
                       >
                         <Star
                           size={11}
                           strokeWidth={2.5}
-                          className={isStarredVersion ? 'fill-current' : ''}
+                          className={isStarredVersion ? 'text-amber-400 fill-current' : 'text-white'}
                         />
                         <Tip text={isStarredVersion ? `Starred - Unstar ${v.label}` : `Star ${v.label} as the best Mark (S)`} side="top" align="right" />
                       </button>
@@ -2466,11 +2466,11 @@ ${version.svgCode}
               chrome (delete / fullscreen) at top-right. */}
           {generation.starredVersionId && generation.starredVersionId === version.id && (
             <div
-              className="group/tip absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-400 text-white shadow-lg ring-2 ring-white/60 dark:ring-black/40 animate-in fade-in slide-in-from-left-2 duration-150"
+              className="group/tip absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/90 text-white border border-white/10 shadow-lg ring-2 ring-white/60 dark:ring-black/40 animate-in fade-in slide-in-from-left-2 duration-150"
               role="status"
               aria-label={`${version.label} is starred as the best Mark`}
             >
-              <Star size={12} strokeWidth={2.5} className="fill-current" />
+              <Star size={12} strokeWidth={2.5} className="text-amber-400 fill-current" />
               <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
                 Best
               </span>

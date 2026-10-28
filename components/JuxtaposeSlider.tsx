@@ -298,8 +298,8 @@ export const JuxtaposeSlider: React.FC<JuxtaposeSliderProps> = ({
           {rightLabel}
         </div>
         {sizesDiffer && (
-          <div className={`absolute ${toolbarOverlay ? 'bottom-16' : 'bottom-3'} left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-amber-500/90 text-white text-[11px] font-medium backdrop-blur-sm transition-opacity duration-150 ${isDragging ? 'opacity-0' : 'opacity-100'}`}>
-            Sizes differ — letterboxed
+          <div className={`absolute ${toolbarOverlay ? 'bottom-16' : 'bottom-3'} left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-amber-500 text-[#0d1117] text-[11px] font-medium backdrop-blur-sm transition-opacity duration-150 ${isDragging ? 'opacity-0' : 'opacity-100'}`}>
+            Sizes differ: letterboxed
           </div>
         )}
 

@@ -4136,7 +4136,7 @@ const App: React.FC = () => {
           <button
             type="button"
             onClick={() => setAuthRetryNonce((attempt) => attempt + 1)}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-900 px-4 py-2 text-sm font-black text-white hover:bg-amber-800 dark:bg-amber-300 dark:text-amber-950 dark:hover:bg-amber-200"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-500 text-[#0d1117] px-4 py-2 text-sm font-black hover:bg-amber-400"
           >
             <RefreshCw size={16} /> Try again
           </button>

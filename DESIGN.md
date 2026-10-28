@@ -61,6 +61,7 @@ Semantic states: **teal** = active/primary · **amber-500** = armed
 **green/emerald** = success (rare) · **slate** = neutral/stopped/dim.
 
 Favorite star icon = amber-400 (icon only, never a fill behind text).
+Amber backgrounds always take #0d1117 text; amber text/icons on photos need a solid dark chip behind them.
 
 ### Candy-spectrum discipline
 
@@ -170,7 +171,7 @@ Radius map — smaller radius for smaller things:
   `flex-wrap` (with `sm:flex-nowrap` where one desktop row is wanted) for rows
   with tooltips, because `overflow-x-auto` clips them (see section 10).
   Check at 320, 390, 768 and 1280.
-- Below md, the stage hugs its image; leftover height goes to the panel, never to empty space around the image.
+- Below lg, the stage hugs its image; leftover height goes to the panel, never to empty space around the image. This also applies at 1024px on coarse pointers.
 - Scrollbars: auto-hide overlay style (global in `index.css`) — transparent
   until the scroll area is hovered/focused. Long surfaces stay visually clean.
 
