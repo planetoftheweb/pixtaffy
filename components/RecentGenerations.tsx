@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React from 'react';
 import { Tip } from './settings/Tip';
 import { createPortal } from 'react-dom';
@@ -315,6 +316,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
   hasPreviewAbove = true,
   toolbarCollapsed = false,
 }) => {
+  const unavailableId = React.useId();
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   /** Neutral notices use the dark-glass pill; red is reserved for errors. */
   const [toastTone, setToastTone] = React.useState<'neutral' | 'error'>('neutral');
@@ -1310,7 +1312,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     onSubmit={async (e) => {
                       e.preventDefault();
                       const next = renameDraft.trim();
-                      if (!next) return;
+                      if (folderBusy || !next) return;
                       try {
                         setFolderBusy(true);
                         await onRenameFolder(folder.id, next);
@@ -1346,21 +1348,25 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       aria-label={`Rename ${folder.name}`}
                       maxLength={60}
                     />
-                    <button
+                    <span className="relative inline-flex">
+                    <button onClick={(event) => { if (folderBusy || !renameDraft.trim()) { event.preventDefault(); event.stopPropagation(); return; } }}
                       type="submit"
-                      disabled={folderBusy || !renameDraft.trim()}
-                      className="inline-flex items-center justify-center h-8 w-8 rounded-md text-brand-teal hover:bg-brand-teal/10 disabled:opacity-50"
+                      aria-disabled={folderBusy || !renameDraft.trim()} aria-describedby={(folderBusy || !renameDraft.trim()) ? `${unavailableId}-1-${folder.id}` : undefined}
+                      className={`inline-flex items-center justify-center h-8 w-8 rounded-md text-brand-teal hover:bg-brand-teal/10 aria-disabled:opacity-50 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
                       aria-label="Save folder name"
                     >
                       <Check size={14} />
                     </button>
+                      {(folderBusy || !renameDraft.trim()) && <Tip text={folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name'} side="top" />}
+                      {(folderBusy || !renameDraft.trim()) && <span id={`${unavailableId}-1-${folder.id}`} className="sr-only">{folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name'}</span>}
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
                         setRenamingFolderId(null);
                         setRenameDraft('');
                       }}
-                      className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-gray-100 dark:hover:bg-[#21262d]"
+                      className={`inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
                       aria-label="Cancel rename"
                     >
                       <XIcon size={14} />
@@ -1417,7 +1423,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                           : `Collapse ${folder.name}`
                       }
                       aria-expanded={!isCollapsed}
-                      className="inline-flex items-center justify-center h-8 w-5 shrink-0 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d]"
+                      className={`inline-flex items-center justify-center h-8 w-5 shrink-0 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
                     >
                       <ChevronRight
                         size={14}
@@ -1517,7 +1523,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       aria-haspopup="menu"
                       aria-expanded={folderActionsMenuId === folder.id}
                       aria-label={`Actions for ${folder.name}`}
-                      className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition"
+                      className={`inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition ${FOCUS_RING}`}
                     >
                       <MoreVertical size={14} aria-hidden />
                     </button>
@@ -1537,7 +1543,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 onSubmit={async (e) => {
                   e.preventDefault();
                   const next = newFolderDraft.trim();
-                  if (!next) return;
+                  if (folderBusy || !next) return;
                   try {
                     setFolderBusy(true);
                     const created = await onCreateFolder(next, createFolderParentId);
@@ -1578,16 +1584,20 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   className="flex-1 min-w-0 text-xs font-semibold bg-transparent border border-brand-teal rounded-md px-2 py-1 min-h-8 focus:outline-none focus:ring-2 focus:ring-brand-teal/40 text-slate-900 dark:text-slate-100"
                   maxLength={60}
                 />
-                <button
+                <span className="relative inline-flex">
+                <button onClick={(event) => { if (folderBusy || !newFolderDraft.trim()) { event.preventDefault(); event.stopPropagation(); return; } }}
                   type="submit"
-                  disabled={folderBusy || !newFolderDraft.trim()}
-                  className="inline-flex items-center justify-center h-8 w-8 rounded-md text-brand-teal hover:bg-brand-teal/10 disabled:opacity-50"
+                  aria-disabled={folderBusy || !newFolderDraft.trim()} aria-describedby={(folderBusy || !newFolderDraft.trim()) ? `${unavailableId}-2` : undefined}
+                  className={`inline-flex items-center justify-center h-8 w-8 rounded-md text-brand-teal hover:bg-brand-teal/10 aria-disabled:opacity-50 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
                   aria-label={
                     createFolderParentId ? 'Create subfolder' : 'Create folder'
                   }
                 >
                   <Check size={14} />
                 </button>
+                  {(folderBusy || !newFolderDraft.trim()) && <Tip text={folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name'} side="top" />}
+                  {(folderBusy || !newFolderDraft.trim()) && <span id={`${unavailableId}-2`} className="sr-only">{folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name'}</span>}
+                </span>
                 <button
                   type="button"
                   onClick={() => {
@@ -1595,7 +1605,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     setCreateFolderParentId(undefined);
                     setNewFolderDraft('');
                   }}
-                  className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-gray-100 dark:hover:bg-[#21262d]"
+                  className={`inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
                   aria-label="Cancel"
                 >
                   <XIcon size={14} />
@@ -1609,7 +1619,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   setIsCreatingFolder(true);
                   setNewFolderDraft('');
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-brand-teal rounded-md hover:bg-brand-teal/10 transition"
+                className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-brand-teal rounded-md hover:bg-brand-teal/10 transition ${FOCUS_RING}`}
               >
                 <FolderPlus size={14} aria-hidden />
                 New folder
@@ -1651,7 +1661,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             hasInstructions
               ? 'text-brand-teal'
               : 'text-slate-700 dark:text-slate-200'
-          }`}
+          } ${FOCUS_RING}`}
         >
           <FileText size={14} className="shrink-0" />
           {hasInstructions ? 'Edit instructions' : 'Add instructions'}
@@ -1660,7 +1670,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           type="button"
           role="menuitem"
           onClick={() => startRenameFolder(folder.id)}
-          className={CONTEXT_MENU_ITEM}
+          className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
         >
           <Pencil size={14} className="shrink-0 text-slate-400" />
           Rename
@@ -1669,7 +1679,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           type="button"
           role="menuitem"
           onClick={() => beginAddSubfolder(folder.id)}
-          className={CONTEXT_MENU_ITEM}
+          className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
         >
           <FolderPlus size={14} className="shrink-0 text-brand-teal" />
           Add subfolder
@@ -1679,7 +1689,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             type="button"
             role="menuitem"
             onClick={() => promptDeleteFolder(folder.id)}
-            className={CONTEXT_MENU_ITEM_DANGER}
+            className={`${CONTEXT_MENU_ITEM_DANGER} ${FOCUS_RING}`}
           >
             <Trash2 size={14} className="shrink-0" />
             Delete
@@ -1716,7 +1726,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             type="button"
             role="menuitem"
             onClick={() => beginCreateRootFolder()}
-            className={CONTEXT_MENU_ITEM_ACCENT}
+            className={`${CONTEXT_MENU_ITEM_ACCENT} ${FOCUS_RING}`}
           >
             <FolderPlus size={14} className="shrink-0" />
             New folder
@@ -1729,7 +1739,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   type="button"
                   role="menuitem"
                   onClick={() => openFolderFromMenu(folder.id)}
-                  className={CONTEXT_MENU_ITEM}
+                  className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
                 >
                   <FolderIcon size={14} className="shrink-0 text-brand-teal" />
                   Open folder
@@ -1739,7 +1749,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 type="button"
                 role="menuitem"
                 onClick={() => beginAddSubfolder(folder.id)}
-                className={CONTEXT_MENU_ITEM_ACCENT}
+                className={`${CONTEXT_MENU_ITEM_ACCENT} ${FOCUS_RING}`}
               >
                 <FolderPlus size={14} className="shrink-0" />
                 Add subfolder
@@ -1749,9 +1759,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 type="button"
                 role="menuitem"
                 onClick={() => openFolderInstructions(folder.id)}
-                className={
-                  hasInstructions ? CONTEXT_MENU_ITEM_ACCENT : CONTEXT_MENU_ITEM
-                }
+                className={`${hasInstructions ? CONTEXT_MENU_ITEM_ACCENT : CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
               >
                 <FileText size={14} className="shrink-0" />
                 {hasInstructions ? 'Edit instructions' : 'Add instructions'}
@@ -1760,7 +1768,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 type="button"
                 role="menuitem"
                 onClick={() => startRenameFolder(folder.id)}
-                className={CONTEXT_MENU_ITEM}
+                className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
               >
                 <Pencil size={14} className="shrink-0 text-slate-400" />
                 Rename
@@ -1772,7 +1780,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     type="button"
                     role="menuitem"
                     onClick={() => promptDeleteFolder(folder.id)}
-                    className={CONTEXT_MENU_ITEM_DANGER}
+                    className={`${CONTEXT_MENU_ITEM_DANGER} ${FOCUS_RING}`}
                   >
                     <Trash2 size={14} className="shrink-0" />
                     Delete folder
@@ -1820,20 +1828,22 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 prev ? { ...prev, view: 'main' } : prev
               )
             }
-            className={CONTEXT_MENU_ITEM}
+            className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
           >
             <ChevronLeft size={14} className="shrink-0" aria-hidden />
             Back
           </button>
           <ContextMenuDivider />
           {downloadOptions.map((opt) => (
+            <span className="relative inline-flex" key={opt.id}>
             <button
-              key={opt.id}
+
               type="button"
               role="menuitem"
-              disabled={tileDownloadBusy}
-              onClick={() => void downloadTileFormat(gen, opt.id)}
-              className={CONTEXT_MENU_ITEM}
+              aria-disabled={tileDownloadBusy} aria-describedby={(tileDownloadBusy) ? `${unavailableId}-3-${opt.id}` : undefined}
+              onClick={(event) => { if (tileDownloadBusy) { event.preventDefault(); event.stopPropagation(); return; }return void downloadTileFormat(gen, opt.id);
+              }}
+              className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
             >
               <Download size={14} className="shrink-0 text-slate-400" />
               <span className="truncate flex-1">{opt.label}</span>
@@ -1841,6 +1851,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 <span className="text-[10px] text-slate-400 shrink-0">{opt.description}</span>
               )}
             </button>
+              {(tileDownloadBusy) && <Tip text={'Preparing download…'} side="top" />}
+              {(tileDownloadBusy) && <span id={`${unavailableId}-3-${opt.id}`} className="sr-only">{'Preparing download…'}</span>}
+            </span>
           ))}
         </div>,
         document.body
@@ -1864,7 +1877,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 prev ? { ...prev, view: 'main' } : prev
               )
             }
-            className={CONTEXT_MENU_ITEM}
+            className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
           >
             <ChevronLeft size={14} className="shrink-0" aria-hidden />
             Back
@@ -1873,13 +1886,15 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           {visibleFolderRows.map(({ folder, depth }) => {
             const inFolder = (gen.folderId || INBOX_FOLDER_ID) === folder.id;
             return (
+              <span className="relative inline-flex" key={folder.id}>
               <button
-                key={folder.id}
+
                 type="button"
                 role="menuitem"
-                disabled={inFolder || folderBusy}
-                onClick={() => void moveTileToFolder(gen.id, folder.id)}
-                className={CONTEXT_MENU_ITEM}
+                aria-disabled={inFolder || folderBusy} aria-describedby={(inFolder || folderBusy) ? `${unavailableId}-4-${folder.id}` : undefined}
+                onClick={(event) => { if (inFolder || folderBusy) { event.preventDefault(); event.stopPropagation(); return; }return void moveTileToFolder(gen.id, folder.id);
+                }}
+                className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
                 style={{ paddingLeft: `${12 + depth * 12}px` }}
               >
                 <FolderIcon size={14} className="shrink-0 text-slate-400" />
@@ -1888,6 +1903,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   <span className="text-[10px] text-slate-400 shrink-0">here</span>
                 )}
               </button>
+                {(inFolder || folderBusy) && <Tip text={inFolder ? 'This image is already in this folder' : 'Wait for the folder action to finish'} side="top" />}
+                {(inFolder || folderBusy) && <span id={`${unavailableId}-4-${folder.id}`} className="sr-only">{inFolder ? 'This image is already in this folder' : 'Wait for the folder action to finish'}</span>}
+              </span>
             );
           })}
         </div>,
@@ -1910,26 +1928,29 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             showToast('Restored');
             closeAllContextMenus();
           }}
-          className={CONTEXT_MENU_ITEM}
+          className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
         >
           <ArrowUpRight size={14} className="shrink-0" />
           Open in preview
         </button>
         {downloadOptions.length > 0 && (
+          <span className="relative inline-flex">
           <button
             type="button"
             role="menuitem"
-            disabled={tileDownloadBusy}
-            onClick={() =>
-              setTileContextMenu((prev) =>
+            aria-disabled={tileDownloadBusy} aria-describedby={(tileDownloadBusy) ? `${unavailableId}-5` : undefined}
+            onClick={(event) => { if (tileDownloadBusy) { event.preventDefault(); event.stopPropagation(); return; }return setTileContextMenu((prev) =>
                 prev ? { ...prev, view: 'download' } : prev
-              )
-            }
-            className={CONTEXT_MENU_ITEM}
+              );
+            }}
+            className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
           >
             <Download size={14} className="shrink-0" />
             Download image…
           </button>
+            {(tileDownloadBusy) && <Tip text={'Preparing download…'} side="top" />}
+            {(tileDownloadBusy) && <span id={`${unavailableId}-5`} className="sr-only">{'Preparing download…'}</span>}
+          </span>
         )}
         {!selectionMode && !isComparePicking && onPickMark && (
           <button
@@ -1948,7 +1969,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               });
               closeAllContextMenus();
             }}
-            className={CONTEXT_MENU_ITEM}
+            className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
           >
             <GitCompare size={14} className="shrink-0" />
             Pick for compare
@@ -1963,7 +1984,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             toggleSelect(gen.id);
             closeAllContextMenus();
           }}
-          className={CONTEXT_MENU_ITEM}
+          className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
         >
           {isSelected ? (
             <CheckSquare size={14} className="shrink-0 text-brand-teal" />
@@ -1972,25 +1993,28 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           )}
           {isSelected ? 'Deselect' : 'Select'}
         </button>
+        <span className="relative inline-flex">
         <button
           type="button"
           role="menuitem"
-          onClick={() =>
-            setTileContextMenu((prev) =>
+          onClick={(event) => { if (folderBusy) { event.preventDefault(); event.stopPropagation(); return; }return setTileContextMenu((prev) =>
               prev ? { ...prev, view: 'move' } : prev
-            )
-          }
-          disabled={folderBusy}
-          className={CONTEXT_MENU_ITEM}
+            );
+          }}
+          aria-disabled={folderBusy} aria-describedby={(folderBusy) ? `${unavailableId}-6` : undefined}
+          className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
         >
           <FolderInput size={14} className="shrink-0" />
           Move to folder…
         </button>
+          {(folderBusy) && <Tip text={'Wait for the folder action to finish'} side="top" />}
+          {(folderBusy) && <span id={`${unavailableId}-6`} className="sr-only">{'Wait for the folder action to finish'}</span>}
+        </span>
         <button
           type="button"
           role="menuitem"
           onClick={() => void copyGenerationPrompt(gen)}
-          className={CONTEXT_MENU_ITEM}
+          className={`${CONTEXT_MENU_ITEM} ${FOCUS_RING}`}
         >
           <ClipboardCopy size={14} className="shrink-0" />
           Copy prompt
@@ -1999,13 +2023,14 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         <button
           type="button"
           role="menuitem"
+          {...tileDelete.bindDisarmOnBlur(gen.id)}
           onClick={() => tileDelete.trigger(gen.id)}
           aria-label={tileDelete.isArmed(gen.id) ? 'Click again to confirm' : 'Delete'}
           className={`w-full min-w-[13rem] flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold [@media(pointer:coarse)]:min-h-11 ${
             tileDelete.isArmed(gen.id)
               ? 'bg-amber-500 text-[#0d1117] animate-pulse'
               : 'text-slate-500 hover:text-red-500 hover:bg-red-500/10'
-          }`}
+          } ${FOCUS_RING}`}
         >
           {tileDelete.isArmed(gen.id) ? <Check size={14} className="shrink-0" /> : <Trash2 size={14} className="shrink-0" />}
           {tileDelete.isArmed(gen.id) ? 'Click again to confirm' : 'Delete'}
@@ -2065,15 +2090,20 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   "Already on the first page" message still appears as the
                   user hovers the disabled arrow. */}
               <div className="relative group/tip-prev">
+                <span className="relative inline-flex">
                 <button
                   type="button"
-                  onClick={() => setGalleryPage((p) => Math.max(1, p - 1))}
-                  disabled={galleryPage <= 1}
+                  onClick={(event) => { if (galleryPage <= 1) { event.preventDefault(); event.stopPropagation(); return; }return setGalleryPage((p) => Math.max(1, p - 1));
+                  }}
+                  aria-disabled={galleryPage <= 1} aria-describedby={(galleryPage <= 1) ? `${unavailableId}-7` : undefined}
                   aria-label="Previous page"
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal disabled:opacity-40 disabled:pointer-events-none"
+                  className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal aria-disabled:opacity-40 aria-disabled:cursor-not-allowed ${FOCUS_RING}`}
                 >
                   <ChevronLeft size={18} aria-hidden />
                 </button>
+                  {(galleryPage <= 1) && <Tip text={'You are on the first page'} side="top" />}
+                  {(galleryPage <= 1) && <span id={`${unavailableId}-7`} className="sr-only">{'You are on the first page'}</span>}
+                </span>
                 <div
                   role="tooltip"
                   className="pointer-events-none absolute top-full mt-2 left-0 w-56 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/tip-prev:opacity-100 group-focus-within/tip-prev:opacity-100 transition-opacity z-30"
@@ -2091,7 +2121,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 aria-haspopup="menu"
                 aria-expanded={pageMenuOpen}
                 aria-label={`Page ${galleryPage} of ${galleryTotalPages}. Open page and per-page options.`}
-                className="group/tip-pages relative inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-2 text-slate-700 dark:text-slate-200 hover:border-brand-teal transition"
+                className={`group/tip-pages relative inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-2 text-slate-700 dark:text-slate-200 hover:border-brand-teal transition ${FOCUS_RING}`}
               >
                 <span className="text-xs font-medium tabular-nums">
                   {galleryPage}<span className="text-slate-400 dark:text-slate-500"> / </span>{galleryTotalPages}
@@ -2105,15 +2135,20 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 </span>
               </button>
               <div className="relative group/tip-next">
+                <span className="relative inline-flex">
                 <button
                   type="button"
-                  onClick={() => setGalleryPage((p) => Math.min(galleryTotalPages, p + 1))}
-                  disabled={galleryPage >= galleryTotalPages}
+                  onClick={(event) => { if (galleryPage >= galleryTotalPages) { event.preventDefault(); event.stopPropagation(); return; }return setGalleryPage((p) => Math.min(galleryTotalPages, p + 1));
+                  }}
+                  aria-disabled={galleryPage >= galleryTotalPages} aria-describedby={(galleryPage >= galleryTotalPages) ? `${unavailableId}-8` : undefined}
                   aria-label="Next page"
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal disabled:opacity-40 disabled:pointer-events-none"
+                  className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal aria-disabled:opacity-40 aria-disabled:cursor-not-allowed ${FOCUS_RING}`}
                 >
                   <ChevronRight size={18} aria-hidden />
                 </button>
+                  {(galleryPage >= galleryTotalPages) && <Tip text={'You are on the last page'} side="top" />}
+                  {(galleryPage >= galleryTotalPages) && <span id={`${unavailableId}-8`} className="sr-only">{'You are on the last page'}</span>}
+                </span>
                 <div
                   role="tooltip"
                   className="pointer-events-none absolute top-full mt-2 right-0 w-56 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/tip-next:opacity-100 group-focus-within/tip-next:opacity-100 transition-opacity z-30"
@@ -2159,7 +2194,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                               isActive
                                 ? 'bg-brand-teal text-white border border-brand-teal'
                                 : 'border border-gray-200 dark:border-[#30363d] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
-                            }`}
+                            } ${FOCUS_RING}`}
                           >
                             {pageNum}
                           </button>
@@ -2192,7 +2227,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                               isActive
                                 ? 'bg-brand-teal text-white border border-brand-teal'
                                 : 'border border-gray-200 dark:border-[#30363d] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
-                            }`}
+                            } ${FOCUS_RING}`}
                           >
                             {size}
                           </button>
@@ -2232,7 +2267,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 aria-disabled={visibleHistory.length === 0}
                 aria-describedby={visibleHistory.length === 0 ? `${disabledTipId}-select` : undefined}
                 aria-label={allVisibleSelected ? 'Deselect all items in this folder' : 'Select all items in this folder'}
-                className={`group/tip group/tip-selectall relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 transition shrink-0 ${visibleHistory.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:border-brand-teal hover:text-brand-teal'}`}
+                className={`group/tip group/tip-selectall relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 transition shrink-0 ${visibleHistory.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:border-brand-teal hover:text-brand-teal'} ${FOCUS_RING}`}
               >
                 {allVisibleSelected ? <Square size={16} aria-hidden /> : <CheckSquare size={16} aria-hidden />}
               </button>
@@ -2243,7 +2278,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 type="button"
                 onClick={() => setSelectedIds([])}
                 aria-label="Clear current selection"
-                className="group/tip group/tip-clear relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0"
+                className={`group/tip group/tip-clear relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0 ${FOCUS_RING}`}
               >
                 <Square size={16} aria-hidden />
                 <Tip text="Clear selection" side="bottom" align="right" />
@@ -2265,7 +2300,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 onNotify={showToast}
                 align="right"
               />
-              <div className="relative inline-flex shrink-0" data-folder-menu ref={moveMenuTriggerRef} aria-expanded={moveMenuOpen}>
+              <div className="relative inline-flex shrink-0" data-folder-menu ref={moveMenuTriggerRef} data-tip-expanded={moveMenuOpen}>
                 <button
                   type="button"
                   onClick={() => { if (moveDisabled) return; setMoveMenuOpen((prev) => !prev); }}
@@ -2274,7 +2309,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   aria-haspopup="menu"
                   aria-expanded={moveMenuOpen}
                   aria-label="Move selected items to a folder"
-                  className={`group/tip group/tip-move relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 transition ${moveDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-brand-teal hover:text-brand-teal'}`}
+                  className={`group/tip group/tip-move relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 transition ${moveDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-brand-teal hover:text-brand-teal'} ${FOCUS_RING}`}
                 >
                   <FolderInput size={16} aria-hidden />
                 </button>
@@ -2333,7 +2368,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                               : isHighlighted
                                 ? 'bg-brand-teal/10 text-brand-teal font-semibold'
                                 : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d]'
-                          }`}
+                          } ${FOCUS_RING}`}
                           style={{ paddingLeft: `${12 + depth * 12}px`, paddingRight: '12px' }}
                         >
                           <FolderIcon size={14} aria-hidden />
@@ -2367,6 +2402,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   <span className="relative inline-flex shrink-0">
                   <button
                     type="button"
+                    {...bulkDelete.bindDisarmOnBlur('delete-selected')}
                     onClick={() => { if (disabled) return; bulkDelete.trigger('delete-selected'); }}
                     aria-disabled={disabled}
                     aria-describedby={disabled ? `${disabledTipId}-delete` : undefined}
@@ -2379,7 +2415,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       disabled ? 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-red-600 dark:text-red-400' : isArmed
                         ? 'border-amber-500 bg-amber-500 text-[#0d1117] animate-pulse'
                         : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-red-600 dark:text-red-400 hover:border-red-500 hover:bg-red-500/5'
-                    }`}
+                    } ${FOCUS_RING}`}
                   >
                     {isArmed ? (
                       <Check size={16} strokeWidth={3} aria-hidden />
@@ -2396,7 +2432,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 type="button"
                 onClick={exitSelectionMode}
                 aria-label="Exit selection mode"
-                className="group/tip group/tip-cancel relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-slate-500 transition shrink-0"
+                className={`group/tip group/tip-cancel relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-slate-500 transition shrink-0 ${FOCUS_RING}`}
               >
                 <XIcon size={16} aria-hidden />
                 <Tip text="Exit selection mode" side="bottom" align="right" />
@@ -2452,7 +2488,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   viewFolderEffectiveInstructions
                     ? 'border-brand-teal bg-brand-teal/10 text-brand-teal'
                     : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
-                }`}
+                } ${FOCUS_RING}`}
               >
                 <FileText
                   size={16}
@@ -2470,7 +2506,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   showDetails
                     ? 'border-brand-teal bg-brand-teal/10 text-brand-teal'
                     : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
-                }`}
+                } ${FOCUS_RING}`}
               >
                 {showDetails
                   ? <EyeOff size={16} aria-hidden className="text-brand-teal" />
@@ -2499,7 +2535,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 type="button"
                 onClick={() => setSelectionMode(true)}
                 aria-label="Select items to move, export, or delete in bulk"
-                className="group/tip group/tip-select relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0"
+                className={`group/tip group/tip-select relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0 ${FOCUS_RING}`}
               >
                 <CheckSquare size={16} aria-hidden className="text-brand-purple" />
                 <Tip text="Select items" side="bottom" align="right" />
@@ -2579,7 +2615,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   isSubTileDrop || isSubNestDrop
                     ? 'border-brand-teal ring-2 ring-brand-teal/40 bg-brand-teal/5'
                     : 'border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] hover:border-brand-teal'
-                }`}
+                } ${FOCUS_RING}`}
               >
                 {subInsertBefore && (
                   <div
@@ -2790,8 +2826,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     onSelect(gen);
                     showToast('Restored');
                   }}
-                  className={
-                    selectionMode
+                  className={`${selectionMode
                       // In selection mode the corner checkbox button + the
                       // teal ring on selected tiles already convey "select
                       // me" / "I'm selected" — adding an always-on dim
@@ -2804,8 +2839,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       ? 'absolute inset-0 bg-black/0 hover:bg-black/20 focus:bg-black/20 transition-colors'
                       : isComparePicking
                         ? 'absolute inset-0 bg-black/0 hover:bg-brand-teal/30 transition-colors flex items-center justify-center'
-                        : 'absolute inset-0 bg-black/0 group-hover:bg-black/40 focus:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 group-focus-within:opacity-100'
-                  }
+                        : 'absolute inset-0 bg-black/0 group-hover:bg-black/40 focus:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 group-focus-within:opacity-100'} ${FOCUS_RING}`}
                   aria-label={selectionMode ? 'Toggle selection' : isComparePicking ? 'Pick this tile to compare' : 'Restore generation'}
                 >
                   {/* Pill is normal-mode only. In selection mode the
@@ -2898,14 +2932,15 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     setInstructionsFolderId(null);
                     setInstructionsDraft('');
                   }}
-                  className="px-3 py-2 min-h-11 text-sm font-semibold rounded-lg border border-gray-300 dark:border-[#30363d] text-slate-700 dark:text-slate-200"
+                  className={`px-3 py-2 min-h-11 text-sm font-semibold rounded-lg border border-gray-300 dark:border-[#30363d] text-slate-700 dark:text-slate-200 ${FOCUS_RING}`}
                 >
                   Cancel
                 </button>
+                <span className="relative inline-flex">
                 <button
                   type="button"
-                  disabled={folderBusy}
-                  onClick={async () => {
+                  aria-disabled={folderBusy} aria-describedby={(folderBusy) ? `${unavailableId}-9` : undefined}
+                  onClick={async (event) => { if (folderBusy) { event.preventDefault(); event.stopPropagation(); return; }
                     try {
                       setFolderBusy(true);
                       await onSetFolderInstructions(instructionsFolderId, instructionsDraft);
@@ -2918,11 +2953,15 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     } finally {
                       setFolderBusy(false);
                     }
+
                   }}
-                  className="px-3 py-2 min-h-11 text-sm font-semibold rounded-lg bg-brand-teal text-white hover:opacity-90 disabled:opacity-50"
+                  className={`px-3 py-2 min-h-11 text-sm font-semibold rounded-lg bg-brand-teal text-white hover:opacity-90 aria-disabled:opacity-50 ${FOCUS_RING}`}
                 >
                   Save
                 </button>
+                  {(folderBusy) && <Tip text={'Wait for the folder action to finish'} side="top" />}
+                  {(folderBusy) && <span id={`${unavailableId}-9`} className="sr-only">{'Wait for the folder action to finish'}</span>}
+                </span>
               </div>
             </div>
           </div>
@@ -2956,17 +2995,23 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   : ''}
               </p>
               <div className="mt-4 flex items-center justify-end gap-2">
+                <span className="relative inline-flex">
                 <button
                   type="button"
-                  onClick={() => setPendingDeleteFolderId(null)}
-                  disabled={folderBusy}
-                  className="text-xs font-semibold px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-slate-500 transition disabled:opacity-50"
+                  onClick={(event) => { if (folderBusy) { event.preventDefault(); event.stopPropagation(); return; }return setPendingDeleteFolderId(null);
+                  }}
+                  aria-disabled={folderBusy} aria-describedby={(folderBusy) ? `${unavailableId}-10` : undefined}
+                  className={`text-xs font-semibold px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-slate-500 transition aria-disabled:opacity-50 ${FOCUS_RING}`}
                 >
                   Cancel
                 </button>
+                  {(folderBusy) && <Tip text={'Wait for the folder action to finish'} side="top" />}
+                  {(folderBusy) && <span id={`${unavailableId}-10`} className="sr-only">{'Wait for the folder action to finish'}</span>}
+                </span>
+                <span className="relative inline-flex">
                 <button
                   type="button"
-                  onClick={async () => {
+                  onClick={async (event) => { if (folderBusy) { event.preventDefault(); event.stopPropagation(); return; }
                     try {
                       setFolderBusy(true);
                       await onDeleteFolder(target.id);
@@ -2978,12 +3023,16 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     } finally {
                       setFolderBusy(false);
                     }
+
                   }}
-                  disabled={folderBusy}
-                  className="text-xs font-semibold px-3 py-2 min-h-11 rounded-lg bg-brand-red text-white hover:opacity-90 disabled:opacity-50 transition"
+                  aria-disabled={folderBusy} aria-describedby={(folderBusy) ? `${unavailableId}-11` : undefined}
+                  className={`text-xs font-semibold px-3 py-2 min-h-11 rounded-lg bg-brand-red text-white hover:opacity-90 aria-disabled:opacity-50 transition ${FOCUS_RING}`}
                 >
                   Delete folder
                 </button>
+                  {(folderBusy) && <Tip text={'Wait for the folder action to finish'} side="top" />}
+                  {(folderBusy) && <span id={`${unavailableId}-11`} className="sr-only">{'Wait for the folder action to finish'}</span>}
+                </span>
               </div>
             </div>
           </div>

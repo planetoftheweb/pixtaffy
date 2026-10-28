@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { useEffect, useRef, useState } from 'react';
 import { Tip } from './settings/Tip';
 import { Search, X } from 'lucide-react';
@@ -117,13 +118,13 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
               placeholder="Search artwork by prompt…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 bg-transparent text-white placeholder-slate-500 outline-none text-sm"
+              className={`flex-1 bg-transparent text-white placeholder-slate-500 outline-none text-sm ${FOCUS_RING}`}
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="text-slate-500 hover:text-slate-300 transition-colors"
+                className={`text-slate-500 hover:text-slate-300 transition-colors ${FOCUS_RING}`}
                 aria-label="Clear search"
               >
                 <X size={15} />
@@ -156,7 +157,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
                       type="button"
                       className={`w-full flex items-center gap-3 px-4 py-2 transition-colors text-left ${
                         i === activeIndex ? 'bg-[#21262d]' : 'hover:bg-[#1c2128]'
-                      }`}
+                      } ${FOCUS_RING}`}
                       onMouseEnter={() => setActiveIndex(i)}
                       onClick={() => { onSelect(gen); onClose(); }}
                     >

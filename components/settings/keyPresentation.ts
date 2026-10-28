@@ -6,5 +6,5 @@ export function keyFeedback(slot: string, action: 'saved' | 'deleted'): string {
 }
 
 export function keyRowStatus(status?: { hasKey: boolean; last4?: string }): string {
-  return status?.hasKey ? `Saved ...${status.last4 || ''}` : 'Not set';
+  return status?.hasKey ? `Saved …${status.last4 || ''}` : 'Not set';
 }

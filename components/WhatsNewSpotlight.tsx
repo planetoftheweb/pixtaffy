@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { useEffect } from 'react';
 import { ArrowRight, Sparkles, X } from 'lucide-react';
 import type { WhatsNewEntry } from '../types';
@@ -65,7 +66,7 @@ export const WhatsNewSpotlight: React.FC<WhatsNewSpotlightProps> = ({
           type="button"
           onClick={() => onDismiss(entry.id)}
           aria-label="Close"
-          className="absolute top-3 right-3 z-10 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors"
+          className={`absolute top-3 right-3 z-10 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}
         >
           <X size={20} />
         </button>
@@ -107,7 +108,7 @@ export const WhatsNewSpotlight: React.FC<WhatsNewSpotlightProps> = ({
             <button
               type="button"
               onClick={onReadGuide}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-teal/90 text-white text-sm font-semibold transition-colors shadow-sm shadow-brand-teal/30"
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-teal/90 text-white text-sm font-semibold transition-colors shadow-sm shadow-brand-teal/30 ${FOCUS_RING}`}
             >
               Read the guide
               <ArrowRight size={14} />
@@ -115,7 +116,7 @@ export const WhatsNewSpotlight: React.FC<WhatsNewSpotlightProps> = ({
             <button
               type="button"
               onClick={() => onDismiss(entry.id)}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+              className={`px-4 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
             >
               Got it
             </button>
@@ -124,7 +125,7 @@ export const WhatsNewSpotlight: React.FC<WhatsNewSpotlightProps> = ({
                 href={entry.learnMoreHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-auto text-sm font-medium text-brand-teal hover:underline"
+                className={`ml-auto text-sm font-medium text-brand-teal hover:underline ${FOCUS_RING}`}
               >
                 Learn more
               </a>

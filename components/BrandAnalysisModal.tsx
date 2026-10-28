@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { useState } from 'react';
 import { X, Check, CheckCircle2, Circle, Palette, PenTool, Layout, Globe, Lock } from 'lucide-react';
 import { BrandGuidelinesAnalysis } from '../types';
@@ -56,7 +57,7 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
             <h3 className="text-lg font-bold">Review Analyzed Brand Assets</h3>
             <p className="text-xs text-slate-500">Select the items you want to import.</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors">
+          <button onClick={onClose} className={`text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}>
             <X size={20} />
           </button>
         </div>
@@ -74,7 +75,7 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
                    scope === 'public' 
                      ? 'bg-white dark:bg-[#161b22] border-brand-teal ring-1 ring-brand-teal shadow-sm' 
                      : 'bg-transparent border-transparent hover:bg-white dark:hover:bg-[#161b22] hover:border-gray-200 dark:hover:border-[#30363d]'
-                 }`}
+                 } ${FOCUS_RING}`}
                >
                  <div className={`p-2 rounded-full ${scope === 'public' ? 'bg-teal-50 dark:bg-teal-900/20 text-brand-teal' : 'bg-gray-100 dark:bg-[#21262d] text-slate-400'}`}>
                     <Globe size={18} />
@@ -92,7 +93,7 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
                    scope === 'private' 
                      ? 'bg-white dark:bg-[#161b22] border-brand-teal ring-1 ring-brand-teal shadow-sm' 
                      : 'bg-transparent border-transparent hover:bg-white dark:hover:bg-[#161b22] hover:border-gray-200 dark:hover:border-[#30363d]'
-                 }`}
+                 } ${FOCUS_RING}`}
                >
                  <div className={`p-2 rounded-full ${scope === 'private' ? 'bg-teal-50 dark:bg-teal-900/20 text-brand-teal' : 'bg-gray-100 dark:bg-[#21262d] text-slate-400'}`}>
                     <Lock size={18} />
@@ -221,13 +222,13 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
         <div className="px-6 py-4 border-t border-gray-200 dark:border-[#30363d] flex justify-end gap-3 bg-gray-50 dark:bg-[#0d1117]">
           <button 
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg font-medium text-sm transition-colors"
+            className={`px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg font-medium text-sm transition-colors ${FOCUS_RING}`}
           >
             Cancel
           </button>
           <button 
             onClick={handleConfirm}
-            className="flex items-center gap-2 px-6 py-2 bg-brand-teal hover:bg-teal-600 text-white rounded-lg font-medium transition-colors text-sm shadow-lg shadow-brand-teal/20"
+            className={`flex items-center gap-2 px-6 py-2 bg-brand-teal hover:bg-teal-600 text-white rounded-lg font-medium transition-colors text-sm shadow-lg shadow-brand-teal/20 ${FOCUS_RING}`}
           >
             <Check size={16} /> 
             Import Selected ({selectedColors.length + selectedStyles.length + selectedTypes.length})

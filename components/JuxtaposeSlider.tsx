@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Tip } from './settings/Tip';
 import { ArrowLeftRight, Download, X } from 'lucide-react';
@@ -314,7 +315,7 @@ export const JuxtaposeSlider: React.FC<JuxtaposeSliderProps> = ({
               type="button"
               onClick={swap}
               aria-label="Swap A and B"
-              className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors"
+              className={`relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors ${FOCUS_RING}`}
             >
               <ArrowLeftRight size={13} />
               Swap
@@ -324,7 +325,7 @@ export const JuxtaposeSlider: React.FC<JuxtaposeSliderProps> = ({
               type="button"
               onClick={handleDownloadSideBySide}
               aria-label="Download both images side-by-side as PNG"
-              className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors"
+              className={`relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors ${FOCUS_RING}`}
             >
               <Download size={13} />
               Side-by-side
@@ -335,7 +336,7 @@ export const JuxtaposeSlider: React.FC<JuxtaposeSliderProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label="Close comparison viewer"
-                className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors"
+                className={`relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors ${FOCUS_RING}`}
               >
                 <X size={13} />
                 Close
@@ -358,7 +359,7 @@ export const JuxtaposeSlider: React.FC<JuxtaposeSliderProps> = ({
               type="button"
               onClick={swap}
               aria-label="Swap A and B"
-              className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors"
+              className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}
             >
               <ArrowLeftRight size={14} />
               Swap
@@ -368,7 +369,7 @@ export const JuxtaposeSlider: React.FC<JuxtaposeSliderProps> = ({
               type="button"
               onClick={handleDownloadSideBySide}
               aria-label="Download both images side-by-side as PNG"
-              className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors"
+              className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}
             >
               <Download size={14} />
               Side-by-side
@@ -379,7 +380,7 @@ export const JuxtaposeSlider: React.FC<JuxtaposeSliderProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label="Close comparison viewer"
-                className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors"
+                className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}
               >
                 <X size={14} />
                 Close

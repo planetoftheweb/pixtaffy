@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../../utils/focusRing';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle, AlertCircle, X } from 'lucide-react';
@@ -24,7 +25,7 @@ export function SettingsToast({ message, error, eventId }: { message: string; er
       <div className="min-w-0 flex-1"><span>{message}</span>
         {!error && message !== 'Settings saved successfully!' && <span className="block">Settings saved successfully!</span>}
       </div>
-      <button type="button" aria-label="Dismiss notification" onClick={() => setVisible(false)} className="flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-white/10 sm:min-h-8 sm:min-w-8"><X size={16} /></button>
+      <button type="button" aria-label="Dismiss notification" onClick={() => setVisible(false)} className={`flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-white/10 sm:min-h-8 sm:min-w-8 ${FOCUS_RING}`}><X size={16} /></button>
     </div>}
   </div>, document.body);
 }

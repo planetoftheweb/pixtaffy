@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import { handleMenuKeyboard } from './utils/menuKeyboard';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Tip } from './settings/Tip';
@@ -46,7 +47,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
   subLabel,
   icon: Icon,
   searchable = false,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder = 'Search…',
   groupOrder,
   expandMenuToContent = true,
   disabled = false,
@@ -57,6 +58,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
   triggerLabelClassName = '',
   hideOptionDescriptions = false
 }) => {
+  const unavailableId = React.useId();
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [menuAlign, setMenuAlign] = useState<'left' | 'right'>('left');
@@ -238,14 +240,16 @@ export const RichSelect: React.FC<RichSelectProps> = ({
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
+      <span className="relative inline-flex w-full" data-tip-expanded={isOpen}>
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => {
+        onClick={(event) => { if (!isInteractive) { event.preventDefault(); event.stopPropagation(); return; }
           if (!isInteractive) return;
           setIsOpen(prev => !prev);
+
         }}
-        disabled={!isInteractive}
+        aria-disabled={!isInteractive} aria-describedby={(!isInteractive) ? `${unavailableId}-1` : undefined}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         className={`group relative w-full rounded-lg border overflow-hidden transition-all ${buttonPadding} px-3 text-left ${
@@ -256,7 +260,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
           isInteractive
             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-gray-50 dark:hover:bg-[#161b22]'
             : 'cursor-not-allowed opacity-60'
-        } ${buttonClassName}`}
+        } ${buttonClassName} ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
       >
         <span
           className={`pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-teal/12 via-brand-teal/5 to-transparent transition-opacity ${
@@ -312,6 +316,9 @@ export const RichSelect: React.FC<RichSelectProps> = ({
           />
         </span>
       </button>
+        {(!isInteractive) && <Tip text={disabled ? 'This selection is locked' : 'No options available'} side="top" />}
+        {(!isInteractive) && <span id={`${unavailableId}-1`} className="sr-only">{disabled ? 'This selection is locked' : 'No options available'}</span>}
+      </span>
 
       {isOpen && (
         <div
@@ -361,7 +368,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
                           selected
                             ? 'bg-brand-teal/10 text-brand-teal'
                             : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d]'
-                        }`}
+                        } ${FOCUS_RING}`}
                       >
                         <span className="min-w-0 flex items-start gap-2.5">
                           {ItemIcon && (

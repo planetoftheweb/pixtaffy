@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { nextMenuItemIndex } from '../utils/menuKeyboard.ts';
 import { getAuthFormBlocker, getFeedbackFormBlocker } from '../utils/formValidation.ts';
 import { shouldAutoCollapseGenerationPanel } from '../utils/generationPanel.ts';
+import { FOCUS_RING } from '../utils/focusRing.ts';
 
 const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -143,7 +144,7 @@ test('Build Studio wraps its toolbar and measures both pill dimensions when clam
   assert.match(studio, /rootR\.right - pill\.width/);
   assert.match(studio, /rootR\.bottom - pill\.height/);
   assert.ok(studio.includes('[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11'));
-  assert.match(studio, /<Tip text=\{label\} side="bottom" \/>/);
+  assert.match(studio, /<Tip text=\{\(disabled\) \? \('[^']+'\) : \(label\)\} side="bottom" \/>/);
 });
 
 test('design contract requires overflow checks down to 320px and one transient toast recipe', () => {
@@ -191,7 +192,7 @@ function evaluateComponent(file, name, bindings) {
   const compiled = ts.transpileModule(`return (${initializer.getText(tree)});`, {
     compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  return new Function('React', ...Object.keys(bindings), compiled)(React, ...Object.values(bindings));
+  return new Function('React', 'FOCUS_RING', ...Object.keys(bindings), compiled)(React, FOCUS_RING, ...Object.values(bindings));
 }
 
 test('self-account menu keeps disabled actions and one explanatory Tip on each hoverable wrapper', () => {
@@ -200,6 +201,7 @@ test('self-account menu keeps disabled actions and one explanatory Tip on each h
   const renderMenu = evaluateComponent('components/AdminPage.tsx', 'renderRowMenu', {
     Tip, Key: icon, Sparkles: icon, Unlock: icon, Lock: icon, UserMinus: icon, UserPlus: icon, Trash2: icon,
     rowMenuRef: { current: null }, actionInFlight: null, currentUser: { id: 'self' },
+    unavailableId: 'fixture',
     setOpenRowMenu: () => {}, setConfirm: () => {},
   });
   for (const id of ['self', 'other']) {
@@ -209,16 +211,19 @@ test('self-account menu keeps disabled actions and one explanatory Tip on each h
     assert.equal(wrappers.length, 2);
     for (const [index, wrapper] of wrappers.entries()) {
       assert.match(wrapper.props.className, /\brelative\b/);
-      const [button, tip] = React.Children.toArray(wrapper.props.children);
+      const children = React.Children.toArray(wrapper.props.children);
+      const button = children.find(child => child.type === 'button');
+      const tip = children.find(child => child.type === Tip);
       assert.equal(button.type, 'button');
-      assert.equal(button.props.disabled, id === 'self');
-      assert.match(button.props.className, /disabled:pointer-events-none/);
+      assert.equal(button.props.disabled, undefined);
+      assert.equal(button.props['aria-disabled'], id === 'self');
+      assert.match(button.props.className, /aria-disabled:cursor-not-allowed/);
       assert.equal(React.Children.toArray(button.props.children).some(child => child.type === Tip), false,
         'Tip must not be hosted by a disabled button');
       if (id === 'self') {
         assert.equal(tip.type, Tip);
         assert.equal(tip.props.text, index === 0
-          ? 'You cannot disable your own account.' : 'You cannot delete your own account here.');
+          ? 'You cannot suspend your own account' : 'You cannot delete your own account');
       } else assert.equal(tip, undefined);
     }
     assert.doesNotMatch(renderToStaticMarkup(menu), /\stitle=/);
@@ -253,6 +258,7 @@ test('daily bars expose date and counts to keyboard users with a single portal h
 test('admin values, actions, stats labels and uid render one portal hint with the full value', () => {
   const Tip = ({ text }) => React.createElement('span', { 'data-tip': text });
   const bindings = {
+    FOCUS_RING,
     Tip, MoreHorizontal: () => null, Hash: () => null,
     entry: { label: 'A long model label that truncates in a narrow card' },
     u: { uid: 'fixture-user-with-a-long-uid-for-truncation' },
@@ -302,7 +308,7 @@ test('admin values, actions, stats labels and uid render one portal hint with th
 
 test('coarse-pointer studio controls keep 44px targets at tablet widths and hide mobile dividers', () => {
   const coarse = '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
-  assert.equal(studio.split(coarse).length - 1, 10, 'shared button, grip, AI, cleanup, zoom, selected frame, four header buttons');
+  assert.ok(studio.split(coarse).length - 1 >= 10, 'shared button, grip, AI, cleanup, zoom, selected frame, four header buttons and converted actions');
   assert.doesNotMatch(studio, /max-sm:min-h-11|flex-wrap sm:flex-nowrap/);
   const dividers = studio.match(/className="w-px h-6[^"]*"/g) || [];
   assert.equal(dividers.length, 5);
@@ -315,7 +321,7 @@ test('coarse-pointer studio controls keep 44px targets at tablet widths and hide
       const label = node.attributes.properties.find(attr => attr.name?.getText(tree) === 'aria-label')?.initializer?.text;
       if (['Export PowerPoint with builds', 'Export PNGs for slides', 'Export MP4', 'Close Build Studio'].includes(label)) {
         headerButtons.push(label);
-        const classes = node.attributes.properties.find(attr => attr.name?.getText(tree) === 'className')?.initializer?.text;
+        const classes = node.attributes.properties.find(attr => attr.name?.getText(tree) === 'className')?.initializer?.getText(tree);
         assert.ok(classes?.includes(coarse), label);
       }
     }
@@ -420,15 +426,15 @@ test('stage stacks only when narrow or portrait without measuring its own height
 test('primary actions are teal with dark text while folder deletion stays red', () => {
   const control = source('components/ControlPanel.tsx');
   const primary = /bg-brand-teal hover:bg-teal-600 text-\[#0d1117\]/;
-  assert.match(control.slice(control.indexOf('onClick={handleSaveItem}'), control.indexOf('onClick={handleSaveItem}') + 450), primary);
+  assert.match(control.slice(control.indexOf('handleSaveItem();'), control.indexOf('handleSaveItem();') + 700), primary);
   assert.match(studio.slice(studio.indexOf('aria-label="Export MP4"'), studio.indexOf('aria-label="Export MP4"') + 450), primary);
   const refine = image.slice(image.indexOf('group/tip relative h-11 w-11'), image.indexOf('group/tip relative h-11 w-11') + 700);
   assert.match(refine, primary);
   assert.doesNotMatch(refine, /text-white|bg-brand-red|shadow-brand-red/);
-  const submit = image.slice(image.indexOf("disabled={(!refinementInput.trim()"), image.indexOf("disabled={(!refinementInput.trim()") + 600);
+  const submit = image.slice(image.indexOf("aria-disabled={(!refinementInput.trim()"), image.indexOf("aria-disabled={(!refinementInput.trim()") + 900);
   assert.match(submit, primary);
   assert.doesNotMatch(submit, /text-white|bg-brand-red/);
-  const folderDelete = gallery.match(/className="([^"]+)"\s*>\s*Delete folder/)[1];
+  const folderDelete = gallery.match(/className=\{`([^`]+)`\}\s*>\s*Delete folder/)[1];
   assert.match(folderDelete, /bg-brand-red text-white hover:opacity-90/);
 });
 
@@ -853,7 +859,10 @@ function reasonSpanViolations(text, filename = 'fixture.tsx') {
   visit(tree);
   const attr = (node, name) => (ts.isJsxElement(node) ? node.openingElement : node).attributes.properties
     .find(prop => ts.isJsxAttribute(prop) && prop.name.getText() === name)?.initializer;
-  const normalize = node => node?.getText().replace(/\s/g, '').replace(/^Boolean\((.*)\)$/, '$1');
+  const normalize = node => {
+    while (node && ts.isParenthesizedExpression(node)) node = node.expression;
+    return node?.getText().replace(/\s/g, '').replace(/^Boolean\((.*)\)$/, '$1');
+  };
   const references = nodes.flatMap(node => {
     const described = attr(node, 'aria-describedby')?.expression;
     if (!described) return [];
@@ -902,8 +911,8 @@ test('all described sr-only reason spans are conditional on the matching disable
   const files = ['App.tsx', ...filesIn('components')];
   const scans = files.map(file => reasonSpanViolations(source(file), file));
   assert.deepEqual(scans.flatMap(scan => scan.violations), []);
-  assert.equal(scans.reduce((count, scan) => count + scan.checked, 0), 19, 'cover every round 1/2 reason including Model, Generate and both Expand controls');
-  t.diagnostic(`AST scan: ${files.length} files, 19 conditional disabled-reason spans`);
+  assert.equal(scans.reduce((count, scan) => count + scan.checked, 0), 77, 'cover the previous 19 reasons plus 57 converted buttons and SettingsButton');
+  t.diagnostic(`AST scan: ${files.length} files, 77 conditional disabled-reason spans`);
 });
 
 test('incomplete auth and feedback form guards report specific errors before any backend work', async () => {

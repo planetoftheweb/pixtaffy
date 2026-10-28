@@ -240,21 +240,21 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       keyId: 'gemini',
       label: 'Google Gemini API Key',
       description: 'Used by Nano Banana Pro, Nano Banana 2, and Gemini SVG.',
-      placeholder: 'AIza...',
+      placeholder: 'AIza…',
       helpText: 'Create one at aistudio.google.com/apikey.'
     },
     {
       keyId: 'openai',
       label: 'OpenAI API Key',
       description: 'Used by GPT Image 2.5, GPT Image 2.5 Flare, GPT Image 2, GPT Image Mini, and GPT Image 1.5.',
-      placeholder: 'sk-...',
+      placeholder: 'sk-…',
       helpText: 'Create one at platform.openai.com/api-keys.'
     },
     {
       keyId: 'openrouter',
       label: 'OpenRouter API Key',
       description: 'Unlocks extra image models (Seedream, FLUX, Recraft, …) in the model picker. Your direct Google/OpenAI keys above always take priority for their own models.',
-      placeholder: 'sk-or-...',
+      placeholder: 'sk-or-…',
       helpText: 'Create one at openrouter.ai/keys. Pick which models appear below.'
     }
   ];
@@ -645,7 +645,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     <SettingsButton
                       type="button"
                       onClick={handleAddOrCustomSlug}
-                      disabled={!orCustomSlug.trim()}
+                      disabled={!orCustomSlug.trim()} disabledReason="Enter an OpenRouter model ID"
                       className="px-3 py-2 text-[14px] font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-teal-600 transition-colors shrink-0"
                     >
                       Add
@@ -753,6 +753,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     </div>
                     <SettingsButton
                       type="button"
+                      {...revokeConfirm.bindDisarmOnBlur(t.tokenHash)}
                       onClick={() => revokeConfirm.trigger(t.tokenHash)}
                       className={`shrink-0 px-2 py-1 rounded-md text-[12px] font-semibold transition-colors ${
                         revokeConfirm.isArmed(t.tokenHash)
@@ -776,7 +777,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <SettingsButton
                     type="button"
                     onClick={() => void handleCreateApiToken()}
-                    disabled={apiTokenBusy}
+                    disabled={apiTokenBusy} disabledReason="Creating API token…"
                     className="px-3 py-1.5 text-[14px] font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 hover:bg-teal-600 transition-colors shrink-0"
                   >
                     {apiTokenBusy ? 'Creating…' : 'Create token'}
@@ -898,7 +899,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   id="contributeDefault"
                   checked={localSettings.contributeByDefault}
                   onChange={(e) => setLocalSettings(prev => ({ ...prev, contributeByDefault: e.target.checked }))}
-                  className="mt-1 w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-red cursor-pointer"
+                  className="mt-1 w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-teal cursor-pointer"
                 />
                 <div>
                   <label htmlFor="contributeDefault" className="block text-[14px] font-medium cursor-pointer text-slate-900 dark:text-white">
@@ -1016,7 +1017,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     type="checkbox"
                     checked={localSettings.confirmDeleteHistory ?? true}
                     onChange={(e) => setLocalSettings(prev => ({ ...prev, confirmDeleteHistory: e.target.checked }))}
-                    className="mt-1 w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-red cursor-pointer"
+                    className="mt-1 w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-teal cursor-pointer"
                   />
                   <div>
                     <span className="block text-[14px] font-medium text-slate-900 dark:text-white">Confirm before deleting recent generations</span>
@@ -1029,7 +1030,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     type="checkbox"
                     checked={localSettings.confirmDeleteCurrent ?? true}
                     onChange={(e) => setLocalSettings(prev => ({ ...prev, confirmDeleteCurrent: e.target.checked }))}
-                    className="mt-1 w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-red cursor-pointer"
+                    className="mt-1 w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-teal cursor-pointer"
                   />
                   <div>
                     <span className="block text-[14px] font-medium text-slate-900 dark:text-white">Confirm before deleting current preview</span>
@@ -1144,12 +1145,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           </SettingsButton>
           <SettingsButton
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving} disabledReason="Saving settings…"
             className="flex items-center gap-2 px-6 py-1.5 bg-brand-teal hover:bg-teal-600 text-white rounded-lg font-medium transition-colors text-[14px] shadow-lg shadow-brand-teal/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <>
-                <Loader2 size={16} className="animate-spin" /> Saving...
+                <Loader2 size={16} className="animate-spin" /> Saving…
               </>
             ) : saveSuccess ? (
               <>

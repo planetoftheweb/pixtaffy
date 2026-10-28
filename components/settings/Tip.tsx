@@ -28,7 +28,8 @@ export const Tip: React.FC<{
     // An open menu owns the space under its trigger, so the tip stays hidden while it is expanded.
     // A neighbouring toolbar trigger's tip would land on top of the open panel, so toolbar tips wait until it closes.
     const toolbarTrigger = host.matches('[data-toolbar-dropdown-trigger], [data-toolbar-dropdown-wrapper]');
-    const expanded = () => host.getAttribute('aria-expanded') === 'true'
+    const expanded = () => host.getAttribute('data-tip-expanded') === 'true'
+      || (host.matches('button[aria-haspopup]') && host.getAttribute('aria-expanded') === 'true')
       || (toolbarTrigger && !!document.querySelector('[data-toolbar-dropdown-trigger][aria-expanded="true"]'));
     const hide = () => {
       setHostRect(null);
@@ -46,7 +47,7 @@ export const Tip: React.FC<{
       if (lastInputWasKeyboard && event.target instanceof HTMLElement && event.target.matches(':focus-visible')) show();
     };
     const observer = new MutationObserver(() => { if (expanded()) hide(); });
-    observer.observe(toolbarTrigger ? host.closest('[data-toolbar-region]') || host : host, { attributes: true, attributeFilter: ['aria-expanded'], subtree: toolbarTrigger });
+    observer.observe(toolbarTrigger ? host.closest('[data-toolbar-region]') || host : host, { attributes: true, attributeFilter: ['aria-expanded', 'data-tip-expanded'], subtree: toolbarTrigger });
     host.addEventListener('click', hide);
     host.addEventListener('pointerenter', showPointer);
     host.addEventListener('focusin', showFocus);

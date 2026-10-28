@@ -1,3 +1,5 @@
+import { FOCUS_RING } from '../utils/focusRing';
+import { Tip } from './settings/Tip';
 import React, { useState, useEffect } from 'react';
 import { CatalogItem } from '../services/catalogService';
 import { catalogService } from '../services/catalogService';
@@ -17,6 +19,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   userId,
   category
 }) => {
+  const unavailableId = React.useId();
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -75,7 +78,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         <div className="flex items-center gap-4">
            <button 
              onClick={onBack}
-             className="p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+             className={`p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
            >
              <ArrowLeft size={24} />
            </button>
@@ -140,22 +143,27 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 {item.type !== 'style' && <div className="flex-1"></div>}
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-[#30363d] mt-auto">
-                  <button 
-                    onClick={() => handleVote(item.id, item.votes, userId ? item.voters.includes(userId) : false)}
-                    disabled={!userId}
+                  <span className="relative inline-flex">
+                  <button
+                    onClick={(event) => { if (!userId) { event.preventDefault(); event.stopPropagation(); return; }return handleVote(item.id, item.votes, userId ? item.voters.includes(userId) : false);
+                    }}
+                    aria-disabled={!userId} aria-describedby={(!userId) ? `${unavailableId}-1-${item.id}` : undefined}
                     className={`flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                      userId && item.voters.includes(userId) 
-                        ? 'text-brand-teal bg-teal-50 dark:bg-teal-900/20' 
+                      userId && item.voters.includes(userId)
+                        ? 'text-brand-teal bg-teal-50 dark:bg-teal-900/20'
                         : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d]'
-                    }`}
+                    } ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
                   >
                     <ThumbsUp size={16} />
                     {item.votes}
                   </button>
+                    {(!userId) && <Tip text={'Log in to vote for this resource'} side="top" />}
+                    {(!userId) && <span id={`${unavailableId}-1-${item.id}`} className="sr-only">{'Log in to vote for this resource'}</span>}
+                  </span>
                   
                   <button 
                     onClick={() => onImport(item)}
-                    className="flex items-center gap-2 text-sm font-bold text-white bg-brand-teal hover:bg-teal-600 px-4 py-2 rounded-lg shadow-sm transition-colors"
+                    className={`flex items-center gap-2 text-sm font-bold text-white bg-brand-teal hover:bg-teal-600 px-4 py-2 rounded-lg shadow-sm transition-colors ${FOCUS_RING}`}
                   >
                     <Download size={16} /> Add
                   </button>

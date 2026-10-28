@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
@@ -522,6 +523,7 @@ const FocusedUserView: React.FC<FocusedUserViewProps> = ({ userStats }) => {
 };
 
 export const StatsPage: React.FC = () => {
+  const unavailableId = React.useId();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [focusedUid, setFocusedUid] = useState<string | null>(null);
@@ -607,7 +609,7 @@ export const StatsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setFocusedUid(null)}
-              className="group/tip relative inline-flex items-center gap-1.5 px-2 py-1 -ml-1 rounded-md text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d]"
+              className={`group/tip relative inline-flex items-center gap-1.5 px-2 py-1 -ml-1 rounded-md text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
               aria-label="Back to all users"
             >
               <ArrowLeft size={14} />
@@ -652,11 +654,12 @@ export const StatsPage: React.FC = () => {
             <span>Aggregating usage data…</span>
           )}
         </div>
+        <span className="relative inline-flex">
         <button
           type="button"
-          onClick={handleRefresh}
-          disabled={isLoading}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-[#21262d] disabled:opacity-50"
+          onClick={(event) => { if (isLoading) { event.preventDefault(); event.stopPropagation(); return; } handleRefresh(); }}
+          aria-disabled={isLoading} aria-describedby={(isLoading) ? `${unavailableId}-1` : undefined}
+          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-[#21262d] aria-disabled:opacity-50 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
         >
           {isLoading ? (
             <Loader2 size={14} className="animate-spin" />
@@ -665,6 +668,9 @@ export const StatsPage: React.FC = () => {
           )}
           Refresh
         </button>
+          {(isLoading) && <Tip text={'Refreshing statistics…'} side="top" />}
+          {(isLoading) && <span id={`${unavailableId}-1`} className="sr-only">{'Refreshing statistics…'}</span>}
+        </span>
       </div>
 
       {/* Error state */}

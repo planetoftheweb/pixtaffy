@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import { Tip } from './settings/Tip';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Bug, ExternalLink, ImagePlus, Lightbulb, MessageCircleQuestion, Send, X } from 'lucide-react';
@@ -31,6 +32,7 @@ const CATEGORIES: Array<{
 const DRAFT_KEY = 'pixtaffy_feedback_draft_v1';
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) => {
+  const unavailableId = React.useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const busyRef = useRef(false);
@@ -162,9 +164,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
               Help make PixTaffy better
             </h2>
           </div>
-          <button type="button" onClick={onClose} disabled={busy} aria-label="Close feedback" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 dark:hover:bg-[#21262d] dark:hover:text-white">
+          <span className="relative inline-flex shrink-0">
+          <button type="button" onClick={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); return; } onClose(); }} aria-disabled={busy} aria-describedby={(busy) ? `${unavailableId}-1` : undefined} aria-label="Close feedback" className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 aria-disabled:opacity-50 dark:hover:bg-[#21262d] dark:hover:text-white ${FOCUS_RING}`}>
             <X size={20} />
           </button>
+            {(busy) && <Tip text={'Wait for feedback to finish sending'} side="top" />}
+            {(busy) && <span id={`${unavailableId}-1`} className="sr-only">{'Wait for feedback to finish sending'}</span>}
+          </span>
         </div>
 
         {issue ? (
@@ -182,10 +188,10 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
               PixTaffy created GitHub issue #{issue.number}. You can follow the conversation there, even without a GitHub account.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <a href={issue.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-teal px-4 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600">
+              <a href={issue.url} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-teal px-4 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600 ${FOCUS_RING}`}>
                 View issue <ExternalLink size={16} /><Tip text="View issue" />
               </a>
-              <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:text-slate-200">
+              <button type="button" onClick={onClose} className={`min-h-11 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:text-slate-200 ${FOCUS_RING}`}>
                 Done
               </button>
             </div>
@@ -199,7 +205,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
                   const Icon = item.icon;
                   const selected = category === item.value;
                   return (
-                    <button key={item.value} type="button" aria-pressed={selected} onClick={() => setCategory(item.value)} className={`min-h-[84px] rounded-xl border p-3 text-left transition-colors ${selected ? 'border-brand-teal bg-teal-50 text-teal-900 ring-1 ring-brand-teal dark:bg-teal-950/30 dark:text-teal-100' : 'border-slate-200 text-slate-700 hover:border-slate-400 dark:border-[#30363d] dark:text-slate-200 dark:hover:border-slate-500'}`}>
+                    <button key={item.value} type="button" aria-pressed={selected} onClick={() => setCategory(item.value)} className={`min-h-[84px] rounded-xl border p-3 text-left transition-colors ${selected ? 'border-brand-teal bg-teal-50 text-teal-900 ring-1 ring-brand-teal dark:bg-teal-950/30 dark:text-teal-100' : 'border-slate-200 text-slate-700 hover:border-slate-400 dark:border-[#30363d] dark:text-slate-200 dark:hover:border-slate-500'} ${FOCUS_RING}`}>
                       <span className="flex items-center gap-2 text-sm font-bold"><Icon size={16} className={selected ? 'text-brand-teal' : 'text-slate-500'} />{item.label}</span>
                       <span className="mt-1 block text-xs leading-4 text-slate-500 dark:text-slate-400">{item.hint}</span>
                     </button>
@@ -217,15 +223,15 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
             <div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-bold text-slate-900 dark:text-white">Screenshot <span className="font-normal text-slate-400">(optional)</span></span>
-                {screenshot && <button type="button" onClick={() => setScreenshot(null)} className="text-xs font-bold text-brand-red hover:underline">Remove</button>}
+                {screenshot && <button type="button" onClick={() => setScreenshot(null)} className={`text-xs font-bold text-brand-red hover:underline ${FOCUS_RING}`}>Remove</button>}
               </div>
               {previewUrl ? (
-                <button type="button" onClick={() => fileRef.current?.click()} className="mt-2 block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-left dark:border-[#30363d] dark:bg-[#161b22]">
+                <button type="button" onClick={() => fileRef.current?.click()} className={`mt-2 block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-left dark:border-[#30363d] dark:bg-[#161b22] ${FOCUS_RING}`}>
                   <img src={previewUrl} alt="Feedback screenshot preview" className="max-h-64 w-full object-contain" />
                   <span className="block truncate px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{screenshot?.name}</span>
                 </button>
               ) : (
-                <button type="button" onClick={() => fileRef.current?.click()} className="mt-2 flex min-h-20 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-4 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:text-slate-300">
+                <button type="button" onClick={() => fileRef.current?.click()} className={`mt-2 flex min-h-20 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-4 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:text-slate-300 ${FOCUS_RING}`}>
                   <ImagePlus size={18} /> Add a screenshot
                 </button>
               )}
@@ -242,9 +248,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
             {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">{error}</p>}
 
             <div className="sticky bottom-0 -mx-5 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur dark:border-[#30363d] dark:bg-[#0d1117]/95 sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
-              <button type="button" onClick={onClose} disabled={busy} className="min-h-11 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-[#30363d] dark:text-slate-200">Cancel</button>
+              <span className="relative inline-flex">
+              <button type="button" onClick={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); return; } onClose(); }} aria-disabled={busy} aria-describedby={(busy) ? `${unavailableId}-2` : undefined} className={`min-h-11 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 aria-disabled:opacity-50 dark:border-[#30363d] dark:text-slate-200 ${FOCUS_RING}`}>Cancel</button>
+                {(busy) && <Tip text={'Wait for feedback to finish sending'} side="top" />}
+                {(busy) && <span id={`${unavailableId}-2`} className="sr-only">{'Wait for feedback to finish sending'}</span>}
+              </span>
               <span className="relative inline-flex sm:w-auto">
-              <button type="submit" aria-disabled={sendDisabled} aria-describedby={sendDisabled ? sendReasonId : undefined} className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors ${sendDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-teal-600'}`}>
+              <button type="submit" aria-disabled={sendDisabled} aria-describedby={sendDisabled ? sendReasonId : undefined} className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors ${sendDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-teal-600'} ${FOCUS_RING}`}>
                 <Send size={16} /> {busy ? 'Sending…' : 'Send feedback'}
               </button>
               <Tip text={sendTip} />

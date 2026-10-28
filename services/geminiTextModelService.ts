@@ -31,7 +31,7 @@ export const formatUserFacingGeminiError = (raw: string): string => {
   } catch {
     /* not JSON */
   }
-  return s.length > 900 ? `${s.slice(0, 900)}...` : s;
+  return s.length > 900 ? `${s.slice(0, 900)}…` : s;
 };
 
 /** True when retrying with another text model id might succeed. */

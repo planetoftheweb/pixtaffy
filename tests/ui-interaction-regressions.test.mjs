@@ -147,7 +147,7 @@ test('key feedback and persisted row presentation follow save and delete outcome
   const { keyFeedback, keyRowStatus } = await import('../components/settings/keyPresentation.ts');
   assert.equal(keyRowStatus(), 'Not set');
   const saved = { hasKey: true, last4: 'AbCd' };
-  assert.equal(keyRowStatus(saved), 'Saved ...AbCd');
+  assert.equal(keyRowStatus(saved), 'Saved …AbCd');
   assert.equal(keyFeedback('gemini', 'saved'), 'Gemini key saved');
   assert.equal(keyFeedback('gemini', 'deleted'), 'Gemini key deleted');
   assert.equal(keyRowStatus({ hasKey: false }), 'Not set');
@@ -156,7 +156,7 @@ test('key feedback and persisted row presentation follow save and delete outcome
   assert.equal(keyFeedback('openrouter', 'saved'), 'OpenRouter key saved');
   assert.equal(keyFeedback('gemini-svg', 'deleted'), 'gemini-svg key deleted');
   // Failed deletion retains the persisted status; input edits do not change it.
-  assert.equal(keyRowStatus(saved), 'Saved ...AbCd');
+  assert.equal(keyRowStatus(saved), 'Saved …AbCd');
 });
 
 
@@ -177,7 +177,7 @@ test('settings tips require hover or visible keyboard focus and clear on leave a
   const tip = readFileSync(new URL('../components/settings/Tip.tsx', import.meta.url), 'utf8');
   assert.match(tip, /matches\(':focus-visible'\)/);
   assert.match(tip, /addEventListener\('pointerenter', showPointer\)/);
-  assert.match(tip, /attributeFilter: \['aria-expanded'\]/);
+  assert.match(tip, /attributeFilter: \['aria-expanded', 'data-tip-expanded'\]/);
   assert.match(tip, /lastInputWasKeyboard &&/);
   assert.match(tip, /\[data-toolbar-dropdown-trigger\]\[aria-expanded="true"\]/);
   assert.match(tip, /addEventListener\('pointerleave', hide\)/);
@@ -576,7 +576,7 @@ test('history images use a terminal accessible placeholder and try each fallback
 });
 
 
-const parseTsx = (name, source) => ts.createSourceFile(name, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const parseTsx = (name, source) => ts.createSourceFile(name, source, ts.ScriptTarget.Latest, true, name.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.TSX);
 const findNodes = (root, predicate) => {
   const matches = [];
   const visit = node => {
@@ -626,18 +626,18 @@ test('every App and component JSX host has at most one direct Tip, including con
   assert.equal(findNodes(compare, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip').length, 1);
 });
 
-test('every App and component button keeps direct Tips off native disabled hosts', t => {
-  const invalidButtons = tree => findNodes(tree, node => ts.isJsxElement(node)
-    && node.openingElement.tagName.getText() === 'button' && jsxAttribute(node, 'disabled') && hostTipCount(node) > 0);
+test('every App and component button avoids native disabled attributes', t => {
+  const invalidButtons = tree => findNodes(tree, node => (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node))
+    && (ts.isJsxElement(node) ? node.openingElement : node).tagName.getText() === 'button' && jsxAttribute(node, 'disabled'));
   assert.equal(invalidButtons(parseTsx('fixture.tsx', '<button disabled><><Tip /></></button>')).length, 1);
-  assert.equal(invalidButtons(parseTsx('fixture.tsx', '<span><button disabled /><Tip /></span>')).length, 0);
+  assert.equal(invalidButtons(parseTsx('fixture.tsx', '<span><button disabled></button><Tip /></span>')).length, 1);
   const files = ['App.tsx', ...componentFiles('components')];
   const invalid = files.flatMap(file => {
     const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
     return invalidButtons(tree).map(node => `${file}:${tree.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
   });
   assert.deepEqual(invalid, []);
-  t.diagnostic(`AST scan: ${files.length} files, ${invalid.length} native disabled Tip hosts`);
+  t.diagnostic(`AST scan: ${files.length} files, ${invalid.length} native disabled buttons`);
 });
 
 test('Expand and Model controls retain wrapper tips, accessible reasons and guarded clicks when unavailable', () => {
@@ -767,7 +767,7 @@ test('reviewed buttons use rounded-lg and auth copy follows Log in and Log out s
   for (const label of ['Close feedback', 'Done', 'Cancel']) {
     const button = findNodes(tree, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
       && (jsxAttribute(node, 'aria-label')?.initializer.text === label || node.children.some(child => ts.isJsxText(child) && child.text.trim() === label)))[0];
-    const classes = jsxAttribute(button, 'className').initializer.text;
+    const classes = jsxAttribute(button, 'className').initializer.getText();
     assert.match(classes, /\brounded-lg\b/);
     assert.doesNotMatch(classes, /\brounded-xl\b/);
   }
@@ -804,9 +804,9 @@ test('issue #74: Edit prompt controls and every Build Studio header and toolbar 
   assert.equal(buttons.length, 3, 'review the Close, Expand prompt and Done controls if the dialog changes');
   for (const button of buttons) assert.ok(jsxAttribute(button, 'className').initializer.getText().includes(coarse), button.openingElement.getText());
   const close = buttons.find(button => jsxAttribute(button, 'aria-label')?.initializer.text === 'Close');
-  assert.match(jsxAttribute(close, 'className').initializer.text, /inline-flex items-center justify-center/);
+  assert.match(jsxAttribute(close, 'className').initializer.getText(), /inline-flex shrink-0 items-center justify-center/);
   const done = buttons.find(button => button.children.some(child => ts.isJsxText(child) && child.text.trim() === 'Done'));
-  assert.match(jsxAttribute(done, 'className').initializer.text, /bg-brand-teal hover:bg-teal-600 text-\[#0d1117\]/);
+  assert.match(jsxAttribute(done, 'className').initializer.getText(), /bg-brand-teal hover:bg-teal-600 text-\[#0d1117\]/);
 
   const studio = buildStudioSource;
   const header = studio.slice(studio.indexOf('const SidebarSection'), studio.indexOf('const SidebarSection') + 900);
@@ -847,6 +847,7 @@ const localExpression = (tree, name) => {
 
 test('all 16 converted controls expose one sibling reason Tip and block unavailable activation', async t => {
   const blocked = {
+    FOCUS_RING: 'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal',
     busy: true, busyRef: { current: true }, resetDisabled: true, submitDisabled: true, sendDisabled: true,
     deletingRefinementId: 'pending', refinementControlsLocked: true, disabled: true, moveDisabled: true,
     applyRefinementDisabled: true, recomposeDisabled: true, expandButtonDisabled: true, isExpandingPrompt: true,
@@ -963,7 +964,7 @@ test('locked Model wrapper suppresses hints while neighbouring menus are open an
   const wrapper = findNodes(dropdown, node => ts.isJsxElement(node) && jsxAttribute(node, 'data-toolbar-dropdown-wrapper'))[0];
   assert.ok(wrapper, 'disabled Model Tip needs the toolbar wrapper marker');
   assert.equal(jsxAttribute(wrapper, 'data-toolbar-dropdown-trigger'), undefined);
-  assert.equal(jsxAttribute(wrapper, 'aria-expanded').initializer.expression.getText(), 'Boolean(isActive)');
+  assert.equal(jsxAttribute(wrapper, 'data-tip-expanded').initializer.expression.getText(), 'Boolean(isActive)');
   const triggers = findNodes(controlPanelAst, node => ts.isJsxElement(node) && jsxAttribute(node, 'data-toolbar-dropdown-trigger'));
   assert.ok(triggers.length > 0);
   assert.ok(triggers.every(node => node.openingElement.tagName.getText() === 'button'), 'focus-return selectors must still resolve to buttons');
@@ -1041,6 +1042,246 @@ test('portal hints clamp within the four requested viewports near modal footer e
 test('section 8 documents the settings delete confirmation exception once', () => {
   const design = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
   const section = design.slice(design.indexOf('## 8.'), design.indexOf('## 9.'));
-  const line = '- Settings deletes may use an inline pale-amber confirm panel instead of double-tap arming';
+  const line = '- Settings deletes may use an inline pale-amber confirm panel instead of double-tap arming.';
   assert.equal(section.split('\n').filter(value => value === line).length, 1);
+});
+
+test('#80 shared toolbar options, count presets and #74 Close keep coarse targets at every width', () => {
+  const rows = findNodes(controlPanelAst, node => ts.isJsxElement(node)
+    && jsxAttribute(node, 'role')?.initializer.text === 'option');
+  const shared = rows.find(node => jsxAttribute(node, 'tabIndex'));
+  assert.ok(shared, 'Type and Size must use the shared row');
+  assert.match(jsxAttribute(shared, 'className').getText(), /\[@media\(pointer:coarse\)\]:min-h-11/);
+  const counts = rows.filter(node => node.openingElement.tagName.getText() === 'button'
+    && jsxAttribute(node, 'key')?.initializer.expression?.getText() === 'n');
+  assert.equal(counts.length, 1, 'preset count rows must be covered');
+  assert.match(jsxAttribute(counts[0], 'className').getText(), /\[@media\(pointer:coarse\)\]:min-h-11/);
+  const modal = findNodes(controlPanelAst, node => ts.isJsxElement(node) && jsxAttribute(node, 'aria-label')?.initializer.text === 'Edit prompt')[0];
+  const close = findNodes(modal, node => ts.isJsxElement(node) && jsxAttribute(node, 'aria-label')?.initializer.text === 'Close')[0];
+  assert.match(jsxAttribute(close, 'className').getText(), /inline-flex shrink-0/);
+  for (const dimension of ['h', 'w']) assert.ok(jsxAttribute(close, 'className').getText().includes(`[@media(pointer:coarse)]:min-${dimension}-11`));
+});
+
+test('#81 Studio buttons, links, inputs and options retain a focus ring, including shared primitives', t => {
+  const focus = readFileSync(new URL('../utils/focusRing.ts', import.meta.url), 'utf8');
+  assert.match(focus, /focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-\[#0d1117\]/);
+  const exceptions = new Map([
+    ['hidden', 'Hidden controls cannot receive keyboard focus.'],
+    ['file', 'The visible upload button owns focus for hidden file inputs.'],
+  ]);
+  const invalid = [];
+  let controls = 0;
+  for (const file of ['App.tsx', ...componentFiles('components')]) {
+    const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
+    const definitions = new Map(findNodes(tree, ts.isVariableDeclaration).filter(node => node.initializer)
+      .map(node => [node.name.getText(), node.initializer.getText()]));
+    for (const node of findNodes(tree, node => (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node))
+      && (['button', 'a', 'input'].includes((ts.isJsxElement(node) ? node.openingElement : node).tagName.getText())
+        || jsxAttribute(node, 'role')?.initializer.text === 'option'))) {
+      const opening = ts.isJsxElement(node) ? node.openingElement : node;
+      if (opening.tagName.getText() === 'input' && (jsxAttribute(node, 'hidden') || exceptions.has(jsxAttribute(node, 'type')?.initializer?.text))) continue;
+      const classes = jsxAttribute(node, 'className')?.getText() || '';
+      const resolved = classes.replace(/\b\w+\b/g, word => definitions.get(word) || word);
+      controls++;
+      if (!/FOCUS_RING|focus(?:-visible)?:ring-[12]/.test(resolved)) invalid.push(`${file}:${tree.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
+    }
+  }
+  assert.deepEqual(invalid, []);
+  assert.match(controlPanelSource, /tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-teal/);
+  assert.match(controlPanelSource, /focus-within:ring-2 focus-within:ring-brand-teal/);
+  assert.match(settingsPrimitives, /className=\{`\$\{className \|\| ''\} \$\{FOCUS_RING\}/, 'prop className must not overwrite the shared ring');
+  assert.match(settingsPrimitives, /<input \{\.\.\.props\} className=\{`\$\{props.className \|\| ''\} \$\{FOCUS_RING\}/);
+  const settingsCss = readFileSync(new URL('../components/settings/settings.css', import.meta.url), 'utf8');
+  assert.match(settingsCss, /button:focus-visible\) \{ outline: none;/);
+  assert.match(settingsCss, /@media \(pointer: coarse\)[\s\S]*min-height: 44px;[\s\S]*min-width: 44px;/);
+  t.diagnostic(`AST focus scan: ${controls} controls; hidden and file inputs are the only exceptions`);
+});
+
+test('#82 wordmark and project footer controls each own their portal Tip', () => {
+  const tree = parseTsx('App.tsx', appSource);
+  for (const [text, marker] of [
+    ['Open PixTaffy home', 'aria-label="PixTaffy"'],
+    ['Changelog on GitHub', 'GITHUB_CHANGELOG_URL'],
+    ['Releases on GitHub', 'GITHUB_RELEASES_URL'],
+    ['Send feedback', 'setIsFeedbackOpen(true)'],
+  ]) {
+    const hosts = findNodes(tree, node => ts.isJsxElement(node)
+      && ['button', 'a'].includes(node.openingElement.tagName.getText()) && node.getText().includes(marker));
+    assert.ok(hosts.some(host => findNodes(host, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip'
+      && jsxAttribute(node, 'text')?.initializer.text === text).length === 1), text);
+  }
+  const footer = findNodes(tree, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'footer')[0];
+  const tips = findNodes(footer, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip');
+  assert.equal(tips.length, 4);
+  assert.ok(tips.every(tip => jsxAttribute(tip, 'side').initializer.text === 'top'));
+});
+
+test('literal ellipsis sweep covers JSX, attributes and UI status strings without scanning spreads or comments', t => {
+  const codeFiles = directory => readdirSync(new URL(`../${directory}`, import.meta.url), { withFileTypes: true })
+    .flatMap(entry => entry.isDirectory() ? codeFiles(`${directory}/${entry.name}`)
+      : /\.tsx?$/.test(entry.name) ? [`${directory}/${entry.name}`] : []);
+  const allowlist = new Map([
+    ['services/structureSeeder.ts:Admin authenticated. Seeding global defaults...', 'Admin-only diagnostic console output, never displayed in the UI.'],
+  ]);
+  const invalid = [];
+  for (const file of ['App.tsx', ...['components', 'utils', 'services'].flatMap(codeFiles)]) {
+    const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
+    for (const node of findNodes(tree, node => (ts.isStringLiteral(node) || ts.isJsxText(node)
+      || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node) || ts.isNoSubstitutionTemplateLiteral(node)) && node.text.includes('...'))) {
+      if (!allowlist.has(`${file}:${node.text}`)) invalid.push(`${file}:${tree.getLineAndCharacterOfPosition(node.getStart()).line + 1} ${node.text}`);
+    }
+  }
+  assert.deepEqual(invalid, []);
+  assert.ok(controlPanelSource.includes('Esc to close – Cmd/Ctrl+Enter to generate'));
+  t.diagnostic('Skipped only console output, comments, spread syntax and regex literals');
+});
+
+test('all newly converted buttons have conditional reason spans, sibling Tips and guarded activation', t => {
+  const blocked = {
+    job: { status: 'stopping', id: 'job' }, isBusy: true, isSelf: true, bootstrapClaiming: true, isLoadingMore: true,
+    busy: true, disabled: true, exportSupported: false, exportingPptx: true, exportingPngs: true, exporting: true,
+    autoSelecting: true, stopIndex: 0, stops: ['one'], naming: true, userId: null,
+    isSavingPreset: true, presetNameDraft: '', isPromptImageAnalyzing: true, isAnalyzing: true,
+    userTeams: [], newItemName: '', isDisabled: true, canGoNewer: false, canGoOlder: false,
+    refinementInput: '', canResizeToSelected: false, refinementControlsLocked: true, rerunDraft: '', onRerun: undefined,
+    isSubmittingInstructions: true, isSubmittingRename: true, renameDraft: '', isUpdating: true, isApplied: true,
+    loading: true, billing: { plan: 'pro' }, folderBusy: true, newFolderDraft: '', tileDownloadBusy: true,
+    inFolder: true, galleryPage: 1, galleryTotalPages: 1, isInteractive: false, isLoading: true,
+    unavailableId: 'reason', row: { id: 'row' }, item: { id: 'item' }, product: { id: 'product' }, folder: { id: 'folder' }, opt: { id: 'format' },
+  };
+  let checked = 0;
+  for (const file of ['App.tsx', ...componentFiles('components')]) {
+    const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
+    for (const button of findNodes(tree, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
+      && jsxAttribute(node, 'aria-describedby')?.getText().includes('unavailableId'))) {
+      checked++;
+      const state = { ...blocked, busy: file.endsWith('PricingPage.tsx') ? 'verify' : true };
+      const flag = jsxAttribute(button, 'aria-disabled').initializer.expression;
+      assert.equal(evaluateExpression(flag, state), true, `${file} ${flag.getText()}`);
+      let prevented = false;
+      evaluateExpression(jsxAttribute(button, 'onClick').initializer.expression, state)({ preventDefault() { prevented = true; }, stopPropagation() {} });
+      assert.equal(prevented, true, 'the unavailable click must return before running its action');
+      const reason = attributeValue(button, 'aria-describedby', state);
+      const spans = findNodes(button.parent, node => ts.isJsxElement(node) && jsxAttribute(node, 'id')
+        && jsxAttribute(node, 'className')?.initializer.text === 'sr-only');
+      const span = spans.find(node => attributeValue(node, 'id', state) === reason);
+      assert.ok(span, `${file}: reason must exist`);
+      assert.ok(ts.isBinaryExpression(span.parent) && span.parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken,
+        'reason span must only render while disabled');
+      assert.equal(evaluateExpression(span.parent.left, state), true);
+      const tips = findNodes(button.parent, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip');
+      assert.equal(tips.length, 1, 'one wrapper Tip per converted control');
+      assert.equal(typeof attributeValue(tips[0], 'text', state), 'string');
+    }
+  }
+  assert.equal(checked, 57, 'every remaining native-disabled button must be covered');
+  assert.match(recentGenerationsSource, /const next = renameDraft.trim\(\);\s*if \(folderBusy \|\| !next\) return;/);
+  assert.match(recentGenerationsSource, /const next = newFolderDraft.trim\(\);\s*if \(folderBusy \|\| !next\) return;/);
+  for (const source of [controlPanelSource, captureDismissalSources.find(([file]) => file.endsWith('GalleryPresetMenu.tsx'))[1]]) {
+    assert.match(source, /const handleConfirmSavePreset = async \(\) => \{\s*if \(isSavingPreset \|\| !presetNameDraft.trim\(\)\) return;/);
+  }
+  t.diagnostic(`${checked} unavailable actions blocked without any backend calls`);
+});
+
+test('SettingsButton consumes disabled props instead of forwarding them onto its native button', () => {
+  const tree = parseTsx('SettingsPrimitives.tsx', settingsPrimitives);
+  const fn = findNodes(tree, node => ts.isFunctionDeclaration(node) && node.name.text === 'SettingsButton')[0];
+  assert.ok(fn.parameters[0].name.elements.some(element => element.name.getText() === 'disabled'));
+  const button = findNodes(fn, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button')[0];
+  assert.ok(jsxAttribute(button, 'aria-disabled'));
+  assert.ok(jsxAttribute(button, 'aria-describedby'));
+  const click = jsxAttribute(button, 'onClick').initializer.expression;
+  for (const disabled of [true, false]) {
+    let calls = 0, prevented = false;
+    evaluateExpression(click, { disabled, onClick: () => { calls++; } })({ preventDefault() { prevented = true; }, stopPropagation() {} });
+    assert.equal(calls, disabled ? 0 : 1);
+    assert.equal(prevented, disabled);
+  }
+});
+
+test('rail and version-popover delete badges keep coarse 44px targets inside the thumbnail', () => {
+  const source = readFileSync(new URL('../components/ImageDisplay.tsx', import.meta.url), 'utf8');
+  const tree = parseTsx('ImageDisplay.tsx', source);
+  const buttons = findNodes(tree, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
+    && jsxAttribute(node, 'onClick')?.getText().includes('handleVersionDeleteClick(v.id)'));
+  assert.equal(buttons.length, 2);
+  for (const button of buttons) {
+    assert.match(jsxAttribute(button, 'className').getText(), /\[@media\(pointer:coarse\)\]:min-h-11 \[@media\(pointer:coarse\)\]:min-w-11/);
+  }
+  assert.match(source, /absolute top-1 right-1 z-10 inline-flex/);
+  assert.match(source, /relative w-full group\/railThumb/);
+  assert.match(source, /w-\[124px\]/, 'the rail reserves enough space for a 44px delete badge plus its 4px inset');
+});
+
+test('copy-menu layers join the documented scale below modals', () => {
+  const design = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
+  assert.match(design, /z-50` busy banners → `z-\[59\]` copy-menu click catcher → `z-\[60\]` copy menu → `z-\[100\]` modals/);
+});
+
+test('generic tooltip hosts use neutral expansion data and real menu controls retain aria-expanded', () => {
+  for (const file of ['App.tsx', ...componentFiles('components')]) {
+    const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
+    const invalid = findNodes(tree, node => (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node))
+      && /^[a-z]/.test((ts.isJsxElement(node) ? node.openingElement : node).tagName.getText())
+      && (ts.isJsxElement(node) ? node.openingElement : node).tagName.getText() !== 'button' && jsxAttribute(node, 'aria-expanded'));
+    assert.deepEqual(invalid.map(node => node.getText()), []);
+  }
+  assert.match(recentGenerationsSource, /data-folder-menu ref=\{moveMenuTriggerRef\} data-tip-expanded=\{moveMenuOpen\}/);
+  const tip = readFileSync(new URL('../components/settings/Tip.tsx', import.meta.url), 'utf8');
+  assert.match(tip, /host.getAttribute\('data-tip-expanded'\)/);
+  assert.match(tip, /host.matches\('button\[aria-haspopup\]'\)/);
+});
+
+test('confirmation hook disarms on blur, times out, switches keys and still confirms the second click', () => {
+  const source = readFileSync(new URL('../hooks/useConfirmAction.ts', import.meta.url), 'utf8');
+  const tree = parseTsx('useConfirmAction.ts', source);
+  const hook = localExpression(tree, 'useConfirmAction');
+  const slots = [], cleanups = [], timers = new Map();
+  let cursor = 0, timerId = 0, calls = 0;
+  const useState = initial => { const index = cursor++; if (!(index in slots)) slots[index] = initial; return [slots[index], value => { slots[index] = value; }]; };
+  const useRef = initial => { const index = cursor++; return slots[index] ||= { current: initial }; };
+  const useCallback = fn => fn;
+  const useEffect = fn => { if (!cleanups.length) cleanups.push(fn()); };
+  const window = { setTimeout(fn, delay) { assert.equal(delay, 3000); timers.set(++timerId, fn); return timerId; }, clearTimeout(id) { timers.delete(id); } };
+  const render = () => { cursor = 0; return evaluateExpression(hook, { useState, useRef, useCallback, useEffect, window })({ onConfirm: () => { calls++; } }); };
+  let confirm = render();
+  assert.equal(confirm.trigger('one'), false);
+  confirm = render();
+  confirm.bindDisarmOnBlur('other').onBlur();
+  assert.equal(render().isArmed('one'), true);
+  confirm.bindDisarmOnBlur('one').onBlur();
+  confirm = render();
+  assert.equal(confirm.armedKey, null);
+  assert.equal(timers.size, 0);
+  assert.equal(confirm.trigger('one'), false, 'a click after blur must arm again');
+  confirm = render();
+  assert.equal(confirm.trigger('one'), true);
+  assert.equal(calls, 1);
+  confirm = render();
+  confirm.trigger('one'); confirm = render(); confirm.trigger('two'); confirm = render();
+  assert.equal(confirm.isArmed('one'), false);
+  assert.equal(confirm.isArmed('two'), true);
+  [...timers.values()][0]();
+  assert.equal(render().armedKey, null);
+  cleanups.forEach(cleanup => cleanup?.());
+});
+
+test('every armed-delete consumer disarms on focus departure, preserving explicit settings confirmation panels', () => {
+  let buttons = 0;
+  for (const file of componentFiles('components')) {
+    if (file === 'components/settings/SettingsPrimitives.tsx') continue; // Explicit confirmation panels are checked as groups below.
+    const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
+    const hooks = new Set(findNodes(tree, node => ts.isVariableDeclaration(node) && node.initializer && ts.isCallExpression(node.initializer)
+      && node.initializer.expression.getText() === 'useConfirmAction').map(node => node.name.getText()));
+    if (!hooks.size) continue;
+    for (const button of findNodes(tree, node => ts.isJsxElement(node) && ['button', 'SettingsButton'].includes(node.openingElement.tagName.getText()))) {
+      const click = jsxAttribute(button, 'onClick')?.getText() || '';
+      if (![...hooks].some(hook => click.includes(`${hook}.trigger`)) && !/handleDeleteWithNotice|handleVersionDeleteClick|handleDelete\(e, type|armClearAll/.test(click)) continue;
+      assert.match(button.openingElement.getText(), /bindDisarmOnBlur\(/, `${file}: ${click}`);
+      buttons++;
+    }
+  }
+  assert.equal(buttons, 10);
+  assert.equal((settingsPrimitives.match(/if \(!event.currentTarget.contains\(event.relatedTarget\)\) confirm.reset\(\)/g) || []).length, 2,
+    'settings confirmation panels disarm when focus leaves the whole panel, not while moving to Confirm');
 });
