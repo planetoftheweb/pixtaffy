@@ -17,7 +17,7 @@ export const Tip: React.FC<{
   useEffect(() => {
     const host = anchorRef.current?.parentElement;
     if (!host) return;
-    const show = () => { if (!host.matches(':disabled') && !host.querySelector(':disabled')) setHostRect(host.getBoundingClientRect()); };
+    const show = () => { if (!host.matches(':disabled')) setHostRect(host.getBoundingClientRect()); };
     const showFocus = (event: FocusEvent) => {
       if (event.target instanceof HTMLElement && event.target.matches(':focus-visible')) show();
     };
@@ -62,7 +62,7 @@ export const Tip: React.FC<{
             ref={tipRef}
             style={{ position: 'fixed', left: 0, top: 0, visibility: 'hidden', zIndex: 500 }}
             className={`pointer-events-none ${
-              wide ? 'w-72 whitespace-normal text-left leading-relaxed' : 'max-w-[calc(100vw-16px)] whitespace-normal'
+              wide ? 'w-72 max-w-[calc(100vw-16px)] whitespace-normal text-left leading-relaxed' : 'max-w-[calc(100vw-16px)] whitespace-normal'
             } text-[13px] font-medium px-3 py-1.5 rounded-lg bg-black/90 text-white shadow-xl`}
           >
             {title ? (

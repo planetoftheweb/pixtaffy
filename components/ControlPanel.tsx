@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Tip } from './settings/Tip';
 import { createPortal } from 'react-dom';
 import { GenerationConfig, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, User, Team, SvgMode, ToolbarPreset, GeneratedImage, PromptImageStyleInfluenceMode, PromptImageStyleReference } from '../types';
 import { analyzeFileOptionPaid, describeImagePaid, expandPromptPaid } from '../services/paidAiService';
@@ -1177,14 +1178,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                 {type !== 'size' && !!user && (user.isAdmin || user.username === 'planetoftheweb') && (
                                     <button
                                         onClick={(e) => handleToggleDefault(e, type, item)}
-                                        className={`p-1.5 rounded-md transition-colors ${
+                                        className={`relative p-1.5 rounded-md transition-colors ${
                                             item.scope === 'system' 
                                                 ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20' 
                                                 : 'text-slate-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-[#30363d]'
                                         }`}
-                                        title={item.scope === 'system' ? "Remove from System Defaults" : "Promote to System Default"}
+                                        aria-label={item.scope === 'system' ? "Remove from System Defaults" : "Promote to System Default"}
                                     >
                                         <Settings size={12} fill={item.scope === 'system' ? "currentColor" : "none"} />
+                                      <Tip text={item.scope === 'system' ? "Remove from System Defaults" : "Promote to System Default"} side="top" align="right" />
                                     </button>
                                 )}
 
@@ -1750,67 +1752,69 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           ? subLabel
           : undefined;
     return (
-      <button
-        onClick={onClick}
-        data-toolbar-dropdown-trigger={dropdownName}
-        disabled={disabled}
-        title={titleText}
-        aria-label={titleText}
-        className={`h-11 rounded-md flex items-center transition-colors group shrink-0 lg:shrink lg:min-w-0
-          w-11 justify-center p-0
-          md:w-auto md:justify-start md:px-2.5 md:gap-2
-          xl:px-3 xl:gap-2.5
-          ${
-            isActive
-              ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal'
-              : disabled
-                ? 'text-slate-500 dark:text-slate-300 cursor-default'
-                : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
-          }`}
-      >
-        <Icon
-          size={20}
-          className={`shrink-0 ${
-            isActive
-              ? 'text-brand-teal'
-              : `${accentClass || 'text-slate-500 dark:text-slate-400'} group-hover:text-brand-teal`
-          }`}
-        />
-        {/* Compact category label — only md..lg (when there's no room for the full value). */}
-        <span className={`hidden md:inline lg:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
-          isActive ? 'text-brand-teal' : 'text-slate-600 dark:text-slate-300 group-hover:text-brand-teal'
-        }`}>
-          {subLabel}
-        </span>
-        {/* Selected value (and optional stacked sublabel + palette) — lg+ */}
-        <div className="hidden lg:flex flex-col flex-1 min-w-0 text-left">
-          <span className="hidden xl:block text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
+      <span className="relative inline-flex shrink-0 lg:shrink lg:min-w-0">
+        <button
+          onClick={onClick}
+          data-toolbar-dropdown-trigger={dropdownName}
+          disabled={disabled}
+          aria-label={titleText}
+          className={`h-11 rounded-md flex items-center transition-colors group shrink-0 lg:shrink lg:min-w-0
+            w-11 justify-center p-0
+            md:w-auto md:justify-start md:px-2.5 md:gap-2
+            xl:px-3 xl:gap-2.5
+            ${
+              isActive
+                ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal'
+                : disabled
+                  ? 'text-slate-500 dark:text-slate-300 cursor-default'
+                  : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
+            }`}
+        >
+          <Icon
+            size={20}
+            className={`shrink-0 ${
+              isActive
+                ? 'text-brand-teal'
+                : `${accentClass || 'text-slate-500 dark:text-slate-400'} group-hover:text-brand-teal`
+            }`}
+          />
+          {/* Compact category label, only md..lg (when there's no room for the full value). */}
+          <span className={`hidden md:inline lg:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
+            isActive ? 'text-brand-teal' : 'text-slate-600 dark:text-slate-300 group-hover:text-brand-teal'
+          }`}>
             {subLabel}
           </span>
-          {typeof label === 'string' || typeof label === 'number' ? (
-            <span className={`truncate font-semibold text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
-              isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
-            }`}>{label}</span>
-          ) : (
-            <div className={`min-w-0 truncate text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
-              isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
-            }`}>{label}</div>
-          )}
-          {colors && colors.length > 0 && (
-            <div className="hidden 2xl:flex h-[3px] mt-1 rounded-sm overflow-hidden ring-1 ring-black/5 dark:ring-white/10 opacity-90">
-              {colors.map((hex: string, i: number) => (
-                <div key={i} className="flex-1 h-full" style={{ backgroundColor: hex }} />
-              ))}
-            </div>
-          )}
-        </div>
-        <ChevronDown
-          size={14}
-          className={`hidden xl:block shrink-0 ml-0.5 transition-transform duration-200 text-slate-400 dark:text-slate-500 ${
-            isActive ? 'rotate-180 text-brand-teal' : ''
-          }`}
-        />
-      </button>
+          {/* Selected value (and optional stacked sublabel + palette), lg+ */}
+          <div className="hidden lg:flex flex-col flex-1 min-w-0 text-left">
+            <span className="hidden xl:block text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
+              {subLabel}
+            </span>
+            {typeof label === 'string' || typeof label === 'number' ? (
+              <span className={`truncate font-semibold text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
+                isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
+              }`}>{label}</span>
+            ) : (
+              <div className={`min-w-0 truncate text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
+                isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
+              }`}>{label}</div>
+            )}
+            {colors && colors.length > 0 && (
+              <div className="hidden 2xl:flex h-[3px] mt-1 rounded-sm overflow-hidden ring-1 ring-black/5 dark:ring-white/10 opacity-90">
+                {colors.map((hex: string, i: number) => (
+                  <div key={i} className="flex-1 h-full" style={{ backgroundColor: hex }} />
+                ))}
+              </div>
+            )}
+          </div>
+          <ChevronDown
+            size={14}
+            className={`hidden xl:block shrink-0 ml-0.5 transition-transform duration-200 text-slate-400 dark:text-slate-500 ${
+              isActive ? 'rotate-180 text-brand-teal' : ''
+            }`}
+          />
+        </button>
+        <Tip title={typeof subLabel === 'string' ? subLabel : undefined} text={titleText || 'Choose an option'} side="bottom" />
+      </span>
     );
   };
 
@@ -1892,8 +1896,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     <div className="flex items-center gap-1">
       {/* Scope Badge (Always Visible if not system) */}
       {!item.isSystem && (
-         <div className="mr-1 opacity-70" title={item.scope}>
+         <div className="relative mr-1 opacity-70">
            <ScopeIcon scope={item.scope} />
+           <Tip title="Visibility" text={item.scope} side="left" />
          </div>
       )}
       
@@ -1905,10 +1910,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <>
             <button 
               onClick={(e) => handleEdit(e, type, item)} 
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-[#30363d] rounded-md text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
-              title="Edit"
+              className="relative p-1.5 hover:bg-gray-100 dark:hover:bg-[#30363d] rounded-md text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+              aria-label="Edit"
             >
               <Pencil size={12} />
+              <Tip text="Edit" side="top" align="right" />
             </button>
             {(() => {
               const catalogKey = `${type}:${item.id || item.value}`;
@@ -1916,15 +1922,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               return (
                 <button
                   onClick={(e) => handleDelete(e, type, item.id || item.value)}
-                  className={`p-1.5 rounded-md transition-colors ${
+                  className={`relative p-1.5 rounded-md transition-colors ${
                     isArmed
-                      ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
+                      ? 'bg-amber-500 text-[#0d1117] animate-pulse'
                       : 'hover:bg-gray-100 dark:hover:bg-[#30363d] text-slate-500 hover:text-red-500 dark:hover:text-red-400'
                   }`}
-                  title={isArmed ? 'Click again to confirm' : 'Delete'}
                   aria-label={isArmed ? 'Click again to confirm delete' : 'Delete'}
                 >
                   {isArmed ? <Check size={12} /> : <Trash2 size={12} />}
+                  <Tip text={isArmed ? 'Click again to confirm' : 'Delete'} side="top" align="right" />
                 </button>
               );
             })()}
@@ -2181,8 +2187,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         return next;
                       });
                     }}
-                    title="Toggle multi-model generation. When two or more models are selected, each Generate click runs once per model and tags the results as a comparison batch."
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium border-b border-gray-100 dark:border-[#30363d] transition-colors ${
+                    aria-label="Toggle multi-model generation. When two or more models are selected, each Generate click runs once per model and tags the results as a comparison batch."
+                    className={`relative w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium border-b border-gray-100 dark:border-[#30363d] transition-colors ${
                       compareModelsMode
                         ? 'bg-brand-teal/10 text-brand-teal'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d]'
@@ -2195,6 +2201,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     <span className={`text-[11px] uppercase tracking-wider font-bold ${compareModelsMode ? 'text-brand-teal' : 'text-slate-400'}`}>
                       {compareModelsMode ? 'On' : 'Off'}
                     </span>
+                    <Tip title="Multi-model generation" text="When two or more models are selected, each Generate click runs once per model and tags the results as a comparison batch." side="left" />
                   </button>}
                   {modelGroupNames.map((groupName) => {
                     const groupModels = allModels.filter((m) => m.group === groupName);
@@ -2582,9 +2589,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                             >
                               <div className="flex items-start justify-between gap-2 px-2 py-1.5">
                                 <div
-                                  className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                                  className="relative flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
                                   onClick={() => handleApplyPreset(preset)}
-                                  title={`Apply preset: ${preset.name}`}
                                 >
                                   <Bookmark
                                     size={16}
@@ -2616,6 +2622,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                       ].filter(Boolean).join(' · ') || 'Toolbar snapshot'}
                                     </span>
                                   </div>
+                                  <Tip title="Apply preset" text={preset.name} side="left" />
                                 </div>
                                 {hasAnyAction && (
                                   <button
@@ -2804,10 +2811,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   type="button"
                   onClick={() => setIsPromptModalOpen(true)}
                   className="absolute top-2 right-2 p-1.5 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
-                  title="Open full-screen prompt editor"
                   aria-label="Open full-screen prompt editor"
                 >
                   <Maximize2 size={14} />
+                  <Tip text="Open full-screen prompt editor" side="top" align="right" />
                 </button>
               </div>
 
@@ -2816,7 +2823,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <div
                   ref={batchCountTriggerRef}
                   className="relative group flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] shadow-sm"
-                  title={`Variations per prompt${Number.isFinite(batchCap) ? ` (max ${batchCapLabel})` : ''}`}
                 >
                   <label htmlFor="batch-count-input" className="sr-only">Variations per prompt</label>
                   <div className="flex items-center justify-center leading-none">
@@ -2905,6 +2911,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       </div>,
                       document.body
                     )}
+                  <Tip title="Variations per prompt" text={`Variations per prompt${Number.isFinite(batchCap) ? ` (max ${batchCapLabel})` : ''}`} side="top" />
                 </div>
 
                 <button
@@ -2924,33 +2931,32 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (hasSetupAction) {
-                      onSetupAction?.();
-                      return;
-                    }
-                    onGenerate(safeBatchCount);
-                  }}
-                  disabled={generateButtonDisabled}
-                  title={generateButtonTitle}
-                  className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-bold shadow-md transition-all active:translate-y-0.5 group ${
-                    generateButtonDisabled
-                      ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                      : 'bg-gradient-to-br from-brand-orange via-brand-red to-brand-purple hover:saturate-125 text-white shadow-brand-pink/25'
-                  }`}
-                  aria-label={generateButtonTitle}
-                >
-                  {hasSetupAction ? (
-                    user ? <KeyRound size={16} className="text-white" /> : <UserPlus size={16} className="text-white" />
-                  ) : (
-                    <Send size={16} className="text-white" />
-                  )}
-                  <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                    {generateButtonTitle}
-                  </span>
-                </button>
+                <span className="relative inline-flex h-12 w-12 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (hasSetupAction) {
+                        onSetupAction?.();
+                        return;
+                      }
+                      onGenerate(safeBatchCount);
+                    }}
+                    disabled={generateButtonDisabled}
+                    className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-bold shadow-md transition-all active:translate-y-0.5 group ${
+                      generateButtonDisabled
+                        ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                        : 'bg-gradient-to-br from-brand-orange via-brand-red to-brand-purple hover:saturate-125 text-white shadow-brand-pink/25'
+                    }`}
+                    aria-label={generateButtonTitle}
+                  >
+                    {hasSetupAction ? (
+                      user ? <KeyRound size={16} className="text-white" /> : <UserPlus size={16} className="text-white" />
+                    ) : (
+                      <Send size={16} className="text-white" />
+                    )}
+                  </button>
+                  <Tip text={generateButtonTitle} side="top" align="right" />
+                </span>
               </>
             </div>
 
@@ -3353,9 +3359,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               : 'ring-1 ring-black/10 dark:ring-white/10 hover:scale-105'
                           }`}
                           style={{ backgroundColor: normalizedColor }}
-                          title={`Edit color ${idx + 1}`}
+                          aria-label={`Edit color ${idx + 1}`}
                         >
                           <span className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/20" />
+                          <Tip text={`Edit color ${idx + 1}`} side="top" align="right" />
                         </button>
                         {newItemColors.length > 1 && (
                           <button
@@ -3364,9 +3371,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               setNewItemColors(newItemColors.filter((_, i) => i !== idx));
                             }}
                             className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-white dark:bg-[#1f2937] border border-gray-200 dark:border-[#30363d] text-slate-500 hover:text-red-400 transition-colors"
-                            title="Remove color"
+                            aria-label="Remove color"
                           >
                             <X size={10} />
+                            <Tip text="Remove color" side="top" align="right" />
                           </button>
                         )}
                       </div>
@@ -3375,11 +3383,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                  <button
                    type="button"
                    onClick={handleAddPaletteColor}
-                   className="h-9 px-3 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-500 hover:text-brand-teal hover:border-brand-teal transition-colors flex items-center gap-1"
-                   title="Add Color"
+                   className="relative h-9 px-3 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-500 hover:text-brand-teal hover:border-brand-teal transition-colors flex items-center gap-1"
+                   aria-label="Add Color"
                  >
                    <Plus size={12} />
                    Add
+                   <Tip title="Add color" text="Add a color to this palette" side="top" align="right" />
                  </button>
                </div>
 
@@ -3398,10 +3407,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                      <button
                        type="button"
                        onClick={() => setActiveColorIndex(null)}
-                       className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-gray-200/70 dark:hover:bg-[#1f2937] transition-colors"
-                       title="Close color picker"
+                       className="relative p-1 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-gray-200/70 dark:hover:bg-[#1f2937] transition-colors"
+                       aria-label="Close color picker"
                      >
                        <X size={14} />
+                       <Tip text="Close color picker" side="top" align="right" />
                      </button>
                    </div>
 
@@ -3582,7 +3592,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
              <button 
                 onClick={handleSaveItem}
                 disabled={!newItemName}
-                className="flex-1 py-2.5 rounded-lg bg-brand-red hover:bg-red-700 text-white font-medium text-sm shadow-lg shadow-brand-red/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex-1 py-2.5 rounded-lg bg-brand-teal hover:bg-teal-600 text-[#0d1117] font-medium text-sm shadow-lg shadow-brand-teal/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
              >
                {editingId ? 'Update' : 'Save'} Option
              </button>

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 
@@ -94,11 +94,13 @@ test('ImageDisplay and gallery transient notices share the exact toast recipe an
   }
 });
 
-test('star feedback keeps its separate tone and announcements at the shared size and layer', () => {
+test('star feedback uses a neutral pill with amber confined to the filled icon', () => {
   const star = image.slice(image.indexOf('{starFeedback && ('), image.indexOf('{isPromptEditorOpen &&'));
   assert.match(star, /fixed inset-0 z-40/);
   assert.match(star, /text-sm px-4 py-3 rounded-lg/);
-  assert.match(star, /bg-amber-400 text-white border-amber-300/);
+  assert.match(star, /bg-black\/90 text-white border-white\/10/);
+  assert.match(star, /starFeedback.on \? 'text-amber-400 fill-current' : ''/);
+  assert.doesNotMatch(star, /bg-amber|border-amber|bg-slate/);
   assert.match(star, /role="status"\s+aria-live="polite"/);
   assert.doesNotMatch(star, /text-base|px-5|rounded-2xl|z-50/);
 });
@@ -115,14 +117,13 @@ test('gallery toolbar wraps within the content box without clipping tooltip over
 });
 
 test('Build Studio wraps its toolbar and measures both pill dimensions when clamping a drag', () => {
-  assert.match(studio, /ref=\{toolbarRef\}\s+className="relative z-30 flex flex-wrap sm:flex-nowrap justify-center max-w-full/);
+  assert.match(studio, /ref=\{toolbarRef\}\s+className="relative z-30 flex flex-wrap lg:flex-nowrap justify-center max-w-full/);
   assert.match(studio, /flex-1 min-h-0 flex flex-col md:flex-row/);
-  assert.match(studio, /max-md:max-h-\[45%\] max-md:!w-full/);
+  assert.match(studio, /max-md:flex-1 max-md:max-h-none max-md:min-h-\[40%\] max-md:!w-full/);
   assert.match(studio, /toolbarRef\.current\?\.getBoundingClientRect\(\)/);
   assert.match(studio, /rootR\.right - pill\.width/);
   assert.match(studio, /rootR\.bottom - pill\.height/);
-  assert.match(studio, /max-sm:min-h-11 max-sm:min-w-11/);
-  assert.ok(studio.includes('max-w-[calc(100vw-16px)] whitespace-normal'));
+  assert.ok(studio.includes('[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11'));
   assert.match(studio, /<Tip text=\{label\} side="bottom" \/>/);
 });
 
@@ -130,4 +131,107 @@ test('design contract requires overflow checks down to 320px and one transient t
   for (const text of ['The page never scrolls horizontally at any width\n  from 320 up. Wide rows wrap or scroll inside their own container.', '`flex-wrap`', '`sm:flex-nowrap`', 'Check at 320, 390, 768 and 1280', 'every transient notice in ImageDisplay and RecentGenerations', 'the no-horizontal-overflow rule in section 5']) {
     assert.ok(design.includes(text), text);
   }
+});
+
+
+test('every product DOM element uses portal Tips instead of native titles', () => {
+  const files = ['App.tsx', ...readdirSync(new URL('../components/', import.meta.url), { recursive: true })
+    .filter(path => path.endsWith('.tsx') && !['AdminPage.tsx', 'StatsPage.tsx'].includes(path.split('/').at(-1)))
+    .map(path => `components/${path}`)];
+  const violations = [];
+  for (const file of files) {
+    const tree = ts.createSourceFile(file, source(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const scan = node => {
+      if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && /^[a-z]/.test(node.tagName.getText(tree))) {
+        for (const attribute of node.attributes.properties) {
+          if (attribute.name?.getText(tree) === 'title') {
+            const { line } = tree.getLineAndCharacterOfPosition(attribute.getStart(tree));
+            violations.push(`${file}:${line + 1}`);
+          }
+        }
+      }
+      ts.forEachChild(node, scan);
+    };
+    scan(tree);
+  }
+  assert.deepEqual(violations, []);
+});
+
+test('coarse-pointer studio controls keep 44px targets at tablet widths and hide mobile dividers', () => {
+  const coarse = '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
+  assert.equal(studio.split(coarse).length - 1, 6, 'shared button, grip, AI, cleanup, zoom, selected frame');
+  assert.doesNotMatch(studio, /max-sm:min-h-11|flex-wrap sm:flex-nowrap/);
+  const dividers = studio.match(/className="w-px h-6[^"]*"/g) || [];
+  assert.equal(dividers.length, 5);
+  assert.ok(dividers.every(classes => classes.includes('max-sm:hidden')));
+});
+
+test('mobile stage height depends on viewport and image aspect rather than its own height', () => {
+  assert.match(studio, /flex-1 max-md:flex-none min-w-0 flex flex-col/);
+  assert.match(studio, /flex-1 max-md:flex-none min-h-0 flex items-center/);
+  const expression = studio.match(/const availH = ([\s\S]*?);/)[1];
+  const height = new Function('window', 'availW', 'imgDims', 'el', 'cs', `return ${expression}`);
+  const cs = { paddingTop: '16', paddingBottom: '16' };
+  for (const [width, viewportHeight] of [[320, 640], [390, 844]]) {
+    const window = { innerWidth: width, innerHeight: viewportHeight };
+    const expected = Math.min(viewportHeight * 0.5, (width - 32) * 9 / 16);
+    for (const clientHeight of [0, 100, 900]) {
+      assert.equal(height(window, width - 32, { w: 1600, h: 900 }, { clientHeight }, cs), expected);
+    }
+  }
+  assert.equal(height({ innerWidth: 768 }, 400, { w: 1600, h: 900 }, { clientHeight: 600 }, cs), 568);
+  assert.match(studio, /window.addEventListener\('resize', measure\)/);
+});
+
+test('primary actions are teal with dark text while folder deletion stays red', () => {
+  const control = source('components/ControlPanel.tsx');
+  const primary = /bg-brand-teal hover:bg-teal-600 text-\[#0d1117\]/;
+  assert.match(control.slice(control.indexOf('onClick={handleSaveItem}'), control.indexOf('onClick={handleSaveItem}') + 450), primary);
+  assert.match(studio.slice(studio.indexOf('aria-label="Export MP4"'), studio.indexOf('aria-label="Export MP4"') + 450), primary);
+  const refine = image.slice(image.indexOf('group/tip relative h-11 w-11'), image.indexOf('group/tip relative h-11 w-11') + 700);
+  assert.match(refine, primary);
+  assert.doesNotMatch(refine, /text-white|bg-brand-red|shadow-brand-red/);
+  const submit = image.slice(image.indexOf("disabled={(!refinementInput.trim()"), image.indexOf("disabled={(!refinementInput.trim()") + 600);
+  assert.match(submit, primary);
+  assert.doesNotMatch(submit, /text-white|bg-brand-red/);
+  const folderDelete = gallery.match(/className="([^"]+)"\s*>\s*Delete folder/)[1];
+  assert.match(folderDelete, /bg-brand-red text-white hover:opacity-90/);
+});
+
+test('copy menu clamps its measured position before paint and keeps outside-click and Escape dismissal', () => {
+  assert.match(image, /ref=\{copyMenuRef\}/);
+  assert.match(image, /w-48 max-w-\[calc\(100vw-1rem\)\]/);
+  assert.match(image, /Math.max\(8, Math.min\(window.innerWidth - rect.width - 8, rect.left\)\)/);
+  assert.match(image, /menu.style.transform = `translateX\(\$\{left - rect.left\}px\)`/);
+  assert.match(image, /fixed inset-0 z-10" onClick=\{\(\) => setCopyMenuOpen\(false\)\}/);
+  assert.match(image, /dismissErrorToastOnEscape\(event, hasVisibleErrorToast\(\), dismissTopErrorToast\)/);
+  assert.match(image, /window.addEventListener\('keydown', onKey, true\)/);
+});
+
+test('disabled-control wrappers can show one viewport-clamped shared Tip', () => {
+  const tip = source('components/settings/Tip.tsx');
+  assert.doesNotMatch(tip, /host.querySelector\(':disabled'\)/);
+  assert.match(tip, /!host.matches\(':disabled'\)/);
+  assert.match(tip, /w-72 max-w-\[calc\(100vw-16px\)\]/);
+  const download = source('components/DownloadMenu.tsx');
+  assert.equal((download.match(/<Tip\b/g) || []).length, 1);
+  assert.doesNotMatch(download, /group-hover\/dl-tip|role="tooltip"/);
+});
+
+test('design rules and every armed confirm agree on readable amber styling', () => {
+  for (const rule of [
+    'Below md, the stage hugs its image; leftover height goes to the panel, never to empty space around the image.',
+    'Favorite star icon = amber-400 (icon only, never a fill behind text).',
+    'bg-amber-500 text-[#0d1117] animate-pulse',
+  ]) assert.ok(design.includes(rule), rule);
+  for (const name of ['ControlPanel', 'BuildStudio', 'ImageDisplay', 'RecentGenerations', 'SettingsPage', 'LegacySettingsPage']) {
+    const armedLines = source(`components/${name}.tsx`).split('\n').filter(line => line.includes('bg-amber-500') && line.includes('animate-pulse'));
+    assert.ok(armedLines.length > 0, name);
+    assert.ok(armedLines.every(line => line.includes('bg-amber-500 text-[#0d1117] animate-pulse') && !line.includes('text-white')), name);
+  }
+  const luminance = hex => {
+    const channels = hex.match(/\w\w/g).map(value => parseInt(value, 16) / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return channels.reduce((sum, channel, i) => sum + channel * [0.2126, 0.7152, 0.0722][i], 0);
+  };
+  assert.ok((luminance('f59e0b') + 0.05) / (luminance('0d1117') + 0.05) >= 4.5);
 });

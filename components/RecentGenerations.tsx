@@ -1458,8 +1458,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     }
                   >
                     <FolderIcon size={14} aria-hidden className="shrink-0" />
-                    <span className="flex-1 min-w-0 truncate" title={folder.name}>
+                    <span className="relative flex-1 min-w-0 truncate">
                       {folder.name}
+                      <Tip text={folder.name} side="top" align="right" />
                     </span>
                     {hasInstructions && (
                       <FileText
@@ -2349,7 +2350,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     }
                     className={`group/tip group/tip-bulkdelete relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border transition shrink-0 disabled:opacity-50 disabled:pointer-events-none ${
                       isArmed
-                        ? 'border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400 animate-pulse'
+                        ? 'border-amber-500 bg-amber-500 text-[#0d1117] animate-pulse'
                         : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-red-600 dark:text-red-400 hover:border-red-500 hover:bg-red-500/5'
                     }`}
                   >
@@ -2683,16 +2684,16 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               {showCompareBadge && (
                 <div
                   className={`absolute z-10 top-2 ${selectionMode ? 'left-14' : 'left-2'}`}
-                  title={
-                    isInTileComparison
-                      ? `Comparison tile — ${distinctTileModelIds.map((id) => getModelLabel(id)).join(' vs ')}`
-                      : `Part of a comparison run with ${legacyBatchSiblings} tiles`
-                  }
                 >
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-teal/90 text-white shadow-sm">
                     <GitCompare size={10} />
                     Compare · {compareLabel}
                   </span>
+                  <Tip title="Comparison" text={
+                    isInTileComparison
+                      ? `Comparison tile - ${distinctTileModelIds.map((id) => getModelLabel(id)).join(' vs ')}`
+                      : `Part of a comparison run with ${legacyBatchSiblings} tiles`
+                  } side="top" />
                 </div>
               )}
               {isPickedSide && (

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Tip } from './settings/Tip';
 import { Check, ChevronDown, Search, type LucideIcon } from 'lucide-react';
 
 export interface RichSelectOption {
@@ -313,8 +314,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
                         key={option.value}
                         type="button"
                         onClick={() => handleSelect(option.value)}
-                        title={hideOptionDescriptions && option.description ? option.description : undefined}
-                        className={`w-full text-left ${optionPaddingLeft} pr-3 py-2 rounded-md transition-colors flex items-start justify-between gap-2 ${
+                        className={`relative w-full text-left ${optionPaddingLeft} pr-3 py-2 rounded-md transition-colors flex items-start justify-between gap-2 ${
                           selected
                             ? 'bg-brand-teal/10 text-brand-teal'
                             : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d]'
@@ -336,6 +336,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
                           </span>
                         </span>
                         {selected && <Check size={14} className="shrink-0 mt-0.5 text-brand-teal" />}
+                        {hideOptionDescriptions && option.description && <Tip title={option.label} text={option.description} side="left" />}
                       </button>
                     );
                   })}

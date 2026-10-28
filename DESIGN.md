@@ -60,6 +60,8 @@ Semantic states: **teal** = active/primary · **amber-500** = armed
 (destructive confirm) and warnings · **red** = destructive/error ·
 **green/emerald** = success (rare) · **slate** = neutral/stopped/dim.
 
+Favorite star icon = amber-400 (icon only, never a fill behind text).
+
 ### Candy-spectrum discipline
 
 - Product chrome stays mostly dark navy, slate, white, and teal. The full
@@ -160,13 +162,15 @@ Radius map — smaller radius for smaller things:
 - **Cards are flat** — defined by border, not shadow. Shadows mark *floating*
   things: dropdown panels `shadow-xl`, modals/toasts `shadow-2xl`, floating
   icon buttons `shadow-lg`, primary CTAs `shadow-lg shadow-brand-teal/20`.
-- **Touch targets: 44×44 minimum.** On compact desktop layouts reserve it
-  responsively: `min-h-[44px] sm:min-h-0`.
+- **Touch targets: 44×44 minimum.** On coarse pointers use
+  `[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`
+  so phone and tablet controls stay reachable.
 - **No horizontal overflow.** The page never scrolls horizontally at any width
   from 320 up. Wide rows wrap or scroll inside their own container. Prefer
   `flex-wrap` (with `sm:flex-nowrap` where one desktop row is wanted) for rows
   with tooltips, because `overflow-x-auto` clips them (see section 10).
   Check at 320, 390, 768 and 1280.
+- Below md, the stage hugs its image; leftover height goes to the panel, never to empty space around the image.
 - Scrollbars: auto-hide overlay style (global in `index.css`) — transparent
   until the scroll area is hovered/focused. Long surfaces stay visually clean.
 
@@ -234,7 +238,7 @@ auto-disarm. Everything destructive must also be undoable (⌘Z).
 
 - **Canonical: the `useConfirmAction` hook** — one armed key at a time,
   auto-disarm ~2.5–3s (hook default 3000ms).
-- Armed visual: **`bg-amber-500 text-white animate-pulse`**, icon swaps to
+- Armed visual: **`bg-amber-500 text-[#0d1117] animate-pulse`**, icon swaps to
   `Check`, label/tooltip swaps to **"Sure?"** (compact) or **"Click again to
   confirm"** (roomier). Idle state hints intent:
   `text-slate-500 hover:text-red-500 hover:bg-red-500/10`.

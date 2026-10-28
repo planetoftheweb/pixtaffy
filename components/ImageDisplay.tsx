@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Generation, GenerationVersion, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, INBOX_FOLDER_ID } from '../types';
 import { Download, RefreshCw, Send, Image as ImageIcon, Copy, Link, Trash2, ChevronDown, ChevronLeft, ChevronRight, Layers, FileImage, Code, Play, Pause, FileCode, Info, X, Globe, Wand2, Maximize, Maximize2, Minimize, GitCompare, Plus, Expand, ScanSearch, Check, Star, Film, Sparkles, GripVertical } from 'lucide-react';
@@ -15,6 +15,7 @@ import { RichSelect, RichSelectOption } from './RichSelect';
 import { DownloadMenu } from './DownloadMenu';
 import { JuxtaposeSlider } from './JuxtaposeSlider';
 import { setErrorToast } from '../utils/errorToastStore';
+import { dismissErrorToastOnEscape, dismissTopErrorToast, hasVisibleErrorToast } from '../utils/errorToastEscape';
 import { Tip } from './settings/Tip';
 
 export interface ImageDisplayMarkRef {
@@ -225,6 +226,32 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   // the current asset (raster vs SVG). Keeps the action bar uncluttered
   // while preserving every action.
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
+  const copyMenuRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!copyMenuOpen) return;
+    const clampMenu = () => {
+      const menu = copyMenuRef.current;
+      if (!menu) return;
+      menu.style.transform = '';
+      const rect = menu.getBoundingClientRect();
+      const left = Math.max(8, Math.min(window.innerWidth - rect.width - 8, rect.left));
+      menu.style.transform = `translateX(${left - rect.left}px)`;
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (dismissErrorToastOnEscape(event, hasVisibleErrorToast(), dismissTopErrorToast)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setCopyMenuOpen(false);
+    };
+    clampMenu();
+    window.addEventListener('resize', clampMenu);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('resize', clampMenu);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [copyMenuOpen]);
   // Refine / Recompose panel was previously a permanent footer under every
   // tile preview — useful but visually heavy and stealing vertical room
   // from the main image. It now hides behind a single Wand2 icon in the
@@ -2069,7 +2096,7 @@ ${version.svgCode}
                           deletingRefinementId
                             ? 'cursor-not-allowed bg-red-400 text-white'
                             : isRailDeleteArmed
-                              ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
+                              ? 'bg-amber-500 text-[#0d1117] animate-pulse'
                               : 'bg-red-600 text-white hover:bg-red-700'
                         }`}
                       >
@@ -2725,7 +2752,7 @@ ${version.svgCode}
                                     disabled
                                       ? 'border-gray-200 dark:border-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
                                       : isPopoverArmed
-                                        ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600 hover:border-amber-600 animate-pulse'
+                                        ? 'border-amber-500 bg-amber-500 text-[#0d1117] animate-pulse'
                                         : 'border-red-200/80 dark:border-red-900/40 text-red-500 dark:text-red-300 hover:bg-red-600 hover:border-red-600 hover:text-white'
                                   }`}
                                   aria-label={tooltip}
@@ -2958,10 +2985,10 @@ ${version.svgCode}
                               : 'Apply refine or recompose'
                           }
                           disabled={(!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked}
-                          className={`group/tip relative h-11 w-11 shrink-0 rounded-xl font-medium text-white inline-flex items-center justify-center transition-all ${
+                          className={`group/tip relative h-11 w-11 shrink-0 rounded-xl font-medium inline-flex items-center justify-center transition-all ${
                             (!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked
                               ? 'bg-gray-200 dark:bg-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                              : 'bg-brand-red hover:bg-red-700 text-white shadow-lg shadow-brand-red/20'
+                              : 'bg-brand-teal hover:bg-teal-600 text-[#0d1117] shadow-lg shadow-brand-teal/20'
                           }`}
                         >
                           {isRefining || isResizingCanvas ? (
@@ -3095,8 +3122,9 @@ ${version.svgCode}
                           the menu (`z-20`) so menu clicks still register. */}
                       <div className="fixed inset-0 z-10" onClick={() => setCopyMenuOpen(false)} />
                       <div
+                        ref={copyMenuRef}
                         role="menu"
-                        className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-20 overflow-hidden p-1"
+                        className="absolute top-full right-0 mt-2 w-48 max-w-[calc(100vw-1rem)] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-20 overflow-hidden p-1"
                       >
                         {onCopy && (
                           <button
@@ -3180,7 +3208,7 @@ ${version.svgCode}
                   aria-label={isGenerationDeleteArmed ? 'Click again to confirm delete' : 'Delete'}
                   className={`group/tip group/btn p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative border ${
                     isGenerationDeleteArmed
-                      ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600 hover:border-amber-600 focus:ring-amber-400/70 animate-pulse'
+                      ? 'border-amber-500 focus:ring-amber-400/70 bg-amber-500 text-[#0d1117] animate-pulse'
                       : 'bg-white/85 dark:bg-[#2b1c1c]/85 border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white focus:ring-brand-teal/70'
                   }`}
                 >
@@ -3232,25 +3260,21 @@ ${version.svgCode}
         </div>
       )}
 
-      {/* Star-toggle feedback. Centered amber pill with a filled / outline
+      {/* Star-toggle feedback. Centered neutral pill with a filled / outline
           star glyph that matches the on/off state. Pointer-events disabled
           so it never intercepts a follow-up click. Auto-dismisses ~1.6s
           after the toggle. */}
       {starFeedback && (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
           <div
-            className={`inline-flex items-center gap-2.5 text-sm px-4 py-3 rounded-lg shadow-2xl border animate-in fade-in zoom-in-95 duration-150 ${
-              starFeedback.on
-                ? 'bg-amber-400 text-white border-amber-300'
-                : 'bg-slate-800 text-white border-slate-700'
-            }`}
+            className="inline-flex items-center gap-2.5 text-sm px-4 py-3 rounded-lg shadow-2xl border animate-in fade-in zoom-in-95 duration-150 bg-black/90 text-white border-white/10"
             role="status"
             aria-live="polite"
           >
             <Star
               size={20}
               strokeWidth={2.5}
-              className={starFeedback.on ? 'fill-current' : ''}
+              className={starFeedback.on ? 'text-amber-400 fill-current' : ''}
             />
             <span className="font-semibold">{starFeedback.message}</span>
           </div>
@@ -3308,10 +3332,10 @@ ${version.svgCode}
                   }
                 }}
                 disabled={(!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked}
-                className={`min-h-11 px-4 rounded-lg text-sm font-semibold text-white transition-colors ${
+                className={`min-h-11 px-4 rounded-lg text-sm font-semibold transition-colors ${
                   (!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked
                     ? 'bg-gray-300 dark:bg-[#30363d] cursor-not-allowed'
-                    : 'bg-brand-red hover:bg-red-700'
+                    : 'bg-brand-teal hover:bg-teal-600 text-[#0d1117]'
                 }`}
               >
                 Submit

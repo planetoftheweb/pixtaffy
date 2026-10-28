@@ -1,4 +1,5 @@
 import { serverKeysEnabled } from './services/keyStorageMode';
+import { Tip } from './components/settings/Tip';
 import { LegacySettingsPage } from './components/LegacySettingsPage';
 import { getUserApiKeyStatus } from './services/userApiKeyService';
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -4091,12 +4092,12 @@ const App: React.FC = () => {
            {!adminMode && !settingsMode && !billingMode && !catalogMode && !whatsNewMode && !welcomeMode && (
              <button
                onClick={toggleToolbarCollapsed}
-               className="hidden md:inline-flex p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
-               title={isToolbarCollapsed ? 'Show toolbar and prompt' : 'Hide toolbar and prompt to focus on preview'}
+               className="relative hidden md:inline-flex p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
                aria-pressed={isToolbarCollapsed}
                aria-label={isToolbarCollapsed ? 'Show toolbar and prompt' : 'Hide toolbar and prompt'}
              >
                {isToolbarCollapsed ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
+               <Tip text={isToolbarCollapsed ? 'Show toolbar and prompt' : 'Hide toolbar and prompt to focus on preview'} side="top" align="right" />
              </button>
            )}
 
@@ -4393,8 +4394,7 @@ const App: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsGenerationsPanelCollapsed(false)}
-                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:border-brand-teal hover:text-brand-teal transition-colors"
-                      title="Show active generations"
+                      className="relative inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:border-brand-teal hover:text-brand-teal transition-colors"
                       aria-label={`Show active generations panel (${docLabel})`}
                     >
                       {runningCount > 0 ? (
@@ -4403,6 +4403,7 @@ const App: React.FC = () => {
                         <Sparkles size={13} className="text-brand-teal" />
                       )}
                       <span className="tabular-nums">{docLabel}</span>
+                      <Tip title="Active generations" text={docLabel} side="top" align="right" />
                     </button>
                   </div>
                 );
@@ -4428,11 +4429,11 @@ const App: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsGenerationsPanelCollapsed(true)}
-                          className="inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
-                          title="Dock to corner"
+                          className="relative inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
                           aria-label="Minimize active generations panel"
                         >
                           <Minimize2 size={13} />
+                          <Tip text="Dock to corner" side="top" align="right" />
                         </button>
                       </div>
                     </div>
@@ -4534,35 +4535,40 @@ const App: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => void handleRestoreFromHistory(job.latest!)}
-                                    className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-brand-teal hover:border-brand-teal transition-colors"
-                                    title="View latest result"
+                                    className="relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-brand-teal hover:border-brand-teal transition-colors"
                                     aria-label="View latest result"
                                   >
                                     <ArrowRight size={14} />
+                                    <Tip text="View latest result" side="top" align="right" />
                                   </button>
                                 )}
                                 {running ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleStopGenerationJob(job.id)}
-                                    disabled={job.status === 'stopping'}
-                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-[#30363d] text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                                    title={job.status === 'stopping'
+                                  <span className="relative inline-flex">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStopGenerationJob(job.id)}
+                                      disabled={job.status === 'stopping'}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-[#30363d] text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                      aria-label={job.status === 'stopping'
+                                        ? 'Waiting for in-flight generations to finish'
+                                        : 'Stop queuing new generations for this run'}
+                                    >
+                                      <span className="block w-2 h-2 rounded-sm bg-red-500" aria-hidden="true" />
+                                      {job.status === 'stopping' ? 'Stopping' : 'Stop'}
+                                    </button>
+                                    <Tip title={job.status === 'stopping' ? 'Stopping' : 'Stop queuing'} text={job.status === 'stopping'
                                       ? 'Waiting for in-flight generations to finish'
-                                      : 'Stop queuing new generations for this run'}
-                                  >
-                                    <span className="block w-2 h-2 rounded-sm bg-red-500" aria-hidden="true" />
-                                    {job.status === 'stopping' ? 'Stopping' : 'Stop'}
-                                  </button>
+                                      : 'Stop queuing new generations for this run'} side="top" align="right" />
+                                  </span>
                                 ) : (
                                   <button
                                     type="button"
                                     onClick={() => clearGenerationJob(job.id)}
-                                    className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
-                                    title="Dismiss"
+                                    className="relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
                                     aria-label="Dismiss generation status"
                                   >
                                     <X size={14} />
+                                    <Tip text="Dismiss" side="top" align="right" />
                                   </button>
                                 )}
                               </div>
@@ -4618,14 +4624,14 @@ const App: React.FC = () => {
                                 {modelChips.map(({ modelId, stats }) => (
                                   <span
                                     key={modelId}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-gray-200 dark:border-[#30363d] text-[10px] font-medium text-slate-600 dark:text-slate-300"
-                                    title={`${MODEL_NAME_BY_ID[modelId] || modelId}: ${stats!.completed + stats!.failed}/${stats!.total} complete, ${stats!.inFlight} running`}
+                                    className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-gray-200 dark:border-[#30363d] text-[10px] font-medium text-slate-600 dark:text-slate-300"
                                   >
                                     <span className={`inline-block w-1.5 h-1.5 rounded-full ${stats!.inFlight > 0 ? 'bg-brand-teal animate-pulse' : 'bg-slate-400'}`} />
                                     {MODEL_NAME_BY_ID[modelId] || modelId}
                                     <span className="text-slate-400 dark:text-slate-500">
                                       {stats!.completed + stats!.failed}/{stats!.total}
                                     </span>
+                                    <Tip title={MODEL_NAME_BY_ID[modelId] || modelId} text={`${stats!.completed + stats!.failed}/${stats!.total} complete, ${stats!.inFlight} running`} side="top" align="right" />
                                   </span>
                                 ))}
                               </div>

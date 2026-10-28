@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Tip } from './settings/Tip';
 import { ArrowLeftRight, Download, X } from 'lucide-react';
 
 export interface JuxtaposeSliderProps {
@@ -312,30 +313,33 @@ export const JuxtaposeSlider: React.FC<JuxtaposeSliderProps> = ({
             <button
               type="button"
               onClick={swap}
-              title="Swap A and B"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors"
+              aria-label="Swap A and B"
+              className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors"
             >
               <ArrowLeftRight size={13} />
               Swap
+              <Tip title="Swap" text="Swap A and B" side="top" align="right" />
             </button>
             <button
               type="button"
               onClick={handleDownloadSideBySide}
-              title="Download both images side-by-side as PNG"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors"
+              aria-label="Download both images side-by-side as PNG"
+              className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors"
             >
               <Download size={13} />
               Side-by-side
+              <Tip title="Side-by-side" text="Download both images side-by-side as PNG" side="top" align="right" />
             </button>
             {onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                title="Close comparison viewer"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors"
+                aria-label="Close comparison viewer"
+                className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-black/60 hover:bg-black/75 backdrop-blur-sm transition-colors"
               >
                 <X size={13} />
                 Close
+                <Tip title="Close" text="Close comparison viewer" side="top" align="right" />
               </button>
             )}
           </div>
@@ -353,30 +357,33 @@ export const JuxtaposeSlider: React.FC<JuxtaposeSliderProps> = ({
             <button
               type="button"
               onClick={swap}
-              title="Swap A and B"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors"
+              aria-label="Swap A and B"
+              className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors"
             >
               <ArrowLeftRight size={14} />
               Swap
+              <Tip title="Swap" text="Swap A and B" side="top" align="right" />
             </button>
             <button
               type="button"
               onClick={handleDownloadSideBySide}
-              title="Download both images side-by-side as PNG"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors"
+              aria-label="Download both images side-by-side as PNG"
+              className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors"
             >
               <Download size={14} />
               Side-by-side
+              <Tip title="Side-by-side" text="Download both images side-by-side as PNG" side="top" align="right" />
             </button>
             {onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                title="Close comparison viewer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors"
+                aria-label="Close comparison viewer"
+                className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] transition-colors"
               >
                 <X size={14} />
                 Close
+                <Tip title="Close" text="Close comparison viewer" side="top" align="right" />
               </button>
             )}
           </div>
