@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { buildRunAiAssistOptions, resolveAiAssistBackend, resolveAiAssistVertexConfig } from "./aiAssistBackend";
 
 const stagingServiceAccount = "pixtaffy-aiassist-runtime@pixtaffy-staging.iam.gserviceaccount.com";
+const prodServiceAccount = "pixtaffy-aiassist-runtime@brandoit.iam.gserviceaccount.com";
 
-test("AI assist defaults to apikey for production, missing, empty and unknown projects", () => {
-  for (const project of ["brandoit", undefined, "", "unknown", "toString", "__proto__"]) {
+test("AI assist defaults to apikey for missing, empty and unknown projects", () => {
+  for (const project of [undefined, "", "unknown", "toString", "__proto__"]) {
     assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: project }), "apikey");
   }
   assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "", GOOGLE_CLOUD_PROJECT: "" }), "apikey");
@@ -25,16 +26,30 @@ test("discovery selects vertex with only the staging GCLOUD_PROJECT set", () => 
   });
 });
 
+test("discovery selects vertex with only the production GCLOUD_PROJECT set", () => {
+  const env = { GCLOUD_PROJECT: "brandoit" };
+  assert.equal(resolveAiAssistBackend(env), "vertex");
+  assert.deepEqual(buildRunAiAssistOptions({}, env, () => {
+    assert.fail("Discovery must not declare a Gemini secret for production");
+  }), { serviceAccount: prodServiceAccount });
+  assert.deepEqual(resolveAiAssistVertexConfig(env), {
+    project: "brandoit",
+    location: "global",
+    model: "gemini-3.8-flash",
+  });
+});
+
 test("backend project fallback treats empty GCLOUD_PROJECT as missing", () => {
   for (const project of [undefined, ""]) {
     assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: project, GOOGLE_CLOUD_PROJECT: "pixtaffy-staging" }), "vertex");
   }
-  assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "brandoit", GOOGLE_CLOUD_PROJECT: "pixtaffy-staging" }), "apikey");
+  assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "unknown", GOOGLE_CLOUD_PROJECT: "pixtaffy-staging" }), "apikey");
 });
 
 test("runtime backend env cannot override the committed project map", () => {
   assert.equal(resolveAiAssistBackend({ AI_ASSIST_BACKEND: "vertex" }), "apikey");
-  assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "brandoit", AI_ASSIST_BACKEND: "vertex" }), "apikey");
+  assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "unknown", AI_ASSIST_BACKEND: "vertex" }), "apikey");
+  assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "brandoit", AI_ASSIST_BACKEND: "apikey" }), "vertex");
   assert.equal(resolveAiAssistBackend({ GCLOUD_PROJECT: "pixtaffy-staging", AI_ASSIST_BACKEND: "apikey" }), "vertex");
 });
 
@@ -67,7 +82,7 @@ test("apikey options preserve base options and bind the Gemini secret param", ()
   const base = { region: "us-central1", enforceAppCheck: true };
   const secret = { name: "PIXTAFFY_GEMINI_API_KEY" };
   let calls = 0;
-  const options = buildRunAiAssistOptions(base, { GCLOUD_PROJECT: "brandoit" }, () => {
+  const options = buildRunAiAssistOptions(base, { GCLOUD_PROJECT: "unknown" }, () => {
     calls += 1;
     return secret;
   });
@@ -87,7 +102,7 @@ test("vertex options preserve base options without secrets or invoking the secre
 });
 
 test("unmapped projects omit the serviceAccount key and keep the Gemini secret", () => {
-  for (const project of ["brandoit", "unknown", undefined, "", "toString", "__proto__"]) {
+  for (const project of ["unknown", undefined, "", "toString", "__proto__"]) {
     const options = buildRunAiAssistOptions({}, { GCLOUD_PROJECT: project }, () => "PIXTAFFY_GEMINI_API_KEY");
     assert.equal(Object.prototype.hasOwnProperty.call(options, "serviceAccount"), false);
     assert.deepEqual(options, { secrets: ["PIXTAFFY_GEMINI_API_KEY"] });
@@ -101,7 +116,7 @@ test("runtime identity prefers GCLOUD_PROJECT and treats empty projects as missi
     }, () => assert.fail("Staging must not request a secret"));
     assert.deepEqual(options, { serviceAccount: stagingServiceAccount });
   }
-  for (const project of ["brandoit", "unknown", "toString", "__proto__", ""]) {
+  for (const project of ["unknown", "toString", "__proto__", ""]) {
     const options = buildRunAiAssistOptions({}, {
       GCLOUD_PROJECT: project, GOOGLE_CLOUD_PROJECT: project ? "pixtaffy-staging" : "",
     }, () => "secret");
@@ -122,7 +137,9 @@ test("runtime settings cannot override the committed runtime identity", () => {
       };
       assert.deepEqual(
         buildRunAiAssistOptions({}, env, () => "secret"),
-        project === "pixtaffy-staging" ? { serviceAccount: stagingServiceAccount } : { secrets: ["secret"] },
+        project === "pixtaffy-staging" ? { serviceAccount: stagingServiceAccount }
+          : project === "brandoit" ? { serviceAccount: prodServiceAccount }
+          : { secrets: ["secret"] },
       );
     }
   }

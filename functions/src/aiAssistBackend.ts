@@ -4,11 +4,13 @@ export type AiAssistBackend = "vertex" | "apikey";
 // Keep backend selection consistent so discovery declares only the needed secrets.
 export const AI_ASSIST_BACKEND_BY_PROJECT: Readonly<Record<string, AiAssistBackend>> = {
   "pixtaffy-staging": "vertex",
+  brandoit: "vertex",
 };
 
 // Runtime identity must also be available during source discovery.
 export const AI_ASSIST_SERVICE_ACCOUNT_BY_PROJECT: Readonly<Record<string, string>> = {
   "pixtaffy-staging": "pixtaffy-aiassist-runtime@pixtaffy-staging.iam.gserviceaccount.com",
+  brandoit: "pixtaffy-aiassist-runtime@brandoit.iam.gserviceaccount.com",
 };
 
 export function resolveAiAssistBackend(env: Record<string, string | undefined>): AiAssistBackend {
