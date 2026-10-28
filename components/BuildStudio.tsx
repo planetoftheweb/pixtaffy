@@ -692,7 +692,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       const availW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
       const layoutTop = el.parentElement!.parentElement!.getBoundingClientRect().top;
       const stageTop = el.getBoundingClientRect().top;
-      const availH = window.matchMedia('(max-width:767px), (max-width:1023px) and (orientation:portrait)').matches
+      const availH = window.matchMedia('(max-width:767px), (max-width:1279px) and (orientation:portrait)').matches
         ? Math.max(0, Math.min(window.innerHeight * 0.5, availW * imgDims.h / imgDims.w,
             (window.innerHeight - layoutTop) * 0.6 - (stageTop - layoutTop) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)))
         : el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
