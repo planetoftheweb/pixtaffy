@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const image = source('components/ImageDisplay.tsx');
@@ -136,7 +138,7 @@ test('design contract requires overflow checks down to 320px and one transient t
 
 test('every product DOM element uses portal Tips instead of native titles', () => {
   const files = ['App.tsx', ...readdirSync(new URL('../components/', import.meta.url), { recursive: true })
-    .filter(path => path.endsWith('.tsx') && !['AdminPage.tsx', 'StatsPage.tsx'].includes(path.split('/').at(-1)))
+    .filter(path => path.endsWith('.tsx'))
     .map(path => `components/${path}`)];
   const violations = [];
   for (const file of files) {
@@ -155,6 +157,77 @@ test('every product DOM element uses portal Tips instead of native titles', () =
     scan(tree);
   }
   assert.deepEqual(violations, []);
+});
+
+function evaluateComponent(file, name, bindings) {
+  const tree = ts.createSourceFile(file, source(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let initializer;
+  const find = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(tree) === name) initializer = node.initializer;
+    ts.forEachChild(node, find);
+  };
+  find(tree);
+  assert.ok(initializer, `${name} must be exercised`);
+  const compiled = ts.transpileModule(`return (${initializer.getText(tree)});`, {
+    compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  return new Function('React', ...Object.keys(bindings), compiled)(React, ...Object.values(bindings));
+}
+
+test('self-account menu keeps disabled actions and one explanatory Tip on each hoverable wrapper', () => {
+  const Tip = () => null;
+  const icon = () => null;
+  const renderMenu = evaluateComponent('components/AdminPage.tsx', 'renderRowMenu', {
+    Tip, Key: icon, Sparkles: icon, Unlock: icon, Lock: icon, UserMinus: icon, UserPlus: icon, Trash2: icon,
+    rowMenuRef: { current: null }, actionInFlight: null, currentUser: { id: 'self' },
+    setOpenRowMenu: () => {}, setConfirm: () => {},
+  });
+  for (const id of ['self', 'other']) {
+    const menu = renderMenu({ id, email: `${id}@example.test` });
+    const wrappers = React.Children.toArray(menu.props.children).filter(child =>
+      child.type === 'div' && child.props.className.includes('group/tip'));
+    assert.equal(wrappers.length, 2);
+    for (const [index, wrapper] of wrappers.entries()) {
+      assert.match(wrapper.props.className, /\brelative\b/);
+      const [button, tip] = React.Children.toArray(wrapper.props.children);
+      assert.equal(button.type, 'button');
+      assert.equal(button.props.disabled, id === 'self');
+      assert.match(button.props.className, /disabled:pointer-events-none/);
+      assert.equal(React.Children.toArray(button.props.children).some(child => child.type === Tip), false,
+        'Tip must not be hosted by a disabled button');
+      if (id === 'self') {
+        assert.equal(tip.type, Tip);
+        assert.equal(tip.props.text, index === 0
+          ? 'You cannot disable your own account.' : 'You cannot delete your own account here.');
+      } else assert.equal(tip, undefined);
+    }
+    assert.doesNotMatch(renderToStaticMarkup(menu), /\stitle=/);
+  }
+});
+
+test('daily bars expose date and counts to keyboard users with a single portal hint', () => {
+  const Tip = () => null;
+  const Chart = evaluateComponent('components/StatsPage.tsx', 'DailyBarChart', {
+    Tip, numFmt: new Intl.NumberFormat(),
+  });
+  const chart = Chart({ title: 'Daily activity', data: [
+    { date: '2026-10-27', images: 1, refinements: 2 },
+    { date: '2026-10-28', images: 0, refinements: 0 },
+  ] });
+  const bars = chart.props.children[1].props.children;
+  assert.equal(bars.length, 2);
+  for (const [index, bar] of bars.entries()) {
+    assert.equal(bar.props.tabIndex, 0);
+    assert.equal(bar.props.role, 'img');
+    const tips = React.Children.toArray(bar.props.children).filter(child => child.type === Tip);
+    assert.equal(tips.length, 1);
+    assert.equal(tips[0].props.text, bar.props['aria-label']);
+    assert.equal(tips[0].props.text, index === 0
+      ? '2026-10-27: 1 image, 2 refinements' : '2026-10-28: 0 images');
+  }
+  const markup = renderToStaticMarkup(chart);
+  assert.match(markup, /<h3[^>]*>Daily activity<\/h3>/, 'component heading props are preserved');
+  assert.doesNotMatch(markup, /\stitle=/);
 });
 
 test('coarse-pointer studio controls keep 44px targets at tablet widths and hide mobile dividers', () => {
