@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Generation, GenerationVersion, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, INBOX_FOLDER_ID } from '../types';
 import { Download, RefreshCw, Send, Image as ImageIcon, Copy, Link, Trash2, ChevronDown, ChevronLeft, ChevronRight, Layers, FileImage, Code, Play, Pause, FileCode, Info, X, Globe, Wand2, Maximize, Maximize2, Minimize, GitCompare, Plus, Expand, ScanSearch, Check, Star, Film, Sparkles, GripVertical } from 'lucide-react';
@@ -286,6 +286,7 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   const [isExpandingRefinement, setIsExpandingRefinement] = useState(false);
   const [isResizingCanvas, setIsResizingCanvas] = useState(false);
   const [deletingRefinementId, setDeletingRefinementId] = useState<string | null>(null);
+  const disabledTipId = useId();
   const [isPromptEditorOpen, setIsPromptEditorOpen] = useState(false);
   // The prompt editor has two callers. The refine bar / refine-action buttons
   // open it in 'refine' mode (text is an edit instruction; submit goes to
@@ -1483,6 +1484,7 @@ ${version.svgCode}
 
   const handleRefineSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (applyRefinementDisabled) return;
     submitRefinementOrResize();
   };
 
@@ -1563,7 +1565,7 @@ ${version.svgCode}
   };
 
   const handleResizeCanvasClick = async () => {
-    if (refinementControlsLocked) return;
+    if (refinementControlsLocked || !canResizeToSelected) return;
     const sourceAspect = normalizeAspectRatio(version?.aspectRatio || generation?.config.aspectRatio || '');
     const targetAspect = normalizeAspectRatio(resizeAspectRatio);
     if (!targetAspect || !sourceAspect || targetAspect === sourceAspect) {
@@ -1760,6 +1762,12 @@ ${version.svgCode}
       resizeSourceAspectRatio &&
       normalizeAspectRatio(resizeAspectRatio) !== normalizeAspectRatio(resizeSourceAspectRatio)
   );
+  const recomposeDisabled = refinementControlsLocked || !canResizeToSelected;
+  const recomposeTip = refinementControlsLocked ? 'Wait for the request to finish'
+    : !canResizeToSelected ? 'Select a different target size' : `Rebuilds the image for ${resizeAspectLabel} while preserving the same style and palette.`;
+  const applyRefinementDisabled = (!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked;
+  const applyRefinementTip = refinementControlsLocked ? 'Wait for the request to finish'
+    : !refinementInput.trim() && !canResizeToSelected ? 'Enter a refine prompt, or choose a different target size and use Recompose' : 'Apply refine or recompose';
   const refineModelSelectOptions: RichSelectOption[] = refineModelOptions.map((model) => ({
     value: model.id,
     label: modelLabelMap[model.id] || model.name,
@@ -2072,20 +2080,24 @@ ${version.svgCode}
                       )}
                     </button>
                     {showRailDelete && (
+                      <span className="absolute top-1 right-1 z-10 inline-flex">
+                      <span className="relative inline-flex">
                       <button
                         type="button"
                         onMouseEnter={() => setHoveredVersionIdx(idx)}
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
+                          if (deletingRefinementId) return;
                           handleVersionDeleteClick(v.id);
                         }}
-                        disabled={Boolean(deletingRefinementId)}
+                        aria-disabled={Boolean(deletingRefinementId)}
+                        aria-describedby={deletingRefinementId ? `${disabledTipId}-rail-delete-${v.id}` : undefined}
                         aria-label={isRailDeleteArmed ? `Click again to confirm deleting ${v.label}` : `Delete ${v.label}`}
-                        className={`group/tip absolute top-1 right-1 z-10 inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-400/70 ${
-                          railDeleteVisible
+                        className={`group/tip inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:outline-none focus:ring-2 focus:ring-red-400/70 ${
+                          deletingRefinementId ? 'opacity-50' : railDeleteVisible
                             ? 'opacity-100'
-                            : 'opacity-0 group-hover/railThumb:opacity-100'
+                            : 'opacity-0 group-hover/railThumb:opacity-100 focus:opacity-100'
                         } ${
                           deletingRefinementId
                             ? 'cursor-not-allowed bg-red-400 text-white'
@@ -2101,8 +2113,11 @@ ${version.svgCode}
                         ) : (
                           <X size={11} strokeWidth={3} />
                         )}
-                        <Tip text={isRailDeleteArmed ? `Click again to confirm` : `Delete ${v.label}`} side="top" align="right" />
                       </button>
+                      <Tip text={deletingRefinementId ? 'Wait for the request to finish' : isRailDeleteArmed ? `Click again to confirm` : `Delete ${v.label}`} side="top" align="right" />
+                      <span id={`${disabledTipId}-rail-delete-${v.id}`} className="sr-only">Wait for the request to finish</span>
+                      </span>
+                      </span>
                     )}
                     {/* "Best Mark" star toggle on each rail thumb. Hidden by
                         default (revealed on hover of the thumb) when not
@@ -2186,6 +2201,7 @@ ${version.svgCode}
                   const hasLastPrompt = Boolean(lastPrompt);
                   const canRerun = hasLastPrompt && !!onRerun;
                   const handleAddMarkClick = (event: React.MouseEvent) => {
+                    if (refinementControlsLocked) return;
                     const heldDigit = heldDigitRef.current;
                     if (event.shiftKey || !canRerun) {
                       setPromptEditorMode('rerun');
@@ -2212,9 +2228,10 @@ ${version.svgCode}
                         onClick={handleAddMarkClick}
                         onMouseEnter={() => setHoveredVersionIdx(null)}
                         onFocus={() => setHoveredVersionIdx(null)}
-                        disabled={refinementControlsLocked}
+                        aria-disabled={refinementControlsLocked}
+                        aria-describedby={refinementControlsLocked ? `${disabledTipId}-add-mark` : undefined}
                         aria-label={canRerun ? 'Add a new Mark - re-roll the original prompt' : 'Add a new Mark'}
-                        className="group/tip relative block w-full aspect-square rounded-md border-2 border-dashed border-gray-300 dark:border-[#30363d] text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-[#161b22]/60 hover:border-brand-teal hover:text-brand-teal hover:bg-brand-teal/5 focus:outline-none focus:ring-2 focus:ring-brand-teal/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`group/tip relative block w-full aspect-square rounded-md border-2 border-dashed border-gray-300 dark:border-[#30363d] text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-[#161b22]/60 focus:outline-none focus:ring-2 focus:ring-brand-teal/60 transition-colors ${refinementControlsLocked ? 'opacity-50 cursor-not-allowed' : 'hover:border-brand-teal hover:text-brand-teal hover:bg-brand-teal/5'}`}
                       >
                         <span className="w-full h-full flex items-center justify-center">
                           {/* Always show the Plus glyph so the button stays
@@ -2227,8 +2244,9 @@ ${version.svgCode}
                               clickable target. */}
                           <Plus size={28} strokeWidth={2.5} aria-hidden="true" />
                         </span>
-                        <Tip title="Add a new Mark" text={canRerun ? 'Re-rolls the original prompt as a fresh generation. Click to add one Mark. Hold 1-9 and click to add that many Marks. Shift-click to edit the prompt or count; hold 1-9 and Shift-click to pre-fill that count. The model is free to rethink layout, palette, and composition.' : 'Open the refine editor'} side="top" wide />
                       </button>
+                      <Tip title="Add a new Mark" text={refinementControlsLocked ? 'Wait for the request to finish' : canRerun ? 'Re-rolls the original prompt as a fresh generation. Click to add one Mark. Hold 1-9 and click to add that many Marks. Shift-click to edit the prompt or count; hold 1-9 and Shift-click to pre-fill that count. The model is free to rethink layout, palette, and composition.' : 'Open the refine editor'} side="top" wide />
+                      <span id={`${disabledTipId}-add-mark`} className="sr-only">Wait for the request to finish</span>
                       {showHeldBadge && (
                         <span
                           role="status"
@@ -2728,23 +2746,26 @@ ${version.svgCode}
                               const isBusy = Boolean(deletingRefinementId);
                               const disabled = isOnlyVersion || isBusy;
                               const isPopoverArmed = confirmVersionDelete.isArmed(v.id);
-                              const tooltip = isOnlyVersion
-                                ? 'Cannot delete the only version — use the tile trash to remove the whole generation'
+                              const tooltip = isBusy ? 'Wait for the request to finish' : isOnlyVersion
+                                ? 'Cannot delete the only version, use the tile trash to remove the whole generation'
                                 : isPopoverArmed
                                   ? 'Click again to confirm'
                                   : `Delete ${v.label}`;
                               return (
+                                <span className="relative inline-flex mr-1">
                                 <button
                                   type="button"
                                   onClick={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
+                                    if (disabled) return;
                                     handleVersionDeleteClick(v.id);
                                   }}
-                                  disabled={disabled}
-                                  className={`group/tip relative h-8 w-8 mr-1 inline-flex items-center justify-center rounded-md border transition-colors ${
+                                  aria-disabled={disabled}
+                                  aria-describedby={disabled ? `${disabledTipId}-popover-delete-${v.id}` : undefined}
+                                  className={`group/tip relative h-8 w-8 inline-flex items-center justify-center rounded-md border transition-colors ${
                                     disabled
-                                      ? 'border-gray-200 dark:border-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                      ? 'border-gray-200 dark:border-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-50'
                                       : isPopoverArmed
                                         ? 'border-amber-500 bg-amber-500 text-[#0d1117] animate-pulse'
                                         : 'border-red-200/80 dark:border-red-900/40 text-red-500 dark:text-red-300 hover:bg-red-600 hover:border-red-600 hover:text-white'
@@ -2758,8 +2779,10 @@ ${version.svgCode}
                                   ) : (
                                     <Trash2 size={13} />
                                   )}
-                                  <Tip text={tooltip} side="top" align="right" />
                                 </button>
+                                <Tip text={tooltip} side="top" align="right" />
+                                <span id={`${disabledTipId}-popover-delete-${v.id}`} className="sr-only">{tooltip}</span>
+                                </span>
                               );
                             })()}
                           </div>
@@ -2889,21 +2912,25 @@ ${version.svgCode}
                             menuClassName="max-w-[18rem] z-[220]"
                           />
                         </div>
+                        <span className="relative inline-flex">
                         <button
                           type="button"
                           onClick={handleResizeCanvasClick}
-                          disabled={refinementControlsLocked || !canResizeToSelected}
+                          aria-disabled={recomposeDisabled}
+                          aria-describedby={recomposeDisabled ? `${disabledTipId}-recompose` : undefined}
                           className={`group/tip relative inline-flex h-9 items-center gap-1.5 px-3.5 rounded-xl border text-xs font-semibold transition-all group/recomposeBtn ${
-                            refinementControlsLocked || !canResizeToSelected
-                              ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
+                            recomposeDisabled
+                              ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
                               : 'bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
                           }`}
                           aria-label={`Recompose image from ${resizeSourceAspectRatio || 'current'} to ${resizeAspectLabel} while preserving style`}
                         >
                           {isResizingCanvas ? <RefreshCw size={12} className="animate-spin" /> : <Maximize2 size={12} />}
                           {isResizingCanvas ? 'Recomposing…' : 'Recompose'}
-                          <Tip title={canResizeToSelected ? `Recompose to ${resizeAspectLabel}` : 'Select a different target size'} text={`Rebuilds the image for ${resizeAspectLabel} while preserving the same style and palette.`} side="top" align="right" />
                         </button>
+                        <Tip title={!recomposeDisabled ? `Recompose to ${resizeAspectLabel}` : undefined} text={recomposeTip} side="top" align="right" />
+                        <span id={`${disabledTipId}-recompose`} className="sr-only">{recomposeTip}</span>
+                        </span>
                       </div>
                       <div className="px-1 pb-2 text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2">
                         <span>
@@ -2929,48 +2956,61 @@ ${version.svgCode}
                           className="flex-1 h-11 max-h-11 p-3 bg-transparent text-sm leading-snug text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none resize-none overflow-hidden"
                           disabled={refinementControlsLocked}
                         />
+                        <span className="relative inline-flex shrink-0">
                         <button
                           type="button"
                           onClick={handleExpandRefinementClick}
-                          disabled={refinementControlsLocked}
+                          aria-disabled={refinementControlsLocked}
+                          aria-describedby={refinementControlsLocked ? `${disabledTipId}-expand` : undefined}
                           className={`group/tip relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all group/expandBtn ${
                             refinementControlsLocked
-                              ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
+                              ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
                               : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
                           }`}
                           aria-label="Expand refine prompt with richer creative detail"
                         >
                           {isExpandingRefinement ? <RefreshCw size={16} className="animate-spin" /> : <Expand size={16} />}
-                          <Tip title="Expand prompt" text="Uses your text, or the tile's original prompt if empty" side="top" align="right" />
                         </button>
+                        <Tip title="Expand prompt" text={refinementControlsLocked ? 'Wait for the request to finish' : "Uses your text, or the tile's original prompt if empty"} side="top" align="right" />
+                        <span id={`${disabledTipId}-expand`} className="sr-only">Wait for the request to finish</span>
+                        </span>
+                        <span className="relative inline-flex shrink-0">
                         <button
                           type="button"
-                          onClick={() => { setPromptEditorMode('refine'); setIsPromptEditorOpen(true); }}
-                          disabled={refinementControlsLocked}
+                          onClick={() => { if (refinementControlsLocked) return; setPromptEditorMode('refine'); setIsPromptEditorOpen(true); }}
+                          aria-disabled={refinementControlsLocked}
+                          aria-describedby={refinementControlsLocked ? `${disabledTipId}-editor` : undefined}
                           className={`group/tip relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all ${
                             refinementControlsLocked
-                              ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
+                              ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
                               : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
                           }`}
                           aria-label="Open refine prompt in full-screen editor"
                         >
                           <Maximize2 size={16} />
-                          <Tip text="Open full editor (modal)" side="top" align="right" />
                         </button>
+                        <Tip text={refinementControlsLocked ? 'Wait for the request to finish' : 'Open full editor (modal)'} side="top" align="right" />
+                        <span id={`${disabledTipId}-editor`} className="sr-only">Wait for the request to finish</span>
+                        </span>
+                        <span className="relative inline-flex shrink-0">
                         <button
                           type="button"
                           onClick={handleAnalyzeRefineClick}
-                          disabled={refinementControlsLocked}
+                          aria-disabled={refinementControlsLocked}
+                          aria-describedby={refinementControlsLocked ? `${disabledTipId}-analyze` : undefined}
                           className={`group/tip relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all group/analyzeBtn ${
                             refinementControlsLocked
-                              ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
+                              ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
                               : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
                           }`}
                           aria-label="Analyze current image for spelling, factual, and annotation issues and generate a correction prompt"
                         >
                           {isAnalyzingRefinePrompt ? <RefreshCw size={16} className="animate-spin" /> : <ScanSearch size={16} />}
-                          <Tip title="Run analysis" text="Checks text accuracy, spelling, and label/factual issues, then drafts a detailed correction prompt and switches refine model to Nano Banana Pro. Uses a fast vision model (not image generation) with the same API provider as your toolbar when your keys allow it." side="top" align="right" wide />
                         </button>
+                        <Tip title="Run analysis" text={refinementControlsLocked ? 'Wait for the request to finish' : 'Checks text accuracy, spelling, and label/factual issues, then drafts a detailed correction prompt and switches refine model to Nano Banana Pro. Uses a fast vision model (not image generation) with the same API provider as your toolbar when your keys allow it.'} side="top" align="right" wide />
+                        <span id={`${disabledTipId}-analyze`} className="sr-only">Wait for the request to finish</span>
+                        </span>
+                        <span className="relative inline-flex shrink-0">
                         <button
                           type="submit"
                           aria-label={
@@ -2978,10 +3018,11 @@ ${version.svgCode}
                               ? 'Enter a refine prompt, or choose a different target size and use Recompose'
                               : 'Apply refine or recompose'
                           }
-                          disabled={(!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked}
+                          aria-disabled={applyRefinementDisabled}
+                          aria-describedby={applyRefinementDisabled ? `${disabledTipId}-apply` : undefined}
                           className={`group/tip relative h-11 w-11 shrink-0 rounded-xl font-medium inline-flex items-center justify-center transition-all ${
-                            (!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked
-                              ? 'bg-gray-200 dark:bg-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                            applyRefinementDisabled
+                              ? 'bg-gray-200 dark:bg-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-50'
                               : 'bg-brand-teal hover:bg-teal-600 text-[#0d1117] shadow-lg shadow-brand-teal/20'
                           }`}
                         >
@@ -2990,12 +3031,10 @@ ${version.svgCode}
                           ) : (
                             <Send size={16} />
                           )}
-                          <Tip text={
-                            !refinementInput.trim() && !canResizeToSelected
-                              ? 'Enter a refine prompt, or choose a different target size and use Recompose'
-                              : 'Apply refine or recompose'
-                          } side="top" align="right" />
                         </button>
+                        <Tip text={applyRefinementTip} side="top" align="right" />
+                        <span id={`${disabledTipId}-apply`} className="sr-only">{applyRefinementTip}</span>
+                        </span>
                       </form>
                     </div>
                   </>

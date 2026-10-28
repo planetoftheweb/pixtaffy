@@ -144,7 +144,7 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         ? subLabel
         : undefined;
   return (
-    <span className="relative inline-flex shrink-0 lg:shrink lg:min-w-0 align-top">
+    <span className="relative inline-flex shrink-0 lg:shrink lg:min-w-0 align-top" data-toolbar-dropdown-wrapper aria-expanded={Boolean(isActive)}>
     <button
       onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
         if (disabled) return;
@@ -162,7 +162,7 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         xl:px-3 xl:gap-2.5
         ${
           disabled
-            ? 'text-slate-500 dark:text-slate-300 cursor-not-allowed'
+            ? 'text-slate-500 dark:text-slate-300 cursor-not-allowed opacity-50'
             : isActive
               ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal'
               : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
@@ -174,12 +174,12 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         className={`shrink-0 ${
           isActive
             ? 'text-brand-teal'
-            : `${accentClass || 'text-slate-500 dark:text-slate-400'} group-hover:text-brand-teal`
+            : `${accentClass || 'text-slate-500 dark:text-slate-400'} ${disabled ? '' : 'group-hover:text-brand-teal'}`
         }`}
       />
       {/* Compact category label, md through lg (when there's no room for the full value). */}
       <span className={`hidden md:inline xl:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
-        isActive ? 'text-brand-teal' : 'text-slate-600 dark:text-slate-300 group-hover:text-brand-teal'
+        isActive ? 'text-brand-teal' : `text-slate-600 dark:text-slate-300 ${disabled ? '' : 'group-hover:text-brand-teal'}`
       }`}>
         {subLabel}
       </span>
@@ -190,11 +190,11 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         </span>
         {typeof label === 'string' || typeof label === 'number' ? (
           <span className={`truncate font-semibold text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
-            isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
+            isActive ? 'text-brand-teal' : `text-slate-700 dark:text-slate-100 ${disabled ? '' : 'group-hover:text-brand-teal'}`
           }`}>{label}</span>
         ) : (
           <div className={`min-w-0 truncate text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
-            isActive ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-100 group-hover:text-brand-teal'
+            isActive ? 'text-brand-teal' : `text-slate-700 dark:text-slate-100 ${disabled ? '' : 'group-hover:text-brand-teal'}`
           }`}>{label}</div>
         )}
         {colors && colors.length > 0 && (
@@ -1001,6 +1001,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const generateButtonDisabled = !hasSetupAction && (!config.prompt || exceedsBatchCap);
   const generateReasonId = useId();
   const expandReasonId = useId();
+  const modalExpandReasonId = useId();
   const expandButtonDisabled = !config.prompt || isExpandingPrompt;
   const expandButtonTitle = isExpandingPrompt
     ? 'Expanding prompt…'
@@ -3176,7 +3177,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit prompt</h3>
               <button
                 onClick={() => setIsPromptModalOpen(false)}
-                className="text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors"
+                className="inline-flex items-center justify-center [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors"
                 aria-label="Close"
               >
                 <X size={20} />
@@ -3209,7 +3210,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     }
                   }
                 }}
-                placeholder='Prompt or drop image ({a,b} or ["tile 1","tile 2"])...'
+                placeholder='Prompt or drop image ({a,b} or ["tile 1","tile 2"])…'
                 className="w-full h-[55vh] min-h-[280px] bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg p-4 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal placeholder-slate-400 dark:placeholder-slate-600 resize-none leading-relaxed"
               />
               {hasBatchInfo && (
@@ -3252,19 +3253,24 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               )}
             </div>
             <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-200 dark:border-[#30363d]">
+              <span className="relative inline-flex">
               <button
                 type="button"
                 onClick={handleExpandPrompt}
-                disabled={!config.prompt || isExpandingPrompt}
+                aria-disabled={expandButtonDisabled}
+                aria-describedby={expandButtonDisabled ? modalExpandReasonId : undefined}
                 className={`inline-flex items-center justify-center gap-2 px-3 py-2 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 rounded-lg border text-sm font-semibold transition-colors ${
-                  !config.prompt || isExpandingPrompt
-                    ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
+                  expandButtonDisabled
+                    ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
                     : 'bg-white dark:bg-[#0d1117] text-slate-700 dark:text-slate-200 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white'
                 }`}
               >
                 {isExpandingPrompt ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
                 Expand prompt
               </button>
+              <Tip text={expandButtonTitle} side="top" />
+              <span id={modalExpandReasonId} className="sr-only">{expandButtonTitle}</span>
+              </span>
               <div className="flex items-center gap-2">
                 <span className="hidden sm:inline text-[11px] text-slate-400 dark:text-slate-500">
                   Esc to close - Cmd/Ctrl+Enter to generate
@@ -3274,7 +3280,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   onClick={() => setIsPromptModalOpen(false)}
                   className="px-4 py-2 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 rounded-lg bg-brand-teal hover:bg-teal-600 text-[#0d1117] font-semibold text-sm shadow-md shadow-brand-teal/20 transition-colors"
                 >
-                  Done
+                  Done<Tip text="Close the editor" side="top" />
                 </button>
               </div>
             </div>
