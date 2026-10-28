@@ -1015,6 +1015,26 @@ test('feedback reports a bad contact email inline without starting a request', a
   assert.match(source('components/FeedbackModal.tsx'), /const sendDisabled = busy \|\| message\.trim\(\)\.length < 3;/);
 });
 
+test('feedback keeps its inline error inside the sticky footer above both actions', () => {
+  const tree = ts.createSourceFile('FeedbackModal.tsx', source('components/FeedbackModal.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const footers = [];
+  const findFooter = node => {
+    if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attr =>
+      attr.name?.getText(tree) === 'className' && attr.initializer?.text?.includes('sticky bottom-0'))) footers.push(node);
+    ts.forEachChild(node, findFooter);
+  };
+  findFooter(tree);
+  assert.equal(footers.length, 1);
+  const footer = footers[0];
+  const alert = footer.children.find(node => ts.isJsxExpression(node) && node.getText(tree).includes('role="alert"'));
+  const actions = footer.children.find(node => ts.isJsxElement(node) && node.getText(tree).includes('type="submit"'));
+  assert.ok(alert, 'the sticky footer must contain the inline error so it cannot cover it');
+  assert.ok(actions, 'the action row stays inside the same sticky footer');
+  assert.ok(alert.end < actions.getStart(tree), 'the error must precede the action row at every breakpoint');
+  assert.match(actions.getText(tree), /flex flex-col-reverse gap-2 sm:flex-row sm:justify-end/);
+  assert.match(actions.getText(tree), />Cancel<\/button>/);
+});
+
 test('dock eligibility excludes running, stopping and failed rows, including mixed terminal results', () => {
   for (const [statuses, expected] of [
     [['running'], false], [['stopping'], false], [['failed'], false], [['completed'], true],
