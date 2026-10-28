@@ -278,7 +278,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
             {hasToolbarPresentation ? (
               <span className="flex flex-col min-w-0">
                 {subLabel && (
-                  <span className="text-[12px] uppercase font-bold text-brand-teal leading-none mb-0.5">
+                  <span className="text-[12px] uppercase tracking-wide font-bold text-brand-teal leading-none mb-0.5">
                     {subLabel}
                   </span>
                 )}

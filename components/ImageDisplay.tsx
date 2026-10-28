@@ -1924,7 +1924,7 @@ ${version.svgCode}
                           ? 'Close the comparison viewer'
                           : 'Open compare: click two marks (or Shift-click to pick without toggling)'
                     }
-                    className={`group/tip sticky top-0 z-10 -mx-2 -mt-2 mb-1 px-2 py-1.5 flex items-center gap-1.5 justify-center text-xs font-bold uppercase tracking-wider border-b transition-all ${
+                    className={`group/tip sticky top-0 z-10 -mx-2 -mt-2 mb-1 px-2 py-1.5 flex items-center gap-1.5 justify-center text-xs font-bold uppercase tracking-wide border-b transition-all ${
                       isCompareMode || isComparing
                         ? 'opacity-100 bg-brand-teal text-white border-brand-teal hover:bg-brand-teal/90'
                         : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 bg-gray-100 dark:bg-[#161b22] text-slate-600 dark:text-slate-300 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal/10 hover:text-brand-teal hover:border-brand-teal/40'
@@ -2465,7 +2465,7 @@ ${version.svgCode}
               aria-label={`${version.label} is starred as the best Mark`}
             >
               <Star size={12} strokeWidth={2.5} className="text-amber-400 fill-current" />
-              <span className="text-[12px] font-bold uppercase tracking-wider leading-none">
+              <span className="text-[12px] font-bold uppercase tracking-wide leading-none">
                 Best
               </span>
               <Tip text={`${version.label} is starred as the best Mark - press S to unstar`} side="top" align="right" />
@@ -2615,7 +2615,7 @@ ${version.svgCode}
                         type="button"
                         onClick={onExitComparePicker}
                         aria-label="Cancel compare"
-                        className="group/tip relative ml-1 text-xs uppercase tracking-wider font-bold text-brand-teal/80 hover:text-brand-teal underline-offset-2 hover:underline shrink-0"
+                        className="group/tip relative ml-1 text-xs uppercase tracking-wide font-bold text-brand-teal/80 hover:text-brand-teal underline-offset-2 hover:underline shrink-0"
                       >
                         Cancel
                         <Tip text="Cancel compare" side="top" align="right" />

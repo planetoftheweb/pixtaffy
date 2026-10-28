@@ -213,7 +213,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
           <div className="pointer-events-none absolute bottom-0 left-1/3 h-48 w-96 rounded-full bg-brand-cyan/25 blur-3xl" />
           <div className="relative grid items-center gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="pb-2 sm:pb-7">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-brand-cyan">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-brand-cyan">
                 <Coins size={14} /> PixTaffy credits
               </div>
               <h1 className="pixtaffy-display max-w-3xl text-4xl font-extrabold leading-[0.98] tracking-tight sm:text-6xl sm:font-black">
@@ -256,7 +256,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
 
         <section className="mt-10">
           <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-pink">One-time credit packs</p>
+            <p className="text-xs font-black uppercase tracking-wide text-brand-pink">One-time credit packs</p>
             <h2 className="pixtaffy-display mt-2 text-3xl font-extrabold tracking-tight text-slate-950 dark:text-white">Buy a bag. Use it whenever you want.</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
               Every pack opens the same PixTaffy-funded models and AI tools. A bigger pack gives you more credits and a lower price per credit. All packs keep up to 500 cloud-saved generation entries.
@@ -303,7 +303,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
           <div className="relative grid items-center gap-6 lg:grid-cols-[180px_1fr_260px]">
             <MascotWindow position="93%" label="Taffy Studio director character" className="mx-auto h-48 w-44 shrink-0" />
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-cyan">Monthly membership</p>
+              <p className="text-xs font-black uppercase tracking-wide text-brand-cyan">Monthly membership</p>
               <h2 className="pixtaffy-display mt-1 text-3xl font-extrabold sm:text-4xl sm:font-black">Taffy Studio</h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
                 Get 100 credits every month, enough for about 100 Standard, 50 Pro, or 33 Premium images. Unused subscription credits can roll over to a 200-credit balance.
@@ -326,7 +326,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
 
         <section className="mt-10">
           <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-cyan">What the studio can do</p>
+            <p className="text-xs font-black uppercase tracking-wide text-brand-cyan">What the studio can do</p>
             <h2 className="pixtaffy-display mt-2 text-3xl font-extrabold tracking-tight text-slate-950 dark:text-white">See what your credits and keys actually power.</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">These are the creative jobs PixTaffy keeps together, from the first brand board through model comparison, AI assistance, animation frames, and version history.</p>
           </div>
@@ -337,7 +337,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
           <article className="rounded-3xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-[#141a29] sm:p-8">
             <div className="flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-100 text-brand-teal dark:bg-brand-cyan/10 dark:text-brand-cyan"><Image size={21} /></span>
-              <div><p className="text-xs font-black uppercase tracking-wider text-brand-teal">Image generation</p><h2 className="pixtaffy-display text-2xl font-bold text-slate-950 dark:text-white">How far credits go</h2></div>
+              <div><p className="text-xs font-black uppercase tracking-wide text-brand-teal">Image generation</p><h2 className="pixtaffy-display text-2xl font-bold text-slate-950 dark:text-white">How far credits go</h2></div>
             </div>
             <div className="mt-5 space-y-3 text-sm text-slate-700 dark:text-slate-200">
               <div className="flex items-start justify-between gap-5 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><div><p className="font-semibold">Standard image</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Seedream, Grok, and other models in the Standard band</p></div><span className="shrink-0 rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-brand-teal dark:bg-brand-cyan/10 dark:text-brand-cyan">1 credit</span></div>
@@ -350,7 +350,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
           <article className="rounded-3xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-[#141a29] sm:p-8">
             <div className="flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-pink-100 text-brand-pink dark:bg-brand-pink/10"><Film size={21} /></span>
-              <div><p className="text-xs font-black uppercase tracking-wider text-brand-pink">Build Studio</p><h2 className="pixtaffy-display text-2xl font-bold text-slate-950 dark:text-white">Video frames and exports</h2></div>
+              <div><p className="text-xs font-black uppercase tracking-wide text-brand-pink">Build Studio</p><h2 className="pixtaffy-display text-2xl font-bold text-slate-950 dark:text-white">Video frames and exports</h2></div>
             </div>
             <ul className="mt-5 space-y-3 text-sm text-slate-700 dark:text-slate-200">
               <li className="flex gap-3 rounded-xl bg-slate-50 p-4 dark:bg-white/5"><Check size={18} className="mt-0.5 shrink-0 text-brand-teal" /><div><p className="font-black">Manual frames are free</p><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Draw, reorder, preview, and animate as many frames as you need without spending credits.</p></div></li>
@@ -362,7 +362,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
 
         <section className="mt-10 rounded-3xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-[#141a29] sm:p-8">
           <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-orange">Save limits, spelled out</p>
+            <p className="text-xs font-black uppercase tracking-wide text-brand-orange">Save limits, spelled out</p>
             <h2 className="pixtaffy-display mt-2 text-3xl font-extrabold tracking-tight text-slate-950 dark:text-white">Guests stay local. Accounts sync across browsers.</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Images made with your 3 guest credits stay in this browser until you register. A free account syncs the latest 100 generation entries. Any credit pack raises that cloud history to 500, and Taffy Studio raises it to 2,000 while active.</p>
           </div>

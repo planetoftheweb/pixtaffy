@@ -60,7 +60,7 @@ const StatTile: React.FC<StatTileProps> = ({ label, value, hint, icon, accent = 
   <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 flex items-start gap-3">
     <div className={`p-2 rounded-lg ${ACCENTS[accent]}`}>{icon}</div>
     <div className="flex-1 min-w-0">
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       <p className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5 tabular-nums">
         {typeof value === 'number' ? numFmt.format(value) : value}
       </p>

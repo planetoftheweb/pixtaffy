@@ -681,7 +681,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                               {displayName}
                             </span>
                             {row.id === currentUser.id && (
-                              <span className="ml-1 inline-flex items-center rounded bg-brand-teal/10 text-brand-teal px-1.5 py-0.5 text-[12px] font-semibold uppercase">
+                              <span className="ml-1 inline-flex items-center rounded bg-brand-teal/10 text-brand-teal px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-wide">
                                 You
                               </span>
                             )}

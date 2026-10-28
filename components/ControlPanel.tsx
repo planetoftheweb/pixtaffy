@@ -1994,7 +1994,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   })();
 
   const inputClass = "w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg p-3.5 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal transition-all placeholder-slate-400 dark:placeholder-slate-600";
-  const labelClass = "block text-xs md:text-sm font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1";
+  const labelClass = "block text-xs md:text-sm font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1";
 
   // Helper to render scope icon
   const ScopeIcon = ({ scope }: { scope?: string }) => {

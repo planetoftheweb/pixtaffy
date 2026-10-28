@@ -315,7 +315,7 @@ const ListView: React.FC<{
       {/* Earlier launches use the same image-top card grid. */}
       {rest.length > 0 && (
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-4 px-1">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-4 px-1">
             Earlier launches
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
