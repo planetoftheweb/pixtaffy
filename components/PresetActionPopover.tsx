@@ -342,7 +342,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
               }}
               className={`w-full text-left rounded-md px-2 py-1.5 text-[13px] font-medium min-h-[44px] sm:min-h-0 inline-flex items-center gap-2 transition-colors ${
                 confirmDelete.isArmed(preset.id)
-                  ? 'bg-amber-500 text-white hover:bg-amber-500'
+                  ? 'bg-amber-500 text-[#0d1117] animate-pulse hover:bg-amber-500'
                   : 'text-red-500 hover:bg-red-500/10'
               }`}
             >

@@ -224,11 +224,15 @@ test('design rules and every armed confirm agree on readable amber styling', () 
     'Favorite star icon = amber-400 (icon only, never a fill behind text).',
     'bg-amber-500 text-[#0d1117] animate-pulse',
   ]) assert.ok(design.includes(rule), rule);
-  for (const name of ['ControlPanel', 'BuildStudio', 'ImageDisplay', 'RecentGenerations', 'SettingsPage', 'LegacySettingsPage']) {
-    const armedLines = source(`components/${name}.tsx`).split('\n').filter(line => line.includes('bg-amber-500') && line.includes('animate-pulse'));
-    assert.ok(armedLines.length > 0, name);
-    assert.ok(armedLines.every(line => line.includes('bg-amber-500 text-[#0d1117] animate-pulse') && !line.includes('text-white')), name);
+  let armedControls = 0;
+  for (const path of readdirSync(new URL('../components/', import.meta.url), { recursive: true }).filter(path => path.endsWith('.tsx'))) {
+    source(`components/${path}`).split('\n').forEach((line, index) => {
+      if (!/(?:^|[\s'"`])bg-amber-500(?=[\s'"`]|$)/.test(line)) return;
+      armedControls++;
+      assert.ok(line.includes('bg-amber-500 text-[#0d1117] animate-pulse') && !line.includes('text-white'), `components/${path}:${index + 1}`);
+    });
   }
+  assert.ok(armedControls > 0, 'armed controls must be checked');
   const luminance = hex => {
     const channels = hex.match(/\w\w/g).map(value => parseInt(value, 16) / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
     return channels.reduce((sum, channel, i) => sum + channel * [0.2126, 0.7152, 0.0722][i], 0);
