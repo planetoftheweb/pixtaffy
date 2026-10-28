@@ -2084,32 +2084,22 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               aria-label="Gallery pages"
               data-folder-menu
             >
-              {/* Shared portal Tips serve pointer and keyboard users. Existing
-                  cards retain the accessible descriptions at page edges. */}
+              {/* Shared portal Tips serve pointer and keyboard users; edge reasons only render when unavailable. */}
               <div className="relative group/tip-prev">
                 <span className="relative inline-flex">
                 <button
                   type="button"
                   onClick={(event) => { if (galleryPage <= 1) { event.preventDefault(); event.stopPropagation(); return; }return setGalleryPage((p) => Math.max(1, p - 1));
                   }}
-                  aria-disabled={galleryPage <= 1} aria-describedby={`${unavailableId}-7-card`}
+                  aria-disabled={galleryPage <= 1} aria-describedby={galleryPage <= 1 ? `${unavailableId}-7` : undefined}
                   aria-label="Previous page"
                   className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal aria-disabled:opacity-40 aria-disabled:cursor-not-allowed ${FOCUS_RING}`}
                 >
                   <ChevronLeft size={18} aria-hidden />
                 </button>
                 <Tip title="Previous page" text={galleryPage <= 1 ? 'Already on the first page.' : 'Page back through this folder.'} />
+                {galleryPage <= 1 && <span id={`${unavailableId}-7`} className="sr-only">Already on the first page.</span>}
                 </span>
-                <div
-                  id={`${unavailableId}-7-card`}
-                  role="tooltip"
-                  className="sr-only"
-                >
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Previous page</div>
-                  <div className="text-[11px] leading-relaxed text-slate-100">
-                    {galleryPage <= 1 ? 'Already on the first page.' : 'Page back through this folder.'}
-                  </div>
-                </div>
               </div>
               <button
                 ref={pageMenuTriggerRef}
@@ -2137,24 +2127,15 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   type="button"
                   onClick={(event) => { if (galleryPage >= galleryTotalPages) { event.preventDefault(); event.stopPropagation(); return; }return setGalleryPage((p) => Math.min(galleryTotalPages, p + 1));
                   }}
-                  aria-disabled={galleryPage >= galleryTotalPages} aria-describedby={`${unavailableId}-8-card`}
+                  aria-disabled={galleryPage >= galleryTotalPages} aria-describedby={galleryPage >= galleryTotalPages ? `${unavailableId}-8` : undefined}
                   aria-label="Next page"
                   className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal aria-disabled:opacity-40 aria-disabled:cursor-not-allowed ${FOCUS_RING}`}
                 >
                   <ChevronRight size={18} aria-hidden />
                 </button>
                 <Tip title="Next page" text={galleryPage >= galleryTotalPages ? 'Already on the last page.' : 'Page forward through this folder.'} />
+                {galleryPage >= galleryTotalPages && <span id={`${unavailableId}-8`} className="sr-only">Already on the last page.</span>}
                 </span>
-                <div
-                  id={`${unavailableId}-8-card`}
-                  role="tooltip"
-                  className="sr-only"
-                >
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Next page</div>
-                  <div className="text-[11px] leading-relaxed text-slate-100">
-                    {galleryPage >= galleryTotalPages ? 'Already on the last page.' : 'Page forward through this folder.'}
-                  </div>
-                </div>
               </div>
               {pageMenuOpen &&
                 pageMenuAnchor &&

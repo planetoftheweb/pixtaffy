@@ -938,8 +938,8 @@ test('all described sr-only reason spans are conditional on the matching disable
   const files = ['App.tsx', ...filesIn('components')];
   const scans = files.map(file => reasonSpanViolations(source(file), file));
   assert.deepEqual(scans.flatMap(scan => scan.violations), []);
-  assert.equal(scans.reduce((count, scan) => count + scan.checked, 0), 73, 'four navigation controls describe their existing rich cards instead of duplicate reasons');
-  t.diagnostic(`AST scan: ${files.length} files, 73 conditional disabled-reason spans`);
+  assert.equal(scans.reduce((count, scan) => count + scan.checked, 0), 77, 'include all four navigation controls');
+  t.diagnostic(`AST scan: ${files.length} files, 77 conditional disabled-reason spans`);
 });
 
 test('incomplete auth and feedback form guards report specific errors before any backend work', async () => {
@@ -1173,7 +1173,7 @@ test('two synchronous reset activations send one request and release the guard a
   }
 });
 
-test('converted controls have unconditional Tips and existing navigation cards own their descriptions', () => {
+test('converted controls have unconditional Tips and navigation reasons only describe unavailable actions', () => {
   const filesIn = dir => readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })
     .flatMap(entry => entry.isDirectory() ? filesIn(`${dir}/${entry.name}`) : entry.name.endsWith('.tsx') ? [`${dir}/${entry.name}`] : []);
   for (const file of ['App.tsx', ...filesIn('components')]) {
@@ -1197,10 +1197,11 @@ test('converted controls have unconditional Tips and existing navigation cards o
     };
     inspect(tree);
   }
-  for (const [text, nums] of [[image, [1, 2]], [gallery, [7, 8]]]) {
-    for (const num of nums) {
-      assert.ok(text.includes(`aria-describedby={\x60\x24{unavailableId}-${num}-card\x60}`));
-      assert.ok(text.includes(`id={\x60\x24{unavailableId}-${num}-card\x60}`));
+  for (const [text, reasons] of [[image, [[1, '!canGoNewer'], [2, '!canGoOlder']]],
+    [gallery, [[7, 'galleryPage <= 1'], [8, 'galleryPage >= galleryTotalPages']]]]) {
+    for (const [num, condition] of reasons) {
+      assert.ok(text.includes(`aria-describedby={${condition} ? \x60\x24{unavailableId}-${num}\x60 : undefined}`));
+      assert.ok(text.includes(`{${condition} && <span id={\x60\x24{unavailableId}-${num}\x60} className="sr-only">`));
     }
   }
   assert.equal((gallery.match(/className="relative flex w-full"/g) || []).length, 4);

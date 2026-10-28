@@ -2392,76 +2392,30 @@ ${version.svgCode}
                   <button
                     type="button"
                     onClick={(event) => { if (!canGoNewer) { event.preventDefault(); event.stopPropagation(); return; } goNewer(); }}
-                    aria-disabled={!canGoNewer} aria-describedby={`${unavailableId}-1-card`}
+                    aria-disabled={!canGoNewer} aria-describedby={!canGoNewer ? `${unavailableId}-1` : undefined}
                     aria-label="Previous generation (newer)"
                     className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300/80 dark:border-white/15 bg-white/90 dark:bg-[#1f252d]/90 text-slate-800 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#0d1117] aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition"
                   >
                     <ChevronLeft size={22} />
                   </button>
                   <Tip title="Previous generation" text={canGoNewer ? `Step back to the previous tile in your history. ←/→ switch generations.${hasMultipleVersions ? ' ↑/↓ cycle Marks.' : ''}` : 'No newer generation in history.'} side="top" wide />
+                  {!canGoNewer && <span id={`${unavailableId}-1`} className="sr-only">No newer generation in history.</span>}
                   </span>
-                  <div
-                    className="sr-only"
-                    id={`${unavailableId}-1-card`}
-                    role="tooltip"
-                  >
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Previous generation</div>
-                    <div className="text-[11px] leading-relaxed text-slate-100 mb-2">
-                      {canGoNewer ? 'Step back to the previous tile in your history.' : 'No newer generation in history.'}
-                    </div>
-                    <div className="pt-2 border-t border-white/10 space-y-1 text-[11px] text-slate-300">
-                      <div className="flex items-center gap-2">
-                        <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">←</kbd>
-                        <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">→</kbd>
-                        <span>switch generations</span>
-                      </div>
-                      {hasMultipleVersions && (
-                        <div className="flex items-center gap-2">
-                          <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">↑</kbd>
-                          <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">↓</kbd>
-                          <span>cycle Marks</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
                 <div className="hidden sm:block absolute top-1/2 -translate-y-1/2 right-3 z-20 group/arrowBtn opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity group-data-[dragging=true]:!opacity-0 group-data-[dragging=true]:!pointer-events-none group-data-[idle=true]:!opacity-0 group-data-[idle=true]:!pointer-events-none">
                   <span className="relative inline-flex">
                   <button
                     type="button"
                     onClick={(event) => { if (!canGoOlder) { event.preventDefault(); event.stopPropagation(); return; } goOlder(); }}
-                    aria-disabled={!canGoOlder} aria-describedby={`${unavailableId}-2-card`}
+                    aria-disabled={!canGoOlder} aria-describedby={!canGoOlder ? `${unavailableId}-2` : undefined}
                     aria-label="Next generation (older)"
                     className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300/80 dark:border-white/15 bg-white/90 dark:bg-[#1f252d]/90 text-slate-800 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#0d1117] aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition"
                   >
                     <ChevronRight size={22} />
                   </button>
                   <Tip title="Next generation" text={canGoOlder ? `Step forward to the next tile in your history. ←/→ switch generations.${hasMultipleVersions ? ' ↑/↓ cycle Marks.' : ''}` : 'No older generation in history.'} side="top" wide />
+                  {!canGoOlder && <span id={`${unavailableId}-2`} className="sr-only">No older generation in history.</span>}
                   </span>
-                  <div
-                    className="sr-only"
-                    id={`${unavailableId}-2-card`}
-                    role="tooltip"
-                  >
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Next generation</div>
-                    <div className="text-[11px] leading-relaxed text-slate-100 mb-2">
-                      {canGoOlder ? 'Step forward to the next tile in your history.' : 'No older generation in history.'}
-                    </div>
-                    <div className="pt-2 border-t border-white/10 space-y-1 text-[11px] text-slate-300">
-                      <div className="flex items-center gap-2">
-                        <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">←</kbd>
-                        <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">→</kbd>
-                        <span>switch generations</span>
-                      </div>
-                      {hasMultipleVersions && (
-                        <div className="flex items-center gap-2">
-                          <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">↑</kbd>
-                          <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">↓</kbd>
-                          <span>cycle Marks</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
                 {/* Position counter — small, unobtrusive label so users know
                     where they are in the history without scrolling down. */}

@@ -833,10 +833,10 @@ test('reviewed buttons use rounded-lg and auth copy follows Log in and Log out s
   assert.doesNotMatch(authServiceCopy, /could not sign you in|Email log in is|Failed to login\./);
 });
 
-test('Login is the noun and log in the verb; eyebrow labels keep 11px and 10px; AuthModal Close is disabled while busy', () => {
+test('Login is the noun and log in the verb; toolbar labels stay at least 12px; AuthModal Close is disabled while busy', () => {
   const panel = readFileSync(new URL('../components/ControlPanel.tsx', import.meta.url), 'utf8');
-  assert.match(panel, /hidden md:inline xl:hidden text-\[11px\] uppercase font-bold/);
-  assert.match(panel, /hidden xl:block text-\[10px\] uppercase font-bold/);
+  assert.match(panel, /hidden md:inline xl:hidden text-\[12px\] uppercase font-bold/);
+  assert.match(panel, /hidden xl:block text-\[12px\] uppercase font-bold/);
   assert.ok(panel.includes("'Expanding prompt\u2026'") || panel.includes("'Expanding prompt…'"));
   assert.doesNotMatch(panel, /Expanding prompt\.\.\./);
   const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
@@ -1205,8 +1205,7 @@ test('all newly converted buttons have conditional reason spans, sibling Tips an
   for (const file of ['App.tsx', ...componentFiles('components')]) {
     const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
     for (const button of findNodes(tree, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
-      && jsxAttribute(node, 'aria-describedby')?.getText().includes('unavailableId')
-      && !jsxAttribute(node, 'aria-describedby')?.getText().includes('-card'))) {
+      && jsxAttribute(node, 'aria-describedby')?.getText().includes('unavailableId'))) {
       checked++;
       const state = { ...blocked, disabledReason: 'This tool is unavailable for the current frame', busy: file.endsWith('PricingPage.tsx') ? 'verify' : true };
       const flag = jsxAttribute(button, 'aria-disabled').initializer.expression;
@@ -1227,7 +1226,7 @@ test('all newly converted buttons have conditional reason spans, sibling Tips an
       assert.equal(typeof attributeValue(tips[0], 'text', state), 'string');
     }
   }
-  assert.equal(checked, 53, 'converted buttons with sibling reasons, plus four navigation cards covered separately');
+  assert.equal(checked, 57, 'all converted buttons, including the four navigation controls');
   assert.match(recentGenerationsSource, /const next = renameDraft.trim\(\);\s*if \(folderBusy \|\| !next\) return;/);
   assert.match(recentGenerationsSource, /const next = newFolderDraft.trim\(\);\s*if \(folderBusy \|\| !next\) return;/);
   for (const source of [controlPanelSource, captureDismissalSources.find(([file]) => file.endsWith('GalleryPresetMenu.tsx'))[1]]) {
@@ -1236,7 +1235,7 @@ test('all newly converted buttons have conditional reason spans, sibling Tips an
   t.diagnostic(`${checked} unavailable actions blocked without any backend calls`);
 });
 
-test('all four rich navigation cards prevent disabled clicks and activate only when enabled', () => {
+test('all four navigation controls prevent disabled clicks and activate only when enabled', () => {
   const imageDisplaySource = readFileSync(new URL('../components/ImageDisplay.tsx', import.meta.url), 'utf8');
   const cases = [
     [imageDisplaySource, 'Previous generation (newer)', 'canGoNewer', 'goNewer', false],
@@ -1259,6 +1258,12 @@ test('all four rich navigation cards prevent disabled clicks and activate only w
         [action]: update => { calls++; if (typeof update === 'function') assert.equal(update(2), label === 'Previous page' ? 1 : 3); },
       };
       assert.equal(evaluateExpression(jsxAttribute(button, 'aria-disabled').initializer.expression, state), disabled);
+      const reason = attributeValue(button, 'aria-describedby', { ...state, unavailableId: 'reason' });
+      const reasonSpan = findNodes(button.parent, node => ts.isJsxElement(node)
+        && node.openingElement.tagName.getText() === 'span' && jsxAttribute(node, 'id'))[0];
+      assert.ok(reasonSpan, `${label}: conditional reason span`);
+      assert.equal(evaluateExpression(reasonSpan.parent.left, state), disabled);
+      assert.equal(reason, disabled ? attributeValue(reasonSpan, 'id', { unavailableId: 'reason' }) : undefined);
       evaluateExpression(jsxAttribute(button, 'onClick').initializer.expression, state)({
         preventDefault() { prevented++; }, stopPropagation() { stopped++; },
       });
