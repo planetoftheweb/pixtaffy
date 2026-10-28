@@ -165,7 +165,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
             ref={panelRef}
             role="dialog"
             aria-label="What's new"
-            className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+4.75rem)] bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:bottom-auto sm:mt-2 sm:w-[32rem] sm:max-w-[calc(100vw-2rem)] sm:max-h-[calc(100dvh-6rem)] flex flex-col bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+4.75rem)] bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:bottom-auto sm:mt-2 sm:w-[32rem] sm:max-w-[calc(100vw-2rem)] sm:max-h-[calc(100dvh-6rem)] flex flex-col bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
           >
             <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#30363d]">
               <div className="flex items-center gap-2">

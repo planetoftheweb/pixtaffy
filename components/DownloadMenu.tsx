@@ -217,7 +217,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
           role="menu"
           className={`absolute ${
             align === "left" ? "left-0" : "right-0"
-          } top-full mt-2 z-50 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl overflow-hidden text-sm`}
+          } top-full mt-2 z-50 w-64 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl overflow-hidden text-sm`}
         >
           {canThis && thisFormats.length > 0 && (
             <div className="p-1">
