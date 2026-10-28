@@ -278,15 +278,14 @@ const ToolBarButton: React.FC<{
     onClick={onClick}
     aria-pressed={active}
     disabled={disabled}
-    className={`group/tb relative w-9 h-9 shrink-0 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30 ${
+    aria-label={label}
+    className={`group/tip relative w-9 h-9 max-sm:min-h-11 max-sm:min-w-11 shrink-0 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30 ${
       active ? activeClassName || 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'
     }`}
   >
     <Icon size={18} />
     {!disabled && (
-      <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[13px] font-medium px-3 py-1.5 rounded-lg bg-black/90 text-white shadow-xl opacity-0 group-hover/tb:opacity-100 transition-opacity z-30">
-        {label}
-      </span>
+      <Tip text={label} side="bottom" />
     )}
   </button>
 );
@@ -349,7 +348,7 @@ const Tip: React.FC<{
             ref={tipRef}
             style={{ position: 'fixed', left: 0, top: 0, visibility: 'hidden', zIndex: 500 }}
             className={`pointer-events-none ${
-              wide ? 'w-72 whitespace-normal text-left leading-relaxed' : 'whitespace-nowrap'
+              wide ? 'w-72 max-w-[calc(100vw-16px)] whitespace-normal text-left leading-relaxed' : 'max-w-[calc(100vw-16px)] whitespace-normal'
             } text-[13px] font-medium px-3 py-1.5 rounded-lg bg-black/90 text-white shadow-xl`}
           >
             {title ? (
@@ -2094,15 +2093,15 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex">
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row">
         {/* Stage */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Tool bar — its own strip ABOVE the image, never covering it. */}
           {mode === 'edit' && !cleanMode && image && !loadError && (
-            <div className="shrink-0 flex justify-center pt-3 px-4">
+            <div className="shrink-0 min-w-0 flex justify-center pt-3 px-4">
               <div
                 ref={toolbarRef}
-                className="relative z-30 flex items-center gap-0.5 px-1.5 py-1.5 rounded-xl bg-[#161b22]/95 border border-white/10 shadow-xl"
+                className="relative z-30 flex flex-wrap sm:flex-nowrap justify-center max-w-full items-center gap-0.5 px-1.5 py-1.5 rounded-xl bg-[#161b22]/95 border border-white/10 shadow-xl"
                 style={{ transform: tbOffset.x || tbOffset.y ? `translate(${tbOffset.x}px, ${tbOffset.y}px)` : undefined }}
               >
                 <button
@@ -2112,11 +2111,11 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   onPointerUp={onTbGripUp}
                   onPointerCancel={onTbGripUp}
                   onDoubleClick={resetTbOffset}
-                  className="w-5 h-8 shrink-0 flex items-center justify-center text-slate-500 hover:text-slate-300 cursor-grab active:cursor-grabbing touch-none"
-                  title="Drag to move the toolbar · double-click to reset"
+                  className="group/tip relative w-5 h-8 max-sm:min-h-11 max-sm:min-w-11 shrink-0 flex items-center justify-center text-slate-500 hover:text-slate-300 cursor-grab active:cursor-grabbing touch-none"
                   aria-label="Move toolbar"
                 >
                   <GripVertical size={14} />
+                  <Tip text="Drag to move the toolbar · double-click to reset" />
                 </button>
                 <ToolBarButton icon={PenTool} active={tool === 'freeform'} onClick={() => setTool('freeform')} label="Freeform selection (F)" />
                 <ToolBarButton icon={Square} active={tool === 'rectangle'} onClick={() => setTool('rectangle')} label="Rectangle selection (R) · hold ⌥ to subtract from the selected frame" />
@@ -2139,7 +2138,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   onClick={() => void handleAutoSelect()}
                   disabled={autoSelecting}
                   aria-label="AI auto-select"
-                  className="group/tip relative h-9 shrink-0 px-1.5 rounded-lg flex items-center gap-1 transition-colors text-brand-teal hover:bg-brand-teal/15 disabled:opacity-60"
+                  className="group/tip relative h-9 max-sm:min-h-11 max-sm:min-w-11 shrink-0 px-1.5 rounded-lg flex items-center gap-1 transition-colors text-brand-teal hover:bg-brand-teal/15 disabled:opacity-60"
                 >
                   {autoSelecting ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
                   <span className="text-[10px] font-bold tracking-wide">AI</span>
@@ -2173,7 +2172,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                       setCleaning(false);
                     }}
                     aria-label="Clean up image for animation"
-                    className={`group/tip relative w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-brand-teal ${
+                    className={`group/tip relative w-9 h-9 max-sm:min-h-11 max-sm:min-w-11 shrink-0 rounded-lg flex items-center justify-center text-brand-teal ${
                       cleaning ? 'bg-brand-teal/15 cursor-default' : 'hover:bg-brand-teal/15'
                     }`}
                   >
@@ -2187,7 +2186,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   onPointerMove={onZoomScrubMove}
                   onPointerUp={onZoomScrubUp}
                   onPointerCancel={onZoomScrubUp}
-                  className="group/tip relative h-9 min-w-[3.2rem] px-1 rounded-lg flex items-center justify-center text-[11px] font-semibold tabular-nums text-slate-300 hover:bg-white/10 hover:text-white transition-colors select-none touch-none"
+                  className="group/tip relative h-9 max-sm:min-h-11 min-w-[3.2rem] px-1 rounded-lg flex items-center justify-center text-xs font-semibold tabular-nums text-slate-300 hover:bg-white/10 hover:text-white transition-colors select-none touch-none"
                   style={{ cursor: 'ew-resize' }}
                 >
                   {Math.round(view.scale * 100)}%
@@ -2554,7 +2553,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             titled sections, item rows carry just a badge/name/duration, and
             everything else appears on hover or selection. */}
         {mode === 'edit' && !cleanMode && sidebarOpen && (
-          <div className="relative shrink-0 min-h-0 overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
+          <div className="relative shrink-0 min-h-0 max-md:max-h-[45%] max-md:!w-full overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
             {/* Drag the left edge to resize the panel. */}
             <div
               onPointerDown={onSideResizeDown}

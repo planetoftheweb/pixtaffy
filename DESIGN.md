@@ -162,6 +162,11 @@ Radius map — smaller radius for smaller things:
   icon buttons `shadow-lg`, primary CTAs `shadow-lg shadow-brand-teal/20`.
 - **Touch targets: 44×44 minimum.** On compact desktop layouts reserve it
   responsively: `min-h-[44px] sm:min-h-0`.
+- **No horizontal overflow.** The page never scrolls horizontally at any width
+  from 320 up. Wide rows wrap or scroll inside their own container. Prefer
+  `flex-wrap` (with `sm:flex-nowrap` where one desktop row is wanted) for rows
+  with tooltips, because `overflow-x-auto` clips them (see section 10).
+  Check at 320, 390, 768 and 1280.
 - Scrollbars: auto-hide overlay style (global in `index.css`) — transparent
   until the scroll area is hovered/focused. Long surfaces stay visually clean.
 
@@ -326,10 +331,12 @@ after any visible toast has been dismissed.
 
 ## 13. Feedback & status
 
-- Neutral toasts: centered pill, auto-clear ~1.8s, `pointer-events-none fixed inset-0
+- Neutral toasts: every transient notice in ImageDisplay and RecentGenerations
+  uses this recipe. Centered pill, auto-clear ~1.8s, `pointer-events-none fixed inset-0
   z-40 flex items-center justify-center`, pill `text-white text-sm px-4 py-3
   rounded-lg shadow-2xl`, `role="status" aria-live="polite"`. The default tone
-  is dark glass `bg-black/90 border-white/10`.
+  is dark glass `bg-black/90 border-white/10`. Transient notices also follow
+  the no-horizontal-overflow rule in section 5.
 - Error toasts persist until dismissed or the next AI call starts. One single shared slot
   serves the app: the newest error replaces the older one, and identical messages dedupe
   without re-announcing. On dismissal, focus returns to the previously focused element
