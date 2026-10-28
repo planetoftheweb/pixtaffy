@@ -18,7 +18,7 @@ export function SettingsButton({ tip, children, disabled, disabledReason, onClic
   const reasonId = React.useId();
   const hint = disabled ? disabledReason || 'This action is unavailable' : tip || props['aria-label'] || controlText(children);
   return <span className="relative inline-flex" data-tip-expanded={props['aria-expanded']}>
-    <button type="button" {...props} className={`${className || ''} ${FOCUS_RING} aria-disabled:opacity-40 aria-disabled:cursor-not-allowed`}
+    <button type="button" {...props} className={`${className || ''} ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed`}
       aria-disabled={disabled} aria-describedby={disabled ? reasonId : undefined}
       onClick={event => { if (disabled) { event.preventDefault(); event.stopPropagation(); return; } onClick?.(event); }}>{children}</button>
     <Tip text={hint} />

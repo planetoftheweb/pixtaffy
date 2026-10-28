@@ -539,10 +539,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
         <div className="mb-8 flex items-center gap-4">
           <button
             onClick={onBack}
-            className={`p-2 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg transition-colors ${FOCUS_RING}`}
+            className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-2 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg transition-colors ${FOCUS_RING}`}
             aria-label="Back"
           >
             <ArrowLeft size={20} className="text-slate-600 dark:text-slate-300" />
+            <Tip text="Back" />
           </button>
           <div className="flex items-center gap-2">
             <ShieldCheck size={24} className="text-brand-teal" />

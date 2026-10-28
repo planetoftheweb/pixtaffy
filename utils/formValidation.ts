@@ -25,7 +25,7 @@ export function getFeedbackFormBlockerField(message: string, contactEmail?: stri
 
 export function getAuthFormBlocker({ isLogin, name, username, email, password }: AuthFormState): string | null {
   if (!isLogin && !name.trim()) return 'Name is required.';
-  if (!isLogin && !username.trim()) return 'Username is required';
+  if (!isLogin && !username.trim()) return 'Username is required.';
   if (!email.trim()) return isLogin ? 'Enter your email or username first.' : 'Email address is required.';
   if (!isLogin && !/^[^\s@]+@[^\s@]+$/.test(email.trim())) return 'Enter a valid email address.';
   if (!password) return 'Password is required.';

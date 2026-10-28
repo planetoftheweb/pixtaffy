@@ -279,7 +279,7 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
 - Primary hover is always `hover:bg-teal-600`; secondary/neutral controls
   **fill teal on hover** rather than darkening.
 - Segmented groups: container `inline-flex rounded-md border`, items
-  `first:rounded-l-md last:rounded-r-md`, selected `bg-brand-teal text-white`.
+  `first:rounded-l-md last:rounded-r-md`, selected `bg-brand-teal text-[#0d1117]`.
   Round the child buttons — never `overflow-hidden` on the group (tooltip
   killer).
 - Toggle (`Switch`): `w-8 h-[18px] rounded-full`, on `bg-brand-teal`, off
@@ -287,7 +287,7 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
 - Focus convention everywhere: `focus:outline-none focus:ring-1` (or `ring-2`)
   `focus:ring-brand-teal`.
 - Count badge: `absolute -top-1.5 -right-1.5 min-w-6 h-6 px-1.5 rounded-full
-  bg-brand-teal text-white text-[11px] font-bold shadow-lg ring-2 ring-white
+  bg-brand-teal text-[#0d1117] text-[11px] font-bold shadow-lg ring-2 ring-white
   dark:ring-[#0d1117] tabular-nums pointer-events-none`.
 - Settings rows: label left (`text-xs text-slate-400`), control right, one
   line, `min-h-[26px]`.

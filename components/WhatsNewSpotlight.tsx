@@ -1,3 +1,4 @@
+import { Tip } from './settings/Tip';
 import { FOCUS_RING } from '../utils/focusRing';
 import React, { useEffect } from 'react';
 import { ArrowRight, Sparkles, X } from 'lucide-react';
@@ -66,9 +67,10 @@ export const WhatsNewSpotlight: React.FC<WhatsNewSpotlightProps> = ({
           type="button"
           onClick={() => onDismiss(entry.id)}
           aria-label="Close"
-          className={`absolute top-3 right-3 z-10 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}
+          className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 absolute top-3 right-3 z-10 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}
         >
           <X size={20} />
+          <Tip text="Close" />
         </button>
 
         {entry.image && (

@@ -1824,7 +1824,7 @@ ${version.svgCode}
   }) => (
     <button
       onClick={onClick}
-      className={`group/tip ${variant === 'danger'
+      className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip ${variant === 'danger'
         ? 'bg-white/85 dark:bg-[#2b1c1c]/85 border border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white'
         : variant === 'busy'
           ? 'bg-brand-red border border-brand-red text-white cursor-default animate-pulse'
@@ -2398,9 +2398,10 @@ ${version.svgCode}
                   >
                     <ChevronLeft size={22} />
                   </button>
+                  <Tip title="Previous generation" text={canGoNewer ? `Step back to the previous tile in your history. ←/→ switch generations.${hasMultipleVersions ? ' ↑/↓ cycle Marks.' : ''}` : 'No newer generation in history.'} side="top" wide />
                   </span>
                   <div
-                    className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 w-60 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/arrowBtn:opacity-100 group-focus-within/arrowBtn:opacity-100 transition-opacity z-30"
+                    className="sr-only"
                     id={`${unavailableId}-1-card`}
                     role="tooltip"
                   >
@@ -2435,9 +2436,10 @@ ${version.svgCode}
                   >
                     <ChevronRight size={22} />
                   </button>
+                  <Tip title="Next generation" text={canGoOlder ? `Step forward to the next tile in your history. ←/→ switch generations.${hasMultipleVersions ? ' ↑/↓ cycle Marks.' : ''}` : 'No older generation in history.'} side="top" wide />
                   </span>
                   <div
-                    className="pointer-events-none absolute right-full mr-3 top-1/2 -translate-y-1/2 w-60 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/arrowBtn:opacity-100 group-focus-within/arrowBtn:opacity-100 transition-opacity z-30"
+                    className="sr-only"
                     id={`${unavailableId}-2-card`}
                     role="tooltip"
                   >
@@ -2647,7 +2649,7 @@ ${version.svgCode}
                         type="button"
                         onClick={onExitComparePicker}
                         aria-label="Close the comparison viewer"
-                        className={`group/tip relative ml-1 inline-flex items-center justify-center h-7 w-7 shrink-0 rounded-md text-slate-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}
+                        className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative ml-1 inline-flex items-center justify-center h-7 w-7 shrink-0 rounded-md text-slate-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}
                       >
                         <X size={14} />
                         <Tip text="Close the comparison viewer" side="top" align="right" />
@@ -2896,12 +2898,10 @@ ${version.svgCode}
                             onDoubleClick={resetRefinePanelOffset}
                             onKeyDown={handleRefinePanelMoveKeyDown}
                             aria-label="Move refine panel. Use arrow keys to move and Home to reset."
-                            className="group/move relative h-7 w-7 shrink-0 touch-none cursor-grab active:cursor-grabbing inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-gray-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-teal/70 dark:text-slate-500 dark:hover:bg-[#21262d] dark:hover:text-slate-200"
+                            className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/move relative h-7 w-7 shrink-0 touch-none cursor-grab active:cursor-grabbing inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-gray-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-teal/70 dark:text-slate-500 dark:hover:bg-[#21262d] dark:hover:text-slate-200"
                           >
                             <GripVertical size={14} />
-                            <span className="pointer-events-none absolute top-full left-0 z-20 mt-2 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[11px] font-medium normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity group-hover/move:opacity-100 group-focus/move:opacity-100">
-                              Drag to move · double-click to reset
-                            </span>
+                            <Tip text="Drag to move · double-click to reset" />
                           </button>
                           <span className="inline-flex items-center gap-1.5 truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             <Wand2 size={12} className="shrink-0 text-brand-teal" />
@@ -2912,7 +2912,7 @@ ${version.svgCode}
                           type="button"
                           onClick={() => setIsRefinePanelOpen(false)}
                           aria-label="Close refine panel"
-                          className={`group/tip relative h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors ${FOCUS_RING}`}
+                          className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors ${FOCUS_RING}`}
                         >
                           <X size={14} />
                           <Tip text="Close refine panel" side="top" align="right" />
@@ -3175,7 +3175,7 @@ ${version.svgCode}
                     aria-haspopup="menu"
                     aria-expanded={copyMenuOpen}
                     aria-label="Copy…"
-                    className="group/tip group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative inline-flex items-center gap-1"
+                    className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative inline-flex items-center gap-1"
                   >
                     <Copy size={18} />
                     <ChevronDown
@@ -3279,7 +3279,7 @@ ${version.svgCode}
                   {...confirmGenerationDelete.bindDisarmOnBlur('current')}
                   onClick={handleDeleteWithNotice}
                   aria-label={isGenerationDeleteArmed ? 'Click again to confirm delete' : 'Delete'}
-                  className={`group/tip group/btn p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative border ${
+                  className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip group/btn p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative border ${
                     isGenerationDeleteArmed
                       ? 'border-amber-500 focus:ring-brand-teal bg-amber-500 text-[#0d1117] animate-pulse'
                       : 'bg-white/85 dark:bg-[#2b1c1c]/85 border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white focus:ring-brand-teal/70'
@@ -3383,6 +3383,7 @@ ${version.svgCode}
                 aria-label="Close prompt editor"
               >
                 <X size={18} />
+                <Tip text="Close prompt editor" />
               </button>
             </div>
             <textarea
@@ -3457,6 +3458,7 @@ ${version.svgCode}
                 aria-label="Close prompt editor"
               >
                 <X size={18} />
+                <Tip text="Close prompt editor" />
               </button>
             </div>
             <textarea
@@ -3648,7 +3650,7 @@ ${version.svgCode}
             <button
               type="button"
               onClick={exitFullscreen}
-              className="group/tip relative inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 px-3 text-xs font-medium text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+              className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 px-3 text-xs font-medium text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
               aria-label="Exit fullscreen (F or Esc)"
             >
               <Minimize size={14} />
@@ -3667,6 +3669,7 @@ ${version.svgCode}
               className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
             >
               <ChevronLeft size={22} />
+              <Tip text="Previous (newer in history)" />
             </button>
           )}
           {canGoOlder && (
@@ -3677,6 +3680,7 @@ ${version.svgCode}
               className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
             >
               <ChevronRight size={22} />
+              <Tip text="Next (older in history)" />
             </button>
           )}
 

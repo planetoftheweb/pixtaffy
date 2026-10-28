@@ -172,7 +172,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onLoginSuccess(user);
       onClose();
     } catch (err: any) {
-      setError(err.message || "Authentication failed");
+      setError(err.message || "Authentication failed.");
     } finally {
       isSubmittingRef.current = false;
       busyRef.current = false;
@@ -260,7 +260,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <form noValidate onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <p id={errorId} role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 text-sm text-center font-medium animate-in fade-in">
+              <p id={errorId} role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 text-sm text-center break-words font-medium animate-in fade-in">
                 {error}
               </p>
             )}

@@ -207,7 +207,7 @@ test('settings toast escapes page stacking contexts and sits above overlays and 
   const feedback = readFileSync(new URL('../components/settings/SettingsFeedback.tsx', import.meta.url), 'utf8');
   assert.match(feedback, /return createPortal\(/);
   assert.match(feedback, /document\.body/);
-  assert.match(feedback, /fixed bottom-.*z-\[500\]/);
+  assert.match(feedback, /fixed bottom-.*z-\[400\]/);
 });
 
 test('disabled Generate has a wrapper hint and an accessible reason', () => {
@@ -623,6 +623,57 @@ test('every App and component JSX host has at most one direct Tip, including con
   const compare = findNodes(controlPanelAst, node => ts.isJsxElement(node)
     && node.openingElement.tagName.getText() === 'button' && node.getText().includes('<span>Compare models</span>'))[0];
   assert.equal(findNodes(compare, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip').length, 1);
+});
+
+test('every icon-only button, summary and link has a shared Tip in both availability states', t => {
+  const unhinted = (tree, icons) => {
+    const tag = node => ts.isJsxElement(node) ? node.openingElement.tagName.getText()
+      : ts.isJsxSelfClosingElement(node) ? node.tagName.getText() : '';
+    const iconOnly = node => {
+      if (ts.isJsxText(node)) return !node.text.trim();
+      if (ts.isJsxSelfClosingElement(node) || ts.isJsxElement(node)) return icons.has(tag(node)) || tag(node) === 'Tip';
+      if (ts.isJsxExpression(node)) return !node.expression || iconOnly(node.expression);
+      if (ts.isConditionalExpression(node)) return iconOnly(node.whenTrue) && iconOnly(node.whenFalse);
+      if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return iconOnly(node.right);
+      if (ts.isJsxFragment(node)) return node.children.every(iconOnly);
+      return node.kind === ts.SyntaxKind.NullKeyword;
+    };
+    const controls = findNodes(tree, node => ts.isJsxElement(node) && ['button', 'summary', 'a'].includes(tag(node))
+      && node.children.every(iconOnly)
+      && findNodes(node, child => (ts.isJsxSelfClosingElement(child) || ts.isJsxElement(child)) && icons.has(tag(child))).length);
+    return { checked: controls.length, missing: controls.filter(node => hostTipCount(node) === 0
+      && !(ts.isJsxElement(node.parent) && hostTipCount(node.parent) > 0)) };
+  };
+  const icons = new Set(['Icon', 'IconComp', 'ScopeIcon', 'svg']);
+  for (const tag of ['button', 'summary', 'a']) {
+    assert.equal(unhinted(parseTsx('fixture.tsx', `<${tag}><Icon /></${tag}>`), icons).missing.length, 1);
+    assert.equal(unhinted(parseTsx('fixture.tsx', `<${tag}><svg><path d="M0 0" /></svg></${tag}>`), icons).missing.length, 1);
+    assert.equal(unhinted(parseTsx('fixture.tsx', `<${tag}><Icon /><Tip text="Action" /></${tag}>`), icons).missing.length, 0);
+    assert.equal(unhinted(parseTsx('fixture.tsx', `<span><${tag}><Icon /></${tag}><Tip text="Action" /></span>`), icons).missing.length, 0);
+  }
+  let checked = 0;
+  const missing = [];
+  const conditional = [];
+  for (const file of ['App.tsx', ...componentFiles('components')]) {
+    const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
+    const fileIcons = new Set(icons);
+    for (const node of findNodes(tree, node => ts.isImportDeclaration(node) && node.moduleSpecifier.text === 'lucide-react')) {
+      for (const icon of node.importClause.namedBindings.elements) fileIcons.add(icon.name.text);
+    }
+    const scan = unhinted(tree, fileIcons);
+    checked += scan.checked;
+    missing.push(...scan.missing.map(node => `${file}:${tree.getLineAndCharacterOfPosition(node.getStart()).line + 1}`));
+    for (const tip of findNodes(tree, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip')) {
+      for (let parent = tip.parent; parent && !ts.isJsxElement(parent); parent = parent.parent) {
+        if (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+          && /disabled/i.test(parent.left.getText())) conditional.push(`${file}:${tree.getLineAndCharacterOfPosition(tip.getStart()).line + 1}`);
+      }
+    }
+  }
+  assert.ok(checked > 0, 'the scanner must inspect real icon controls');
+  assert.deepEqual(missing, []);
+  assert.deepEqual(conditional, []);
+  t.diagnostic(`AST icon scan: ${checked} controls, zero missing or availability-only Tips`);
 });
 
 test('every App and component button avoids native disabled attributes', t => {
@@ -1183,6 +1234,39 @@ test('all newly converted buttons have conditional reason spans, sibling Tips an
     assert.match(source, /const handleConfirmSavePreset = async \(\) => \{\s*if \(isSavingPreset \|\| !presetNameDraft.trim\(\)\) return;/);
   }
   t.diagnostic(`${checked} unavailable actions blocked without any backend calls`);
+});
+
+test('all four rich navigation cards prevent disabled clicks and activate only when enabled', () => {
+  const imageDisplaySource = readFileSync(new URL('../components/ImageDisplay.tsx', import.meta.url), 'utf8');
+  const cases = [
+    [imageDisplaySource, 'Previous generation (newer)', 'canGoNewer', 'goNewer', false],
+    [imageDisplaySource, 'Next generation (older)', 'canGoOlder', 'goOlder', false],
+    [recentGenerationsSource, 'Previous page', 'galleryPage', 'setGalleryPage', 1],
+    [recentGenerationsSource, 'Next page', 'galleryPage', 'setGalleryPage', 3],
+  ];
+  for (const [source, label, flag, action, blocked] of cases) {
+    const tree = parseTsx('navigation.tsx', source);
+    const button = findNodes(tree, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
+      && jsxAttribute(node, 'aria-label')?.initializer.text === label)[0];
+    assert.ok(button, label);
+    for (const disabled of [true, false]) {
+      let calls = 0;
+      let prevented = 0;
+      let stopped = 0;
+      const state = {
+        [flag]: disabled ? blocked : typeof blocked === 'boolean' ? true : 2,
+        galleryTotalPages: 3,
+        [action]: update => { calls++; if (typeof update === 'function') assert.equal(update(2), label === 'Previous page' ? 1 : 3); },
+      };
+      assert.equal(evaluateExpression(jsxAttribute(button, 'aria-disabled').initializer.expression, state), disabled);
+      evaluateExpression(jsxAttribute(button, 'onClick').initializer.expression, state)({
+        preventDefault() { prevented++; }, stopPropagation() { stopped++; },
+      });
+      assert.equal(calls, disabled ? 0 : 1, `${label}: action count`);
+      assert.equal(prevented, disabled ? 1 : 0, `${label}: default navigation`);
+      assert.equal(stopped, disabled ? 1 : 0, `${label}: propagation`);
+    }
+  }
 });
 
 test('SettingsButton consumes disabled props instead of forwarding them onto its native button', () => {

@@ -1,3 +1,4 @@
+import { Tip } from './settings/Tip';
 import { FOCUS_RING } from '../utils/focusRing';
 import React, { useEffect, useRef } from 'react';
 import {
@@ -186,10 +187,11 @@ export const WhatsNewPage: React.FC<WhatsNewPageProps> = ({
           <button
             type="button"
             onClick={onBack}
-            className={`p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
+            className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
             aria-label="Back"
           >
             <ArrowLeft size={24} />
+            <Tip text="Back" />
           </button>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gray-100 dark:bg-[#21262d] rounded-lg text-brand-teal">

@@ -137,7 +137,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
         aria-label={hasUnread ? `What's new (${unreadCount} unread)` : "What's new"}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        className={`relative p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors ${FOCUS_RING}`}
+        className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors ${FOCUS_RING}`}
       >
         <Bell size={20} />
         {hasUnread && (

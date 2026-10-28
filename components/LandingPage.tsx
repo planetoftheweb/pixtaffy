@@ -227,7 +227,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button
               type="button"
               onClick={onEnterStudio}
-              className="group mt-7 inline-flex whitespace-nowrap min-h-14 items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-base font-black text-[#751c69] shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#ff711f]"
+              className="group mt-7 inline-flex w-full sm:w-auto whitespace-normal min-h-14 items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-base font-black text-[#751c69] shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-[#ff711f]"
             >
               <Sparkles size={18} />
               {primaryLabel}

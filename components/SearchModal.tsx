@@ -124,10 +124,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className={`text-slate-500 hover:text-slate-300 transition-colors ${FOCUS_RING}`}
+                className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 text-slate-500 hover:text-slate-300 transition-colors ${FOCUS_RING}`}
                 aria-label="Clear search"
               >
                 <X size={15} />
+                <Tip text="Clear search" />
               </button>
             )}
             <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-slate-500 bg-[#0d1117] border border-[#30363d] rounded font-mono">

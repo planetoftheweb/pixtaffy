@@ -125,7 +125,7 @@ const ToolbarPanel: React.FC<{ name: string | null; className: string; width: nu
     window.addEventListener('scroll', position, true);
     return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); };
   }, [name, originalWidth]);
-  return createPortal(<div ref={panelRef} data-toolbar-panel={name} className={className} style={{ position: 'fixed', margin: 0, zIndex: 120, overflowY: 'auto' }}>{children}</div>, document.body);
+  return createPortal(<div ref={panelRef} data-toolbar-panel={name} className={className} style={{ position: 'fixed', margin: 0, zIndex: 60, overflowY: 'auto' }}>{children}</div>, document.body);
 };
 
 const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false, disabledReason = 'Selection is locked', accentClass, dropdownName }: any) => {
@@ -190,11 +190,11 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
           {subLabel}
         </span>
         {typeof label === 'string' || typeof label === 'number' ? (
-          <span className={`truncate font-semibold text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
+          <span className={`truncate font-semibold text-sm xl:text-[15px] max-w-[100px] xl:max-w-[160px] ${
             isActive ? 'text-brand-teal' : `text-slate-700 dark:text-slate-100 ${disabled ? '' : 'group-hover:text-brand-teal'}`
           }`}>{label}</span>
         ) : (
-          <div className={`min-w-0 truncate text-sm xl:text-[15px] max-w-[100px] xl:max-w-none ${
+          <div className={`min-w-0 truncate text-sm xl:text-[15px] max-w-[100px] xl:max-w-[160px] ${
             isActive ? 'text-brand-teal' : `text-slate-700 dark:text-slate-100 ${disabled ? '' : 'group-hover:text-brand-teal'}`
           }`}>{label}</div>
         )}
@@ -1377,7 +1377,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                 {type !== 'size' && !!user && (user.isAdmin || user.username === 'planetoftheweb') && (
                                     <button
                                         onClick={(e) => handleToggleDefault(e, type, item)}
-                                        className={`relative p-1.5 rounded-md transition-colors ${
+                                        className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative p-1.5 rounded-md transition-colors ${
                                             item.scope === 'system' 
                                                 ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20' 
                                                 : 'text-slate-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-[#30363d]'
@@ -2027,7 +2027,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <>
             <button 
               onClick={(e) => handleEdit(e, type, item)} 
-              className={`relative p-1.5 hover:bg-gray-100 dark:hover:bg-[#30363d] rounded-md text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal transition-colors ${FOCUS_RING}`} aria-label="Edit"
+              className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative p-1.5 hover:bg-gray-100 dark:hover:bg-[#30363d] rounded-md text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal transition-colors ${FOCUS_RING}`} aria-label="Edit"
             >
               <Pencil size={12} />
               <Tip text="Edit" side="top" align="right" />
@@ -2039,7 +2039,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <button
                   {...confirmCatalogDelete.bindDisarmOnBlur(catalogKey)}
                   onClick={(e) => handleDelete(e, type, item.id || item.value)}
-                  className={`relative p-1.5 rounded-md transition-colors ${
+                  className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative p-1.5 rounded-md transition-colors ${
                     isArmed
                       ? 'bg-amber-500 text-[#0d1117] animate-pulse'
                       : 'hover:bg-gray-100 dark:hover:bg-[#30363d] text-slate-500 hover:text-red-500 dark:hover:text-red-400'
@@ -2113,7 +2113,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <div className="flex flex-wrap lg:flex-nowrap items-center justify-center gap-0.5 md:gap-1 xl:gap-1.5 w-full lg:min-w-0">
             
             {/* Graphic Type */}
-            <div className="relative">
+            <div className="relative min-w-0 lg:shrink">
               <DropdownButton 
                 icon={currentType?.icon || Layout} 
                 subLabel="Type" 
@@ -2141,7 +2141,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </div>
 
             {/* Visual Style */}
-            <div className="relative">
+            <div className="relative min-w-0 lg:shrink">
               <DropdownButton 
                 icon={currentStyle?.icon || PenTool} 
                 subLabel="Style" 
@@ -2217,7 +2217,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             )}
 
             {/* Color Palette */}
-            <div className="relative">
+            <div className="relative min-w-0 lg:shrink">
               <DropdownButton 
                 icon={Palette} 
                 subLabel="Colors" 
@@ -2246,7 +2246,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </div>
 
             {/* Aspect Ratio */}
-            <div className="relative">
+            <div className="relative min-w-0 lg:shrink">
               <DropdownButton 
                 icon={currentRatio?.icon || Maximize} 
                 subLabel="Size" 
@@ -2277,7 +2277,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               )}
             </div>
             {/* Model Selector (fancy dropdown) */}
-            <div className="relative">
+            <div className="relative min-w-0 lg:shrink">
               <DropdownButton 
                 icon={Sparkles} 
                 subLabel="Model" 
@@ -2467,7 +2467,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               )}
               {activeDropdown === 'model' && modelTip && createPortal(
                 <div
-                  className="fixed z-[400] pointer-events-none w-72"
+                  className="fixed z-[500] pointer-events-none w-72"
                   style={{
                     top: modelTip.y,
                     ...(modelTip.flipLeft
@@ -2638,13 +2638,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                           <button
                             type="button"
                             onClick={() => setConfig(prev => ({ ...prev, customInstructions: undefined }))}
-                            className={`group/tip relative shrink-0 p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors ${FOCUS_RING}`}
+                            className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative shrink-0 p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors ${FOCUS_RING}`}
                             aria-label="Clear art direction"
                           >
                             <X size={13} />
-                            <span className="pointer-events-none absolute -top-8 right-0 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity">
-                              Stop applying these instructions
-                            </span>
+                            <Tip text="Stop applying these instructions" />
                           </button>
                         </div>
                       </div>
@@ -2991,6 +2989,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         activeDropdown === 'batch-count' ? 'rotate-180 text-brand-teal' : ''
                       }`}
                     />
+                    <Tip text="Pick a preset count" />
                   </button>
 
                   {activeDropdown === 'batch-count' && batchCountAnchor && typeof document !== 'undefined' &&
@@ -3112,6 +3111,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   aria-label="Remove prompt image style reference"
                 >
                   <X size={14} />
+                  <Tip text="Remove prompt image style reference" />
                 </button>
               </div>
             )}
@@ -3561,7 +3561,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                      <button
                        type="button"
                        onClick={() => setActiveColorIndex(null)}
-                       className={`relative p-1 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-gray-200/70 dark:hover:bg-[#1f2937] transition-colors ${FOCUS_RING}`} aria-label="Close color picker"
+                       className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative p-1 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-gray-200/70 dark:hover:bg-[#1f2937] transition-colors ${FOCUS_RING}`} aria-label="Close color picker"
                      >
                        <X size={14} />
                        <Tip text="Close color picker" side="top" align="right" />

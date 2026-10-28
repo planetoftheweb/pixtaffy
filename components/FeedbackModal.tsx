@@ -271,8 +271,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
                 {(busy) && <span id={`${unavailableId}-2`} className="sr-only">{'Wait for feedback to finish sending'}</span>}
               </span>
               <span className="relative inline-flex min-w-0 sm:w-auto">
-              <button type="submit" aria-disabled={sendDisabled} aria-describedby={sendDisabled ? sendReasonId : undefined} className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors ${sendDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-teal-600'} ${FOCUS_RING}`}>
-                <Send size={16} /> {busy ? 'Sending…' : 'Send feedback'}
+              <button type="submit" aria-disabled={sendDisabled} aria-describedby={sendDisabled ? sendReasonId : undefined} aria-label={busy ? 'Sending feedback' : 'Send feedback'} className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors ${sendDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-teal-600'} ${FOCUS_RING}`}>
+                <Send size={16} className="shrink-0" /> {busy ? 'Sending…' : <><span className="sm:hidden">Send</span><span className="hidden sm:inline">Send feedback</span></>}
               </button>
               <Tip text={sendTip} />
               {sendDisabled && <span id={sendReasonId} className="sr-only">{sendTip}</span>}

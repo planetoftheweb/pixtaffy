@@ -309,7 +309,7 @@ test('admin values, actions, stats labels and uid render one portal hint with th
 
 test('coarse-pointer studio controls keep 44px targets at tablet widths and hide mobile dividers', () => {
   const coarse = '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
-  assert.equal(studio.split(coarse).length - 1, 23, 'all reviewed studio controls retain coarse pointer targets');
+  assert.equal(studio.split(coarse).length - 1, 24, 'all reviewed studio controls retain coarse pointer targets');
   assert.doesNotMatch(studio, /max-sm:min-h-11|flex-wrap sm:flex-nowrap/);
   const dividers = studio.match(/className="w-px h-6[^"]*"/g) || [];
   assert.equal(dividers.length, 5);
@@ -864,21 +864,35 @@ function reasonSpanViolations(text, filename = 'fixture.tsx') {
     while (node && ts.isParenthesizedExpression(node)) node = node.expression;
     return node?.getText().replace(/\s/g, '').replace(/^Boolean\((.*)\)$/, '$1');
   };
-  const references = nodes.flatMap(node => {
-    const described = attr(node, 'aria-describedby')?.expression;
-    if (!described) return [];
-    return [{ node, described, id: ts.isConditionalExpression(described) ? described.whenTrue : described }];
-  });
+  const value = (node, name) => {
+    const initializer = attr(node, name);
+    return initializer && ts.isJsxExpression(initializer) ? initializer.expression : initializer;
+  };
+  const ids = node => {
+    if (!node) return [];
+    if (ts.isParenthesizedExpression(node)) return ids(node.expression);
+    if (ts.isConditionalExpression(node)) return [...ids(node.whenTrue), ...ids(node.whenFalse)];
+    if (ts.isStringLiteralLike(node)) return node.text.split(/\s+/).filter(Boolean).map(id => JSON.stringify(id));
+    return [normalize(node)];
+  };
+  const references = nodes.flatMap(node => ['aria-describedby', 'aria-labelledby', 'htmlFor'].flatMap(name => {
+    const described = value(node, name);
+    return described ? [{ node, described, ids: ids(described) }] : [];
+  }));
   const violations = [];
   let checked = 0;
   for (const node of nodes) {
     if ((ts.isJsxElement(node) ? node.openingElement : node).tagName.getText() !== 'span'
       || !/\bsr-only\b/.test(attr(node, 'className')?.getText() || '')) continue;
-    const id = attr(node, 'id')?.expression;
-    const controls = references.filter(ref => normalize(ref.id) === normalize(id));
-    if (!id || !controls.length) continue;
+    const id = value(node, 'id');
+    if (!id) continue;
+    const controls = references.filter(ref => ref.ids.includes(ids(id)[0]));
+    const location = `${filename}:${tree.getLineAndCharacterOfPosition(node.getStart()).line + 1}`;
+    if (!controls.length) { violations.push(location); continue; }
+    const disabledControls = controls.filter(({ node }) => value(node, 'aria-disabled') || value(node, 'disabled'));
+    if (!disabledControls.length) continue;
     checked++;
-    for (const { node: control, described } of controls) {
+    for (const { node: control, described } of disabledControls) {
       const condition = ts.isConditionalExpression(described) ? described.condition : null;
       const disabled = attr(control, 'aria-disabled')?.expression || attr(control, 'disabled')?.expression;
       let guarded = false;
@@ -890,7 +904,7 @@ function reasonSpanViolations(text, filename = 'fixture.tsx') {
       }
       if (!condition || !disabled || normalize(disabled) !== normalize(condition) || !guarded
         || normalize(described.whenFalse) !== 'undefined') {
-        violations.push(`${filename}:${tree.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
+        violations.push(location);
       }
     }
   }
@@ -900,6 +914,13 @@ function reasonSpanViolations(text, filename = 'fixture.tsx') {
 test('all described sr-only reason spans are conditional on the matching disabled condition', t => {
   const control = '<button aria-disabled={blocked} aria-describedby={blocked ? reasonId : undefined} />';
   const span = '<span id={reasonId} className="sr-only">Reason</span>';
+  assert.equal(reasonSpanViolations(`<div>${span}</div>`).violations.length, 1, 'unreferenced expression IDs must fail');
+  assert.equal(reasonSpanViolations('<span id="orphan" className="sr-only">Reason</span>').violations.length, 1,
+    'unreferenced literal IDs must fail');
+  for (const reference of ['aria-describedby', 'aria-labelledby', 'htmlFor']) {
+    assert.deepEqual(reasonSpanViolations(`<div><label ${reference}="other reason" /><span id="reason" className="sr-only">Reason</span></div>`).violations, []);
+    assert.deepEqual(reasonSpanViolations(`<div><label ${reference}={reasonId} />${span}</div>`).violations, []);
+  }
   for (const classes of ['"sr-only extra"', '{`sr-only ${extra}`}', '{blocked ? "sr-only" : "hidden"}', '{clsx("extra", "sr-only") }']) {
     const expressionSpan = span.replace('"sr-only"', classes);
     assert.equal(reasonSpanViolations(`<div>${control}${expressionSpan}</div>`).violations.length, 1);
@@ -928,7 +949,7 @@ test('incomplete auth and feedback form guards report specific errors before any
     [{ ...filled, email: '   ' }, 'Enter your email or username first.'],
     [{ ...filled, password: '' }, 'Password is required.'],
     [{ ...filled, isLogin: false, name: ' ' }, 'Name is required.'],
-    [{ ...filled, isLogin: false, username: ' ' }, 'Username is required'],
+    [{ ...filled, isLogin: false, username: ' ' }, 'Username is required.'],
     [{ ...filled, isLogin: false, email: '' }, 'Email address is required.'],
     [{ ...filled, isLogin: false }, 'Enter a valid email address.'],
     [{ ...filled, isLogin: false, email: 'a@b', password: '' }, 'Password is required.'],
@@ -1089,7 +1110,7 @@ test('form blockers map each inline error to its field while preserving message 
   const complete = { isLogin: false, name: 'Name', username: 'name', email: 'a@b', password: 'fixture' };
   for (const [changes, field, message] of [
     [{ name: ' ' }, 'name', 'Name is required.'],
-    [{ username: '' }, 'username', 'Username is required'],
+    [{ username: '' }, 'username', 'Username is required.'],
     [{ email: '' }, 'email', 'Email address is required.'],
     [{ email: 'invalid' }, 'email', 'Enter a valid email address.'],
     [{ password: '' }, 'password', 'Password is required.'],
@@ -1249,8 +1270,8 @@ test('reviewed icon buttons preserve coarse sizes and teal label contrast withou
     ['ControlPanel', /rounded-md bg-brand-teal text-\[#0d1117\] hover:bg-teal-600/],
     ['RecentGenerations', /rounded-lg bg-brand-teal text-\[#0d1117\] hover:opacity-90/],
   ]) assert.match(source(`components/${file}.tsx`), expected);
-  assert.equal((source('components/GalleryPresetMenu.tsx').match(/\? 'bg-brand-teal text-white'/g) || []).length, 2);
-  assert.match(studio, /w-6 h-6[^\n]*bg-brand-teal text-white/);
+  assert.equal((source('components/GalleryPresetMenu.tsx').match(/\? 'bg-brand-teal text-\[#0d1117\]'/g) || []).length, 2);
+  assert.match(studio, /w-6 h-6[^\n]*bg-brand-teal text-\[#0d1117\]/);
 });
 
 test('Add Marks keeps dark labels on enabled teal and readable labels in every disabled state', () => {
@@ -1277,4 +1298,125 @@ test('Add Marks keeps dark labels on enabled teal and readable labels in every d
   assert.ok(!enabled.includes('dark:bg-[#30363d]'));
   assert.ok(contrast('475569', 'd1d5db') >= 4.5, 'disabled light label contrast');
   assert.ok(contrast('cbd5e1', '30363d') >= 4.5, 'disabled dark label contrast');
+});
+
+test('round 3 icon controls have accessible names and exactly one shared Tip', () => {
+  const reviewed = [
+    ['App.tsx', ['Close setup instructions']],
+    ['components/AdminPage.tsx', ['Back']],
+    ['components/BuildStudio.tsx', ["playing ? 'Pause' : 'Play'"]],
+    ['components/ControlPanel.tsx', ['Pick a preset count', 'Remove prompt image style reference', 'Clear art direction']],
+    ['components/ImageDisplay.tsx', ['Close prompt editor', 'Previous (newer in history)', 'Next (older in history)', 'Move refine panel. Use arrow keys to move and Home to reset.']],
+    ['components/RecentGenerations.tsx', ['Cancel rename', "isCollapsed", 'Actions for ${folder.name}', 'Cancel']],
+    ['components/SearchModal.tsx', ['Clear search']],
+    ['components/WhatsNewPage.tsx', ['Back']],
+    ['components/WhatsNewSpotlight.tsx', ['Close']],
+    ['components/settings/SettingsFeedback.tsx', ['Dismiss notification']],
+  ];
+  let checked = 0;
+  for (const [file, labels] of reviewed) {
+    const tree = ts.createSourceFile(file, source(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const buttons = [];
+    const visit = node => {
+      if (ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button') buttons.push(node);
+      ts.forEachChild(node, visit);
+    };
+    visit(tree);
+    for (const label of labels) {
+      const matches = buttons.filter(node => node.openingElement.attributes.properties.some(prop =>
+        prop.name?.getText() === 'aria-label' && (ts.isStringLiteral(prop.initializer)
+          ? prop.initializer.text === label : prop.initializer.getText().includes(label))));
+      assert.ok(matches.length, `${file}: ${label}`);
+      for (const button of matches) {
+        assert.equal(button.children.filter(child => ts.isJsxSelfClosingElement(child) && child.tagName.getText() === 'Tip').length, 1, `${file}: ${label}`);
+        assert.doesNotMatch(button.getText(), /group-hover\/(?:tip|move):opacity/);
+        checked++;
+      }
+    }
+  }
+  assert.equal(checked, 19, '17 missing Tips and two hover-only replacements');
+});
+
+test('round 3 shared controls and stragglers retain coarse targets without changing fine-pointer dimensions', () => {
+  const coarse = '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
+  const reviewed = [
+    ['components/ImageDisplay.tsx', ['description', 'Close the comparison viewer', 'Close refine panel', 'Copy…', 'isGenerationDeleteArmed', 'Exit fullscreen (F or Esc)', 'Move refine panel. Use arrow keys to move and Home to reset.']],
+    ['components/ControlPanel.tsx', ['item.scope', 'Edit', 'isArmed', 'Close color picker', 'Clear art direction']],
+    ['App.tsx', ['View latest result', 'Dismiss generation status', 'Close setup instructions']],
+    ['components/AdminPage.tsx', ['Back']],
+    ['components/WhatsNewPage.tsx', ['Back']],
+    ['components/WhatsNewSpotlight.tsx', ['Close']],
+    ['components/SearchModal.tsx', ['Clear search']],
+    ['components/WhatsNewBell.tsx', ['hasUnread']],
+    ['components/BuildStudio.tsx', ['tip']],
+  ];
+  for (const [file, labels] of reviewed) {
+    const tree = ts.createSourceFile(file, source(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const buttons = [];
+    const visit = node => {
+      if (ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button') buttons.push(node);
+      ts.forEachChild(node, visit);
+    };
+    visit(tree);
+    for (const label of labels) {
+      const matches = buttons.filter(node => node.openingElement.attributes.properties.some(prop => prop.name?.getText() === 'aria-label'
+        && (ts.isStringLiteral(prop.initializer) ? prop.initializer.text === label
+          : /^[a-z]/.test(label) && prop.initializer.getText().includes(label))));
+      assert.ok(matches.length, `${file}: ${label}`);
+      for (const button of matches) assert.ok(button.openingElement.getText().includes(coarse), `${file}: ${label}`);
+    }
+  }
+  const settings = source('components/settings/SettingsPrimitives.tsx');
+  assert.equal(settings.split(coarse).length - 1, 1, 'SettingsButton owns coarse dimensions once');
+  const action = image.slice(image.indexOf('const ActionButton ='), image.indexOf('// Roman-numeral suffix'));
+  assert.equal(action.split(coarse).length - 1, 1, 'ActionButton owns coarse dimensions once');
+  const toast = source('components/settings/SettingsFeedback.tsx');
+  assert.match(toast, /min-h-11 min-w-11/);
+  assert.match(toast, /\[@media\(pointer:fine\)\]:min-h-8 \[@media\(pointer:fine\)\]:min-w-8/);
+  assert.doesNotMatch(toast, /sm:min-[hw]-8/);
+});
+
+test('round 3 overlays use documented tiers and selected teal labels use dark text', () => {
+  const control = source('components/ControlPanel.tsx');
+  assert.match(control, /margin: 0, zIndex: 60, overflowY/);
+  assert.match(control, /fixed z-\[500\] pointer-events-none w-72/);
+  assert.match(source('components/PresetHoverPreview.tsx'), /zIndex: 70/);
+  assert.match(source('components/settings/SettingsFeedback.tsx'), /fixed bottom-[^\n]+z-\[400\]/);
+  assert.match(design, /selected `bg-brand-teal text-\[#0d1117\]`/);
+  assert.match(design, /bg-brand-teal text-\[#0d1117\] text-\[11px\] font-bold shadow-lg/);
+  assert.match(studio, /style=\{\{ fontSize: 12, lineHeight: '24px' \}\}/);
+});
+
+test('round 3 feedback uses a short mobile label, accessible busy text and 44px actions', () => {
+  const text = source('components/FeedbackModal.tsx');
+  const tree = ts.createSourceFile('FeedbackModal.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let submit;
+  const visit = node => {
+    if (ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
+      && node.openingElement.attributes.properties.some(prop => prop.name?.getText() === 'type' && prop.initializer?.text === 'submit')) submit = node;
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  const compiled = ts.transpileModule(`return (${submit.getText()});`, { compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 } }).outputText;
+  for (const busy of [false, true]) {
+    const button = new Function('React', 'Send', 'busy', 'sendDisabled', 'sendReasonId', 'FOCUS_RING', compiled)(React, () => null, busy, false, 'reason', FOCUS_RING);
+    const markup = renderToStaticMarkup(button);
+    assert.equal(button.props['aria-label'], busy ? 'Sending feedback' : 'Send feedback');
+    assert.ok(button.props.className.includes('min-h-11'));
+    if (busy) assert.match(markup, /Sending…/);
+    else {
+      assert.match(markup, /class="sm:hidden">Send<\/span>/);
+      assert.match(markup, /class="hidden sm:inline">Send feedback<\/span>/);
+    }
+  }
+});
+
+test('round 3 responsive controls fit narrow screens without shrinking text', () => {
+  const control = source('components/ControlPanel.tsx');
+  assert.equal((control.match(/className="relative min-w-0 lg:shrink">\s*<DropdownButton/g) || []).length, 5);
+  assert.equal((control.match(/max-w-\[100px\] xl:max-w-\[160px\]/g) || []).length, 2);
+  assert.match(source('components/LandingPage.tsx'), /group mt-7 inline-flex w-full sm:w-auto whitespace-normal min-h-14/);
+  assert.match(source('App.tsx'), /className="text-sm font-semibold text-slate-900 dark:text-white">\s*Active Generations/);
+  assert.match(source('components/AuthModal.tsx'), /id=\{errorId\} role="alert" className="[^\n]*break-words/);
+  assert.match(source('components/AuthModal.tsx'), /setError\(err.message \|\| "Authentication failed\."\)/);
 });

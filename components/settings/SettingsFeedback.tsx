@@ -1,3 +1,4 @@
+import { Tip } from './Tip';
 import { FOCUS_RING } from '../../utils/focusRing';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -19,13 +20,13 @@ export function SettingsToast({ message, error, eventId }: { message: string; er
     return () => window.clearTimeout(timer);
   }, [eventId]);
   return createPortal(<div role="status" aria-live="polite" aria-atomic="true"
-    className="fixed bottom-[calc(env(safe-area-inset-bottom)+16px)] left-3 right-3 z-[500] sm:left-auto sm:right-5 sm:max-w-sm">
+    className="fixed bottom-[calc(env(safe-area-inset-bottom)+16px)] left-3 right-3 z-[400] sm:left-auto sm:right-5 sm:max-w-sm">
     {visible && <div className="flex items-start gap-3 rounded-lg border border-white/10 bg-black/90 p-3 text-[14px] text-white shadow-2xl">
       {error ? <AlertCircle size={20} className="shrink-0 text-red-400" /> : <CheckCircle size={20} className="shrink-0 text-brand-teal" />}
       <div className="min-w-0 flex-1"><span>{message}</span>
         {!error && message !== 'Settings saved successfully!' && <span className="block">Settings saved successfully!</span>}
       </div>
-      <button type="button" aria-label="Dismiss notification" onClick={() => setVisible(false)} className={`flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-white/10 sm:min-h-8 sm:min-w-8 ${FOCUS_RING}`}><X size={16} /></button>
+      <button type="button" aria-label="Dismiss notification" onClick={() => setVisible(false)} className={`flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-white/10 [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:min-w-8 ${FOCUS_RING}`}><X size={16} /><Tip text="Dismiss notification" /></button>
     </div>}
   </div>, document.body);
 }

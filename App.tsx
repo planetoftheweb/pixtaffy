@@ -4505,7 +4505,7 @@ const App: React.FC = () => {
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <Sparkles size={15} className="text-brand-teal shrink-0" />
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
                           Active Generations
                         </span>
                       </div>
@@ -4622,7 +4622,7 @@ const App: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => void handleRestoreFromHistory(job.latest!)}
-                                    className={`relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-brand-teal hover:border-brand-teal transition-colors ${FOCUS_RING}`}
+                                    className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-brand-teal hover:border-brand-teal transition-colors ${FOCUS_RING}`}
                                     aria-label="View latest result"
                                   >
                                     <ArrowRight size={14} />
@@ -4651,7 +4651,7 @@ const App: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => clearGenerationJob(job.id)}
-                                    className={`relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}
+                                    className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}
                                     aria-label="Dismiss generation status"
                                   >
                                     <X size={14} />
@@ -5073,10 +5073,11 @@ const App: React.FC = () => {
             <div className="relative p-5 sm:p-8">
               <button
                 onClick={() => setIsSetupModalOpen(false)}
-                className={`absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors ${FOCUS_RING}`}
+                className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors ${FOCUS_RING}`}
                 aria-label="Close setup instructions"
               >
                 <X size={18} />
+                <Tip text="Close setup instructions" />
               </button>
 
               <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-900/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-200">

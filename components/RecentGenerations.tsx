@@ -1370,6 +1370,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       aria-label="Cancel rename"
                     >
                       <XIcon size={14} />
+                      <Tip text="Cancel rename" />
                     </button>
                   </form>
                 );
@@ -1432,6 +1433,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                           isCollapsed ? '' : 'rotate-90'
                         }`}
                       />
+                      <Tip text={isCollapsed ? `Expand ${folder.name}` : `Collapse ${folder.name}`} />
                     </button>
                   ) : (
                     <span className="w-5 shrink-0" aria-hidden />
@@ -1526,6 +1528,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition ${FOCUS_RING}`}
                     >
                       <MoreVertical size={14} aria-hidden />
+                      <Tip text={`Actions for ${folder.name}`} />
                     </button>
                   </div>
                 </div>
@@ -1609,6 +1612,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   aria-label="Cancel"
                 >
                   <XIcon size={14} />
+                  <Tip text="Cancel" />
                 </button>
               </form>
             ) : (
@@ -2080,15 +2084,8 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               aria-label="Gallery pages"
               data-folder-menu
             >
-              {/* Rich tooltip mirrors the carousel-arrow style on the main
-                  preview (`ImageDisplay.tsx`): uppercase title + one-line
-                  description, anchored to the wrapper rather than to the
-                  button itself. Anchoring on the wrapper matters because
-                  `disabled:pointer-events-none` on the button suppresses
-                  `:hover` on the button when it's at an edge state — keeping
-                  the tooltip as a sibling under a parent group means the
-                  "Already on the first page" message still appears as the
-                  user hovers the disabled arrow. */}
+              {/* Shared portal Tips serve pointer and keyboard users. Existing
+                  cards retain the accessible descriptions at page edges. */}
               <div className="relative group/tip-prev">
                 <span className="relative inline-flex">
                 <button
@@ -2101,11 +2098,12 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 >
                   <ChevronLeft size={18} aria-hidden />
                 </button>
+                <Tip title="Previous page" text={galleryPage <= 1 ? 'Already on the first page.' : 'Page back through this folder.'} />
                 </span>
                 <div
                   id={`${unavailableId}-7-card`}
                   role="tooltip"
-                  className="pointer-events-none absolute top-full mt-2 left-0 w-56 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/tip-prev:opacity-100 group-focus-within/tip-prev:opacity-100 transition-opacity z-30"
+                  className="sr-only"
                 >
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Previous page</div>
                   <div className="text-[11px] leading-relaxed text-slate-100">
@@ -2145,11 +2143,12 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 >
                   <ChevronRight size={18} aria-hidden />
                 </button>
+                <Tip title="Next page" text={galleryPage >= galleryTotalPages ? 'Already on the last page.' : 'Page forward through this folder.'} />
                 </span>
                 <div
                   id={`${unavailableId}-8-card`}
                   role="tooltip"
-                  className="pointer-events-none absolute top-full mt-2 right-0 w-56 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/tip-next:opacity-100 group-focus-within/tip-next:opacity-100 transition-opacity z-30"
+                  className="sr-only"
                 >
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Next page</div>
                   <div className="text-[11px] leading-relaxed text-slate-100">
@@ -2737,6 +2736,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     aria-label={selectedIds.includes(gen.id) ? 'Deselect generation' : 'Select generation'}
                   >
                     {selectedIds.includes(gen.id) ? <CheckSquare size={20} /> : <Square size={20} />}
+                    <Tip text={selectedIds.includes(gen.id) ? 'Deselect generation' : 'Select generation'} />
                   </button>
                 </div>
               )}

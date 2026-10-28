@@ -2152,8 +2152,8 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     <button
                       type="button"
                       onClick={() => setSelectedStepId(null)}
-                      className={`group/tip relative w-6 h-6 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 rounded-full bg-brand-teal text-white font-bold text-center tabular-nums hover:bg-teal-600 transition-colors ${FOCUS_RING}`}
-                      style={{ fontSize: selectedIdx + 1 >= 10 ? 10 : 11, lineHeight: '24px' }}
+                      className={`group/tip relative w-6 h-6 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 rounded-full bg-brand-teal text-[#0d1117] font-bold text-center tabular-nums hover:bg-teal-600 transition-colors ${FOCUS_RING}`}
+                      style={{ fontSize: 12, lineHeight: '24px' }}
                     >
                       {selectedIdx + 1}
                       <Tip side="bottom" text={`Editing frame ${selectedIdx + 1} — click to finish`} />
@@ -2433,6 +2433,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                         <>
                           <button onClick={() => setPlaying((p) => !p)} className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-2 rounded-lg bg-brand-teal text-[#0d1117] hover:bg-teal-600 ${FOCUS_RING}`} aria-label={playing ? 'Pause' : 'Play'}>
                             {playing ? <Pause size={16} /> : <Play size={16} />}
+                            <Tip text={playing ? 'Pause' : 'Play'} />
                           </button>
                           <input
                             type="range" min={0} max={Math.max(1, total)} step={1} value={Math.min(timeMs, total)}
@@ -2823,7 +2824,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                         key={zf}
                         onClick={() => setBuild((b) => ({ ...b, defaultZoomFrom: zf as BuildZoomFrom }))}
                         aria-label={tip}
-                        className={`group/tip relative px-2 py-1 first:rounded-l-md last:rounded-r-md ${active ? 'bg-brand-teal text-[#0d1117]' : 'text-slate-400 hover:bg-[#21262d]'} ${FOCUS_RING}`}
+                        className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative px-2 py-1 first:rounded-l-md last:rounded-r-md ${active ? 'bg-brand-teal text-[#0d1117]' : 'text-slate-400 hover:bg-[#21262d]'} ${FOCUS_RING}`}
                       >
                         <Icon size={12} />
                         <Tip text={tip} />

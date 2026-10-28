@@ -247,7 +247,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                 onClick={() => onPresetSourceChange('global')}
                 className={`flex-1 px-2 py-2 text-[11px] font-semibold transition min-h-[44px] [@media(pointer:fine)]:min-h-0 ${
                   presetSource === 'global'
-                    ? 'bg-brand-teal text-white'
+                    ? 'bg-brand-teal text-[#0d1117]'
                     : 'bg-white dark:bg-[#161b22] text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-[#21262d]'
                 } ${FOCUS_RING}`}
               >
@@ -260,7 +260,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                 onClick={() => onPresetSourceChange('folder')}
                 className={`flex-1 px-2 py-2 text-[11px] font-semibold transition min-h-[44px] [@media(pointer:fine)]:min-h-0 ${
                   presetSource === 'folder'
-                    ? 'bg-brand-teal text-white'
+                    ? 'bg-brand-teal text-[#0d1117]'
                     : 'bg-white dark:bg-[#161b22] text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-[#21262d]'
                 } ${FOCUS_RING}`}
               >
