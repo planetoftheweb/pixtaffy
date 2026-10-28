@@ -10,8 +10,9 @@ import {
   getEffectiveFolderInstructions,
 } from '../services/folderTreeUtils';
 import { sanitizeSvg } from '../services/svgService';
-import { createBlobUrlFromImage } from '../services/imageSourceService';
-import { backfillImageCache, getCachedImageBlobUrl } from '../services/imageCache';
+import { createBlobUrlFromImage, getImagePayload } from '../services/imageSourceService';
+import { backfillImageCache, buildImageCacheKey, getCachedImageBlobUrl } from '../services/imageCache';
+import { CachedImage } from './CachedImage';
 import { getLatestVersion } from '../services/historyService';
 import {
   buildVersionDownload,
@@ -1132,6 +1133,16 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
   const getDisplayImageUrl = (gen: Generation): string => {
     const latestVersion = getLatestVersion(gen);
     return imageSrcById[gen.id] || latestVersion.imageUrl;
+  };
+
+  const getFallbackImageUrl = (gen: Generation): string | undefined => {
+    const version = getLatestVersion(gen);
+    const payload = getImagePayload({
+      imageUrl: version.imageUrl,
+      base64Data: version.imageData,
+      mimeType: version.mimeType,
+    });
+    return payload ? `data:${payload.mimeType};base64,${payload.base64Data}` : undefined;
   };
 
   const applyFallbackBlobUrl = (generationId: string, blobUrl: string) => {
@@ -2768,7 +2779,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     dangerouslySetInnerHTML={{ __html: sanitizeSvg(latestVersion.svgCode) }}
                   />
                 ) : (
-                  <img 
+                  <CachedImage
+                    cacheKey={buildImageCacheKey(gen.id, latestVersion.id)}
+                    fallbackSrc={getFallbackImageUrl(gen)}
                     src={getDisplayImageUrl(gen)} 
                     alt={gen.config.prompt} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -3135,7 +3148,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     dangerouslySetInnerHTML={{ __html: sanitizeSvg(latestVersion.svgCode) }}
                   />
                 ) : (
-                  <img
+                  <CachedImage
+                    cacheKey={buildImageCacheKey(gen.id, latestVersion.id)}
+                    fallbackSrc={getFallbackImageUrl(gen)}
                     src={imageUrl}
                     alt=""
                     className="block w-auto h-auto max-w-full max-h-full object-contain"

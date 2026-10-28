@@ -15,7 +15,7 @@ import type {
 import { CLEANUP_FOR_ANIMATION_PROMPT } from '../constants';
 import { useConfirmAction } from '../hooks/useConfirmAction';
 import { createBlobUrlFromImage } from '../services/imageSourceService';
-import { getCachedImageBlobUrl } from '../services/imageCache';
+import { buildImageCacheKey, fetchImageResponseByKey, getCachedImageBlobUrl } from '../services/imageCache';
 import {
   renderFrame, renderFrameFromState, frameStateAt, lerpFrameState, easeOut, sampleImageBackground,
   totalDurationMs, stepStartTimes, stepStopTimes,
@@ -236,8 +236,13 @@ async function loadBuildImage(
 
   // Remote: fetch to a same-origin blob (clean if CORS ok), else raw URL.
   if (version.imageUrl) {
+    let missing = false;
     try {
-      const res = await fetch(version.imageUrl);
+      const res = await fetchImageResponseByKey(buildImageCacheKey(generation.id, version.id), version.imageUrl);
+      if (!res) {
+        missing = true;
+        throw new Error('Image unavailable');
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       try {
@@ -246,6 +251,7 @@ async function loadBuildImage(
         setTimeout(() => URL.revokeObjectURL(url), 2000);
       }
     } catch {
+      if (missing) throw new Error('Image unavailable');
       return load(version.imageUrl, true);
     }
   }
@@ -704,7 +710,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
     return () => {
       cancelled = true;
     };
-  }, [generation.id, version.id]);
+  }, [generation.id, version.id, version.imageUrl]);
 
   // --- Recover a build from Firestore on a fresh browser/device ------------
   // Only checks Firestore when the LOCAL cache came up empty on mount (a
