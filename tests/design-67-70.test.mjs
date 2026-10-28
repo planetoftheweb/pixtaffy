@@ -322,8 +322,8 @@ test('coarse-pointer studio controls keep 44px targets at tablet widths and hide
   assert.equal(headerButtons.length, 4, 'check every header action, including disabled exports');
 });
 
-const stackQuery = '(max-width:767px), (max-width:1024px) and (orientation:portrait)';
-const sideQuery = '(min-width:1025px), (min-width:768px) and (orientation:landscape)';
+const stackQuery = '(max-width:767px), (max-width:1023px) and (orientation:portrait)';
+const sideQuery = '(min-width:1024px), (min-width:768px) and (orientation:landscape)';
 
 test('stack and side variants compile complete complementary media lists', async () => {
   const css = postcss.parse(source('index.css'));
@@ -355,7 +355,7 @@ test('stack and side variants compile complete complementary media lists', async
   for (const width of [320, 390, 767, 768, 800, 1023, 1024, 1025, 1280]) {
     for (const height of [width - 100, width, width + 100]) {
       const stacked = matches(stackQuery, width, height);
-      assert.equal(stacked, width <= 767 || (width <= 1024 && height >= width), `${width}x${height}`);
+      assert.equal(stacked, width <= 767 || (width <= 1023 && height >= width), `${width}x${height}`);
       assert.notEqual(stacked, matches(sideQuery, width, height), `${width}x${height}: no gap or overlap`);
     }
   }
@@ -400,7 +400,7 @@ test('stage stacks only when narrow or portrait without measuring its own height
   assert.match(studio, /window.addEventListener\('resize', measure\)/);
   assert.match(studio, /window.removeEventListener\('resize', measure\)/);
   for (const [width, height] of [[768, 600], [800, 600], [1023, 768], [1024, 768], [1024, 1366], [1025, 1366], [1280, 800], [768, 1024]]) {
-    const stacked = width <= 767 || (width <= 1024 && height >= width);
+    const stacked = width <= 767 || (width <= 1023 && height >= width);
     measure({ innerHeight: height, getComputedStyle: () => cs, matchMedia: query => {
       assert.equal(query, stackQuery);
       return { matches: stacked };
@@ -500,7 +500,7 @@ test('amber scan catches literal, multiline, hover and conditional combinations 
 
 test('design rules and every component class list keep white off amber, including armed confirms', () => {
   for (const rule of [
-    'Below md, or up to 1024px in portrait, the stage stacks above the panel and hugs its image; leftover height goes to the panel, never to empty space around the image. Landscape tablets stay side by side.',
+    'Below md, or below lg in portrait, the stage stacks above the panel and hugs its image; leftover height goes to the panel, never to empty space around the image. Landscape tablets stay side by side.',
     'Favorite star icon = amber-400 (icon only, never a fill behind text).',
     'bg-amber-500 text-[#0d1117] animate-pulse',
     'Amber backgrounds always take #0d1117 text; amber text/icons on photos need a solid dark chip behind them.',

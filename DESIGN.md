@@ -171,7 +171,7 @@ Radius map — smaller radius for smaller things:
   `flex-wrap` (with `sm:flex-nowrap` where one desktop row is wanted) for rows
   with tooltips, because `overflow-x-auto` clips them (see section 10).
   Check at 320, 390, 768 and 1280.
-- Below md, or up to 1024px in portrait, the stage stacks above the panel and hugs its image; leftover height goes to the panel, never to empty space around the image. Landscape tablets stay side by side.
+- Below md, or below lg in portrait, the stage stacks above the panel and hugs its image; leftover height goes to the panel, never to empty space around the image. Landscape tablets stay side by side.
 - Scrollbars: auto-hide overlay style (global in `index.css`) — transparent
   until the scroll area is hovered/focused. Long surfaces stay visually clean.
 
