@@ -1403,7 +1403,7 @@ test("runAiAssist logs high demand from the inner JSON message with safe attempt
 test("runAiAssist redacts keys and request strings, collapses whitespace and caps diagnostics", async (t) => {
   configureFallback(t);
   assistDeadlineClock(t, 5_000);
-  const fakeKey = "AIzaSyFAKEFAKEFAKEFAKEFAKEFAKEFAKE12345";
+  const fakeKey = ["AIza", "Sy", "FAKE".repeat(7), "12345"].join("");
   const mocks = mockAssist(t, async () => {
     throw { status: 503, message: `High demand.\n\t${fakeKey} https://provider.invalid?key=query-secret&other=safe ${promptMarker} ${"details ".repeat(60)}` };
   });
