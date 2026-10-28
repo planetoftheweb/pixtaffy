@@ -158,8 +158,8 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
       aria-expanded={Boolean(isActive)}
       className={`h-11 rounded-md flex items-center transition-colors group shrink-0 lg:shrink lg:min-w-0
         w-11 justify-center p-0
-        md:w-auto md:justify-start md:px-2.5 md:gap-2
-        xl:px-3 xl:gap-2.5
+        md:w-auto md:justify-start md:px-2 md:gap-1.5
+        xl:px-3 xl:gap-2
         ${
           disabled
             ? 'text-slate-500 dark:text-slate-300 cursor-not-allowed opacity-50'
@@ -178,14 +178,14 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         }`}
       />
       {/* Compact category label, md through lg (when there's no room for the full value). */}
-      <span className={`hidden md:inline xl:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
+      <span className={`hidden md:inline xl:hidden text-[12px] uppercase font-bold tracking-wide whitespace-nowrap ${
         isActive ? 'text-brand-teal' : `text-slate-600 dark:text-slate-300 ${disabled ? '' : 'group-hover:text-brand-teal'}`
       }`}>
         {subLabel}
       </span>
       {/* Selected value and optional stacked sublabel and palette, xl+ */}
       <div className="hidden xl:flex flex-col flex-1 min-w-0 text-left">
-        <span className="hidden xl:block text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
+        <span className="hidden xl:block whitespace-nowrap text-[12px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wide leading-none mb-0.5">
           {subLabel}
         </span>
         {typeof label === 'string' || typeof label === 'number' ? (
@@ -1312,7 +1312,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         });
         return (
             <div className="mb-2">
-                <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-gray-50 dark:bg-[#161b22] sticky top-0 z-10 border-b border-gray-100 dark:border-[#30363d]">
+                <div className="px-2 py-1 text-[12px] font-bold text-slate-400 uppercase tracking-wide bg-gray-50 dark:bg-[#161b22] sticky top-0 z-10 border-b border-gray-100 dark:border-[#30363d]">
                     {title}
                 </div>
                 {sortedItems.map((item: any) => {
@@ -1352,7 +1352,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                         {item.name || item.label}
                                     </span>
                                     {type === 'style' && item.description && (
-                                        <span className="text-[10px] text-slate-500 truncate pr-2">
+                                        <span className="text-[12px] text-slate-500 truncate pr-2">
                                             {item.description}
                                         </span>
                                     )}
@@ -1995,7 +1995,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   })();
 
   const inputClass = "w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-base rounded-lg p-3.5 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal transition-all placeholder-slate-400 dark:placeholder-slate-600";
-  const labelClass = "block text-xs md:text-sm font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1";
+  const labelClass = "block text-xs md:text-sm font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1";
 
   // Helper to render scope icon
   const ScopeIcon = ({ scope }: { scope?: string }) => {
@@ -2259,7 +2259,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     type="size" 
                     configKey="aspectRatio" 
                   />
-                  <div className="w-full text-left p-3 text-[11px] text-slate-500 border-t border-gray-200 dark:border-[#30363d] bg-gray-50 dark:bg-[#0d1117]">
+                  <div className="w-full text-left p-3 text-[12px] text-slate-500 border-t border-gray-200 dark:border-[#30363d] bg-gray-50 dark:bg-[#0d1117]">
                     {isSvgModel
                       ? 'SVG: all ratios available (mapped to viewBox).'
                       : selectedModel === 'openai-2' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare'
@@ -2310,7 +2310,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       <GitCompare size={15} className={compareModelsMode ? 'text-brand-teal' : 'text-slate-500'} />
                       <span>Compare models</span>
                     </span>
-                    <span className={`text-[11px] uppercase tracking-wider font-bold ${compareModelsMode ? 'text-brand-teal' : 'text-slate-400'}`}>
+                    <span className={`text-[12px] uppercase tracking-wide font-bold ${compareModelsMode ? 'text-brand-teal' : 'text-slate-400'}`}>
                       {compareModelsMode ? 'On' : 'Off'}
                     </span>
                     <Tip title="Multi-model generation" text="When two or more models are selected, each Generate click runs once per model and tags the results as a comparison batch." side="left" />
@@ -2331,7 +2331,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                           type="button"
                           onClick={() => setExpandedModelGroup(isExpanded ? null : groupName)}
                           aria-expanded={isExpanded}
-                          className="min-h-[44px] [@media(pointer:fine)]:min-h-0 w-full flex items-center gap-2 px-3 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-gray-50 dark:bg-[#0d1117] border-b border-gray-100 dark:border-[#30363d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                          className="min-h-[44px] [@media(pointer:fine)]:min-h-0 w-full flex items-center gap-2 px-3 py-2 text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide bg-gray-50 dark:bg-[#0d1117] border-b border-gray-100 dark:border-[#30363d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                         >
                           <ChevronDown
                             size={12}
@@ -2340,7 +2340,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                           <span>{groupName}</span>
                           <span className="ml-auto flex items-center gap-1.5 min-w-0 normal-case tracking-normal font-medium">
                             {checkedInGroup > 0 && (
-                              <span className="px-1.5 rounded-full bg-brand-teal/15 text-brand-teal text-[10px] font-bold">
+                              <span className="px-1.5 rounded-full bg-brand-teal/15 text-brand-teal text-[12px] font-bold">
                                 {checkedInGroup}
                               </span>
                             )}
@@ -2436,7 +2436,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               <span className="font-medium">{modelLabelMap[model.id] || model.name}</span>
                               {SITE_FUNDED_MODEL_MILLICREDITS[model.id] && (
                                 <span
-                                  className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-fuchsia-50 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200"
+                                  className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-fuchsia-50 px-1.5 py-0.5 text-[12px] font-bold text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200"
                                   aria-label={`${SITE_FUNDED_MODEL_MILLICREDITS[model.id] / 1_000} PixTaffy credits`}
                                 >
                                   {SITE_FUNDED_MODEL_MILLICREDITS[model.id] / 1_000}
@@ -2449,13 +2449,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     );
                   })}
                   {compareModelsMode && (
-                    <div className="px-3 py-2 text-[11px] text-slate-500 dark:text-slate-400 bg-gray-50 dark:bg-[#0d1117] border-t border-gray-100 dark:border-[#30363d]">
+                    <div className="px-3 py-2 text-[12px] text-slate-500 dark:text-slate-400 bg-gray-50 dark:bg-[#0d1117] border-t border-gray-100 dark:border-[#30363d]">
                       {effectiveSelectedModelIds.length < 2
                         ? 'Pick a second model to compare.'
                         : `Each Generate click will run ${effectiveSelectedModelIds.length} times — once per model.`}
                     </div>
                   )}
-                  <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-[11px] text-slate-600 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-400">
+                  <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-[12px] text-slate-600 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-400">
                     Number = PixTaffy credit cost; your own key is free. No number = own key required.
                   </div>
                 </ToolbarPanel>
@@ -2475,7 +2475,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     <div className="font-semibold">{modelTip.name}</div>
                     <div className="mt-0.5 text-white/70">{modelTip.description}</div>
                     {modelTip.creditCost !== undefined && (
-                      <div className="mt-2 border-t border-white/15 pt-2 text-[11px] font-semibold text-fuchsia-200">
+                      <div className="mt-2 border-t border-white/15 pt-2 text-[12px] font-semibold text-fuchsia-200">
                         {modelTip.creditCost} PixTaffy {modelTip.creditCost === 1 ? 'credit' : 'credits'} with PixTaffy billing. Free with your own key.
                       </div>
                     )}
@@ -2623,10 +2623,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       <div className="px-3 py-2 border-b border-gray-100 dark:border-[#30363d] bg-brand-teal/5">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-teal">
+                            <span className="block text-[12px] font-bold uppercase tracking-wide text-brand-teal">
                               Art direction active
                             </span>
-                            <p className="mt-0.5 text-[11px] leading-snug text-slate-600 dark:text-slate-300 line-clamp-3">
+                            <p className="mt-0.5 text-[12px] leading-snug text-slate-600 dark:text-slate-300 line-clamp-3">
                               {config.customInstructions}
                             </p>
                           </div>
@@ -2637,7 +2637,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                             aria-label="Clear art direction"
                           >
                             <X size={13} />
-                            <span className="pointer-events-none absolute -top-8 right-0 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity">
+                            <span className="pointer-events-none absolute -top-8 right-0 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity">
                               Stop applying these instructions
                             </span>
                           </button>
@@ -2648,7 +2648,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       {presets.length === 0 ? (
                         <div className="px-3 py-6 text-center text-xs text-slate-500">
                           No saved presets yet.
-                          <div className="mt-1 text-[11px] text-slate-400">
+                          <div className="mt-1 text-[12px] text-slate-400">
                             Save your current toolbar setup to recall it later.
                           </div>
                         </div>
@@ -2722,7 +2722,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                       {preset.name}
                                     </span>
                                     <span
-                                      className={`text-[10px] truncate ${
+                                      className={`text-[12px] truncate ${
                                         isApplied
                                           ? 'text-brand-teal/80 dark:text-brand-teal/80'
                                           : 'text-slate-500'
@@ -2765,7 +2765,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
                     {isNamingPreset ? (
                       <div className="border-t border-gray-200 dark:border-[#30363d] p-3 space-y-2 bg-gray-50 dark:bg-[#0d1117]">
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <label className="block text-[12px] font-bold uppercase tracking-wide text-slate-500">
                           Preset name
                         </label>
                         <input
@@ -2792,7 +2792,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                           className="w-full bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-sm rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal"
                           maxLength={60}
                         />
-                        <label className="block pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <label className="block pt-1 text-[12px] font-bold uppercase tracking-wide text-slate-500">
                           Art direction (optional)
                         </label>
                         <textarea
@@ -2813,7 +2813,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                           className="w-full bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] text-slate-900 dark:text-white text-xs rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal focus:border-brand-teal resize-none"
                         />
                         {presetError && (
-                          <p className="text-[11px] text-red-500" role="alert">{presetError}</p>
+                          <p className="text-[12px] text-red-500" role="alert">{presetError}</p>
                         )}
                         <div className="flex gap-2 pt-1">
                           <button
@@ -3272,7 +3272,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               {expandButtonDisabled && <span id={modalExpandReasonId} className="sr-only">{expandButtonTitle}</span>}
               </span>
               <div className="flex items-center gap-2">
-                <span className="hidden sm:inline text-[11px] text-slate-400 dark:text-slate-500">
+                <span className="hidden sm:inline text-[12px] text-slate-400 dark:text-slate-500">
                   Esc to close - Cmd/Ctrl+Enter to generate
                 </span>
                 <button
@@ -3336,7 +3336,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <span>Generate content prompt</span>
                   {isPromptImageAnalyzing && <Loader2 size={14} className="animate-spin" />}
                 </button>
-                <p className="px-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                <p className="px-1 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
                   Describes only subjects, objects, visible text, and meaning. Menus still drive layout, style, palette, and size.
                 </p>
 
@@ -3348,7 +3348,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     className="min-h-11 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] px-3 py-2 text-left text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-brand-teal hover:text-brand-teal disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Use image style
-                    <span className="mt-1 block text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                    <span className="mt-1 block text-[12px] font-normal text-slate-500 dark:text-slate-400">
                       Image style overrides the Style menu.
                     </span>
                   </button>
@@ -3359,7 +3359,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     className="min-h-11 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] px-3 py-2 text-left text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-brand-teal hover:text-brand-teal disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Keep menu style
-                    <span className="mt-1 block text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                    <span className="mt-1 block text-[12px] font-normal text-slate-500 dark:text-slate-400">
                       Style menu overrides the image.
                     </span>
                   </button>
@@ -3387,7 +3387,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               </button>
             )}
             {user && (
-              <p className="px-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+              <p className="px-1 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
                 Extracts brand colors, visual styles, and other identity cues you can save to your brand library.
               </p>
             )}
@@ -3437,7 +3437,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                         Click or Drag & Drop Image
                      </span>
-                     <p className="text-[10px] text-slate-400">
+                     <p className="text-[12px] text-slate-400">
                        Auto-extract {modalType === 'style' ? 'style description' : 'colors'}
                      </p>
                    </>
@@ -3571,7 +3571,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                            key={format}
                            type="button"
                            onClick={() => handlePickerFormatChange(format)}
-                           className={`px-2 py-1 text-[10px] font-semibold transition-colors ${
+                           className={`px-2 py-1 text-[12px] font-semibold transition-colors ${
                              pickerFormat === format
                                ? 'bg-brand-teal/15 text-brand-teal'
                                : 'bg-white dark:bg-[#0d1117] text-slate-500 dark:text-slate-300 hover:text-brand-teal'
@@ -3595,14 +3595,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                          placeholder="#0B4F6C, rgb(...), hsl(...), teal"
                          className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-teal text-slate-900 dark:text-white"
                        />
-                       <span className={`absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-md border text-[9px] font-bold ${formatBadgeClassMap[pickerFormat]}`}>
+                       <span className={`absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-md border text-[12px] font-bold ${formatBadgeClassMap[pickerFormat]}`}>
                          {pickerFormat}
                        </span>
                      </div>
                      <button
                        type="button"
                        onClick={applyPickerInput}
-                       className="px-2.5 py-1.5 rounded-lg bg-brand-teal/15 text-brand-teal border border-brand-teal/40 text-[10px] font-semibold hover:bg-brand-teal/25 transition-colors shrink-0"
+                       className="px-2.5 py-1.5 rounded-lg bg-brand-teal/15 text-brand-teal border border-brand-teal/40 text-[12px] font-semibold hover:bg-brand-teal/25 transition-colors shrink-0"
                      >
                        Apply
                      </button>
@@ -3611,7 +3611,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                )}
 
                <div className="mt-3">
-                 <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">
+                 <label className="block text-[12px] font-bold uppercase tracking-wide text-slate-500 mb-1">
                    Paste Colors (JSON or YAML)
                  </label>
                  <textarea
@@ -3623,7 +3623,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                  <button
                    type="button"
                    onClick={handleImportColorList}
-                   className="mt-2 inline-flex items-center gap-1 rounded-md border border-gray-200 dark:border-[#30363d] px-2 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                   className="mt-2 inline-flex items-center gap-1 rounded-md border border-gray-200 dark:border-[#30363d] px-2 py-1 text-[12px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
                  >
                    <UploadCloud size={12} />
                    Import Colors
@@ -3631,20 +3631,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                </div>
 
                <div className="mt-3 flex items-center justify-between gap-2">
-                 <p className="text-[10px] text-slate-400">
+                 <p className="text-[12px] text-slate-400">
                    Use the picker or enter hex, rgb, hsl, or named colors.
                  </p>
                  <button
                    type="button"
                    onClick={handleCopyPaletteYaml}
-                   className="inline-flex items-center gap-1 rounded-md border border-gray-200 dark:border-[#30363d] px-2 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                   className="inline-flex items-center gap-1 rounded-md border border-gray-200 dark:border-[#30363d] px-2 py-1 text-[12px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
                  >
                    <Copy size={12} />
                    Copy YAML
                  </button>
                </div>
                {paletteCopyMessage && (
-                 <p className="text-[10px] text-brand-teal mt-1">{paletteCopyMessage}</p>
+                 <p className="text-[12px] text-brand-teal mt-1">{paletteCopyMessage}</p>
                )}
             </div>
           )}

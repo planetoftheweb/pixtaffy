@@ -56,7 +56,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         <div className="mx-auto grid max-w-[1500px] items-center gap-10 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[0.88fr_1.12fr] lg:px-12 lg:py-24 xl:gap-16">
           <div className="relative z-10 max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand-purple/25 bg-white/75 px-3.5 py-2 text-xs font-black uppercase tracking-[0.16em] text-brand-purple shadow-none backdrop-blur dark:border-brand-cyan/30 dark:bg-white/5 dark:text-brand-cyan">
+            <div className="inline-flex items-center gap-2 rounded-full border border-brand-purple/25 bg-white/75 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-brand-purple shadow-none backdrop-blur dark:border-brand-cyan/30 dark:bg-white/5 dark:text-brand-cyan">
               <Sparkles size={14} />
               Your brand&apos;s new creative crew
             </div>
@@ -112,12 +112,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 alt="The PixTaffy candy crew making colorful artwork in their creative studio"
                 className="aspect-video h-auto w-full object-cover"
               />
-              <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-2xl border border-white/20 bg-[#0b1020]/78 px-4 py-3 text-white shadow-xl backdrop-blur-md sm:inset-x-6 sm:bottom-6 sm:px-5">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.17em] text-brand-cyan sm:text-xs">Creative crew at work</p>
-                  <p className="truncate text-sm font-bold sm:text-base">Prompt. Generate. Refine. Build.</p>
+              <div className="absolute inset-x-2 bottom-2 flex min-w-0 items-center justify-between gap-1 rounded-2xl border border-white/20 bg-[#0b1020]/78 px-2 py-2 text-white shadow-xl backdrop-blur-md sm:inset-x-6 sm:bottom-6 sm:gap-3 sm:px-5 sm:py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="whitespace-nowrap text-[12px] font-black uppercase tracking-wide text-brand-cyan sm:text-xs">Creative crew at work</p>
+                  <p className="whitespace-normal text-sm font-bold sm:text-base">Prompt. Generate. Refine. Build.</p>
                 </div>
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-orange to-brand-pink shadow-[0_10px_15px_-3px_rgba(0,0,0,0.35)]">
+                <div className="flex h-8 w-8 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-orange to-brand-pink shadow-[0_10px_15px_-3px_rgba(0,0,0,0.35)]">
                   <Zap size={19} fill="currentColor" />
                 </div>
               </div>
@@ -150,7 +150,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
         <div className="mx-auto max-w-[1500px]">
           <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-purple dark:text-brand-cyan">One playful studio, a lot less juggling</p>
+            <p className="text-xs font-black uppercase tracking-wide text-brand-purple dark:text-brand-cyan">One playful studio, a lot less juggling</p>
             <h2 className="pixtaffy-display mt-4 text-balance text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Your ideas stay loose. Your brand stays together.</h2>
             <p className="mt-5 text-lg leading-8 text-slate-700 dark:text-slate-300">
               The great thing is you can explore without rebuilding the brief every time. PixTaffy keeps the creative decisions close while you try new directions.
@@ -169,7 +169,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="relative mx-auto max-w-[1500px]">
           <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-cyan">From blank prompt to finished piece</p>
+              <p className="text-xs font-black uppercase tracking-wide text-brand-cyan">From blank prompt to finished piece</p>
               <h2 className="pixtaffy-display mt-4 text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Three steps. Plenty of room to play.</h2>
             </div>
             <p className="max-w-2xl text-lg leading-8 text-slate-300 lg:justify-self-end">
@@ -192,7 +192,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <section className="px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
         <div className="mx-auto grid max-w-[1500px] gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-red dark:text-brand-cyan">Try the whole idea before you commit</p>
+            <p className="text-xs font-black uppercase tracking-wide text-brand-red dark:text-brand-cyan">Try the whole idea before you commit</p>
             <h2 className="pixtaffy-display mt-4 text-balance text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Three guest credits. No account required.</h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700 dark:text-slate-300">
               Start with GPT Image 2.5, then use the credit left over on a Standard model. Create an account and verify your email for 10 starter credits, or bring your own image-generation key and keep creating free.
@@ -207,7 +207,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             ].map((item) => (
               <div key={item.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-none dark:border-white/10 dark:bg-[#111827]">
                 <div className={`h-2 w-16 rounded-full bg-gradient-to-r ${item.color}`} />
-                <p className="mt-5 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{item.label}</p>
+                <p className="mt-5 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{item.label}</p>
                 <p className="pixtaffy-counter mt-2 text-2xl font-extrabold">{item.value}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{item.copy}</p>
               </div>
@@ -219,7 +219,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <section className="px-5 pb-20 sm:px-8 lg:px-12 lg:pb-28">
         <div className="relative mx-auto max-w-[1500px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#ff711f] via-[#eb2d65] to-[#8d32df] px-6 py-10 text-white shadow-2xl shadow-brand-pink/20 sm:px-10 sm:py-12 lg:grid lg:grid-cols-[1fr_0.9fr] lg:items-center lg:px-14 lg:py-14">
           <div className="relative z-10 max-w-2xl">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-white/75">The crew saved you a seat</p>
+            <p className="text-xs font-black uppercase tracking-wide text-white/75">The crew saved you a seat</p>
             <h2 className="pixtaffy-display mt-4 text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl sm:font-black">Give PixTaffy one idea. Watch the crew get to work.</h2>
             <p className="mt-4 max-w-xl text-lg leading-8 text-white/85">
               Your three guest credits are ready and anything you make stays in this browser. Download it anytime, or create a free account to save it in the cloud and open it on your other devices.

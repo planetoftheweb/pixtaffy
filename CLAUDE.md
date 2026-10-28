@@ -1,5 +1,8 @@
 # BranDolt – Developer Notes
 
+All rendered text has a hard 12px minimum. Use `text-[12px] font-semibold`
+for micro-copy and `text-[12px] font-bold uppercase tracking-wide` for micro section labels.
+
 ## UI design principles (Ray's taste — follow these for any new UI)
 
 Minimal, direct-manipulation interfaces. Every control must earn its pixels.

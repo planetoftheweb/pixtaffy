@@ -783,10 +783,10 @@ test('reviewed buttons use rounded-lg and auth copy follows Log in and Log out s
   assert.doesNotMatch(authServiceCopy, /could not sign you in|Email log in is|Failed to login\./);
 });
 
-test('Login is the noun and log in the verb; eyebrow labels keep 11px and 10px; AuthModal Close is disabled while busy', () => {
+test('Login is the noun and log in the verb; eyebrow labels use the 12px floor; AuthModal Close is disabled while busy', () => {
   const panel = readFileSync(new URL('../components/ControlPanel.tsx', import.meta.url), 'utf8');
-  assert.match(panel, /hidden md:inline xl:hidden text-\[11px\] uppercase font-bold/);
-  assert.match(panel, /hidden xl:block text-\[10px\] uppercase font-bold/);
+  assert.match(panel, /hidden md:inline xl:hidden text-\[12px\] uppercase font-bold/);
+  assert.match(panel, /hidden xl:block whitespace-nowrap text-\[12px\] uppercase font-bold/);
   assert.ok(panel.includes("'Expanding prompt\u2026'") || panel.includes("'Expanding prompt…'"));
   assert.doesNotMatch(panel, /Expanding prompt\.\.\./);
   const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');

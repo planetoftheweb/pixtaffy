@@ -1956,7 +1956,7 @@ ${version.svgCode}
                           ? 'Close the comparison viewer'
                           : 'Open compare: click two marks (or Shift-click to pick without toggling)'
                     }
-                    className={`group/tip sticky top-0 z-10 -mx-2 -mt-2 mb-1 px-2 py-1.5 flex items-center gap-1.5 justify-center text-xs font-bold uppercase tracking-wider border-b transition-all ${
+                    className={`group/tip sticky top-0 z-10 -mx-2 -mt-2 mb-1 px-2 py-1.5 flex items-center gap-1.5 justify-center text-xs font-bold uppercase tracking-wide border-b transition-all ${
                       isCompareMode || isComparing
                         ? 'opacity-100 bg-brand-teal text-white border-brand-teal hover:bg-brand-teal/90'
                         : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 bg-gray-100 dark:bg-[#161b22] text-slate-600 dark:text-slate-300 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal/10 hover:text-brand-teal hover:border-brand-teal/40'
@@ -2080,7 +2080,7 @@ ${version.svgCode}
                         <div className="w-full h-full bg-gray-100 dark:bg-[#161b22]" />
                       )}
                       {pickSide && (
-                        <span className="absolute top-1 left-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 text-[10px] font-bold text-slate-900 shadow">
+                        <span className="absolute top-1 left-1 inline-flex items-center justify-center min-w-5 h-5 rounded-full bg-amber-400 text-[12px] font-bold text-slate-900 shadow">
                           {pickSide.toUpperCase()}
                         </span>
                       )}
@@ -2276,7 +2276,7 @@ ${version.svgCode}
                           role="status"
                           aria-live="polite"
                           aria-label={`Hold ${heldDigit}: next click adds ${heldDigit} Marks`}
-                          className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 min-w-6 h-6 px-1.5 inline-flex items-center justify-center rounded-full bg-brand-teal text-white text-[11px] font-bold shadow-lg ring-2 ring-white dark:ring-[#0d1117] tabular-nums animate-in zoom-in-50 duration-150"
+                          className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 min-w-6 h-6 px-1.5 inline-flex items-center justify-center rounded-full bg-brand-teal text-white text-[12px] font-bold shadow-lg ring-2 ring-white dark:ring-[#0d1117] tabular-nums animate-in zoom-in-50 duration-150"
                         >
                           ×{heldDigit}
                         </span>
@@ -2352,7 +2352,7 @@ ${version.svgCode}
                         <span className={`text-xs font-semibold ${isCommitted ? 'text-brand-teal' : 'text-slate-700 dark:text-slate-200'}`}>
                           {v.label}
                         </span>
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                        <span className="text-[12px] uppercase tracking-wide text-slate-400">
                           {v.type === 'refinement' ? 'Refinement' : 'Original'}
                         </span>
                       </div>
@@ -2398,20 +2398,20 @@ ${version.svgCode}
                     className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 w-60 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/arrowBtn:opacity-100 group-focus-within/arrowBtn:opacity-100 transition-opacity z-30"
                     role="tooltip"
                   >
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Previous generation</div>
-                    <div className="text-[11px] leading-relaxed text-slate-100 mb-2">
+                    <div className="text-[12px] font-bold uppercase tracking-wide text-slate-400 mb-1">Previous generation</div>
+                    <div className="text-[12px] leading-relaxed text-slate-100 mb-2">
                       {canGoNewer ? 'Step back to the previous tile in your history.' : 'No newer generation in history.'}
                     </div>
-                    <div className="pt-2 border-t border-white/10 space-y-1 text-[11px] text-slate-300">
+                    <div className="pt-2 border-t border-white/10 space-y-1 text-[12px] text-slate-300">
                       <div className="flex items-center gap-2">
-                        <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">←</kbd>
-                        <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">→</kbd>
+                        <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">←</kbd>
+                        <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">→</kbd>
                         <span>switch generations</span>
                       </div>
                       {hasMultipleVersions && (
                         <div className="flex items-center gap-2">
-                          <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">↑</kbd>
-                          <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">↓</kbd>
+                          <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">↑</kbd>
+                          <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">↓</kbd>
                           <span>cycle Marks</span>
                         </div>
                       )}
@@ -2432,20 +2432,20 @@ ${version.svgCode}
                     className="pointer-events-none absolute right-full mr-3 top-1/2 -translate-y-1/2 w-60 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/arrowBtn:opacity-100 group-focus-within/arrowBtn:opacity-100 transition-opacity z-30"
                     role="tooltip"
                   >
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Next generation</div>
-                    <div className="text-[11px] leading-relaxed text-slate-100 mb-2">
+                    <div className="text-[12px] font-bold uppercase tracking-wide text-slate-400 mb-1">Next generation</div>
+                    <div className="text-[12px] leading-relaxed text-slate-100 mb-2">
                       {canGoOlder ? 'Step forward to the next tile in your history.' : 'No older generation in history.'}
                     </div>
-                    <div className="pt-2 border-t border-white/10 space-y-1 text-[11px] text-slate-300">
+                    <div className="pt-2 border-t border-white/10 space-y-1 text-[12px] text-slate-300">
                       <div className="flex items-center gap-2">
-                        <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">←</kbd>
-                        <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">→</kbd>
+                        <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">←</kbd>
+                        <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">→</kbd>
                         <span>switch generations</span>
                       </div>
                       {hasMultipleVersions && (
                         <div className="flex items-center gap-2">
-                          <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">↑</kbd>
-                          <kbd className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[10px] font-mono">↓</kbd>
+                          <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">↑</kbd>
+                          <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">↓</kbd>
                           <span>cycle Marks</span>
                         </div>
                       )}
@@ -2454,7 +2454,7 @@ ${version.svgCode}
                 </div>
                 {/* Position counter — small, unobtrusive label so users know
                     where they are in the history without scrolling down. */}
-                <div className="hidden sm:flex absolute bottom-3 left-1/2 -translate-x-1/2 z-20 items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-black/60 text-white backdrop-blur-sm shadow opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition pointer-events-none group-data-[dragging=true]:!opacity-0 group-data-[idle=true]:!opacity-0">
+                <div className="hidden sm:flex absolute bottom-3 left-1/2 -translate-x-1/2 z-20 items-center gap-1 px-2 py-1 whitespace-nowrap rounded-full text-[12px] font-semibold bg-black/60 text-white backdrop-blur-sm shadow opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition pointer-events-none group-data-[dragging=true]:!opacity-0 group-data-[idle=true]:!opacity-0">
                   {currentIdxInHistory + 1} / {history.length}
                 </div>
               </>
@@ -2507,7 +2507,7 @@ ${version.svgCode}
               aria-label={`${version.label} is starred as the best Mark`}
             >
               <Star size={12} strokeWidth={2.5} className="text-amber-400 fill-current" />
-              <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
+              <span className="text-[12px] font-bold uppercase tracking-wide leading-none">
                 Best
               </span>
               <Tip text={`${version.label} is starred as the best Mark - press S to unstar`} side="top" align="right" />
@@ -2519,7 +2519,7 @@ ${version.svgCode}
             <div className="absolute right-4 bottom-4 z-10 animate-in fade-in slide-in-from-bottom-2 duration-150">
               <div className="bg-black/80 backdrop-blur-sm text-white rounded-lg max-w-[420px] max-h-[220px] flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between px-3 pt-2 pb-1 shrink-0">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Details</span>
+                  <span className="text-[12px] font-bold uppercase tracking-wide text-slate-400">Details</span>
                   <button onClick={() => setInfoVisible(false)} className="p-0.5 hover:text-brand-teal transition-colors">
                     <X size={14} />
                   </button>
@@ -2657,7 +2657,7 @@ ${version.svgCode}
                         type="button"
                         onClick={onExitComparePicker}
                         aria-label="Cancel compare"
-                        className="group/tip relative ml-1 text-xs uppercase tracking-wider font-bold text-brand-teal/80 hover:text-brand-teal underline-offset-2 hover:underline shrink-0"
+                        className="group/tip relative ml-1 text-xs uppercase tracking-wide font-bold text-brand-teal/80 hover:text-brand-teal underline-offset-2 hover:underline shrink-0"
                       >
                         Cancel
                         <Tip text="Cancel compare" side="top" align="right" />
@@ -2705,18 +2705,18 @@ ${version.svgCode}
                   {!versionDropdownOpen && (
                     <div className="pointer-events-none absolute top-full left-0 mt-2 w-60 origin-top-left rounded-xl bg-black/90 text-white shadow-xl ring-1 ring-white/10 px-3 py-2.5 opacity-0 group-hover/version:opacity-100 transition-opacity duration-150 z-30">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Version</span>
-                        <span className="text-[10px] font-mono text-slate-400">
+                        <span className="text-[12px] font-bold uppercase tracking-wide text-slate-400">Version</span>
+                        <span className="text-[12px] font-mono text-slate-400">
                           {(generation.currentVersionIndex ?? 0) + 1} / {generation.versions.length}
                         </span>
                       </div>
                       <div className="text-sm font-semibold">{version.label}</div>
                       {version.type === 'refinement' && version.refinementPrompt && (
-                        <div className="mt-1 text-[11px] leading-snug text-amber-200 line-clamp-3">
+                        <div className="mt-1 text-[12px] leading-snug text-amber-200 line-clamp-3">
                           Refined: {version.refinementPrompt}
                         </div>
                       )}
-                      <div className="mt-2 pt-2 border-t border-white/10 text-[10px] text-slate-400">
+                      <div className="mt-2 pt-2 border-t border-white/10 text-[12px] text-slate-400">
                         Click to switch versions
                       </div>
                     </div>
@@ -2888,11 +2888,11 @@ ${version.svgCode}
                             className="group/move relative h-7 w-7 shrink-0 touch-none cursor-grab active:cursor-grabbing inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-gray-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-teal/70 dark:text-slate-500 dark:hover:bg-[#21262d] dark:hover:text-slate-200"
                           >
                             <GripVertical size={14} />
-                            <span className="pointer-events-none absolute top-full left-0 z-20 mt-2 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[11px] font-medium normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity group-hover/move:opacity-100 group-focus/move:opacity-100">
+                            <span className="pointer-events-none absolute top-full left-0 z-20 mt-2 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[12px] font-medium normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity group-hover/move:opacity-100 group-focus/move:opacity-100">
                               Drag to move · double-click to reset
                             </span>
                           </button>
-                          <span className="inline-flex items-center gap-1.5 truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          <span className="inline-flex items-center gap-1.5 truncate text-[12px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             <Wand2 size={12} className="shrink-0 text-brand-teal" />
                             Refine &amp; Recompose
                           </span>
@@ -2956,7 +2956,7 @@ ${version.svgCode}
                         {recomposeDisabled && <span id={`${disabledTipId}-recompose`} className="sr-only">{recomposeTip}</span>}
                         </span>
                       </div>
-                      <div className="px-1 pb-2 text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2">
+                      <div className="px-1 pb-2 text-[12px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2">
                         <span>
                           Current size: <span className="text-slate-700 dark:text-slate-300 font-medium">{resizeSourceLabel}</span>
                         </span>
@@ -3420,7 +3420,7 @@ ${version.svgCode}
                 <h3 id="rerun-prompt-modal-title" className="text-base font-semibold text-slate-900 dark:text-white">
                   Add Marks — re-roll the prompt
                 </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Generates fresh takes from this brief — the model is free to rethink layout, palette, and composition.
                 </p>
               </div>
@@ -3466,7 +3466,7 @@ ${version.svgCode}
                   ))}
                 </span>
               </label>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[12px] text-slate-500 dark:text-slate-400">
                 Esc to close · Cmd/Ctrl+Enter to submit · Tip: hold 1-9 while clicking <kbd className="font-mono px-1 rounded bg-gray-100 dark:bg-[#21262d]">+</kbd> to skip this editor.
               </p>
             </div>
@@ -3652,7 +3652,7 @@ ${version.svgCode}
           {/* Bottom hint strip. Lists the keyboard map so the gesture set is
               learnable without a separate help dialog. */}
           <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 py-3 flex justify-center bg-gradient-to-t from-black/60 via-black/30 to-transparent">
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-medium text-white/70">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[12px] font-medium text-white/70">
               <span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/90">←</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/90">→</kbd> navigate</span>
               {canCycleVersions && (
                 <span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/90">↑</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/90">↓</kbd> marks</span>
@@ -3669,7 +3669,7 @@ ${version.svgCode}
             cursor-idle so a still pointer (and now a still hint) both fade
             together — moving the mouse brings everything back. */}
         {hideChromeInFullscreen && isFullscreenCursorVisible && (
-          <div className="pointer-events-none absolute bottom-3 right-3 text-[10px] font-medium uppercase tracking-wider text-white/30">
+          <div className="pointer-events-none absolute bottom-3 right-3 text-[12px] font-medium uppercase tracking-wide text-white/30">
             Press H to show UI
           </div>
         )}

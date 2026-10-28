@@ -544,7 +544,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
           {/* LEFT COLUMN: API Key */}
           <div className="min-w-0">
             <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 space-y-3">
-              <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-2">
                 <Key size={14} /> API Configuration
               </h4>
 
@@ -574,7 +574,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
               {hasOpenRouterKey && (
                 <details className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
                   <summary className="cursor-pointer">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
                       OpenRouter models
                     </span><Tip text="Choose which OpenRouter models appear in the studio." /></summary>
                     <p className="mt-1 text-xs text-slate-500">
@@ -679,7 +679,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   <SettingsButton
                     type="button"
                     onClick={() => setShowOverrides((v) => !v)}
-                    className="w-full flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                    className="w-full flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wide hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                     aria-expanded={showOverrides}
                   >
                     <span>Advanced: per-model overrides (optional)</span>
@@ -723,7 +723,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                 </p>
                 {freshToken && (
                   <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-2.5 space-y-1.5">
-                    <p className="text-[12px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    <p className="text-[12px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
                       Copy this token now - it won't be shown again
                     </p>
                     <code className="block break-all text-[12px] text-slate-800 dark:text-slate-100">{freshToken}</code>
@@ -799,7 +799,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
               </details>
 
               <div className="space-y-2 pt-3 border-t border-gray-200 dark:border-[#30363d]">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">
                   System Prompt (applied to generations)
                 </label>
                 <textarea
@@ -823,7 +823,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
 
             {/* Profile Section */}
             <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 space-y-3">
-              <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-2">
                 <UserIcon size={14} /> Profile
               </h4>
 
@@ -868,7 +868,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                 {/* Profile Fields - Right Side */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                       Display Name
                     </label>
                     <SettingsInput
@@ -881,7 +881,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                       Username (for Community)
                     </label>
                     <div className="relative">
@@ -901,7 +901,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
 
             {/* Preferences Section */}
             <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 space-y-3">
-              <h4 className="text-xs font-bold text-slate-500 uppercase">Defaults</h4>
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Defaults</h4>
 
               <div className="flex items-start gap-3 min-h-11">
                 <SettingsInput
@@ -922,10 +922,10 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
               </div>
 
               <div className="pt-1 border-t border-gray-200 dark:border-[#30363d]">
-                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Generation Defaults</h5>
+                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Generation Defaults</h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                       Type
                     </label>
                     <SettingsSelect
@@ -942,7 +942,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                       Style
                     </label>
                     <SettingsSelect
@@ -959,7 +959,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                       Colors
                     </label>
                     <SettingsSelect
@@ -976,7 +976,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                       Size
                     </label>
                     <SettingsSelect
@@ -992,7 +992,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                       Model
                     </label>
                     <SettingsSelect
@@ -1020,7 +1020,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
               </div>
 
               <div className="pt-2 space-y-3 border-t border-gray-200 dark:border-[#30363d]">
-                <h4 className="text-xs font-bold text-slate-500 uppercase">Confirmations</h4>
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Confirmations</h4>
 
                 <label className="flex items-start gap-3 cursor-pointer">
                   <SettingsInput
@@ -1055,7 +1055,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
           {SHOW_TEAMS_SETTINGS && <div className="min-w-0 space-y-4">
             <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-2">
                    <Users size={14} /> My Teams
                 </h4>
                 <SettingsButton
@@ -1121,7 +1121,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                                          </SettingsButton>
                                      </div>
                                      <div className="space-y-1">
-                                         <p className="text-[12px] uppercase font-bold text-slate-400">Members</p>
+                                         <p className="text-[12px] uppercase tracking-wide font-bold text-slate-400">Members</p>
                                          <div className="text-xs text-slate-600 dark:text-slate-400">
                                              {team.members.map(mid => (
                                                  <div key={mid} className="flex items-center gap-2">

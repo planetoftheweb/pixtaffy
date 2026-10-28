@@ -309,7 +309,7 @@ const Seg: React.FC<{
       <button
         key={o.key}
         onClick={() => onChange(o.key)}
-        className={`group/tip relative px-2 py-0.5 text-[11px] font-semibold first:rounded-l-md last:rounded-r-md ${
+        className={`group/tip relative px-2 py-0.5 text-[12px] font-semibold first:rounded-l-md last:rounded-r-md ${
           value === o.key ? 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-[#21262d]'
         }`}
       >
@@ -364,7 +364,7 @@ const ScrubValue: React.FC<{
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); }
         }}
-        className="w-14 bg-[#0d1117] border border-brand-teal/60 rounded px-1 py-0.5 text-[11px] text-white text-right"
+        className="w-14 bg-[#0d1117] border border-brand-teal/60 rounded px-1 py-0.5 text-[12px] text-white text-right"
       />
     );
   }
@@ -388,7 +388,7 @@ const ScrubValue: React.FC<{
         if (d && !d.moved) setEditing(true);
       }}
       onPointerCancel={() => { drag.current = null; }}
-      className="group/tip relative text-[11px] font-semibold text-slate-200 tabular-nums select-none touch-none px-1 py-0.5 rounded hover:bg-white/10"
+      className="group/tip relative text-[12px] font-semibold text-slate-200 tabular-nums select-none touch-none px-1 py-0.5 rounded hover:bg-white/10"
       style={{ cursor: 'ew-resize' }}
     >
       {format(value)}
@@ -410,7 +410,7 @@ const SidebarSection: React.FC<{ title: string; defaultOpen?: boolean; children:
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="w-full flex items-center gap-1.5 px-3 py-2.5 [@media(pointer:coarse)]:min-h-11 text-[11px] font-bold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-2.5 [@media(pointer:coarse)]:min-h-11 text-[12px] font-bold text-slate-400 uppercase tracking-wide hover:text-slate-200 transition-colors"
       >
         <ChevronRight size={12} className={`transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
         {title}
@@ -1991,7 +1991,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 onClick={handleExportPptx}
                 disabled={!exportSupported || exportingPptx}
                 aria-label="Export PowerPoint with builds"
-                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
+                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[12px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
               >
                 {exportingPptx ? <Loader2 size={15} className="animate-spin" /> : <Presentation size={16} />}
               </button>
@@ -2002,7 +2002,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 onClick={handleExportPngs}
                 disabled={!exportSupported || exportingPngs}
                 aria-label="Export PNGs for slides"
-                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[11px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
+                className="group/tip relative [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 min-w-9 h-9 px-1 rounded-lg flex items-center justify-center gap-1 text-slate-300 text-[12px] font-semibold disabled:opacity-40 hover:bg-[#21262d] hover:text-white"
               >
                 {exportingPngs ? <Loader2 size={15} className="animate-spin" /> : <Images size={16} />}
               </button>
@@ -2081,7 +2081,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     className="group/tip relative h-9 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 px-1.5 rounded-lg flex items-center gap-1 transition-colors text-brand-teal hover:bg-brand-teal/15 disabled:opacity-60"
                   >
                     {autoSelecting ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
-                    <span className="text-[10px] font-bold tracking-wide">AI</span>
+                    <span className="text-[12px] font-bold tracking-wide">AI</span>
                   </button>
                   <Tip
                     side="bottom"
@@ -2141,7 +2141,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                       type="button"
                       onClick={() => setSelectedStepId(null)}
                       className="group/tip relative w-6 h-6 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 rounded-full bg-brand-teal text-white font-bold text-center tabular-nums hover:bg-teal-600 transition-colors"
-                      style={{ fontSize: selectedIdx + 1 >= 10 ? 10 : 11, lineHeight: '24px' }}
+                      style={{ fontSize: 12, lineHeight: '24px' }}
                     >
                       {selectedIdx + 1}
                       <Tip side="bottom" text={`Editing frame ${selectedIdx + 1} — click to finish`} />
@@ -2332,7 +2332,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           onPointerCancel={endXform}
                           onDoubleClick={(e) => { e.stopPropagation(); toggleIsolation(s.id); }}
                           aria-label={sel ? 'Selected - drag to move · double-click to focus' : 'Click to select · drag to move · double-click to focus'}
-                          className={`absolute w-5 h-5 rounded-full text-[10px] font-bold text-center tabular-nums text-white ring-2 ring-transparent hover:ring-white/60 cursor-move touch-none ${sel ? 'bg-brand-teal' : 'bg-brand-red'}`}
+                          className={`absolute w-5 h-5 rounded-full text-[12px] font-bold text-center tabular-nums text-white ring-2 ring-transparent hover:ring-white/60 cursor-move touch-none ${sel ? 'bg-brand-teal' : 'bg-brand-red'}`}
                           style={{
                             left: `${c.x * 100}%`,
                             top: `${c.y * 100}%`,
@@ -2517,14 +2517,14 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="flex items-center justify-between px-3 pt-3 pb-1.5">
-                <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Frames ({build.steps.length})</h3>
+                <h3 className="text-[12px] font-bold text-slate-400 uppercase tracking-wide">Frames ({build.steps.length})</h3>
                 <div className="flex items-center gap-1">
                   {build.steps.length > 0 && build.steps.some((s) => !s.label) && (
                     <span className="relative inline-flex shrink-0">
                       <button
                         onClick={() => void handleAutoName()}
                         disabled={naming}
-                        className="group/tip relative inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-brand-teal text-[11px] font-semibold hover:bg-brand-teal/10 disabled:opacity-60"
+                        className="group/tip relative inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-brand-teal text-[12px] font-semibold hover:bg-brand-teal/10 disabled:opacity-60"
                       >
                         {naming ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />} AI names
                       </button>
@@ -2532,14 +2532,14 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     </span>
                   )}
                   {selectedStepId && (
-                    <button onClick={() => setSelectedStepId(null)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#21262d] text-slate-200 text-[11px] font-semibold hover:bg-[#2d333b]">
+                    <button onClick={() => setSelectedStepId(null)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#21262d] text-slate-200 text-[12px] font-semibold hover:bg-[#2d333b]">
                       <Plus size={11} /> New frame
                     </button>
                   )}
                   {build.steps.length > 0 && (
                     <button
                       onClick={armClearAll}
-                      className={`group/tip relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${confirmClear ? 'bg-amber-500 text-[#0d1117] animate-pulse' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'}`}
+                      className={`group/tip relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[12px] font-semibold transition-colors ${confirmClear ? 'bg-amber-500 text-[#0d1117] animate-pulse' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'}`}
                     >
                       <Trash2 size={11} />
                       {confirmClear && 'Sure?'}
@@ -2576,7 +2576,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           onPointerCancel={onRowUp}
                           className="w-full flex items-center gap-2 px-2 py-1.5 text-left cursor-pointer touch-none"
                         >
-                          <span className={`w-6 h-6 rounded-full text-white text-[11px] font-bold text-center tabular-nums shrink-0 ${sel ? 'bg-brand-teal' : 'bg-brand-red'}`} style={{ lineHeight: '24px' }}>{i + 1}</span>
+                          <span className={`min-w-6 h-6 px-1 rounded-full text-white text-[12px] font-bold text-center tabular-nums shrink-0 ${sel ? 'bg-brand-teal' : 'bg-brand-red'}`} style={{ lineHeight: '24px' }}>{i + 1}</span>
                           {renamingId === s.id ? (
                             <input
                               data-no-row-drag
@@ -2672,7 +2672,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                                 if (e.key === 'Escape') { e.stopPropagation(); setEditingDurId(null); }
                               }}
-                              className="w-12 bg-[#0d1117] border border-brand-teal/60 rounded px-1 py-0.5 text-[11px] text-white text-right"
+                              className="w-14 bg-[#0d1117] border border-brand-teal/60 rounded px-1 py-0.5 text-[12px] text-white text-right"
                             />
                           ) : (
                             <span
@@ -2682,7 +2682,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                               onPointerUp={onDurUp}
                               onPointerCancel={onDurUp}
                               onClick={(e) => e.stopPropagation()}
-                              className={`group/tip relative text-[11px] ${s.durationMs != null ? 'text-slate-300' : 'text-slate-500'} hover:text-slate-200 tabular-nums select-none touch-none`}
+                              className={`group/tip relative text-[12px] ${s.durationMs != null ? 'text-slate-300' : 'text-slate-500'} hover:text-slate-200 tabular-nums select-none touch-none`}
                               style={{ cursor: 'ew-resize' }}
                             >
                               {(durMs / 1000).toFixed(1)}s
@@ -2696,7 +2696,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 </ul>
               )}
               {selectedStep && (
-                <p className="px-3 pb-3 text-[11px] text-slate-500">Draw to add · ⌥-brush erases · double-click a name to rename · drag rows to reorder.</p>
+                <p className="px-3 pb-3 text-[12px] text-slate-500">Draw to add · ⌥-brush erases · double-click a name to rename · drag rows to reorder.</p>
               )}
             </div>
             <SidebarSection title="Reveal style">
