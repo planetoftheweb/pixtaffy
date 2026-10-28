@@ -1,0 +1,18 @@
+title = "PixTaffy gitleaks config"
+
+[extend]
+useDefault = true
+
+# Both hits below match the product's old name "brandoit" (8 letters), not a credential:
+# a Cloud Functions hostname in a curl example, and a localStorage key name.
+[[allowlists]]
+description = "Project name inside the curl example URL in mcp/README.md"
+condition = "AND"
+paths = ['''^mcp/README\.md$''']
+regexes = ['''^brandoit$''']
+
+[[allowlists]]
+description = "localStorage key name in services/historyService.ts"
+condition = "AND"
+paths = ['''^services/historyService\.ts$''']
+regexes = ['''^brandoit$''']
