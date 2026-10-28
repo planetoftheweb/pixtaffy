@@ -17,6 +17,7 @@ import { JuxtaposeSlider } from './JuxtaposeSlider';
 import { setErrorToast } from '../utils/errorToastStore';
 import { dismissErrorToastOnEscape, dismissTopErrorToast, hasVisibleErrorToast } from '../utils/errorToastEscape';
 import { Tip } from './settings/Tip';
+import { nextMenuItemIndex } from '../utils/menuKeyboard';
 
 export interface ImageDisplayMarkRef {
   generationId: string;
@@ -228,6 +229,16 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
   const copyMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const copyMenuRef = useRef<HTMLDivElement>(null);
+  const handleCopyMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>(
+      'button[role="menuitem"]:not(:disabled):not([aria-disabled="true"])'
+    ));
+    const index = nextMenuItemIndex(items.indexOf(document.activeElement as HTMLButtonElement), items.length, event.key, event.shiftKey);
+    if (index === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    items[index].focus();
+  };
   useLayoutEffect(() => {
     if (!copyMenuOpen) return;
     const clampMenu = () => {
@@ -252,6 +263,9 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
       setCopyMenuOpen(false);
     };
     clampMenu();
+    copyMenuRef.current?.querySelector<HTMLButtonElement>(
+      'button[role="menuitem"]:not(:disabled):not([aria-disabled="true"])'
+    )?.focus();
     window.addEventListener('resize', clampMenu);
     window.addEventListener('scroll', clampMenu, true);
     window.addEventListener('keydown', onKey, true);
@@ -259,6 +273,7 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
       window.removeEventListener('resize', clampMenu);
       window.removeEventListener('scroll', clampMenu, true);
       window.removeEventListener('keydown', onKey, true);
+      copyMenuTriggerRef.current?.focus();
     };
   }, [copyMenuOpen]);
   // Refine / Recompose panel was previously a permanent footer under every
@@ -2124,7 +2139,7 @@ ${version.svgCode}
                         )}
                       </button>
                       <Tip text={deletingRefinementId ? 'Wait for the request to finish' : isRailDeleteArmed ? `Click again to confirm` : `Delete ${v.label}`} side="top" align="right" />
-                      <span id={`${disabledTipId}-rail-delete-${v.id}`} className="sr-only">Wait for the request to finish</span>
+                      {deletingRefinementId && <span id={`${disabledTipId}-rail-delete-${v.id}`} className="sr-only">Wait for the request to finish</span>}
                       </span>
                       </span>
                     )}
@@ -2255,7 +2270,7 @@ ${version.svgCode}
                         </span>
                       </button>
                       <Tip title="Add a new Mark" text={refinementControlsLocked ? 'Wait for the request to finish' : canRerun ? 'Re-rolls the original prompt as a fresh generation. Click to add one Mark. Hold 1-9 and click to add that many Marks. Shift-click to edit the prompt or count; hold 1-9 and Shift-click to pre-fill that count. The model is free to rethink layout, palette, and composition.' : 'Open the refine editor'} side="top" wide />
-                      <span id={`${disabledTipId}-add-mark`} className="sr-only">Wait for the request to finish</span>
+                      {refinementControlsLocked && <span id={`${disabledTipId}-add-mark`} className="sr-only">Wait for the request to finish</span>}
                       {showHeldBadge && (
                         <span
                           role="status"
@@ -2790,7 +2805,7 @@ ${version.svgCode}
                                   )}
                                 </button>
                                 <Tip text={tooltip} side="top" align="right" />
-                                <span id={`${disabledTipId}-popover-delete-${v.id}`} className="sr-only">{tooltip}</span>
+                                {disabled && <span id={`${disabledTipId}-popover-delete-${v.id}`} className="sr-only">{tooltip}</span>}
                                 </span>
                               );
                             })()}
@@ -2938,7 +2953,7 @@ ${version.svgCode}
                           {isResizingCanvas ? 'Recomposing…' : 'Recompose'}
                         </button>
                         <Tip title={!recomposeDisabled ? `Recompose to ${resizeAspectLabel}` : undefined} text={recomposeTip} side="top" align="right" />
-                        <span id={`${disabledTipId}-recompose`} className="sr-only">{recomposeTip}</span>
+                        {recomposeDisabled && <span id={`${disabledTipId}-recompose`} className="sr-only">{recomposeTip}</span>}
                         </span>
                       </div>
                       <div className="px-1 pb-2 text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2">
@@ -2981,7 +2996,7 @@ ${version.svgCode}
                           {isExpandingRefinement ? <RefreshCw size={16} className="animate-spin" /> : <Expand size={16} />}
                         </button>
                         <Tip title="Expand prompt" text={refinementControlsLocked ? 'Wait for the request to finish' : "Uses your text, or the tile's original prompt if empty"} side="top" align="right" />
-                        <span id={`${disabledTipId}-expand`} className="sr-only">Wait for the request to finish</span>
+                        {refinementControlsLocked && <span id={`${disabledTipId}-expand`} className="sr-only">Wait for the request to finish</span>}
                         </span>
                         <span className="relative inline-flex shrink-0">
                         <button
@@ -2999,7 +3014,7 @@ ${version.svgCode}
                           <Maximize2 size={16} />
                         </button>
                         <Tip text={refinementControlsLocked ? 'Wait for the request to finish' : 'Open full editor (modal)'} side="top" align="right" />
-                        <span id={`${disabledTipId}-editor`} className="sr-only">Wait for the request to finish</span>
+                        {refinementControlsLocked && <span id={`${disabledTipId}-editor`} className="sr-only">Wait for the request to finish</span>}
                         </span>
                         <span className="relative inline-flex shrink-0">
                         <button
@@ -3017,7 +3032,7 @@ ${version.svgCode}
                           {isAnalyzingRefinePrompt ? <RefreshCw size={16} className="animate-spin" /> : <ScanSearch size={16} />}
                         </button>
                         <Tip title="Run analysis" text={refinementControlsLocked ? 'Wait for the request to finish' : 'Checks text accuracy, spelling, and label/factual issues, then drafts a detailed correction prompt and switches refine model to Nano Banana Pro. Uses a fast vision model (not image generation) with the same API provider as your toolbar when your keys allow it.'} side="top" align="right" wide />
-                        <span id={`${disabledTipId}-analyze`} className="sr-only">Wait for the request to finish</span>
+                        {refinementControlsLocked && <span id={`${disabledTipId}-analyze`} className="sr-only">Wait for the request to finish</span>}
                         </span>
                         <span className="relative inline-flex shrink-0">
                         <button
@@ -3042,7 +3057,7 @@ ${version.svgCode}
                           )}
                         </button>
                         <Tip text={applyRefinementTip} side="top" align="right" />
-                        <span id={`${disabledTipId}-apply`} className="sr-only">{applyRefinementTip}</span>
+                        {applyRefinementDisabled && <span id={`${disabledTipId}-apply`} className="sr-only">{applyRefinementTip}</span>}
                         </span>
                       </form>
                     </div>
@@ -3167,6 +3182,7 @@ ${version.svgCode}
                         data-folder-menu
                         ref={copyMenuRef}
                         role="menu"
+                        onKeyDown={handleCopyMenuKeyDown}
                         className="fixed left-0 top-0 w-48 max-w-[calc(100vw-1rem)] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-[60] overflow-y-auto p-1 [&_button]:[@media(pointer:coarse)]:min-h-11"
                       >
                         {onCopy && (

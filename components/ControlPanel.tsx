@@ -213,7 +213,7 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
       />
     </button>
     {disabled && <Tip title={subLabel} text={disabledReason} />}
-    <span id={disabledReasonId} className="sr-only">{disabledReason}</span>
+    {disabled && <span id={disabledReasonId} className="sr-only">{disabledReason}</span>}
     </span>
   );
 };
@@ -3047,7 +3047,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   {!expandButtonDisabled && <Tip text={expandButtonTitle} side="top" />}
                 </button>
                 {expandButtonDisabled && <Tip text={expandButtonTitle} side="top" />}
-                <span id={expandReasonId} className="sr-only">{expandButtonTitle}</span>
+                {expandButtonDisabled && <span id={expandReasonId} className="sr-only">{expandButtonTitle}</span>}
                 </span>
 
                 <span className="relative inline-flex h-12 w-12 shrink-0">
@@ -3066,7 +3066,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-bold shadow-md transition-all active:translate-y-0.5 group ${
                       generateButtonDisabled
                         ? 'bg-gray-200 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                        : 'bg-gradient-to-br from-brand-orange via-brand-red to-brand-purple hover:saturate-125 text-white shadow-brand-pink/25'
+                        : 'bg-gradient-to-br from-brand-orange via-brand-red to-brand-purple hover:brightness-95 text-white shadow-brand-pink/25'
                     }`}
                     aria-label={hasSetupAction ? generateButtonLabel : "Generate image"}
                   >
@@ -3078,7 +3078,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     {!generateButtonDisabled && <Tip text={generateButtonTitle} side="top" />}
                   </button>
                   {generateButtonDisabled && <Tip text={generateButtonTitle} side="top" />}
-                  <span id={generateReasonId} className="sr-only">{generateButtonTitle}</span>
+                  {generateButtonDisabled && <span id={generateReasonId} className="sr-only">{generateButtonTitle}</span>}
                 </span>
               </div>
             </div>
@@ -3269,7 +3269,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 Expand prompt
               </button>
               <Tip text={expandButtonTitle} side="top" />
-              <span id={modalExpandReasonId} className="sr-only">{expandButtonTitle}</span>
+              {expandButtonDisabled && <span id={modalExpandReasonId} className="sr-only">{expandButtonTitle}</span>}
               </span>
               <div className="flex items-center gap-2">
                 <span className="hidden sm:inline text-[11px] text-slate-400 dark:text-slate-500">

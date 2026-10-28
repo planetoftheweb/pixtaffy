@@ -2,6 +2,7 @@ import { Tip } from './settings/Tip';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Bug, ExternalLink, ImagePlus, Lightbulb, MessageCircleQuestion, Send, X } from 'lucide-react';
 import type { User } from '../types';
+import { getFeedbackFormBlocker } from '../utils/formValidation';
 import {
   feedbackErrorMessage,
   makeFeedbackRequestId,
@@ -118,10 +119,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
 
   const sendFeedback = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (sendDisabled) return;
+    if (busy) return;
     setError(null);
-    if (message.trim().length < 3) {
-      setError('Write a short note so we know what to look at.');
+    const blocker = getFeedbackFormBlocker(message);
+    if (blocker) {
+      setError(blocker);
       return;
     }
     setBusy(true);
@@ -246,7 +248,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
                 <Send size={16} /> {busy ? 'Sending…' : 'Send feedback'}
               </button>
               <Tip text={sendTip} />
-              <span id={sendReasonId} className="sr-only">{sendTip}</span>
+              {sendDisabled && <span id={sendReasonId} className="sr-only">{sendTip}</span>}
               </span>
             </div>
           </form>

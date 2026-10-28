@@ -1,4 +1,5 @@
 import { isKnownPath, navigate, usePathname } from './utils/routes';
+import { shouldAutoCollapseGenerationPanel } from './utils/generationPanel';
 import { LegalPage } from './components/LegalPage';
 import { Tip } from './components/settings/Tip';
 import { serverKeysEnabled } from './services/keyStorageMode';
@@ -353,10 +354,10 @@ const ConfigurationErrorScreen: React.FC<{ keys: string[] }> = ({ keys }) => (
 );
 
 const useGenerationPanelAutoCollapse = (
-  hasJobs: boolean,
-  hasRunningJobs: boolean,
+  jobs: readonly ActiveGenerationJob[],
   setCollapsed: (collapsed: boolean) => void
 ) => {
+  const canAutoCollapse = shouldAutoCollapseGenerationPanel(jobs);
   const timerRef = useRef<number | null>(null);
   const cancelAutoCollapse = useCallback(() => {
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
@@ -365,13 +366,13 @@ const useGenerationPanelAutoCollapse = (
 
   useEffect(() => {
     cancelAutoCollapse();
-    if (!hasJobs || hasRunningJobs) return;
+    if (!canAutoCollapse) return;
     timerRef.current = window.setTimeout(() => {
       timerRef.current = null;
       setCollapsed(true);
     }, 3000);
     return cancelAutoCollapse;
-  }, [hasJobs, hasRunningJobs, setCollapsed, cancelAutoCollapse]);
+  }, [canAutoCollapse, setCollapsed, cancelAutoCollapse]);
 
   return cancelAutoCollapse;
 };
@@ -616,8 +617,7 @@ const App: React.FC = () => {
   // doesn't cover the main preview while batches run.
   const [isGenerationsPanelCollapsed, setIsGenerationsPanelCollapsed] = useState(false);
   const cancelGenerationsPanelAutoCollapse = useGenerationPanelAutoCollapse(
-    activeGenerationJobs.length > 0,
-    hasRunningGenerationJobs,
+    activeGenerationJobs,
     setIsGenerationsPanelCollapsed
   );
   // Count of in-flight "Add a new Mark" re-rolls. The version rail renders

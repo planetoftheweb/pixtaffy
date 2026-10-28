@@ -249,7 +249,7 @@ test('non-clickable feature cards do not imitate links with hover movement', () 
 });
 
 test('creative actions and gallery tools keep neutral controls with candy accents', () => {
-  assert.match(controlPanelSource, /from-brand-orange via-brand-red to-brand-purple hover:saturate-125/);
+  assert.match(controlPanelSource, /from-brand-orange via-brand-red to-brand-purple hover:brightness-95/);
   assert.match(controlPanelSource, /accentClass="text-brand-pink"/);
   assert.match(controlPanelSource, /accentClass="text-brand-purple"/);
   assert.match(recentSource, /Eye size=\{16\} aria-hidden className="text-brand-teal dark:text-brand-cyan"/);

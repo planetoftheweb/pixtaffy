@@ -3,6 +3,7 @@ import { X, Mail, Lock, User as UserIcon, Loader2, ArrowRight, Layers } from 'lu
 import { Tip } from './settings/Tip';
 import { authService } from '../services/authService';
 import { User } from '../types';
+import { getAuthFormBlocker } from '../utils/formValidation';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -131,7 +132,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitDisabled || isSubmittingRef.current) return;
+    if (busy || isSubmittingRef.current) return;
+    const blocker = getAuthFormBlocker({ isLogin, name, username, email, password });
+    if (blocker) {
+      setError(blocker);
+      setStatus(null);
+      return;
+    }
     isSubmittingRef.current = true;
     setError(null);
     setStatus(null);
@@ -205,7 +212,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <X size={20} />
         </button>
         <Tip text={busy ? 'Wait for the request to finish' : 'Close'} />
-        <span id={closeReasonId} className="sr-only">Wait for the request to finish</span>
+        {busy && <span id={closeReasonId} className="sr-only">Wait for the request to finish</span>}
         </span>
         </span>
 
@@ -228,7 +235,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form noValidate onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 text-sm text-center font-medium animate-in fade-in">
                 {error}
@@ -302,7 +309,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   {isResetting ? 'Sending reset link…' : 'Forgot password?'}
                 </button>
                 <Tip text={resetTip} />
-                <span id={resetReasonId} className="sr-only">{resetTip}</span>
+                {resetDisabled && <span id={resetReasonId} className="sr-only">{resetTip}</span>}
                 </span>
                 </div>
               )}
@@ -340,7 +347,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
             </button>
             <Tip text={submitTip} />
-            <span id={submitReasonId} className="sr-only">{submitTip}</span>
+            {submitDisabled && <span id={submitReasonId} className="sr-only">{submitTip}</span>}
             </span>
           </form>
 
