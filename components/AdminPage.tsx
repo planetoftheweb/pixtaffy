@@ -380,7 +380,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
         >
           <Key size={14} /> Clear API keys
         </button>
-          {(isBusy) && <Tip text={'Wait for the current action to finish'} side="top" />}
+          <Tip text={(isBusy) ? ('Wait for the current action to finish') : ('Clear API keys')} side="top" />
           {(isBusy) && <span id={`${unavailableId}-1-${row.id}`} className="sr-only">{'Wait for the current action to finish'}</span>}
         </span>
         <span className="relative inline-flex w-full">
@@ -394,7 +394,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
         >
           <Sparkles size={14} /> Wipe system prompt
         </button>
-          {(isBusy) && <Tip text={'Wait for the current action to finish'} side="top" />}
+          <Tip text={(isBusy) ? ('Wait for the current action to finish') : ('Wipe system prompt')} side="top" />
           {(isBusy) && <span id={`${unavailableId}-2-${row.id}`} className="sr-only">{'Wait for the current action to finish'}</span>}
         </span>
         <div className="group/tip relative inline-flex w-full">
@@ -421,7 +421,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
               </>
             )}
           </button>
-            {(isBusy || isSelf) && <Tip text={isSelf ? 'You cannot suspend your own account' : 'Wait for the current action to finish'} side="top" />}
+            <Tip text={(isBusy || isSelf) ? (isSelf ? 'You cannot suspend your own account' : 'Wait for the current action to finish') : (row.isDisabled ? 'Enable account' : 'Suspend account')} side="top" />
             {(isBusy || isSelf) && <span id={`${unavailableId}-3-${row.id}`} className="sr-only">{isSelf ? 'You cannot suspend your own account' : 'Wait for the current action to finish'}</span>}
 
         </div>
@@ -449,7 +449,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
             </>
           )}
         </button>
-          {(isBusy) && <Tip text={'Wait for the current action to finish'} side="top" />}
+          <Tip text={(isBusy) ? ('Wait for the current action to finish') : (row.isAdmin ? 'Demote from admin' : 'Promote to admin')} side="top" />
           {(isBusy) && <span id={`${unavailableId}-4-${row.id}`} className="sr-only">{'Wait for the current action to finish'}</span>}
         </span>
         <div className="my-1 h-px bg-gray-200 dark:bg-[#30363d]" />
@@ -464,7 +464,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
           >
             <Trash2 size={14} /> Delete account
           </button>
-            {(isBusy || isSelf) && <Tip text={isSelf ? 'You cannot delete your own account' : 'Wait for the current action to finish'} side="top" />}
+            <Tip text={(isBusy || isSelf) ? (isSelf ? 'You cannot delete your own account' : 'Wait for the current action to finish') : ('Delete account')} side="top" />
             {(isBusy || isSelf) && <span id={`${unavailableId}-5-${row.id}`} className="sr-only">{isSelf ? 'You cannot delete your own account' : 'Wait for the current action to finish'}</span>}
 
         </div>
@@ -557,7 +557,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
             onClick={() => setActiveTab('users')}
             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'users'
-                ? 'bg-brand-teal text-white shadow-sm'
+                ? 'bg-brand-teal text-[#0d1117] shadow-sm'
                 : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             } ${FOCUS_RING}`}
             aria-pressed={activeTab === 'users'}
@@ -570,7 +570,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
             onClick={() => setActiveTab('stats')}
             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'stats'
-                ? 'bg-brand-teal text-white shadow-sm'
+                ? 'bg-brand-teal text-[#0d1117] shadow-sm'
                 : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             } ${FOCUS_RING}`}
             aria-pressed={activeTab === 'stats'}
@@ -602,7 +602,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                 {bootstrapClaiming ? <Loader2 size={14} className="animate-spin" /> : <Crown size={14} />}
                 Claim admin role
               </button>
-                {(bootstrapClaiming) && <Tip text={'Claiming the admin role…'} side="top" />}
+                <Tip text={(bootstrapClaiming) ? ('Claiming the admin role…') : ('Claim admin role')} side="top" />
                 {(bootstrapClaiming) && <span id={`${unavailableId}-6`} className="sr-only">{'Claiming the admin role…'}</span>}
               </span>
             </div>
@@ -830,7 +830,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                 {isLoadingMore ? <Loader2 size={14} className="animate-spin" /> : <ChevronRight size={14} />}
                 Load more
               </button>
-                {(isLoadingMore) && <Tip text={'Loading more accounts…'} side="top" />}
+                <Tip text={(isLoadingMore) ? ('Loading more accounts…') : ('Load more accounts')} side="top" />
                 {(isLoadingMore) && <span id={`${unavailableId}-7`} className="sr-only">{'Loading more accounts…'}</span>}
               </span>
             </div>
@@ -842,7 +842,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
       {/* Confirm modal */}
       {confirm && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
         >
@@ -866,7 +866,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                     >
                       Cancel
                     </button>
-                      {(busy) && <Tip text={'Wait for the current action to finish'} side="top" />}
+                      <Tip text={(busy) ? ('Wait for the current action to finish') : ('Cancel')} side="top" />
                       {(busy) && <span id={`${unavailableId}-8`} className="sr-only">{'Wait for the current action to finish'}</span>}
                     </span>
                     <span className="relative inline-flex">
@@ -875,16 +875,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                       onClick={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); return; }return runAction(confirm);
                       }}
                       aria-disabled={busy} aria-describedby={(busy) ? `${unavailableId}-9` : undefined}
-                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white aria-disabled:opacity-50 ${
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold aria-disabled:opacity-50 ${
                         isDestructive
-                          ? 'bg-red-600 hover:bg-red-700'
-                          : 'bg-brand-teal hover:bg-brand-teal/90'
+                          ? 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-brand-teal text-[#0d1117] hover:bg-brand-teal/90'
                       } ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
                     >
                       {busy && <Loader2 size={14} className="animate-spin" />}
                       {text.button}
                     </button>
-                      {(busy) && <Tip text={'Wait for the current action to finish'} side="top" />}
+                      <Tip text={(busy) ? ('Wait for the current action to finish') : (text.button)} side="top" />
                       {(busy) && <span id={`${unavailableId}-9`} className="sr-only">{'Wait for the current action to finish'}</span>}
                     </span>
                   </div>

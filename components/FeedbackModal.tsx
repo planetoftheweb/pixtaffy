@@ -3,7 +3,7 @@ import { Tip } from './settings/Tip';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Bug, ExternalLink, ImagePlus, Lightbulb, MessageCircleQuestion, Send, X } from 'lucide-react';
 import type { User } from '../types';
-import { getFeedbackFormBlocker } from '../utils/formValidation';
+import { getFeedbackFormBlocker, getFeedbackFormBlockerField, type FeedbackFormField } from '../utils/formValidation';
 import {
   feedbackErrorMessage,
   makeFeedbackRequestId,
@@ -34,6 +34,7 @@ const DRAFT_KEY = 'pixtaffy_feedback_draft_v1';
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) => {
   const unavailableId = React.useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const contactEmailRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const busyRef = useRef(false);
   const requestIdRef = useRef(makeFeedbackRequestId());
@@ -44,6 +45,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorField, setErrorField] = useState<FeedbackFormField | null>(null);
+  const errorId = useId();
+  const [errorAttempt, setErrorAttempt] = useState(0);
   const [issue, setIssue] = useState<{ url: string; number: number } | null>(null);
   const sendReasonId = useId();
   const sendDisabled = busy || message.trim().length < 3;
@@ -103,19 +107,29 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
     return () => URL.revokeObjectURL(url);
   }, [screenshot]);
 
+  useEffect(() => {
+    if (!error || !errorField) return;
+    const field = errorField === 'message' ? textareaRef.current : contactEmailRef.current;
+    field?.focus({ preventScroll: true });
+    field?.scrollIntoView({ block: 'center' });
+  }, [error, errorField, errorAttempt]);
+
   if (!isOpen) return null;
 
   const acceptScreenshot = (file?: File | null) => {
     if (!file) return;
     if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+      setErrorField(null);
       setError('Choose a PNG, JPEG, WebP, or GIF screenshot.');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
+      setErrorField(null);
       setError('Keep screenshots under 5 MB.');
       return;
     }
     setError(null);
+    setErrorField(null);
     setScreenshot(file);
   };
 
@@ -123,9 +137,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
     event.preventDefault();
     if (busy) return;
     setError(null);
+    setErrorField(null);
     const blocker = getFeedbackFormBlocker(message, contactEmail);
     if (blocker) {
+      setErrorAttempt(attempt => attempt + 1);
       setError(blocker);
+      setErrorField(getFeedbackFormBlockerField(message, contactEmail));
       return;
     }
     setBusy(true);
@@ -168,7 +185,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
           <button type="button" onClick={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); return; } onClose(); }} aria-disabled={busy} aria-describedby={(busy) ? `${unavailableId}-1` : undefined} aria-label="Close feedback" className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 aria-disabled:opacity-50 dark:hover:bg-[#21262d] dark:hover:text-white ${FOCUS_RING}`}>
             <X size={20} />
           </button>
-            {(busy) && <Tip text={'Wait for feedback to finish sending'} side="top" />}
+            <Tip text={(busy) ? ('Wait for feedback to finish sending') : ('Close feedback')} side="top" />
             {(busy) && <span id={`${unavailableId}-1`} className="sr-only">{'Wait for feedback to finish sending'}</span>}
           </span>
         </div>
@@ -216,7 +233,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
 
             <label className="block">
               <span className="text-sm font-bold text-slate-900 dark:text-white">Your note</span>
-              <textarea ref={textareaRef} rows={6} maxLength={8000} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="What happened, or what would make PixTaffy more useful?" className="mt-2 w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />
+              <textarea ref={textareaRef} rows={6} maxLength={8000} aria-invalid={Boolean(error && errorField === 'message')} aria-describedby={error && errorField === 'message' ? errorId : undefined} value={message} onChange={(event) => { setMessage(event.target.value); if (errorField === 'message') { setError(null); setErrorField(null); } }} placeholder="What happened, or what would make PixTaffy more useful?" className="scroll-mb-[25vh] mt-2 w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />
               <span className="mt-1 block text-right text-xs text-slate-400">{message.length.toLocaleString()} / 8,000</span>
             </label>
 
@@ -241,19 +258,19 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
 
             <label className="block">
               <span className="text-sm font-bold text-slate-900 dark:text-white">Contact email <span className="font-normal text-slate-400">(optional)</span></span>
-              <input type="email" maxLength={320} value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} placeholder="you@example.com" className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />
+              <input ref={contactEmailRef} type="email" maxLength={320} aria-invalid={Boolean(error && errorField === 'contactEmail')} aria-describedby={error && errorField === 'contactEmail' ? errorId : undefined} value={contactEmail} onChange={(event) => { setContactEmail(event.target.value); if (errorField === 'contactEmail') { setError(null); setErrorField(null); } }} placeholder="you@example.com" className="scroll-mb-[25vh] mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />
               <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">This stays private in Firebase and is never posted to GitHub.</p>
             </label>
 
-            <div className="sticky bottom-0 -mx-5 border-t border-slate-200 bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur dark:border-[#30363d] dark:bg-[#0d1117]/95 sm:-mx-6 sm:px-6">
-              {error && <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">{error}</p>}
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <div className="sticky bottom-0 -mx-5 border-t border-slate-200 bg-white/95 px-5 max-h-[25vh] flex flex-col overflow-hidden pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pt-4 backdrop-blur dark:border-[#30363d] dark:bg-[#0d1117]/95 sm:-mx-6 sm:px-6">
+              {error && <p id={errorId} role="alert" className="min-h-0 max-h-16 shrink overflow-y-auto break-words mb-1 rounded-xl border border-red-200 bg-red-50 px-3 py-1 text-sm leading-5 sm:mb-3 sm:px-4 sm:py-3 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">{error}</p>}
+              <div className="flex shrink-0 gap-2 justify-end">
               <span className="relative inline-flex">
               <button type="button" onClick={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); return; } onClose(); }} aria-disabled={busy} aria-describedby={(busy) ? `${unavailableId}-2` : undefined} className={`min-h-11 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 aria-disabled:opacity-50 dark:border-[#30363d] dark:text-slate-200 ${FOCUS_RING}`}>Cancel</button>
-                {(busy) && <Tip text={'Wait for feedback to finish sending'} side="top" />}
+                <Tip text={(busy) ? ('Wait for feedback to finish sending') : ('Cancel')} side="top" />
                 {(busy) && <span id={`${unavailableId}-2`} className="sr-only">{'Wait for feedback to finish sending'}</span>}
               </span>
-              <span className="relative inline-flex sm:w-auto">
+              <span className="relative inline-flex min-w-0 sm:w-auto">
               <button type="submit" aria-disabled={sendDisabled} aria-describedby={sendDisabled ? sendReasonId : undefined} className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors ${sendDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-teal-600'} ${FOCUS_RING}`}>
                 <Send size={16} /> {busy ? 'Sending…' : 'Send feedback'}
               </button>

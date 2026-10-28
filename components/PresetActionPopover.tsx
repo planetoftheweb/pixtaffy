@@ -217,11 +217,11 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
               onClick={(event) => { if (isSubmittingInstructions) { event.preventDefault(); event.stopPropagation(); return; }return void handleConfirmInstructions();
               }}
               aria-disabled={isSubmittingInstructions} aria-describedby={(isSubmittingInstructions) ? `${unavailableId}-1` : undefined}
-              className={`flex-1 rounded-md bg-brand-teal text-white text-[13px] font-semibold py-1.5 min-h-[44px] [@media(pointer:fine)]:min-h-0 aria-disabled:opacity-50 ${FOCUS_RING}`}
+              className={`flex-1 rounded-md bg-brand-teal text-[#0d1117] text-[13px] font-semibold py-1.5 min-h-[44px] [@media(pointer:fine)]:min-h-0 aria-disabled:opacity-50 ${FOCUS_RING}`}
             >
               {isSubmittingInstructions ? 'Saving…' : instructionsDraft.trim() ? 'Save' : 'Remove'}
             </button>
-              {(isSubmittingInstructions) && <Tip text={'Saving instructions…'} side="top" />}
+              <Tip text={(isSubmittingInstructions) ? ('Saving instructions…') : ('Save instructions')} side="top" />
               {(isSubmittingInstructions) && <span id={`${unavailableId}-1`} className="sr-only">{'Saving instructions…'}</span>}
             </span>
             <button
@@ -270,11 +270,11 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
               onClick={(event) => { if (isSubmittingRename || !renameDraft.trim()) { event.preventDefault(); event.stopPropagation(); return; }return void handleConfirmRename();
               }}
               aria-disabled={isSubmittingRename || !renameDraft.trim()} aria-describedby={(isSubmittingRename || !renameDraft.trim()) ? `${unavailableId}-2` : undefined}
-              className={`flex-1 rounded-md bg-brand-teal text-white text-[13px] font-semibold py-1.5 min-h-[44px] [@media(pointer:fine)]:min-h-0 aria-disabled:opacity-50 ${FOCUS_RING}`}
+              className={`flex-1 rounded-md bg-brand-teal text-[#0d1117] text-[13px] font-semibold py-1.5 min-h-[44px] [@media(pointer:fine)]:min-h-0 aria-disabled:opacity-50 ${FOCUS_RING}`}
             >
               {isSubmittingRename ? 'Saving…' : 'Save'}
             </button>
-              {(isSubmittingRename || !renameDraft.trim()) && <Tip text={isSubmittingRename ? 'Saving preset name…' : 'Enter a preset name'} side="top" />}
+              <Tip text={(isSubmittingRename || !renameDraft.trim()) ? (isSubmittingRename ? 'Saving preset name…' : 'Enter a preset name') : ('Save name')} side="top" />
               {(isSubmittingRename || !renameDraft.trim()) && <span id={`${unavailableId}-2`} className="sr-only">{isSubmittingRename ? 'Saving preset name…' : 'Enter a preset name'}</span>}
             </span>
             <button
@@ -347,7 +347,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
                 </>
               )}
             </button>
-              {(isUpdating || isApplied) && <Tip text={isUpdating ? 'Saving preset…' : 'Preset already matches the toolbar'} side="top" />}
+              <Tip text={(isUpdating || isApplied) ? (isUpdating ? 'Saving preset…' : 'Preset already matches the toolbar') : ('Update preset')} side="top" />
               {(isUpdating || isApplied) && <span id={`${unavailableId}-3`} className="sr-only">{isUpdating ? 'Saving preset…' : 'Preset already matches the toolbar'}</span>}
             </span>
           )}

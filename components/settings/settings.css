@@ -5,7 +5,7 @@
 .settings-surface :where(button:disabled) { cursor: not-allowed; }
 .settings-surface :where(label:has(input[type='checkbox'])) { min-height: 44px; }
 .settings-surface :where(p, span, label, button, input, textarea) { overflow-wrap: anywhere; }
-.settings-surface :where(button:focus-visible) { outline: none; }
+.settings-surface :where(button:focus-visible) { outline: 2px solid var(--color-brand-teal); outline-offset: 2px; }
 .settings-surface :where(input[type='checkbox']) { accent-color: var(--color-brand-teal); }
 .settings-surface :where(.text-sm, .text-xs) { font-size: 14px; }
 .settings-surface :where([class*='text-[10px]'], [class*='text-[11px]']) { font-size: 12px; }

@@ -78,9 +78,11 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         <div className="flex items-center gap-4">
            <button 
              onClick={onBack}
-             className={`p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
+              aria-label="Back"
+             className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
            >
              <ArrowLeft size={24} />
+             <Tip text="Back" />
            </button>
            <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-100 dark:bg-[#21262d] rounded-lg text-brand-teal">
@@ -157,13 +159,13 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                     <ThumbsUp size={16} />
                     {item.votes}
                   </button>
-                    {(!userId) && <Tip text={'Log in to vote for this resource'} side="top" />}
+                    <Tip text={(!userId) ? ('Log in to vote for this resource') : ('Vote for this resource')} side="top" />
                     {(!userId) && <span id={`${unavailableId}-1-${item.id}`} className="sr-only">{'Log in to vote for this resource'}</span>}
                   </span>
                   
                   <button 
                     onClick={() => onImport(item)}
-                    className={`flex items-center gap-2 text-sm font-bold text-white bg-brand-teal hover:bg-teal-600 px-4 py-2 rounded-lg shadow-sm transition-colors ${FOCUS_RING}`}
+                    className={`flex items-center gap-2 text-sm font-bold text-[#0d1117] bg-brand-teal hover:bg-teal-600 px-4 py-2 rounded-lg shadow-sm transition-colors ${FOCUS_RING}`}
                   >
                     <Download size={16} /> Add
                   </button>

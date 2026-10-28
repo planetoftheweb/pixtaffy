@@ -331,13 +331,14 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                               ? `Close actions for ${preset.name}`
                               : `Actions for ${preset.name}`
                           }
-                          className={`p-1.5 min-w-[44px] min-h-[44px] sm:min-w-0 [@media(pointer:fine)]:min-h-0 shrink-0 flex items-center justify-center rounded-md transition-colors ${
+                          className={`p-1.5 min-w-[44px] min-h-[44px] [@media(pointer:fine)]:min-w-0 [@media(pointer:fine)]:min-h-0 shrink-0 flex items-center justify-center rounded-md transition-colors ${
                             isActionMenuOpen
                               ? 'bg-gray-200 dark:bg-[#30363d] text-slate-700 dark:text-slate-200'
                               : 'hover:bg-gray-100 dark:hover:bg-[#30363d] text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
                           } ${FOCUS_RING}`}
                         >
                           <MoreHorizontal size={14} />
+                          <Tip text={isActionMenuOpen ? `Close actions for ${preset.name}` : `Actions for ${preset.name}`} />
                         </button>
                       )}
                     </div>
@@ -384,11 +385,11 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                       onClick={(event) => { if (isSavingPreset || !presetNameDraft.trim()) { event.preventDefault(); event.stopPropagation(); return; }return void handleConfirmSavePreset();
                       }}
                       aria-disabled={isSavingPreset || !presetNameDraft.trim()} aria-describedby={(isSavingPreset || !presetNameDraft.trim()) ? `${unavailableId}-2` : undefined}
-                      className={`flex-1 rounded-md bg-brand-teal text-white text-xs font-semibold py-2 min-h-[44px] [@media(pointer:fine)]:min-h-0 aria-disabled:opacity-50 ${FOCUS_RING}`}
+                      className={`flex-1 rounded-md bg-brand-teal text-[#0d1117] text-xs font-semibold py-2 min-h-[44px] [@media(pointer:fine)]:min-h-0 aria-disabled:opacity-50 ${FOCUS_RING}`}
                     >
                       {isSavingPreset ? 'Saving…' : 'Save'}
                     </button>
-                      {(isSavingPreset || !presetNameDraft.trim()) && <Tip text={isSavingPreset ? 'Saving preset…' : 'Enter a preset name'} side="top" />}
+                      <Tip text={(isSavingPreset || !presetNameDraft.trim()) ? (isSavingPreset ? 'Saving preset…' : 'Enter a preset name') : ('Save')} side="top" />
                       {(isSavingPreset || !presetNameDraft.trim()) && <span id={`${unavailableId}-2`} className="sr-only">{isSavingPreset ? 'Saving preset…' : 'Enter a preset name'}</span>}
                     </span>
                     <button

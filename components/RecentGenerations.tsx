@@ -45,7 +45,7 @@ type ContextPoint = { x: number; y: number };
 const CONTEXT_MENU_PANEL =
   'fixed z-[70] min-w-[11rem] max-w-[min(100vw-1rem,16rem)] py-1 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-xl max-h-[min(70vh,20rem)] overflow-y-auto';
 const CONTEXT_MENU_ITEM =
-  'w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-[#21262d] disabled:opacity-50 disabled:pointer-events-none';
+  'w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-[#21262d] aria-disabled:opacity-50 aria-disabled:cursor-not-allowed';
 const CONTEXT_MENU_ITEM_ACCENT =
   'w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-brand-teal hover:bg-brand-teal/10';
 const CONTEXT_MENU_ITEM_DANGER =
@@ -1357,7 +1357,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     >
                       <Check size={14} />
                     </button>
-                      {(folderBusy || !renameDraft.trim()) && <Tip text={folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name'} side="top" />}
+                      <Tip text={(folderBusy || !renameDraft.trim()) ? (folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name') : ('Save folder name')} side="top" />
                       {(folderBusy || !renameDraft.trim()) && <span id={`${unavailableId}-1-${folder.id}`} className="sr-only">{folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name'}</span>}
                     </span>
                     <button
@@ -1366,7 +1366,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                         setRenamingFolderId(null);
                         setRenameDraft('');
                       }}
-                      className={`inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
+                      className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
                       aria-label="Cancel rename"
                     >
                       <XIcon size={14} />
@@ -1423,7 +1423,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                           : `Collapse ${folder.name}`
                       }
                       aria-expanded={!isCollapsed}
-                      className={`inline-flex items-center justify-center h-8 w-5 shrink-0 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
+                      className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 inline-flex items-center justify-center h-8 w-5 shrink-0 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
                     >
                       <ChevronRight
                         size={14}
@@ -1494,7 +1494,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     <span
                       className={`inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[10px] font-bold leading-none tabular-nums shrink-0 ${
                         isViewing
-                          ? 'bg-brand-teal text-white'
+                          ? 'bg-brand-teal text-[#0d1117]'
                           : 'bg-gray-200 dark:bg-[#30363d] text-slate-600 dark:text-slate-300'
                       }`}
                     >
@@ -1523,7 +1523,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       aria-haspopup="menu"
                       aria-expanded={folderActionsMenuId === folder.id}
                       aria-label={`Actions for ${folder.name}`}
-                      className={`inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition ${FOCUS_RING}`}
+                      className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-400 hover:text-brand-teal hover:bg-gray-100 dark:hover:bg-[#21262d] transition ${FOCUS_RING}`}
                     >
                       <MoreVertical size={14} aria-hidden />
                     </button>
@@ -1595,7 +1595,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 >
                   <Check size={14} />
                 </button>
-                  {(folderBusy || !newFolderDraft.trim()) && <Tip text={folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name'} side="top" />}
+                  <Tip text={(folderBusy || !newFolderDraft.trim()) ? (folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name') : (createFolderParentId ? 'Create subfolder' : 'Create folder')} side="top" />
                   {(folderBusy || !newFolderDraft.trim()) && <span id={`${unavailableId}-2`} className="sr-only">{folderBusy ? 'Wait for the folder action to finish' : 'Enter a folder name'}</span>}
                 </span>
                 <button
@@ -1605,7 +1605,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     setCreateFolderParentId(undefined);
                     setNewFolderDraft('');
                   }}
-                  className={`inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
+                  className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-gray-100 dark:hover:bg-[#21262d] ${FOCUS_RING}`}
                   aria-label="Cancel"
                 >
                   <XIcon size={14} />
@@ -1835,7 +1835,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           </button>
           <ContextMenuDivider />
           {downloadOptions.map((opt) => (
-            <span className="relative inline-flex" key={opt.id}>
+            <span className="relative flex w-full" key={opt.id}>
             <button
 
               type="button"
@@ -1851,7 +1851,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 <span className="text-[10px] text-slate-400 shrink-0">{opt.description}</span>
               )}
             </button>
-              {(tileDownloadBusy) && <Tip text={'Preparing download…'} side="top" />}
+              <Tip text={(tileDownloadBusy) ? ('Preparing download…') : (opt.label)} side="top" />
               {(tileDownloadBusy) && <span id={`${unavailableId}-3-${opt.id}`} className="sr-only">{'Preparing download…'}</span>}
             </span>
           ))}
@@ -1886,7 +1886,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           {visibleFolderRows.map(({ folder, depth }) => {
             const inFolder = (gen.folderId || INBOX_FOLDER_ID) === folder.id;
             return (
-              <span className="relative inline-flex" key={folder.id}>
+              <span className="relative flex w-full" key={folder.id}>
               <button
 
                 type="button"
@@ -1903,7 +1903,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   <span className="text-[10px] text-slate-400 shrink-0">here</span>
                 )}
               </button>
-                {(inFolder || folderBusy) && <Tip text={inFolder ? 'This image is already in this folder' : 'Wait for the folder action to finish'} side="top" />}
+                <Tip text={(inFolder || folderBusy) ? (inFolder ? 'This image is already in this folder' : 'Wait for the folder action to finish') : (folder.name)} side="top" />
                 {(inFolder || folderBusy) && <span id={`${unavailableId}-4-${folder.id}`} className="sr-only">{inFolder ? 'This image is already in this folder' : 'Wait for the folder action to finish'}</span>}
               </span>
             );
@@ -1934,7 +1934,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           Open in preview
         </button>
         {downloadOptions.length > 0 && (
-          <span className="relative inline-flex">
+          <span className="relative flex w-full">
           <button
             type="button"
             role="menuitem"
@@ -1948,7 +1948,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             <Download size={14} className="shrink-0" />
             Download image…
           </button>
-            {(tileDownloadBusy) && <Tip text={'Preparing download…'} side="top" />}
+            <Tip text={(tileDownloadBusy) ? ('Preparing download…') : ('Download image…')} side="top" />
             {(tileDownloadBusy) && <span id={`${unavailableId}-5`} className="sr-only">{'Preparing download…'}</span>}
           </span>
         )}
@@ -1993,7 +1993,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           )}
           {isSelected ? 'Deselect' : 'Select'}
         </button>
-        <span className="relative inline-flex">
+        <span className="relative flex w-full">
         <button
           type="button"
           role="menuitem"
@@ -2007,7 +2007,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           <FolderInput size={14} className="shrink-0" />
           Move to folder…
         </button>
-          {(folderBusy) && <Tip text={'Wait for the folder action to finish'} side="top" />}
+          <Tip text={(folderBusy) ? ('Wait for the folder action to finish') : ('Move to folder…')} side="top" />
           {(folderBusy) && <span id={`${unavailableId}-6`} className="sr-only">{'Wait for the folder action to finish'}</span>}
         </span>
         <button
@@ -2095,16 +2095,15 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   type="button"
                   onClick={(event) => { if (galleryPage <= 1) { event.preventDefault(); event.stopPropagation(); return; }return setGalleryPage((p) => Math.max(1, p - 1));
                   }}
-                  aria-disabled={galleryPage <= 1} aria-describedby={(galleryPage <= 1) ? `${unavailableId}-7` : undefined}
+                  aria-disabled={galleryPage <= 1} aria-describedby={`${unavailableId}-7-card`}
                   aria-label="Previous page"
                   className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal aria-disabled:opacity-40 aria-disabled:cursor-not-allowed ${FOCUS_RING}`}
                 >
                   <ChevronLeft size={18} aria-hidden />
                 </button>
-                  {(galleryPage <= 1) && <Tip text={'You are on the first page'} side="top" />}
-                  {(galleryPage <= 1) && <span id={`${unavailableId}-7`} className="sr-only">{'You are on the first page'}</span>}
                 </span>
                 <div
+                  id={`${unavailableId}-7-card`}
                   role="tooltip"
                   className="pointer-events-none absolute top-full mt-2 left-0 w-56 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/tip-prev:opacity-100 group-focus-within/tip-prev:opacity-100 transition-opacity z-30"
                 >
@@ -2140,16 +2139,15 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   type="button"
                   onClick={(event) => { if (galleryPage >= galleryTotalPages) { event.preventDefault(); event.stopPropagation(); return; }return setGalleryPage((p) => Math.min(galleryTotalPages, p + 1));
                   }}
-                  aria-disabled={galleryPage >= galleryTotalPages} aria-describedby={(galleryPage >= galleryTotalPages) ? `${unavailableId}-8` : undefined}
+                  aria-disabled={galleryPage >= galleryTotalPages} aria-describedby={`${unavailableId}-8-card`}
                   aria-label="Next page"
                   className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal aria-disabled:opacity-40 aria-disabled:cursor-not-allowed ${FOCUS_RING}`}
                 >
                   <ChevronRight size={18} aria-hidden />
                 </button>
-                  {(galleryPage >= galleryTotalPages) && <Tip text={'You are on the last page'} side="top" />}
-                  {(galleryPage >= galleryTotalPages) && <span id={`${unavailableId}-8`} className="sr-only">{'You are on the last page'}</span>}
                 </span>
                 <div
+                  id={`${unavailableId}-8-card`}
                   role="tooltip"
                   className="pointer-events-none absolute top-full mt-2 right-0 w-56 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/tip-next:opacity-100 group-focus-within/tip-next:opacity-100 transition-opacity z-30"
                 >
@@ -2192,7 +2190,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                             }}
                             className={`min-w-9 px-2 py-1 rounded-md text-xs font-medium tabular-nums transition ${
                               isActive
-                                ? 'bg-brand-teal text-white border border-brand-teal'
+                                ? 'bg-brand-teal text-[#0d1117] border border-brand-teal'
                                 : 'border border-gray-200 dark:border-[#30363d] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
                             } ${FOCUS_RING}`}
                           >
@@ -2225,7 +2223,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                             }}
                             className={`px-2.5 py-1 rounded-md text-xs font-medium tabular-nums transition ${
                               isActive
-                                ? 'bg-brand-teal text-white border border-brand-teal'
+                                ? 'bg-brand-teal text-[#0d1117] border border-brand-teal'
                                 : 'border border-gray-200 dark:border-[#30363d] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
                             } ${FOCUS_RING}`}
                           >
@@ -2295,7 +2293,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 // fallback would render `allLabel` as a visible span.
                 triggerLabelClassName="hidden"
                 icon={<Archive size={16} aria-hidden />}
-                triggerClassName="inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-11 min-w-11 rounded-lg bg-brand-teal text-white hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none transition shrink-0"
+                triggerClassName="inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-11 min-w-11 rounded-lg bg-brand-teal text-[#0d1117] hover:opacity-90 aria-disabled:opacity-50 aria-disabled:cursor-not-allowed transition shrink-0"
                 disabled={downloadScope.length === 0}
                 onNotify={showToast}
                 align="right"
@@ -2526,7 +2524,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 // fallback would render `allLabel` as a visible span.
                 triggerLabelClassName="hidden"
                 icon={<Archive size={16} aria-hidden className="text-brand-pink" />}
-                triggerClassName="inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition disabled:opacity-50 disabled:pointer-events-none shrink-0"
+                triggerClassName="inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition aria-disabled:opacity-50 aria-disabled:cursor-not-allowed shrink-0"
                 disabled={visibleHistory.length === 0}
                 onNotify={showToast}
                 align="right"
@@ -2734,7 +2732,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       e.stopPropagation();
                       toggleSelect(gen.id);
                     }}
-                    className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg border border-gray-300/80 dark:border-white/15 bg-white/95 dark:bg-[#1f252d]/95 text-slate-800 dark:text-slate-200 shadow-sm hover:bg-brand-teal hover:border-brand-teal hover:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/70"
+                    className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg border border-gray-300/80 dark:border-white/15 bg-white/95 dark:bg-[#1f252d]/95 text-slate-800 dark:text-slate-200 shadow-sm hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] focus:outline-none focus:ring-2 focus:ring-brand-teal/70"
                     aria-pressed={selectedIds.includes(gen.id)}
                     aria-label={selectedIds.includes(gen.id) ? 'Deselect generation' : 'Select generation'}
                   >
@@ -2746,7 +2744,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 <div
                   className={`absolute z-10 top-2 ${selectionMode ? 'left-14' : 'left-2'}`}
                 >
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-teal/90 text-white shadow-sm">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-teal/90 text-[#0d1117] shadow-sm">
                     <GitCompare size={10} />
                     Compare · {compareLabel}
                   </span>
@@ -2771,7 +2769,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     pendingRerunCounts![gen.id] === 1 ? 'task' : 'tasks'
                   } in progress on this tile`}
                 >
-                  <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full bg-brand-teal text-[11px] font-bold text-white shadow animate-pulse">
+                  <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full bg-brand-teal text-[11px] font-bold text-[#0d1117] shadow animate-pulse">
                     {pendingRerunCounts![gen.id]}
                   </span>
                 </div>
@@ -2955,11 +2953,11 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     }
 
                   }}
-                  className={`px-3 py-2 min-h-11 text-sm font-semibold rounded-lg bg-brand-teal text-white hover:opacity-90 aria-disabled:opacity-50 ${FOCUS_RING}`}
+                  className={`px-3 py-2 min-h-11 text-sm font-semibold rounded-lg bg-brand-teal text-[#0d1117] hover:opacity-90 aria-disabled:opacity-50 ${FOCUS_RING}`}
                 >
                   Save
                 </button>
-                  {(folderBusy) && <Tip text={'Wait for the folder action to finish'} side="top" />}
+                  <Tip text={(folderBusy) ? ('Wait for the folder action to finish') : ('Save')} side="top" />
                   {(folderBusy) && <span id={`${unavailableId}-9`} className="sr-only">{'Wait for the folder action to finish'}</span>}
                 </span>
               </div>
@@ -3005,7 +3003,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 >
                   Cancel
                 </button>
-                  {(folderBusy) && <Tip text={'Wait for the folder action to finish'} side="top" />}
+                  <Tip text={(folderBusy) ? ('Wait for the folder action to finish') : ('Cancel')} side="top" />
                   {(folderBusy) && <span id={`${unavailableId}-10`} className="sr-only">{'Wait for the folder action to finish'}</span>}
                 </span>
                 <span className="relative inline-flex">
@@ -3030,7 +3028,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 >
                   Delete folder
                 </button>
-                  {(folderBusy) && <Tip text={'Wait for the folder action to finish'} side="top" />}
+                  <Tip text={(folderBusy) ? ('Wait for the folder action to finish') : ('Delete folder')} side="top" />
                   {(folderBusy) && <span id={`${unavailableId}-11`} className="sr-only">{'Wait for the folder action to finish'}</span>}
                 </span>
               </div>

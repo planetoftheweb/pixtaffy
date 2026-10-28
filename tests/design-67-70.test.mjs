@@ -7,7 +7,7 @@ import postcss from 'postcss';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { nextMenuItemIndex } from '../utils/menuKeyboard.ts';
-import { getAuthFormBlocker, getFeedbackFormBlocker } from '../utils/formValidation.ts';
+import { getAuthFormBlocker, getFeedbackFormBlocker, getAuthFormBlockerField, getFeedbackFormBlockerField } from '../utils/formValidation.ts';
 import { shouldAutoCollapseGenerationPanel } from '../utils/generationPanel.ts';
 import { FOCUS_RING } from '../utils/focusRing.ts';
 
@@ -144,7 +144,7 @@ test('Build Studio wraps its toolbar and measures both pill dimensions when clam
   assert.match(studio, /rootR\.right - pill\.width/);
   assert.match(studio, /rootR\.bottom - pill\.height/);
   assert.ok(studio.includes('[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11'));
-  assert.match(studio, /<Tip text=\{\(disabled\) \? \('[^']+'\) : \(label\)\} side="bottom" \/>/);
+  assert.match(studio, /<Tip text=\{\(disabled\) \? \(disabledReason\) : \(label\)\} side="bottom" \/>/);
 });
 
 test('design contract requires overflow checks down to 320px and one transient toast recipe', () => {
@@ -192,7 +192,8 @@ function evaluateComponent(file, name, bindings) {
   const compiled = ts.transpileModule(`return (${initializer.getText(tree)});`, {
     compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  return new Function('React', 'FOCUS_RING', ...Object.keys(bindings), compiled)(React, FOCUS_RING, ...Object.values(bindings));
+  const scope = { getAuthFormBlockerField, getFeedbackFormBlockerField, setErrorField() {}, setErrorAttempt() {}, ...bindings };
+  return new Function('React', 'FOCUS_RING', ...Object.keys(scope), compiled)(React, FOCUS_RING, ...Object.values(scope));
 }
 
 test('self-account menu keeps disabled actions and one explanatory Tip on each hoverable wrapper', () => {
@@ -224,7 +225,7 @@ test('self-account menu keeps disabled actions and one explanatory Tip on each h
         assert.equal(tip.type, Tip);
         assert.equal(tip.props.text, index === 0
           ? 'You cannot suspend your own account' : 'You cannot delete your own account');
-      } else assert.equal(tip, undefined);
+      } else assert.equal(tip.props.text, index === 0 ? 'Suspend account' : 'Delete account');
     }
     assert.doesNotMatch(renderToStaticMarkup(menu), /\stitle=/);
   }
@@ -308,7 +309,7 @@ test('admin values, actions, stats labels and uid render one portal hint with th
 
 test('coarse-pointer studio controls keep 44px targets at tablet widths and hide mobile dividers', () => {
   const coarse = '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
-  assert.ok(studio.split(coarse).length - 1 >= 10, 'shared button, grip, AI, cleanup, zoom, selected frame, four header buttons and converted actions');
+  assert.equal(studio.split(coarse).length - 1, 23, 'all reviewed studio controls retain coarse pointer targets');
   assert.doesNotMatch(studio, /max-sm:min-h-11|flex-wrap sm:flex-nowrap/);
   const dividers = studio.match(/className="w-px h-6[^"]*"/g) || [];
   assert.equal(dividers.length, 5);
@@ -843,7 +844,7 @@ test('copy menu focuses its first enabled item, traps navigation and returns foc
   assert.ok(prevented && stopped, 'Escape cannot dismiss the parent modal');
   assert.equal(triggerFocus, 1);
   assert.equal(listeners.size, 0);
-  assert.match(image, /role="menu"\s+onKeyDown=\{handleCopyMenuKeyDown\}/);
+  assert.match(image, /role="menu"\s+aria-label="Copy"\s+onKeyDown=\{handleCopyMenuKeyDown\}/);
   const portal = image.slice(image.indexOf('{copyMenuOpen &&'), image.indexOf('{/* Unified Download menu'));
   assert.equal((portal.match(/setCopyMenuOpen\(false\)/g) || []).length, 5, 'outside catcher and all four selection paths close through effect cleanup');
   assert.match(portal, /z-\[60\]/);
@@ -872,7 +873,7 @@ function reasonSpanViolations(text, filename = 'fixture.tsx') {
   let checked = 0;
   for (const node of nodes) {
     if ((ts.isJsxElement(node) ? node.openingElement : node).tagName.getText() !== 'span'
-      || attr(node, 'className')?.text !== 'sr-only') continue;
+      || !/\bsr-only\b/.test(attr(node, 'className')?.getText() || '')) continue;
     const id = attr(node, 'id')?.expression;
     const controls = references.filter(ref => normalize(ref.id) === normalize(id));
     if (!id || !controls.length) continue;
@@ -899,6 +900,11 @@ function reasonSpanViolations(text, filename = 'fixture.tsx') {
 test('all described sr-only reason spans are conditional on the matching disabled condition', t => {
   const control = '<button aria-disabled={blocked} aria-describedby={blocked ? reasonId : undefined} />';
   const span = '<span id={reasonId} className="sr-only">Reason</span>';
+  for (const classes of ['"sr-only extra"', '{`sr-only ${extra}`}', '{blocked ? "sr-only" : "hidden"}', '{clsx("extra", "sr-only") }']) {
+    const expressionSpan = span.replace('"sr-only"', classes);
+    assert.equal(reasonSpanViolations(`<div>${control}${expressionSpan}</div>`).violations.length, 1);
+    assert.deepEqual(reasonSpanViolations(`<div>${control}{blocked && ${expressionSpan}}</div>`), { violations: [], checked: 1 });
+  }
   for (const bad of [span, `{other && ${span}}`, `{blocked ? null : ${span}}`]) {
     assert.equal(reasonSpanViolations(`<div>${control}${bad}</div>`).violations.length, 1);
   }
@@ -911,8 +917,8 @@ test('all described sr-only reason spans are conditional on the matching disable
   const files = ['App.tsx', ...filesIn('components')];
   const scans = files.map(file => reasonSpanViolations(source(file), file));
   assert.deepEqual(scans.flatMap(scan => scan.violations), []);
-  assert.equal(scans.reduce((count, scan) => count + scan.checked, 0), 77, 'cover the previous 19 reasons plus 57 converted buttons and SettingsButton');
-  t.diagnostic(`AST scan: ${files.length} files, 77 conditional disabled-reason spans`);
+  assert.equal(scans.reduce((count, scan) => count + scan.checked, 0), 73, 'four navigation controls describe their existing rich cards instead of duplicate reasons');
+  t.diagnostic(`AST scan: ${files.length} files, 73 conditional disabled-reason spans`);
 });
 
 test('incomplete auth and feedback form guards report specific errors before any backend work', async () => {
@@ -920,12 +926,12 @@ test('incomplete auth and feedback form guards report specific errors before any
   const cases = [
     [{ ...filled, email: '' }, 'Enter your email or username first.'],
     [{ ...filled, email: '   ' }, 'Enter your email or username first.'],
-    [{ ...filled, password: '' }, 'Password is required'],
-    [{ ...filled, isLogin: false, name: ' ' }, 'Name is required'],
+    [{ ...filled, password: '' }, 'Password is required.'],
+    [{ ...filled, isLogin: false, name: ' ' }, 'Name is required.'],
     [{ ...filled, isLogin: false, username: ' ' }, 'Username is required'],
     [{ ...filled, isLogin: false, email: '' }, 'Email address is required.'],
     [{ ...filled, isLogin: false }, 'Enter a valid email address.'],
-    [{ ...filled, isLogin: false, email: 'a@b', password: '' }, 'Password is required'],
+    [{ ...filled, isLogin: false, email: 'a@b', password: '' }, 'Password is required.'],
   ];
   assert.equal(getAuthFormBlocker(filled), null);
   assert.equal(getAuthFormBlocker({ ...filled, isLogin: false, email: 'a@b' }), null);
@@ -935,7 +941,7 @@ test('incomplete auth and feedback form guards report specific errors before any
     let status = 'old status';
     let prevented = false;
     const handle = evaluateComponent('components/AuthModal.tsx', 'handleSubmit', {
-      ...state, busy: false, isSubmittingRef: { current: false }, getAuthFormBlocker,
+      ...state, busyRef: { current: false }, isSubmittingRef: { current: false }, getAuthFormBlocker,
       setError: value => { error = value; }, setStatus: value => { status = value; },
       setIsLoading: () => assert.fail('incomplete form must not start a request'),
       authService: new Proxy({}, { get: () => assert.fail('Auth must never be called') }),
@@ -964,7 +970,7 @@ test('incomplete auth and feedback form guards report specific errors before any
     ['FeedbackModal', 'sendFeedback', { busy: true }],
   ]) {
     await evaluateComponent(`components/${file}.tsx`, handler, {
-      ...bindings, setError: () => assert.fail('busy submissions return silently'),
+      ...bindings, busyRef: { current: bindings.busy }, setError: () => assert.fail('busy submissions return silently'),
       getAuthFormBlocker: () => assert.fail('busy guard runs first'), getFeedbackFormBlocker: () => assert.fail('busy guard runs first'),
     })({ preventDefault() {} });
   }
@@ -982,14 +988,14 @@ test('incomplete auth and feedback form guards report specific errors before any
 test('password reset reports an empty email before backend work and returns silently while busy', async () => {
   const auth = source('components/AuthModal.tsx');
   const handler = auth.slice(auth.indexOf('  const handlePasswordReset ='), auth.indexOf('  const toggleMode ='));
-  assert.match(handler, /const handlePasswordReset = async \(\) => \{\s+if \(busy\) return;/);
+  assert.match(handler, /const handlePasswordReset = async \(\) => \{\s+if \(busyRef\.current\) return;/);
   assert.doesNotMatch(handler, /if \(resetDisabled\) return;/);
   for (const email of ['', '   ']) {
     for (const busy of [false, true]) {
       let error = 'old error';
       let status = 'old status';
       await evaluateComponent('components/AuthModal.tsx', 'handlePasswordReset', {
-        busy, resetDisabled: true, email,
+        busyRef: { current: busy }, resetDisabled: true, email,
         setError: value => { error = value; }, setStatus: value => { status = value; },
         setIsResetting: () => assert.fail('empty email must not start a reset request'),
         authService: { requestPasswordReset: () => assert.fail('reset service must never be called') },
@@ -1040,7 +1046,7 @@ test('feedback keeps its inline error inside the sticky footer above both action
   assert.ok(alert, 'the sticky footer must contain the inline error so it cannot cover it');
   assert.ok(actions, 'the action row stays inside the same sticky footer');
   assert.ok(alert.end < actions.getStart(tree), 'the error must precede the action row at every breakpoint');
-  assert.match(actions.getText(tree), /flex flex-col-reverse gap-2 sm:flex-row sm:justify-end/);
+  assert.match(actions.getText(tree), /flex shrink-0 gap-2 justify-end/);
   assert.match(actions.getText(tree), />Cancel<\/button>/);
 });
 
@@ -1077,4 +1083,173 @@ test('failed dock rows cancel pending collapse until dismissal without changing 
   assert.match(app, /scheduleGenerationJobDismissal = \(jobId: string, delayMs = 9000\)/);
   assert.match(app, /scheduleGenerationJobDismissal\(jobId, 14000\)/);
   assert.match(app, /onClick=\{\(\) => clearGenerationJob\(job.id\)\}/);
+});
+
+test('form blockers map each inline error to its field while preserving message helpers', () => {
+  const complete = { isLogin: false, name: 'Name', username: 'name', email: 'a@b', password: 'fixture' };
+  for (const [changes, field, message] of [
+    [{ name: ' ' }, 'name', 'Name is required.'],
+    [{ username: '' }, 'username', 'Username is required'],
+    [{ email: '' }, 'email', 'Email address is required.'],
+    [{ email: 'invalid' }, 'email', 'Enter a valid email address.'],
+    [{ password: '' }, 'password', 'Password is required.'],
+    [{ isLogin: true, email: '' }, 'email', 'Enter your email or username first.'],
+  ]) {
+    const state = { ...complete, ...changes };
+    assert.equal(getAuthFormBlockerField(state), field);
+    assert.equal(getAuthFormBlocker(state), message);
+  }
+  assert.equal(getAuthFormBlockerField(complete), null);
+  assert.equal(getAuthFormBlockerField({ ...complete, isLogin: true, email: 'username' }), null);
+  assert.equal(getFeedbackFormBlockerField('', 'invalid'), 'message');
+  assert.equal(getFeedbackFormBlockerField('Useful note', 'invalid'), 'contactEmail');
+  assert.equal(getFeedbackFormBlockerField('Useful note', 'a@b'), null);
+  assert.equal(getFeedbackFormBlockerField('Useful note'), null);
+});
+
+test('modal field errors focus and scroll the invalid field and clear on edits', () => {
+  for (const [file, fields] of [
+    ['AuthModal', ['name', 'username', 'email', 'password']],
+    ['FeedbackModal', ['message', 'contactEmail']],
+  ]) {
+    const text = source(`components/${file}.tsx`);
+    assert.match(text, /<p id=\{errorId\} role="alert"/);
+    assert.match(text, /field\?\.focus\(\{ preventScroll: true \}\)/);
+    assert.match(text, /field\?\.scrollIntoView\(\{ block: 'center' \}\)/);
+    assert.match(text, /\[error, errorField, errorAttempt\]/);
+    for (const field of fields) {
+      assert.ok(text.includes(`aria-invalid={Boolean(error && errorField === '${field}')}`));
+      assert.ok(text.includes(`aria-describedby={error && errorField === '${field}' ? errorId : undefined}`));
+      assert.ok(text.includes(`if (errorField === '${field}') { setError(null); setErrorField(null); }`));
+    }
+  }
+  const feedback = source('components/FeedbackModal.tsx');
+  assert.match(feedback, /setErrorField\(getFeedbackFormBlockerField\(message, contactEmail\)\)/);
+  assert.match(feedback, /scroll-mb-\[25vh\]/);
+  assert.match(feedback, /max-h-\[25vh\] flex flex-col overflow-hidden/);
+  assert.match(feedback, /max-h-16 shrink overflow-y-auto break-words[^\n]*text-sm leading-5/);
+  const auth = source('components/AuthModal.tsx');
+  assert.match(auth, /setErrorField\(getAuthFormBlockerField\(/);
+  assert.match(auth, /setError\('Enter your email or username first\.'\);\s*setErrorField\('email'\)/);
+});
+
+test('two synchronous reset activations send one request and release the guard after success or failure', async () => {
+  for (const reject of [false, true]) {
+    let finish, calls = 0;
+    const busyRef = { current: false };
+    const pending = new Promise((resolve, fail) => { finish = reject ? fail : resolve; });
+    const reset = evaluateComponent('components/AuthModal.tsx', 'handlePasswordReset', {
+      busyRef, email: 'fixture', setError() {}, setStatus() {}, setIsResetting() {},
+      authService: { requestPasswordReset() { calls++; return pending; } },
+    });
+    const first = reset();
+    const second = reset();
+    assert.equal(calls, 1);
+    assert.equal(busyRef.current, true);
+    finish(reject ? new Error('mock failure') : undefined);
+    await Promise.all([first, second]);
+    assert.equal(busyRef.current, false);
+  }
+});
+
+test('converted controls have unconditional Tips and existing navigation cards own their descriptions', () => {
+  const filesIn = dir => readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })
+    .flatMap(entry => entry.isDirectory() ? filesIn(`${dir}/${entry.name}`) : entry.name.endsWith('.tsx') ? [`${dir}/${entry.name}`] : []);
+  for (const file of ['App.tsx', ...filesIn('components')]) {
+    const tree = ts.createSourceFile(file, source(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const inspect = node => {
+      if (ts.isJsxElement(node)) {
+        const buttons = node.children.filter(child => ts.isJsxElement(child) && child.openingElement.tagName.getText() === 'button');
+        for (const button of buttons) {
+          if (!button.openingElement.getText().includes('aria-disabled')) continue;
+          const directTips = [...node.children, ...button.children].filter(child =>
+            ts.isJsxSelfClosingElement(child) && child.tagName.getText() === 'Tip');
+          assert.ok(directTips.length <= 1, `${file}: one direct Tip per control`);
+          const conditionalTips = [...node.children, ...button.children].filter(child =>
+            ts.isJsxExpression(child) && child.expression && ts.isBinaryExpression(child.expression)
+            && child.expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+            && child.expression.right.getText().startsWith('<Tip'));
+          assert.equal(conditionalTips.length, 0, `${file}: Tip must exist in both enabled and disabled states`);
+        }
+      }
+      ts.forEachChild(node, inspect);
+    };
+    inspect(tree);
+  }
+  for (const [text, nums] of [[image, [1, 2]], [gallery, [7, 8]]]) {
+    for (const num of nums) {
+      assert.ok(text.includes(`aria-describedby={\x60\x24{unavailableId}-${num}-card\x60}`));
+      assert.ok(text.includes(`id={\x60\x24{unavailableId}-${num}-card\x60}`));
+    }
+  }
+  assert.equal((gallery.match(/className="relative flex w-full"/g) || []).length, 4);
+});
+
+test('reviewed controls retain teal rings, coarse targets, icon labels and the documented layer scale', () => {
+  assert.match(image, /focus-visible:ring-brand-teal resize-none/);
+  assert.doesNotMatch(image, /focus-visible:ring-white\/70/);
+  assert.match(image, /pointer-events-none fixed z-\[70\]/);
+  assert.match(studio, /disabledReason="Add a frame to play the slideshow"/);
+  const copy = image.slice(image.indexOf('data-copy-menu-portal'), image.indexOf('{/* Unified Download menu'));
+  assert.match(copy, /role="menu"\s+aria-label="Copy"/);
+  assert.equal((copy.match(/\$\{FOCUS_RING\}/g) || []).length, 4);
+  for (const file of ['SettingsPage', 'LegacySettingsPage']) {
+    const summaries = source(`components/${file}.tsx`).match(/<summary[^>]*>/g);
+    assert.equal(summaries.length, 2);
+    assert.ok(summaries.every(summary => summary.includes('focus-visible:ring-brand-teal')));
+  }
+  const control = source('components/ControlPanel.tsx');
+  const variation = control.slice(control.indexOf('ref={batchCountTriggerRef}'), control.indexOf("{activeDropdown === 'batch-count' && batchCountAnchor"));
+  assert.doesNotMatch(variation, /focus-within:ring/);
+  assert.match(variation, /focus:ring-1 focus:ring-brand-teal/);
+  assert.match(control, /<Tip text="Close" side="bottom" align="right"/);
+  for (const [file, label] of [['BrandAnalysisModal', 'Close'], ['CatalogPage', 'Back']]) {
+    const text = source(`components/${file}.tsx`);
+    assert.ok(text.includes(`aria-label="${label}"`));
+    assert.ok(text.includes(`<Tip text="${label}"`));
+  }
+  for (const file of ['ControlPanel', 'GalleryPresetMenu']) {
+    assert.match(source(`components/${file}.tsx`), /<MoreHorizontal size=\{14\} \/>\s*<Tip text=\{isActionMenuOpen/);
+  }
+  assert.doesNotMatch(source('components/GalleryPresetMenu.tsx'), /sm:min-w-0/);
+  const app = source('App.tsx');
+  assert.match(app, /group\/dismiss[^\n]*pointer:coarse[^\n]*focus-visible:opacity-100[^\n]*\$\{FOCUS_RING\}/);
+  for (const text of ['toolbar-hidden hint and gallery preset panel', 'floating menus above banners', 'context menus and hover previews', 'menus inside modals', 'gallery thumbnail-size menu']) assert.ok(design.includes(text));
+  assert.match(source('components/AdminPage.tsx'), /fixed inset-0 z-\[100\] flex items-center justify-center bg-black\/50/);
+  assert.match(source('components/settings/settings.css'), /outline: 2px solid var\(--color-brand-teal\); outline-offset: 2px/);
+  for (const text of [image, gallery]) {
+    const downloads = text.match(/triggerClassName="[^"]+"/g);
+    assert.ok(downloads.every(classes => classes.includes('aria-disabled:opacity-50 aria-disabled:cursor-not-allowed')));
+  }
+});
+
+test('reviewed icon buttons preserve coarse sizes and teal label contrast without changing excluded controls', () => {
+  const coarse = '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
+  for (const [file, labels] of [
+    ['RecentGenerations', ['Cancel rename', 'Cancel', 'Actions for ${folder.name}']],
+    ['ImageDisplay', ['Close details']],
+    ['ControlPanel', ['Remove color']],
+  ]) {
+    const text = source(`components/${file}.tsx`);
+    const tree = ts.createSourceFile(`${file}.tsx`, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const buttons = [];
+    const scan = node => {
+      if (ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button') buttons.push(node);
+      ts.forEachChild(node, scan);
+    };
+    scan(tree);
+    for (const label of labels) {
+      const matching = buttons.filter(node => node.openingElement.attributes.properties.some(prop =>
+        prop.name?.getText() === 'aria-label' && prop.getText().includes(label)));
+      assert.ok(matching.length, `${file}: ${label}`);
+      for (const node of matching) assert.ok(node.openingElement.getText().includes(coarse), `${file}: ${label} must stay 44px on coarse pointers`);
+    }
+  }
+  for (const [file, expected] of [
+    ['ControlPanel', /rounded-md bg-brand-teal text-\[#0d1117\] hover:bg-teal-600/],
+    ['RecentGenerations', /rounded-lg bg-brand-teal text-\[#0d1117\] hover:opacity-90/],
+    ['ImageDisplay', /min-h-11 px-4 rounded-lg text-sm font-semibold text-\[#0d1117\]/],
+  ]) assert.match(source(`components/${file}.tsx`), expected);
+  assert.equal((source('components/GalleryPresetMenu.tsx').match(/\? 'bg-brand-teal text-white'/g) || []).length, 2);
+  assert.match(studio, /w-6 h-6[^\n]*bg-brand-teal text-white/);
 });

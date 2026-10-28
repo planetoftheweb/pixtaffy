@@ -4432,7 +4432,7 @@ const App: React.FC = () => {
                     type="button"
                     onClick={dismissCompletionToast}
                     aria-label="Dismiss"
-                    className={`group/dismiss absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-white text-[10px] text-slate-500 opacity-0 shadow transition-opacity hover:text-slate-900 group-hover:opacity-100 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-400 dark:hover:text-white ${FOCUS_RING}`}
+                    className={`group/dismiss [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-white text-[10px] text-slate-500 opacity-0 focus-visible:opacity-100 shadow transition-opacity hover:text-slate-900 group-hover:opacity-100 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-400 dark:hover:text-white ${FOCUS_RING}`}
                   >
                     ✕
                     <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 hidden whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[13px] font-medium text-white group-hover/dismiss:block">
@@ -4516,7 +4516,7 @@ const App: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsGenerationsPanelCollapsed(true)}
-                          className={`relative inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
+                          className={`relative inline-flex [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 items-center justify-center h-6 w-6 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
                           aria-label="Minimize active generations panel"
                         >
                           <Minimize2 size={13} />

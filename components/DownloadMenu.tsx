@@ -183,7 +183,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
   const isDisabled = disabled || busy || (!canThis && !canAll);
 
   const defaultTriggerClasses =
-    "inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] text-slate-800 dark:text-slate-100 hover:bg-brand-teal hover:border-brand-teal hover:text-white transition text-sm font-medium aria-disabled:opacity-50 aria-disabled:cursor-not-allowed";
+    "inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] text-slate-800 dark:text-slate-100 hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] transition text-sm font-medium aria-disabled:opacity-50 aria-disabled:cursor-not-allowed";
 
   const triggerIcon = busy ? (
     <Loader2 size={16} className="animate-spin" />

@@ -209,7 +209,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
                     }} aria-disabled={loading} aria-describedby={(loading) ? `${unavailableId}-1` : undefined} className={`rounded-xl p-3 text-slate-500 dark:text-slate-400 hover:bg-white hover:text-brand-pink dark:hover:bg-[#161b22] ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`} aria-label="Refresh billing">
               <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
             </button>
-              {(loading) && <Tip text={'Refreshing billing…'} side="top" />}
+              <Tip text={(loading) ? ('Refreshing billing…') : ('Refresh billing')} side="top" />
               {(loading) && <span id={`${unavailableId}-1`} className="sr-only">{'Refreshing billing…'}</span>}
             </span>
           )}
@@ -261,7 +261,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
                     }} aria-disabled={busy === 'verify'} aria-describedby={(busy === 'verify') ? `${unavailableId}-2` : undefined} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-pink px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-brand-pink/20 aria-disabled:opacity-60 ${FOCUS_RING}`}>
               {busy === 'verify' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Check verification
             </button>
-              {(busy === 'verify') && <Tip text={'Checking verification…'} side="top" />}
+              <Tip text={(busy === 'verify') ? ('Checking verification…') : ('Check verification')} side="top" />
               {(busy === 'verify') && <span id={`${unavailableId}-2`} className="sr-only">{'Checking verification…'}</span>}
             </span>
           </section>
@@ -307,7 +307,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
                           }} aria-disabled={busy != null} aria-describedby={(busy != null) ? `${unavailableId}-3-${product.id}` : undefined} className={`mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#11172a] px-4 py-3 text-sm font-black text-white shadow-lg transition-colors hover:bg-brand-pink aria-disabled:opacity-60 dark:bg-white dark:text-[#11172a] dark:hover:bg-brand-cyan ${FOCUS_RING}`}>
                     {busy === product.id ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} {user ? `Get ${product.eyebrow.replace('-credit pack', '')} credits` : 'Create an account to buy'}
                   </button>
-                    {(busy != null) && <Tip text={'Wait for checkout to finish opening'} side="top" />}
+                    <Tip text={(busy != null) ? ('Wait for checkout to finish opening') : ('Buy credits')} side="top" />
                     {(busy != null) && <span id={`${unavailableId}-3-${product.id}`} className="sr-only">{'Wait for checkout to finish opening'}</span>}
                   </span>
                 </div>
@@ -340,7 +340,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
                       }} aria-disabled={busy != null || billing?.plan === 'pro'} aria-describedby={(busy != null || billing?.plan === 'pro') ? `${unavailableId}-4` : undefined} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-purple via-brand-pink to-brand-red px-4 py-3 text-sm font-black text-white shadow-lg aria-disabled:opacity-60 ${FOCUS_RING}`}>
                 {busy === 'pro_monthly' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {billing?.plan === 'pro' ? 'Current plan' : user ? 'Join Taffy Studio' : 'Create an account to join'}
               </button>
-                {(busy != null || billing?.plan === 'pro') && <Tip text={billing?.plan === 'pro' ? 'You already have this plan' : 'Wait for checkout to finish opening'} side="top" />}
+                <Tip text={(busy != null || billing?.plan === 'pro') ? (billing?.plan === 'pro' ? 'You already have this plan' : 'Wait for checkout to finish opening') : ('Get Pro')} side="top" />
                 {(busy != null || billing?.plan === 'pro') && <span id={`${unavailableId}-4`} className="sr-only">{billing?.plan === 'pro' ? 'You already have this plan' : 'Wait for checkout to finish opening'}</span>}
               </span>
             </div>

@@ -316,7 +316,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
           />
         </span>
       </button>
-        {(!isInteractive) && <Tip text={disabled ? 'This selection is locked' : 'No options available'} side="top" />}
+        <Tip text={(!isInteractive) ? (disabled ? 'This selection is locked' : 'No options available') : (labelText)} side="top" />
         {(!isInteractive) && <span id={`${unavailableId}-1`} className="sr-only">{disabled ? 'This selection is locked' : 'No options available'}</span>}
       </span>
 

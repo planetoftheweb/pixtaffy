@@ -212,8 +212,7 @@ test('settings toast escapes page stacking contexts and sits above overlays and 
 
 test('disabled Generate has a wrapper hint and an accessible reason', () => {
   assert.match(controlPanelSource, /aria-describedby=\{generateButtonDisabled \? generateReasonId : undefined\}/);
-  assert.match(controlPanelSource, /!generateButtonDisabled && <Tip text=\{generateButtonTitle\}/);
-  assert.match(controlPanelSource, /generateButtonDisabled && <Tip text=\{generateButtonTitle\} side="top" \/>/);
+  assert.match(controlPanelSource, /<\/button>\s*<Tip text=\{generateButtonTitle\} side="top" \/>/);
   assert.match(controlPanelSource, /id=\{generateReasonId\} className="sr-only">\{generateButtonTitle\}/);
 });
 
@@ -651,7 +650,7 @@ test('Expand and Model controls retain wrapper tips, accessible reasons and guar
     assert.ok(source.includes(`aria-disabled={${flag}}`));
     assert.ok(source.includes(`aria-describedby={${flag} ? ${reasonId} : undefined}`));
     assert.ok(source.includes(`if (${flag}) return;`));
-    assert.match(source, new RegExp(`</button>\\s*\\{${flag} && <Tip[^>]*text=\\{${title}\\}`));
+    assert.match(source, new RegExp(`</button>\\s*<Tip[^>]*text=\\{${flag === 'disabled' ? 'disabled \\? disabledReason :' : title}`));
     assert.ok(source.includes(`id={${reasonId}} className="sr-only">{${title}}`));
     assert.doesNotMatch(source, /\sdisabled=/);
   }
@@ -948,10 +947,12 @@ test('form reasons cover missing input and requests already in flight without ca
 test('Edit prompt footer hints use the shared portal and the placeholder ends with one ellipsis', () => {
   const modal = findNodes(controlPanelAst, node => ts.isJsxElement(node) && jsxAttribute(node, 'aria-label')?.initializer.text === 'Edit prompt')[0];
   const tips = findNodes(modal, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip');
-  assert.equal(tips.length, 2);
-  assert.equal(jsxAttribute(tips[0], 'text').initializer.expression.getText(), 'expandButtonTitle');
-  assert.equal(jsxAttribute(tips[1], 'text').initializer.text, 'Close the editor');
-  assert.ok(tips.every(tip => jsxAttribute(tip, 'side').initializer.text === 'top'));
+  assert.equal(tips.length, 3);
+  assert.equal(jsxAttribute(tips[0], 'text').initializer.text, 'Close');
+  assert.equal(jsxAttribute(tips[0], 'side').initializer.text, 'bottom');
+  assert.equal(jsxAttribute(tips[1], 'text').initializer.expression.getText(), 'expandButtonTitle');
+  assert.equal(jsxAttribute(tips[2], 'text').initializer.text, 'Close the editor');
+  assert.ok(tips.slice(1).every(tip => jsxAttribute(tip, 'side').initializer.text === 'top'));
   const textarea = findNodes(modal, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'textarea')[0];
   assert.equal(jsxAttribute(textarea, 'placeholder').initializer.text, 'Prompt or drop image ({a,b} or ["tile 1","tile 2"])…');
   const tip = readFileSync(new URL('../components/settings/Tip.tsx', import.meta.url), 'utf8');
@@ -1088,11 +1089,11 @@ test('#81 Studio buttons, links, inputs and options retain a focus ring, includi
   }
   assert.deepEqual(invalid, []);
   assert.match(controlPanelSource, /tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-teal/);
-  assert.match(controlPanelSource, /focus-within:ring-2 focus-within:ring-brand-teal/);
+  assert.doesNotMatch(controlPanelSource, /focus-within:ring-2 focus-within:ring-brand-teal/);
   assert.match(settingsPrimitives, /className=\{`\$\{className \|\| ''\} \$\{FOCUS_RING\}/, 'prop className must not overwrite the shared ring');
   assert.match(settingsPrimitives, /<input \{\.\.\.props\} className=\{`\$\{props.className \|\| ''\} \$\{FOCUS_RING\}/);
   const settingsCss = readFileSync(new URL('../components/settings/settings.css', import.meta.url), 'utf8');
-  assert.match(settingsCss, /button:focus-visible\) \{ outline: none;/);
+  assert.match(settingsCss, /button:focus-visible\) \{ outline: 2px solid var\(--color-brand-teal\); outline-offset: 2px;/);
   assert.match(settingsCss, /@media \(pointer: coarse\)[\s\S]*min-height: 44px;[\s\S]*min-width: 44px;/);
   t.diagnostic(`AST focus scan: ${controls} controls; hidden and file inputs are the only exceptions`);
 });
@@ -1153,9 +1154,10 @@ test('all newly converted buttons have conditional reason spans, sibling Tips an
   for (const file of ['App.tsx', ...componentFiles('components')]) {
     const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
     for (const button of findNodes(tree, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
-      && jsxAttribute(node, 'aria-describedby')?.getText().includes('unavailableId'))) {
+      && jsxAttribute(node, 'aria-describedby')?.getText().includes('unavailableId')
+      && !jsxAttribute(node, 'aria-describedby')?.getText().includes('-card'))) {
       checked++;
-      const state = { ...blocked, busy: file.endsWith('PricingPage.tsx') ? 'verify' : true };
+      const state = { ...blocked, disabledReason: 'This tool is unavailable for the current frame', busy: file.endsWith('PricingPage.tsx') ? 'verify' : true };
       const flag = jsxAttribute(button, 'aria-disabled').initializer.expression;
       assert.equal(evaluateExpression(flag, state), true, `${file} ${flag.getText()}`);
       let prevented = false;
@@ -1174,7 +1176,7 @@ test('all newly converted buttons have conditional reason spans, sibling Tips an
       assert.equal(typeof attributeValue(tips[0], 'text', state), 'string');
     }
   }
-  assert.equal(checked, 57, 'every remaining native-disabled button must be covered');
+  assert.equal(checked, 53, 'converted buttons with sibling reasons, plus four navigation cards covered separately');
   assert.match(recentGenerationsSource, /const next = renameDraft.trim\(\);\s*if \(folderBusy \|\| !next\) return;/);
   assert.match(recentGenerationsSource, /const next = newFolderDraft.trim\(\);\s*if \(folderBusy \|\| !next\) return;/);
   for (const source of [controlPanelSource, captureDismissalSources.find(([file]) => file.endsWith('GalleryPresetMenu.tsx'))[1]]) {
@@ -1215,7 +1217,7 @@ test('rail and version-popover delete badges keep coarse 44px targets inside the
 
 test('copy-menu layers join the documented scale below modals', () => {
   const design = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
-  assert.match(design, /z-50` busy banners → `z-\[59\]` copy-menu click catcher → `z-\[60\]` copy menu → `z-\[100\]` modals/);
+  assert.match(design, /z-50` busy banners → `z-\[59\]` floating-menu click catchers → `z-\[60\]` floating menus above banners → `z-\[70\]` context menus and hover previews → `z-\[100\]` modals/);
 });
 
 test('generic tooltip hosts use neutral expansion data and real menu controls retain aria-expanded', () => {

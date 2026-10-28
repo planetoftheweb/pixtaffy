@@ -273,7 +273,8 @@ const ToolBarButton: React.FC<{
   label: string;
   activeClassName?: string;
   disabled?: boolean;
-}> = ({ icon: Icon, active, onClick, label, activeClassName, disabled }) => {
+  disabledReason?: string;
+}> = ({ icon: Icon, active, onClick, label, activeClassName, disabled, disabledReason = 'This tool is unavailable for the current frame' }) => {
   const unavailableId = React.useId();
   return (
   <span className="relative inline-flex shrink-0">
@@ -284,13 +285,13 @@ const ToolBarButton: React.FC<{
       aria-disabled={disabled} aria-describedby={(disabled) ? `${unavailableId}-1` : undefined}
       aria-label={label}
       className={`group/tip relative w-9 h-9 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 shrink-0 rounded-lg flex items-center justify-center transition-colors aria-disabled:opacity-30 ${
-        active ? activeClassName || 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+        active ? activeClassName || 'bg-brand-teal text-[#0d1117]' : 'text-slate-300 hover:bg-white/10 hover:text-white'
       } ${FOCUS_RING}`}
     >
       <Icon size={18} />
     </button>
-    {(disabled) && <span id={`${unavailableId}-1`} className="sr-only">{'This tool is unavailable for the current frame'}</span>}
-    <Tip text={(disabled) ? ('This tool is unavailable for the current frame') : (label)} side="bottom" />
+    {(disabled) && <span id={`${unavailableId}-1`} className="sr-only">{disabledReason}</span>}
+    <Tip text={(disabled) ? (disabledReason) : (label)} side="bottom" />
   </span>
   );
 };
@@ -315,7 +316,7 @@ const Seg: React.FC<{
         key={o.key}
         onClick={() => onChange(o.key)}
         className={`group/tip relative px-2 py-0.5 text-[11px] font-semibold first:rounded-l-md last:rounded-r-md ${
-          value === o.key ? 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-[#21262d]'
+          value === o.key ? 'bg-brand-teal text-[#0d1117]' : 'text-slate-300 hover:bg-[#21262d]'
         } ${FOCUS_RING}`}
       >
         {o.label}
@@ -2171,8 +2172,9 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                   icon={Play}
                   onClick={() => enterPlay(selectedIdx >= 0 ? selectedIdx : undefined)}
                   disabled={build.steps.length === 0}
+                  disabledReason="Add a frame to play the slideshow"
                   label="Play the slideshow (Return) — starts at the selected frame"
-                  activeClassName="bg-brand-teal text-white"
+                  activeClassName="bg-brand-teal text-[#0d1117]"
                 />
                 <ToolBarButton
                   icon={sidebarOpen ? PanelRightClose : PanelRightOpen}
@@ -2343,7 +2345,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           onPointerCancel={endXform}
                           onDoubleClick={(e) => { e.stopPropagation(); toggleIsolation(s.id); }}
                           aria-label={sel ? 'Selected - drag to move · double-click to focus' : 'Click to select · drag to move · double-click to focus'}
-                          className={`absolute w-5 h-5 rounded-full text-[10px] font-bold text-center tabular-nums text-white ring-2 ring-transparent hover:ring-white/60 cursor-move touch-none ${sel ? 'bg-brand-teal' : 'bg-brand-red'} ${FOCUS_RING}`}
+                          className={`absolute w-5 h-5 rounded-full text-[10px] font-bold text-center tabular-nums ring-2 ring-transparent hover:ring-white/60 cursor-move touch-none ${sel ? 'bg-brand-teal text-[#0d1117]' : 'bg-brand-red text-white'} ${FOCUS_RING}`}
                           style={{
                             left: `${c.x * 100}%`,
                             top: `${c.y * 100}%`,
@@ -2410,7 +2412,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                 {cleanMode && (
                   <button
                     onClick={exitToEdit}
-                    className={`group/tip absolute top-2 right-2 p-1.5 rounded-md bg-black/50 text-white/80 hover:text-white opacity-0 hover:opacity-100 transition-opacity ${FOCUS_RING}`}
+                    className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip absolute top-2 right-2 p-1.5 rounded-md bg-black/50 text-white/80 hover:text-white opacity-0 hover:opacity-100 transition-opacity ${FOCUS_RING}`}
                     aria-label="Exit to editing"
                   >
                     <Tip text="Back to editing (Esc)" />
@@ -2429,7 +2431,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     <div className="px-4 py-3 border-t border-white/10 bg-black/70 backdrop-blur-sm flex items-center gap-3 flex-wrap opacity-0 group-hover/transport:opacity-100 focus-within:opacity-100 transition-opacity duration-200">
                       {build.autoPlay ? (
                         <>
-                          <button onClick={() => setPlaying((p) => !p)} className={`p-2 rounded-lg bg-brand-teal text-white hover:bg-teal-600 ${FOCUS_RING}`} aria-label={playing ? 'Pause' : 'Play'}>
+                          <button onClick={() => setPlaying((p) => !p)} className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-2 rounded-lg bg-brand-teal text-[#0d1117] hover:bg-teal-600 ${FOCUS_RING}`} aria-label={playing ? 'Pause' : 'Play'}>
                             {playing ? <Pause size={16} /> : <Play size={16} />}
                           </button>
                           <input
@@ -2441,13 +2443,13 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           <span className="text-xs text-slate-300 tabular-nums w-16 text-right">
                             {(Math.min(timeMs, total) / 1000).toFixed(1)}s / {(total / 1000).toFixed(1)}s
                           </span>
-                          <button onClick={() => setLoop((l) => !l)} className={`relative p-2 rounded-lg ${loop ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-300 hover:bg-white/10'} ${FOCUS_RING}`} aria-label="Loop">
+                          <button onClick={() => setLoop((l) => !l)} className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative p-2 rounded-lg ${loop ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-300 hover:bg-white/10'} ${FOCUS_RING}`} aria-label="Loop">
                             <Repeat size={15} />
                             <Tip text="Loop" side="top" align="right" />
                           </button>
                           <div className="inline-flex rounded-lg border border-white/15 overflow-hidden">
                             {SPEED_OPTIONS.map((sp) => (
-                              <button key={sp} onClick={() => setSpeed(sp)} className={`px-2 py-1 text-xs font-semibold ${speed === sp ? 'bg-brand-teal text-white' : 'text-slate-300 hover:bg-white/10'} ${FOCUS_RING}`}>
+                              <button key={sp} onClick={() => setSpeed(sp)} className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 px-2 py-1 text-xs font-semibold ${speed === sp ? 'bg-brand-teal text-[#0d1117]' : 'text-slate-300 hover:bg-white/10'} ${FOCUS_RING}`}>
                                 {sp}×
                               </button>
                             ))}
@@ -2473,7 +2475,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           </span>
                           <span className="relative inline-flex">
                             <button onClick={(event) => { if (stopIndex >= stops.length - 1) { event.preventDefault(); event.stopPropagation(); return; }return setStopIndex((i) => Math.min(stops.length - 1, i + 1));
-                                    }} aria-disabled={stopIndex >= stops.length - 1} aria-describedby={(stopIndex >= stops.length - 1) ? `${unavailableId}-7` : undefined} className={`p-2 rounded-lg bg-brand-teal text-white hover:bg-teal-600 aria-disabled:opacity-30 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`} aria-label="Next frame">
+                                    }} aria-disabled={stopIndex >= stops.length - 1} aria-describedby={(stopIndex >= stops.length - 1) ? `${unavailableId}-7` : undefined} className={`p-2 rounded-lg bg-brand-teal text-[#0d1117] hover:bg-teal-600 aria-disabled:opacity-30 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`} aria-label="Next frame">
                               <ChevronRight size={16} />
                             </button>
                             {(stopIndex >= stops.length - 1) && <span id={`${unavailableId}-7`} className="sr-only">{'You are at the last frame'}</span>}
@@ -2497,11 +2499,11 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           />
                           Auto-play
                         </label>
-                        <button onClick={toggleFullscreen} className={`relative p-2 rounded-lg ${isFullscreen ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-300 hover:bg-white/10'} ${FOCUS_RING}`}  aria-label="Fullscreen">
+                        <button onClick={toggleFullscreen} className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative p-2 rounded-lg ${isFullscreen ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-300 hover:bg-white/10'} ${FOCUS_RING}`}  aria-label="Fullscreen">
                           {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
                           <Tip text="Fullscreen for recording" side="top" align="right" />
                         </button>
-                        <button onClick={editCurrentItem} className={`group/tip relative p-2 rounded-lg text-slate-300 hover:bg-white/10 ${FOCUS_RING}`} aria-label="Edit this frame">
+                        <button onClick={editCurrentItem} className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative p-2 rounded-lg text-slate-300 hover:bg-white/10 ${FOCUS_RING}`} aria-label="Edit this frame">
                           <Tip text="Edit this frame (E) · Esc exits without selecting" />
                           <Pencil size={15} />
                         </button>
@@ -2549,7 +2551,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     </span>
                   )}
                   {selectedStepId && (
-                    <button onClick={() => setSelectedStepId(null)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#21262d] text-slate-200 text-[11px] font-semibold hover:bg-[#2d333b] ${FOCUS_RING}`}>
+                    <button onClick={() => setSelectedStepId(null)} className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#21262d] text-slate-200 text-[11px] font-semibold hover:bg-[#2d333b] ${FOCUS_RING}`}>
                       <Plus size={11} /> New frame
                     </button>
                   )}
@@ -2557,7 +2559,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                     <button
                       {...clearAllConfirm.bindDisarmOnBlur('clear-all')}
                       onClick={armClearAll}
-                      className={`group/tip relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${confirmClear ? 'bg-amber-500 text-[#0d1117] animate-pulse' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'} ${FOCUS_RING}`}
+                      className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${confirmClear ? 'bg-amber-500 text-[#0d1117] animate-pulse' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'} ${FOCUS_RING}`}
                     >
                       <Trash2 size={11} />
                       {confirmClear && 'Sure?'}
@@ -2594,7 +2596,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           onPointerCancel={onRowUp}
                           className="w-full flex items-center gap-2 px-2 py-1.5 text-left cursor-pointer touch-none"
                         >
-                          <span className={`w-6 h-6 rounded-full text-white text-[11px] font-bold text-center tabular-nums shrink-0 ${sel ? 'bg-brand-teal' : 'bg-brand-red'}`} style={{ lineHeight: '24px' }}>{i + 1}</span>
+                          <span className={`w-6 h-6 rounded-full text-[11px] font-bold text-center tabular-nums shrink-0 ${sel ? 'bg-brand-teal text-[#0d1117]' : 'bg-brand-red text-white'}`} style={{ lineHeight: '24px' }}>{i + 1}</span>
                           {renamingId === s.id ? (
                             <input
                               data-no-row-drag
@@ -2655,7 +2657,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                                     key={zf}
                                     onClick={(e) => { e.stopPropagation(); updateStep(s.id, { zoomFrom: zf }); }}
                                     aria-label={tip}
-                                    className={`group/tip relative px-1 py-0.5 ${active ? 'bg-brand-teal text-white' : 'text-slate-400 hover:bg-[#21262d]'} ${FOCUS_RING}`}
+                                    className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative px-1 py-0.5 ${active ? 'bg-brand-teal text-[#0d1117]' : 'text-slate-400 hover:bg-[#21262d]'} ${FOCUS_RING}`}
                                   >
                                     <Icon size={11} />
                                     <Tip text={tip} side="left" />
@@ -2667,7 +2669,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                           <button
                             data-no-row-drag
                             onClick={(e) => { e.stopPropagation(); deleteStep(s.id); }}
-                            className={`group/tip relative ${sel ? '' : 'ml-auto'} p-1 text-red-400 hover:text-red-300 opacity-0 group-hover/row:opacity-100 transition-opacity ${FOCUS_RING}`}
+                            className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative ${sel ? '' : 'ml-auto'} p-1 text-red-400 hover:text-red-300 opacity-0 group-hover/row:opacity-100 transition-opacity ${FOCUS_RING}`}
                             aria-label="Delete frame"
                           >
                             <Trash2 size={13} />
@@ -2821,7 +2823,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
                         key={zf}
                         onClick={() => setBuild((b) => ({ ...b, defaultZoomFrom: zf as BuildZoomFrom }))}
                         aria-label={tip}
-                        className={`group/tip relative px-2 py-1 first:rounded-l-md last:rounded-r-md ${active ? 'bg-brand-teal text-white' : 'text-slate-400 hover:bg-[#21262d]'} ${FOCUS_RING}`}
+                        className={`group/tip relative px-2 py-1 first:rounded-l-md last:rounded-r-md ${active ? 'bg-brand-teal text-[#0d1117]' : 'text-slate-400 hover:bg-[#21262d]'} ${FOCUS_RING}`}
                       >
                         <Icon size={12} />
                         <Tip text={tip} />

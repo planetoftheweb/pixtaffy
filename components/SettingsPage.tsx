@@ -562,7 +562,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   to the direct API and hidden from the picker. */}
               {hasOpenRouterKey && (
                 <details className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
-                  <summary className="cursor-pointer">
+                  <summary className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                       OpenRouter models
                     </span><Tip text="Choose which OpenRouter models appear in the studio." /></summary>
@@ -646,7 +646,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       type="button"
                       onClick={handleAddOrCustomSlug}
                       disabled={!orCustomSlug.trim()} disabledReason="Enter an OpenRouter model ID"
-                      className="px-3 py-2 text-[14px] font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-teal-600 transition-colors shrink-0"
+                      className="px-3 py-2 text-[14px] font-medium rounded-lg bg-brand-teal text-[#0d1117] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-teal-600 transition-colors shrink-0"
                     >
                       Add
                     </SettingsButton>
@@ -702,7 +702,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {/* Personal API tokens - external access for MCP servers,
                   scripts, and other apps. Plaintext is shown exactly once. */}
               <details className="pt-3 border-t border-gray-200 dark:border-[#30363d] space-y-2">
-                <summary className="cursor-pointer text-[13px] font-semibold text-slate-500">
+                <summary className="cursor-pointer text-[13px] font-semibold text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal">
                   API access
                 <Tip text="Manage personal tokens for external tools and scripts." /></summary>
                 <p className="text-xs text-slate-500">
@@ -722,7 +722,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         onClick={() => {
                           void navigator.clipboard.writeText(freshToken).then(() => setFreshTokenCopied(true));
                         }}
-                        className="px-2.5 py-1 text-[12px] font-semibold rounded-md bg-brand-teal text-white hover:bg-teal-600"
+                        className="px-2.5 py-1 text-[12px] font-semibold rounded-md bg-brand-teal text-[#0d1117] hover:bg-teal-600"
                       >
                         {freshTokenCopied ? 'Copied ✓' : 'Copy token'}
                       </SettingsButton>
@@ -778,7 +778,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     type="button"
                     onClick={() => void handleCreateApiToken()}
                     disabled={apiTokenBusy} disabledReason="Creating API token…"
-                    className="px-3 py-1.5 text-[14px] font-medium rounded-lg bg-brand-teal text-white disabled:opacity-40 hover:bg-teal-600 transition-colors shrink-0"
+                    className="px-3 py-1.5 text-[14px] font-medium rounded-lg bg-brand-teal text-[#0d1117] disabled:opacity-40 hover:bg-teal-600 transition-colors shrink-0"
                   >
                     {apiTokenBusy ? 'Creating…' : 'Create token'}
                   </SettingsButton>
@@ -839,7 +839,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     </div>
                     <SettingsButton
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute bottom-0 right-0 p-1.5 bg-brand-teal text-white rounded-full shadow-lg hover:bg-teal-600 transition-colors"
+                      className="absolute bottom-0 right-0 p-1.5 bg-brand-teal text-[#0d1117] rounded-full shadow-lg hover:bg-teal-600 transition-colors"
                       aria-label="Upload Photo"
                     >
                       <Camera size={14} />
@@ -1069,7 +1069,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                      />
                      <SettingsButton
                        onClick={handleCreateTeam}
-                       className="w-full py-1.5 bg-brand-teal text-white text-xs font-bold rounded hover:bg-teal-600 transition-colors"
+                       className="w-full py-1.5 bg-brand-teal text-[#0d1117] text-xs font-bold rounded hover:bg-teal-600 transition-colors"
                      >
                          Create Team
                      </SettingsButton>
@@ -1146,7 +1146,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <SettingsButton
             onClick={handleSave}
             disabled={isSaving} disabledReason="Saving settings…"
-            className="flex items-center gap-2 px-6 py-1.5 bg-brand-teal hover:bg-teal-600 text-white rounded-lg font-medium transition-colors text-[14px] shadow-lg shadow-brand-teal/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-1.5 bg-brand-teal hover:bg-teal-600 text-[#0d1117] rounded-lg font-medium transition-colors text-[14px] shadow-lg shadow-brand-teal/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <>

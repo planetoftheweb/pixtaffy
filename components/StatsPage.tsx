@@ -668,7 +668,7 @@ export const StatsPage: React.FC = () => {
           )}
           Refresh
         </button>
-          {(isLoading) && <Tip text={'Refreshing statistics…'} side="top" />}
+          <Tip text={(isLoading) ? ('Refreshing statistics…') : ('Refresh statistics')} side="top" />
           {(isLoading) && <span id={`${unavailableId}-1`} className="sr-only">{'Refreshing statistics…'}</span>}
         </span>
       </div>

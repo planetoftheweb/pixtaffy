@@ -169,7 +169,7 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
               : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
         } ${FOCUS_RING}`}
     >
-      {!disabled && <Tip title={subLabel} text={typeof label === 'string' ? label : titleText || 'Choose a setting'} />}
+
       <Icon
         size={20}
         className={`shrink-0 ${
@@ -213,7 +213,7 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         }`}
       />
     </button>
-    {disabled && <Tip title={subLabel} text={disabledReason} />}
+    <Tip title={subLabel} text={disabled ? disabledReason : typeof label === 'string' ? label : titleText || 'Choose a setting'} />
     {disabled && <span id={disabledReasonId} className="sr-only">{disabledReason}</span>}
     </span>
   );
@@ -344,8 +344,9 @@ const Modal = ({
       <div className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-bold">{title}</h3>
-          <button onClick={onClose} className={`text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}>
+          <button onClick={onClose} aria-label="Close" className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}>
             <X size={20} />
+            <Tip text="Close" />
           </button>
         </div>
         {children}
@@ -2428,7 +2429,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                 <span
                                   className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
                                     isChecked
-                                      ? 'bg-brand-teal border-brand-teal text-white'
+                                      ? 'bg-brand-teal border-brand-teal text-[#0d1117]'
                                       : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#0d1117]'
                                   }`}
                                 >
@@ -2758,6 +2759,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                     } ${FOCUS_RING}`}
                                   >
                                     <MoreHorizontal size={14} />
+                                    <Tip text={isActionMenuOpen ? `Close actions for ${preset.name}` : `Actions for ${preset.name}`} />
                                   </button>
                                 )}
                               </div>
@@ -2837,12 +2839,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                             type="button"
                             onClick={(event) => { if (isSavingPreset || !presetNameDraft.trim()) { event.preventDefault(); event.stopPropagation(); return; } handleConfirmSavePreset(); }}
                             aria-disabled={isSavingPreset || !presetNameDraft.trim()} aria-describedby={(isSavingPreset || !presetNameDraft.trim()) ? `${unavailableId}-1` : undefined}
-                            className={`flex-1 px-2 py-1.5 text-xs font-bold rounded-md bg-brand-teal text-white hover:bg-teal-600 aria-disabled:opacity-50 aria-disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
+                            className={`flex-1 px-2 py-1.5 text-xs font-bold rounded-md bg-brand-teal text-[#0d1117] hover:bg-teal-600 aria-disabled:opacity-50 aria-disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
                           >
                             {isSavingPreset && <Loader2 size={12} className="animate-spin" />}
                             Save
                           </button>
-                            {(isSavingPreset || !presetNameDraft.trim()) && <Tip text={isSavingPreset ? 'Saving preset…' : 'Enter a preset name'} side="top" />}
+                            <Tip text={(isSavingPreset || !presetNameDraft.trim()) ? (isSavingPreset ? 'Saving preset…' : 'Enter a preset name') : ('Save')} side="top" />
                             {(isSavingPreset || !presetNameDraft.trim()) && <span id={`${unavailableId}-1`} className="sr-only">{isSavingPreset ? 'Saving preset…' : 'Enter a preset name'}</span>}
                           </span>
                         </div>
@@ -2942,7 +2944,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 {/* Variations: typable number with a 1–5 quick-pick dropdown. */}
                 <div
                   ref={batchCountTriggerRef}
-                  className="relative group flex h-12 w-auto sm:w-12 focus-within:ring-2 focus-within:ring-brand-teal shrink-0 items-center justify-center rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] shadow-sm"
+                  className="relative group flex h-12 w-auto sm:w-12 shrink-0 items-center justify-center rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] shadow-sm"
                 >
                   
                   <label htmlFor="batch-count-input" className="sr-only">Variations per prompt</label>
@@ -3052,9 +3054,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   aria-label="Expand prompt with additional creative detail"
                 >
                   {isExpandingPrompt ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                  {!expandButtonDisabled && <Tip text={expandButtonTitle} side="top" />}
+
                 </button>
-                {expandButtonDisabled && <Tip text={expandButtonTitle} side="top" />}
+                <Tip text={expandButtonTitle} side="top" />
                 {expandButtonDisabled && <span id={expandReasonId} className="sr-only">{expandButtonTitle}</span>}
                 </span>
 
@@ -3083,9 +3085,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     ) : (
                       <Send size={16} />
                     )}
-                    {!generateButtonDisabled && <Tip text={generateButtonTitle} side="top" />}
+
                   </button>
-                  {generateButtonDisabled && <Tip text={generateButtonTitle} side="top" />}
+                  <Tip text={generateButtonTitle} side="top" />
                   {generateButtonDisabled && <span id={generateReasonId} className="sr-only">{generateButtonTitle}</span>}
                 </span>
               </div>
@@ -3189,6 +3191,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 aria-label="Close"
               >
                 <X size={20} />
+                <Tip text="Close" side="bottom" align="right" />
               </button>
             </div>
             <div
@@ -3270,7 +3273,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 className={`inline-flex items-center justify-center gap-2 px-3 py-2 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 rounded-lg border text-sm font-semibold transition-colors ${
                   expandButtonDisabled
                     ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
-                    : 'bg-white dark:bg-[#0d1117] text-slate-700 dark:text-slate-200 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white'
+                    : 'bg-white dark:bg-[#0d1117] text-slate-700 dark:text-slate-200 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117]'
                 } ${FOCUS_RING}`}
               >
                 {isExpandingPrompt ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
@@ -3345,7 +3348,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <span>Generate content prompt</span>
                   {isPromptImageAnalyzing && <Loader2 size={14} className="animate-spin" />}
                 </button>
-                  {(isPromptImageAnalyzing) && <Tip text={'Analyzing image…'} side="top" />}
+                  <Tip text={(isPromptImageAnalyzing) ? ('Analyzing image…') : ('Generate content prompt')} side="top" />
                   {(isPromptImageAnalyzing) && <span id={`${unavailableId}-2`} className="sr-only">{'Analyzing image…'}</span>}
                 </span>
                 <p className="px-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
@@ -3366,7 +3369,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       Image style overrides the Style menu.
                     </span>
                   </button>
-                    {(isPromptImageAnalyzing) && <Tip text={'Analyzing image…'} side="top" />}
+                    <Tip text={(isPromptImageAnalyzing) ? ('Analyzing image…') : ('Use image style')} side="top" />
                     {(isPromptImageAnalyzing) && <span id={`${unavailableId}-3`} className="sr-only">{'Analyzing image…'}</span>}
                   </span>
                   <span className="relative inline-flex">
@@ -3382,7 +3385,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       Style menu overrides the image.
                     </span>
                   </button>
-                    {(isPromptImageAnalyzing) && <Tip text={'Analyzing image…'} side="top" />}
+                    <Tip text={(isPromptImageAnalyzing) ? ('Analyzing image…') : ('Keep menu style')} side="top" />
                     {(isPromptImageAnalyzing) && <span id={`${unavailableId}-4`} className="sr-only">{'Analyzing image…'}</span>}
                   </span>
                 </div>
@@ -3408,7 +3411,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 </span>
                 {isAnalyzing && <Loader2 size={14} className="animate-spin" />}
               </button>
-                {(isPromptImageAnalyzing || isAnalyzing) && <Tip text={'Wait for image analysis to finish'} side="top" />}
+                <Tip text={(isPromptImageAnalyzing || isAnalyzing) ? ('Wait for image analysis to finish') : ('Use as brand guidelines')} side="top" />
                 {(isPromptImageAnalyzing || isAnalyzing) && <span id={`${unavailableId}-5`} className="sr-only">{'Wait for image analysis to finish'}</span>}
               </span>
             )}
@@ -3523,7 +3526,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                             onClick={() => {
                               setNewItemColors(newItemColors.filter((_, i) => i !== idx));
                             }}
-                            className={`absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-white dark:bg-[#1f2937] border border-gray-200 dark:border-[#30363d] text-slate-500 hover:text-red-400 transition-colors ${FOCUS_RING}`} aria-label="Remove color"
+                            className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-white dark:bg-[#1f2937] border border-gray-200 dark:border-[#30363d] text-slate-500 hover:text-red-400 transition-colors ${FOCUS_RING}`} aria-label="Remove color"
                           >
                             <X size={10} />
                             <Tip text="Remove color" side="top" align="right" />
@@ -3716,7 +3719,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                      <Users size={16} />
                      Team
                    </button>
-                     {(userTeams.length === 0) && <Tip text={'Join a team to share an option with it'} side="top" />}
+                     <Tip text={(userTeams.length === 0) ? ('Join a team to share an option with it') : ('Team')} side="top" />
                      {(userTeams.length === 0) && <span id={`${unavailableId}-6`} className="sr-only">{'Join a team to share an option with it'}</span>}
                    </span>
                 </div>
@@ -3752,7 +3755,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
              >
                {editingId ? 'Update' : 'Save'} Option
              </button>
-               {(!newItemName) && <Tip text={'Enter an option name'} side="top" />}
+               <Tip text={(!newItemName) ? ('Enter an option name') : (editingId ? 'Update Option' : 'Save Option')} side="top" />
                {(!newItemName) && <span id={`${unavailableId}-7`} className="sr-only">{'Enter an option name'}</span>}
              </span>
           </div>

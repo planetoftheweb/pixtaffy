@@ -467,7 +467,7 @@ const DetailView: React.FC<{
                       key={`${entry.id}-section-${idx}-step-${stepIdx}`}
                       className="flex items-start gap-3 p-3 rounded-lg bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d]"
                     >
-                      <span className="inline-flex w-6 h-6 items-center justify-center rounded-full bg-brand-teal text-white text-xs font-bold shrink-0 mt-px">
+                      <span className="inline-flex w-6 h-6 items-center justify-center rounded-full bg-brand-teal text-[#0d1117] text-xs font-bold shrink-0 mt-px">
                         {stepIdx + 1}
                       </span>
                       <div className="flex-1 flex items-center gap-3 flex-wrap text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
@@ -492,7 +492,7 @@ const DetailView: React.FC<{
         <button
           type="button"
           onClick={onBackToList}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-teal/90 text-white text-sm font-semibold shadow-sm shadow-brand-teal/30 transition-colors ${FOCUS_RING}`}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-teal/90 text-[#0d1117] text-sm font-semibold shadow-sm shadow-brand-teal/30 transition-colors ${FOCUS_RING}`}
         >
           <ChevronLeft size={14} />
           Back to all launches

@@ -1,3 +1,4 @@
+import { Tip } from './settings/Tip';
 import { FOCUS_RING } from '../utils/focusRing';
 import React, { useState } from 'react';
 import { X, Check, CheckCircle2, Circle, Palette, PenTool, Layout, Globe, Lock } from 'lucide-react';
@@ -57,8 +58,9 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
             <h3 className="text-lg font-bold">Review Analyzed Brand Assets</h3>
             <p className="text-xs text-slate-500">Select the items you want to import.</p>
           </div>
-          <button onClick={onClose} className={`text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}>
+          <button onClick={onClose} aria-label="Close" className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors ${FOCUS_RING}`}>
             <X size={20} />
+             <Tip text="Close" />
           </button>
         </div>
 
@@ -228,7 +230,7 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
           </button>
           <button 
             onClick={handleConfirm}
-            className={`flex items-center gap-2 px-6 py-2 bg-brand-teal hover:bg-teal-600 text-white rounded-lg font-medium transition-colors text-sm shadow-lg shadow-brand-teal/20 ${FOCUS_RING}`}
+            className={`flex items-center gap-2 px-6 py-2 bg-brand-teal hover:bg-teal-600 text-[#0d1117] rounded-lg font-medium transition-colors text-sm shadow-lg shadow-brand-teal/20 ${FOCUS_RING}`}
           >
             <Check size={16} /> 
             Import Selected ({selectedColors.length + selectedStyles.length + selectedTypes.length})

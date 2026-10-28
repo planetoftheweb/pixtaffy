@@ -3,7 +3,7 @@ import { X, Mail, Lock, User as UserIcon, Loader2, ArrowRight, Layers } from 'lu
 import { Tip } from './settings/Tip';
 import { authService } from '../services/authService';
 import { User } from '../types';
-import { getAuthFormBlocker } from '../utils/formValidation';
+import { getAuthFormBlocker, getAuthFormBlockerField, type AuthFormField } from '../utils/formValidation';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -24,6 +24,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorField, setErrorField] = useState<AuthFormField | null>(null);
+  const errorId = useId();
+  const [errorAttempt, setErrorAttempt] = useState(0);
+  const fieldRefs = useRef<Partial<Record<AuthFormField, HTMLInputElement | null>>>({});
   const [status, setStatus] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
   const busyRef = useRef(false);
@@ -45,6 +49,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   React.useEffect(() => {
     setIsLogin(initialMode === 'login');
     setError(null);
+    setErrorField(null);
     setStatus(null);
     setIsLoading(false);
     setIsResetting(false);
@@ -58,6 +63,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     });
     return () => cancelAnimationFrame(frame);
   }, [isOpen]);
+
+  React.useEffect(() => {
+    if (!error || !errorField) return;
+    const field = fieldRefs.current[errorField];
+    field?.focus({ preventScroll: true });
+    field?.scrollIntoView({ block: 'center' });
+  }, [error, errorField, errorAttempt]);
 
   // Form State
   const [name, setName] = useState('');
@@ -132,15 +144,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (busy || isSubmittingRef.current) return;
+    if (busyRef.current || isSubmittingRef.current) return;
     const blocker = getAuthFormBlocker({ isLogin, name, username, email, password });
     if (blocker) {
+      setErrorAttempt(attempt => attempt + 1);
       setError(blocker);
+      setErrorField(getAuthFormBlockerField({ isLogin, name, username, email, password }));
       setStatus(null);
       return;
     }
     isSubmittingRef.current = true;
+    busyRef.current = true;
     setError(null);
+    setErrorField(null);
     setStatus(null);
     setIsLoading(true);
 
@@ -159,20 +175,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setError(err.message || "Authentication failed");
     } finally {
       isSubmittingRef.current = false;
+      busyRef.current = false;
       setIsLoading(false);
     }
   };
 
   const handlePasswordReset = async () => {
-    if (busy) return;
+    if (busyRef.current) return;
     if (!email.trim()) {
+      setErrorAttempt(attempt => attempt + 1);
       setError('Enter your email or username first.');
+      setErrorField('email');
       setStatus(null);
       return;
     }
 
     setError(null);
+    setErrorField(null);
     setStatus(null);
+    busyRef.current = true;
     setIsResetting(true);
     try {
       await authService.requestPasswordReset(email);
@@ -180,6 +201,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: any) {
       setError(err.message || 'Could not send the password reset email.');
     } finally {
+      busyRef.current = false;
       setIsResetting(false);
     }
   };
@@ -187,6 +209,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const toggleMode = () => {
     setIsLogin(!isLogin);
     setError(null);
+    setErrorField(null);
     setStatus(null);
     setPassword('');
   };
@@ -237,9 +260,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <form noValidate onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 text-sm text-center font-medium animate-in fade-in">
+              <p id={errorId} role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 text-sm text-center font-medium animate-in fade-in">
                 {error}
-              </div>
+              </p>
             )}
 
             {status && (
@@ -256,8 +279,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
                       type="text"
+                      ref={(field) => { fieldRefs.current.name = field; }}
+                      aria-invalid={Boolean(error && errorField === 'name')}
+                      aria-describedby={error && errorField === 'name' ? errorId : undefined}
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => { setName(e.target.value); if (errorField === 'name') { setError(null); setErrorField(null); } }}
                       className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                       placeholder="John Doe"
                       required={!isLogin}
@@ -270,8 +296,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">@</div>
                     <input
                       type="text"
+                      ref={(field) => { fieldRefs.current.username = field; }}
+                      aria-invalid={Boolean(error && errorField === 'username')}
+                      aria-describedby={error && errorField === 'username' ? errorId : undefined}
                       value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      onChange={(e) => { setUsername(e.target.value); if (errorField === 'username') { setError(null); setErrorField(null); } }}
                       className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-8 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                       placeholder="johndoe"
                       required={!isLogin}
@@ -289,8 +318,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
                   type={isLogin ? "text" : "email"}
+                  ref={(field) => { fieldRefs.current.email = field; }}
+                  aria-invalid={Boolean(error && errorField === 'email')}
+                  aria-describedby={error && errorField === 'email' ? errorId : undefined}
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); if (errorField === 'email') { setError(null); setErrorField(null); } }}
                   className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                   placeholder={isLogin ? "john@example.com or johndoe" : "john@example.com"}
                   required
@@ -321,8 +353,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
                   type="password"
+                  ref={(field) => { fieldRefs.current.password = field; }}
+                  aria-invalid={Boolean(error && errorField === 'password')}
+                  aria-describedby={error && errorField === 'password' ? errorId : undefined}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); if (errorField === 'password') { setError(null); setErrorField(null); } }}
                   className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                   placeholder="••••••••"
                   required

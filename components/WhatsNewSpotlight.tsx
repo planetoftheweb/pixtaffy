@@ -108,7 +108,7 @@ export const WhatsNewSpotlight: React.FC<WhatsNewSpotlightProps> = ({
             <button
               type="button"
               onClick={onReadGuide}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-teal/90 text-white text-sm font-semibold transition-colors shadow-sm shadow-brand-teal/30 ${FOCUS_RING}`}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-teal/90 text-[#0d1117] text-sm font-semibold transition-colors shadow-sm shadow-brand-teal/30 ${FOCUS_RING}`}
             >
               Read the guide
               <ArrowRight size={14} />

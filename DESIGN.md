@@ -307,7 +307,8 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
   Portaled satellites need outside-click awareness (`closest('[data-…]')`) so
   they don't self-close their parent.
 - Z-scale: `z-10` click-catchers → `z-20` inline tooltips → `z-30` rich
-  tooltips/dropdowns → `z-40` toasts → `z-50` busy banners → `z-[59]` copy-menu click catcher → `z-[60]` copy menu → `z-[100]` modals
+  tooltips/dropdowns → `z-40` toasts → `z-[40]` gallery thumbnail-size menu → `z-[45]` toolbar-hidden hint and gallery preset panel → `z-50` busy banners → `z-[59]` floating-menu click catchers → `z-[60]` floating menus above banners → `z-[70]` context menus and hover previews → `z-[100]` modals
+  → `z-[120]` menus inside modals
   → `z-[140-300]` nested/fullscreen layers → `z-[400]` error toasts → `500` portal tips.
 
 ## 11. Esc: one obvious escape hatch
