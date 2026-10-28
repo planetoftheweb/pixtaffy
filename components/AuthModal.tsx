@@ -184,6 +184,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <button
           type="button"
           onClick={() => { if (!busyRef.current) onClose(); }}
+          disabled={isLoading || isResetting}
           aria-label="Close"
           className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
         >

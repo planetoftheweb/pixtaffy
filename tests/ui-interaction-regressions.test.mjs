@@ -651,7 +651,7 @@ test('Expand and Model controls retain wrapper tips, accessible reasons and guar
   assert.match(dropdown, /aria-haspopup="listbox"/);
   assert.match(dropdown, /aria-expanded=\{Boolean\(isActive\)\}/);
   assert.match(controlPanelSource, /disabledReason="Model selection is locked"/);
-  for (const reason of ['Type a prompt to expand it', 'Expanding prompt...', 'Expand prompt']) assert.ok(controlPanelSource.includes(`'${reason}'`));
+  for (const reason of ['Type a prompt to expand it', 'Expanding prompt…', 'Expand prompt']) assert.ok(controlPanelSource.includes(`'${reason}'`));
   for (const [label, disabledName, actionName, args] of [
     ['dropdownName', 'disabled', 'onClick', [{}]],
     ['"Expand prompt with additional creative detail"', 'expandButtonDisabled', 'handleExpandPrompt', []],
@@ -769,5 +769,19 @@ test('reviewed buttons use rounded-lg and auth copy follows Log in and Log out s
   assert.ok(appSource.includes('<span>Log out</span>'));
   assert.ok(appSource.includes('Create free account'));
   assert.ok(readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8').includes('could not reach the login service'));
-  assert.ok(readFileSync(new URL('../components/StatsPage.tsx', import.meta.url), 'utf8').includes('label="Last log in"'));
+  assert.ok(readFileSync(new URL('../components/StatsPage.tsx', import.meta.url), 'utf8').includes('label="Last login"'));
+  const authServiceCopy = readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8');
+  for (const copy of ['could not log you in', 'Email login is temporarily unavailable', 'Failed to log in.']) assert.ok(authServiceCopy.includes(copy), copy);
+  assert.doesNotMatch(authServiceCopy, /could not sign you in|Email log in is|Failed to login\./);
+});
+
+test('Login is the noun and log in the verb; eyebrow labels keep 11px and 10px; AuthModal Close is disabled while busy', () => {
+  const panel = readFileSync(new URL('../components/ControlPanel.tsx', import.meta.url), 'utf8');
+  assert.match(panel, /hidden md:inline xl:hidden text-\[11px\] uppercase font-bold/);
+  assert.match(panel, /hidden xl:block text-\[10px\] uppercase font-bold/);
+  assert.ok(panel.includes("'Expanding prompt\u2026'") || panel.includes("'Expanding prompt…'"));
+  assert.doesNotMatch(panel, /Expanding prompt\.\.\./);
+  const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
+  const close = auth.slice(auth.indexOf('aria-label="Close"') - 220, auth.indexOf('aria-label="Close"') + 40);
+  assert.match(close, /disabled=\{isLoading \|\| isResetting\}/);
 });

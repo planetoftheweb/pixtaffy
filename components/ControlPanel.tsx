@@ -178,14 +178,14 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         }`}
       />
       {/* Compact category label, md through lg (when there's no room for the full value). */}
-      <span className={`hidden md:inline xl:hidden text-xs uppercase font-bold tracking-wider whitespace-nowrap ${
+      <span className={`hidden md:inline xl:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
         isActive ? 'text-brand-teal' : 'text-slate-600 dark:text-slate-300 group-hover:text-brand-teal'
       }`}>
         {subLabel}
       </span>
       {/* Selected value and optional stacked sublabel and palette, xl+ */}
       <div className="hidden xl:flex flex-col flex-1 min-w-0 text-left">
-        <span className="hidden xl:block text-xs uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
+        <span className="hidden xl:block text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
           {subLabel}
         </span>
         {typeof label === 'string' || typeof label === 'number' ? (
@@ -1003,7 +1003,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const expandReasonId = useId();
   const expandButtonDisabled = !config.prompt || isExpandingPrompt;
   const expandButtonTitle = isExpandingPrompt
-    ? 'Expanding prompt...'
+    ? 'Expanding prompt…'
     : !config.prompt ? 'Type a prompt to expand it' : 'Expand prompt';
   const generateButtonTitle = generateButtonDisabled
     ? !config.prompt

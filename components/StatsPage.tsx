@@ -450,7 +450,7 @@ const FocusedUserView: React.FC<FocusedUserViewProps> = ({ userStats }) => {
           accent="slate"
         />
         <StatTile
-          label="Last log in"
+          label="Last login"
           value={formatDate(u.lastSignInAtMs)}
           hint={
             u.lastSignInAtMs ? formatRelative(u.lastSignInAtMs) : 'No record'

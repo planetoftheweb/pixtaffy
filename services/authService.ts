@@ -444,15 +444,15 @@ const loginErrorMessage = (error: unknown): string => {
     return 'This account has been disabled. Contact PixTaffy support for help.';
   }
   if (code === 'auth/operation-not-allowed') {
-    return 'Email log in is temporarily unavailable. Try again later.';
+    return 'Email login is temporarily unavailable. Try again later.';
   }
   if (code === 'auth/network-request-failed') {
     return 'PixTaffy could not reach the login service. Check your connection and try again.';
   }
   if (code?.startsWith('auth/')) {
-    return 'PixTaffy could not sign you in. Try again in a moment.';
+    return 'PixTaffy could not log you in. Try again in a moment.';
   }
-  return (error as { message?: string } | null)?.message || 'Failed to login.';
+  return (error as { message?: string } | null)?.message || 'Failed to log in.';
 };
 
 // Public `get` on `usernames/{key}` (see firestore.rules). Replaces querying
