@@ -197,7 +197,7 @@ test('copy and gallery error notices use red-900 and alert without changing neut
 });
 
 test('Edit prompt Done keeps its action and sizing with the requested teal contrast', () => {
-  const done = panel.match(/<button\s+type="button"\s+onClick=\{\(\) => setIsPromptModalOpen\(false\)\}\s+className="([^"]+)"\s*>\s*Done\s*<\/button>/);
+  const done = panel.match(/<button\s+type="button"\s+onClick=\{\(\) => setIsPromptModalOpen\(false\)\}\s+className="([^"]+)"\s*>\s*Done\s*<Tip\b[^>]*\/>\s*<\/button>/);
   assert.ok(done, 'Edit prompt Done button not found');
   for (const token of ['px-4', 'py-2', 'rounded-lg', 'bg-brand-teal', 'hover:bg-teal-600', 'text-[#0d1117]', 'font-semibold', 'text-sm', 'shadow-md', 'shadow-brand-teal/20']) {
     assert.ok(done[1].includes(token), `missing ${token}`);
@@ -370,8 +370,8 @@ test('refine analysis and expansion report one deduped persistent error instead 
 test('header signup, auth submit and feedback primary actions use teal with a dark label', () => {
   const classes = [
     app.match(/className="([^"]+)"\s*>\s*Sign [Uu]p(?:<Tip[^>]*\/>)?\s*<\/button>/)?.[1],
-    source('components/AuthModal.tsx').match(/type="submit"[\s\S]*?className="([^"]+)"/)?.[1],
-    source('components/FeedbackModal.tsx').match(/<button type="submit"[^>]+className="([^"]+)"/)?.[1],
+    source('components/AuthModal.tsx').match(/type="submit"[\s\S]*?className=\{`([\s\S]*?)`\}/)?.[1],
+    source('components/FeedbackModal.tsx').match(/<button type="submit"[^>]+className=\{`([\s\S]*?)`\}/)?.[1],
     source('components/FeedbackModal.tsx').match(/<a href=\{issue.url\}[^>]+className="([^"]+)"/)?.[1],
   ];
   for (const value of classes) {

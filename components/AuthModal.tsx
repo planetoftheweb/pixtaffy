@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import { X, Mail, Lock, User as UserIcon, Loader2, ArrowRight, Layers } from 'lucide-react';
 import { Tip } from './settings/Tip';
 import { authService } from '../services/authService';
 import { User } from '../types';
+import { getAuthFormBlocker } from '../utils/formValidation';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -28,6 +29,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const busyRef = useRef(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const closeReasonId = useId();
+  const resetReasonId = useId();
+  const submitReasonId = useId();
 
   React.useLayoutEffect(() => {
     if (!isOpen) return;
@@ -116,11 +120,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     };
   }, [isOpen, onClose]);
 
+  const busy = isLoading || isResetting;
+  const resetDisabled = busy || !email.trim();
+  const resetTip = busy ? 'Wait for the request to finish' : !email.trim() ? 'Enter your email or username first' : 'Forgot password?';
+  const submitDisabled = busy || !email.trim() || !password || (!isLogin && (!name.trim() || !username.trim()));
+  const submitTip = busy ? 'Wait for the request to finish'
+    : submitDisabled ? isLogin ? 'Enter your email and password first' : 'Enter your name, username, email and password first'
+    : isLogin ? 'Log in' : 'Create account';
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingRef.current) return;
+    if (busy || isSubmittingRef.current) return;
+    const blocker = getAuthFormBlocker({ isLogin, name, username, email, password });
+    if (blocker) {
+      setError(blocker);
+      setStatus(null);
+      return;
+    }
     isSubmittingRef.current = true;
     setError(null);
     setStatus(null);
@@ -146,7 +164,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const handlePasswordReset = async () => {
-    if (isResetting || isLoading) return;
+    if (busy) return;
     if (!email.trim()) {
       setError('Enter your email or username first.');
       setStatus(null);
@@ -181,15 +199,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }} className="fixed inset-0 z-[100] flex justify-center overflow-y-auto p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={isLogin ? "Log in" : "Create account"} className="outline-none bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md m-auto shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
         
+        <span className="absolute top-4 right-4 z-10 inline-flex">
+        <span className="relative inline-flex">
         <button
           type="button"
           onClick={() => { if (!busyRef.current) onClose(); }}
-          disabled={isLoading || isResetting}
+          aria-disabled={busy}
+          aria-describedby={busy ? closeReasonId : undefined}
           aria-label="Close"
-          className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
+          className={`min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center text-slate-400 p-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal transition-colors ${busy ? 'opacity-50 cursor-not-allowed' : 'hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#30363d]'}`}
         >
-          <X size={20} /><Tip text="Close" />
+          <X size={20} />
         </button>
+        <Tip text={busy ? 'Wait for the request to finish' : 'Close'} />
+        {busy && <span id={closeReasonId} className="sr-only">Wait for the request to finish</span>}
+        </span>
+        </span>
 
         <div className="p-8">
             <div className="text-center mb-8">
@@ -210,7 +235,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form noValidate onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 text-sm text-center font-medium animate-in fade-in">
                 {error}
@@ -273,14 +298,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
               {isLogin && (
                 <div className="flex justify-end">
+                <span className="relative inline-flex ml-auto">
                 <button
                   type="button"
                   onClick={handlePasswordReset}
-                  disabled={isResetting || isLoading}
-                  className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center ml-auto text-xs font-semibold text-brand-teal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-disabled={resetDisabled}
+                  aria-describedby={resetDisabled ? resetReasonId : undefined}
+                  className={`min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center text-xs font-semibold text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal ${resetDisabled ? 'cursor-not-allowed opacity-60' : 'hover:underline'}`}
                 >
-                  {isResetting ? 'Sending reset link…' : 'Forgot password?'}<Tip text="Forgot password?" />
+                  {isResetting ? 'Sending reset link…' : 'Forgot password?'}
                 </button>
+                <Tip text={resetTip} />
+                {resetDisabled && <span id={resetReasonId} className="sr-only">{resetTip}</span>}
+                </span>
                 </div>
               )}
             </div>
@@ -300,20 +330,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             </div>
 
+            <span className="relative block w-full mt-6">
             <button
               type="submit"
-              disabled={isLoading || isResetting}
-              className="w-full min-h-11 bg-brand-teal hover:bg-teal-600 text-[#0d1117] text-sm font-bold py-3.5 rounded-lg shadow-lg shadow-brand-teal/20 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#161b22]"
+              aria-disabled={submitDisabled}
+              aria-describedby={submitDisabled ? submitReasonId : undefined}
+              className={`w-full min-h-11 bg-brand-teal text-[#0d1117] text-sm font-bold py-3.5 rounded-lg shadow-lg shadow-brand-teal/20 flex items-center justify-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#161b22] ${submitDisabled ? 'opacity-70 cursor-not-allowed' : 'hover:bg-teal-600 active:scale-[0.98]'}`}
             >
               {isLoading ? (
                 <Loader2 size={20} className="animate-spin" />
               ) : (
                 <>
-                  {isLogin ? 'Log in' : 'Create account'}<Tip text={isLogin ? 'Log in' : 'Create account'} />
+                  {isLogin ? 'Log in' : 'Create account'}
                   <ArrowRight size={18} />
                 </>
               )}
             </button>
+            <Tip text={submitTip} />
+            {submitDisabled && <span id={submitReasonId} className="sr-only">{submitTip}</span>}
+            </span>
           </form>
 
           <div className="mt-6 text-center">
