@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import ts from 'typescript';
 import test from 'node:test';
 
 const appSource = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
@@ -572,4 +573,201 @@ test('history images use a terminal accessible placeholder and try each fallback
   assert.equal((recentGenerationsSource.match(/<CachedImage\b/g) || []).length, 2);
   assert.doesNotMatch(recentGenerationsSource, /^\s*<img(?:\s|>)/m);
   assert.match(appSource, /<CachedImage\s+cacheKey=\{buildImageCacheKey\(completionToast\.id, toastVersion\.id\)\}/);
+});
+
+
+const parseTsx = (name, source) => ts.createSourceFile(name, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const findNodes = (root, predicate) => {
+  const matches = [];
+  const visit = node => {
+    if (predicate(node)) matches.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(root);
+  return matches;
+};
+const directTipCount = node => {
+  if (ts.isJsxSelfClosingElement(node)) return node.tagName.getText() === 'Tip' ? 1 : 0;
+  if (ts.isJsxElement(node)) return node.openingElement.tagName.getText() === 'Tip' ? 1 : 0;
+  // Alternative branches render one hint at a time; expressions and fragments share the host.
+  if (ts.isConditionalExpression(node)) return Math.max(directTipCount(node.whenTrue), directTipCount(node.whenFalse));
+  let count = 0;
+  ts.forEachChild(node, child => { count += directTipCount(child); });
+  return count;
+};
+const hostTipCount = node => node.children.reduce((sum, child) => sum + directTipCount(child), 0);
+const componentFiles = directory => readdirSync(new URL(`../${directory}`, import.meta.url), { withFileTypes: true })
+  .flatMap(entry => entry.isDirectory() ? componentFiles(`${directory}/${entry.name}`)
+    : entry.name.endsWith('.tsx') ? [`${directory}/${entry.name}`] : []);
+const jsxAttribute = (node, name) => node.openingElement.attributes.properties
+  .find(attribute => ts.isJsxAttribute(attribute) && attribute.name.getText() === name);
+const compileExpression = node => ts.transpileModule(`(${node.getText()})`, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
+}).outputText;
+
+const authFocusSource = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
+const authFocusAst = parseTsx('AuthModal.tsx', authFocusSource);
+const controlPanelAst = parseTsx('ControlPanel.tsx', controlPanelSource);
+
+test('every App and component JSX host has at most one direct Tip, including conditional children', t => {
+  const duplicateHosts = tree => findNodes(tree, node => ts.isJsxElement(node) && hostTipCount(node) > 1);
+  assert.equal(duplicateHosts(parseTsx('fixture.tsx', '<button><Tip />{reason && <Tip />}</button>')).length, 1);
+  assert.equal(duplicateHosts(parseTsx('fixture.tsx', '<button><><Tip /><Tip /></></button>')).length, 1);
+  assert.equal(duplicateHosts(parseTsx('fixture.tsx', '<button>{reason ? <Tip /> : <Tip />}</button>')).length, 0);
+  const files = ['App.tsx', ...componentFiles('components')];
+  const duplicates = files.flatMap(file => {
+    const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
+    return duplicateHosts(tree).map(node => `${file}:${tree.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
+  });
+  assert.deepEqual(duplicates, []);
+  t.diagnostic(`AST scan: ${files.length} files, ${duplicates.length} duplicate Tip hosts`);
+  const compare = findNodes(controlPanelAst, node => ts.isJsxElement(node)
+    && node.openingElement.tagName.getText() === 'button' && node.getText().includes('<span>Compare models</span>'))[0];
+  assert.equal(findNodes(compare, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip').length, 1);
+});
+
+test('ControlPanel never hosts a direct Tip on a natively disabled button', () => {
+  const invalid = findNodes(controlPanelAst, node => ts.isJsxElement(node)
+    && node.openingElement.tagName.getText() === 'button' && jsxAttribute(node, 'disabled') && hostTipCount(node) > 0);
+  assert.deepEqual(invalid.map(node => node.getText()), []);
+});
+
+test('Expand and Model controls retain wrapper tips, accessible reasons and guarded clicks when unavailable', () => {
+  const dropdown = controlPanelSource.slice(controlPanelSource.indexOf('const DropdownButton ='), controlPanelSource.indexOf('interface ControlPanelProps'));
+  const expand = controlPanelSource.slice(controlPanelSource.indexOf('if (expandButtonDisabled) return;') - 100,
+    controlPanelSource.indexOf('id={expandReasonId} className="sr-only"') + 100);
+  for (const [source, flag, reasonId, title] of [
+    [dropdown, 'disabled', 'disabledReasonId', 'disabledReason'],
+    [expand, 'expandButtonDisabled', 'expandReasonId', 'expandButtonTitle'],
+  ]) {
+    assert.ok(source.includes(`aria-disabled={${flag}}`));
+    assert.ok(source.includes(`aria-describedby={${flag} ? ${reasonId} : undefined}`));
+    assert.ok(source.includes(`if (${flag}) return;`));
+    assert.match(source, new RegExp(`</button>\\s*\\{${flag} && <Tip[^>]*text=\\{${title}\\}`));
+    assert.ok(source.includes(`id={${reasonId}} className="sr-only">{${title}}`));
+    assert.doesNotMatch(source, /\sdisabled=/);
+  }
+  assert.match(dropdown, /relative inline-flex shrink-0 lg:shrink lg:min-w-0 align-top/);
+  assert.match(dropdown, /aria-haspopup="listbox"/);
+  assert.match(dropdown, /aria-expanded=\{Boolean\(isActive\)\}/);
+  assert.match(controlPanelSource, /disabledReason="Model selection is locked"/);
+  for (const reason of ['Type a prompt to expand it', 'Expanding prompt...', 'Expand prompt']) assert.ok(controlPanelSource.includes(`'${reason}'`));
+  for (const [label, disabledName, actionName, args] of [
+    ['dropdownName', 'disabled', 'onClick', [{}]],
+    ['"Expand prompt with additional creative detail"', 'expandButtonDisabled', 'handleExpandPrompt', []],
+  ]) {
+    const button = findNodes(controlPanelAst, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
+      && node.openingElement.getText().includes(label))[0];
+    assert.equal(button.parent.openingElement.tagName.getText(), 'span');
+    assert.match(jsxAttribute(button.parent, 'className').initializer.text, /relative inline-flex/);
+    const click = jsxAttribute(button, 'onClick').initializer.expression;
+    for (const disabled of [true, false]) {
+      let calls = 0;
+      new Function(disabledName, actionName, `return ${compileExpression(click)}`)(disabled, () => { calls++; })(...args);
+      assert.equal(calls, disabled ? 0 : 1);
+    }
+  }
+});
+
+test('auth focuses the first input after opening, and cancels pending focus on cleanup', () => {
+  const effect = findNodes(authFocusAst, node => ts.isCallExpression(node) && node.expression.getText() === 'React.useEffect'
+    && node.arguments[0].getText().includes('querySelector<HTMLInputElement>'))[0];
+  assert.equal(effect.arguments[1].getText(), '[isOpen]', 'mode toggles must not rerun initial focus');
+  let queued;
+  let focused = 0;
+  let cancelled;
+  const panelRef = { current: { querySelector: selector => {
+    assert.equal(selector, 'input:not([disabled]):not([type="hidden"])');
+    return { focus: () => { focused++; } };
+  } } };
+  const makeEffect = open => new Function('isOpen', 'panelRef', 'requestAnimationFrame', 'cancelAnimationFrame',
+    `return ${compileExpression(effect.arguments[0])}`)(open, panelRef, fn => { queued = fn; return 7; }, id => { cancelled = id; });
+  assert.equal(makeEffect(false)(), undefined);
+  assert.equal(queued, undefined);
+  const cleanup = makeEffect(true)();
+  assert.equal(focused, 0);
+  queued();
+  assert.equal(focused, 1);
+  cleanup();
+  assert.equal(cancelled, 7);
+});
+
+test('auth Tab trap wraps both directions, recovers outside focus, and excludes unavailable elements', () => {
+  const declaration = findNodes(authFocusAst, node => ts.isVariableDeclaration(node) && node.name.getText() === 'handleTab')[0];
+  const document = { activeElement: null };
+  const element = (name, overrides = {}) => ({ name, tabIndex: 0, matches: () => false, closest: () => null,
+    getClientRects: () => [{}], focus() { document.activeElement = this; }, ...overrides });
+  const first = element('Close');
+  const middle = element('Email');
+  const last = element('Toggle');
+  const candidates = [first, middle, last, element('disabled', { matches: () => true }),
+    element('hidden ancestor', { closest: () => ({}) }), element('hidden layout', { getClientRects: () => [] }),
+    element('negative tabIndex', { tabIndex: -1 }), element('invisible', { visibility: 'hidden' })];
+  const panel = element('panel', { querySelectorAll: () => candidates });
+  const handleTab = new Function('panelRef', 'document', 'getComputedStyle', `return ${compileExpression(declaration.initializer)}`)(
+    { current: panel }, document, node => ({ visibility: node.visibility || 'visible' }));
+  const press = (active, shiftKey = false, key = 'Tab') => {
+    document.activeElement = active;
+    let prevented = false;
+    handleTab({ key, shiftKey, preventDefault() { prevented = true; } });
+    return prevented;
+  };
+  assert.equal(press(last), true);
+  assert.equal(document.activeElement, first);
+  assert.equal(press(first, true), true);
+  assert.equal(document.activeElement, last);
+  assert.equal(press(element('outside')), true);
+  assert.equal(document.activeElement, first);
+  assert.equal(press(panel, true), true);
+  assert.equal(document.activeElement, last);
+  assert.equal(press(middle), false);
+  assert.equal(press(last, false, 'ArrowDown'), false);
+  candidates.splice(1);
+  assert.equal(press(first), true);
+  assert.equal(document.activeElement, first);
+  candidates.splice(0);
+  assert.equal(press(element('outside')), true);
+  assert.equal(document.activeElement, panel);
+  assert.match(authFocusSource, /addEventListener\('keydown', handleTab, true\)/);
+  assert.match(authFocusSource, /removeEventListener\('keydown', handleTab, true\)/);
+});
+
+test('auth returns focus to a connected opener and gives non-submit controls explicit button types', () => {
+  const layout = findNodes(authFocusAst, node => ts.isCallExpression(node) && node.expression.getText() === 'React.useLayoutEffect')[0];
+  const openerRef = { current: null };
+  class Element { isConnected = true; focuses = 0; focus() { this.focuses++; } }
+  const opener = new Element();
+  const document = { activeElement: opener };
+  const effect = new Function('isOpen', 'openerRef', 'document', 'HTMLElement', `return ${compileExpression(layout.arguments[0])}`)(true, openerRef, document, Element);
+  const cleanup = effect();
+  document.activeElement = new Element();
+  cleanup();
+  assert.equal(opener.focuses, 1);
+  opener.isConnected = false;
+  cleanup();
+  assert.equal(opener.focuses, 1);
+  for (const marker of ['aria-label="Close"', 'onClick={toggleMode}']) {
+    const button = findNodes(authFocusAst, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
+      && node.openingElement.getText().includes(marker))[0];
+    assert.equal(jsxAttribute(button, 'type').initializer.text, 'button');
+  }
+});
+
+test('reviewed buttons use rounded-lg and auth copy follows Log in and Log out spelling', () => {
+  const feedback = readFileSync(new URL('../components/FeedbackModal.tsx', import.meta.url), 'utf8');
+  const tree = parseTsx('FeedbackModal.tsx', feedback);
+  for (const label of ['Close feedback', 'Done', 'Cancel']) {
+    const button = findNodes(tree, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
+      && (jsxAttribute(node, 'aria-label')?.initializer.text === label || node.children.some(child => ts.isJsxText(child) && child.text.trim() === label)))[0];
+    const classes = jsxAttribute(button, 'className').initializer.text;
+    assert.match(classes, /\brounded-lg\b/);
+    assert.doesNotMatch(classes, /\brounded-xl\b/);
+  }
+  const headerLogin = appSource.match(/onClick=\{\(\) => openAuthModal\('login'\)\}\s*className="([^"]+)"/)[1];
+  assert.match(headerLogin, /\brounded-lg\b/);
+  assert.doesNotMatch(headerLogin, /\brounded-xl\b/);
+  assert.ok(appSource.includes('<span>Log out</span>'));
+  assert.ok(appSource.includes('Create free account'));
+  assert.ok(readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8').includes('could not reach the login service'));
+  assert.ok(readFileSync(new URL('../components/StatsPage.tsx', import.meta.url), 'utf8').includes('label="Last log in"'));
 });

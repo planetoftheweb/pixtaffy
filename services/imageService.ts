@@ -219,7 +219,7 @@ export const uploadGenerationImage = async ({
         { generationId, versionId, code, message }
       );
       throw new Error(
-        'Network blocked Firebase Storage. Image is cached locally; sign in off-VPN to sync to the cloud.'
+        'Network blocked Firebase Storage. Image is cached locally; log in off-VPN to sync to the cloud.'
       );
     }
 

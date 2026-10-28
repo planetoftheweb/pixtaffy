@@ -444,10 +444,10 @@ const loginErrorMessage = (error: unknown): string => {
     return 'This account has been disabled. Contact PixTaffy support for help.';
   }
   if (code === 'auth/operation-not-allowed') {
-    return 'Email sign-in is temporarily unavailable. Try again later.';
+    return 'Email log in is temporarily unavailable. Try again later.';
   }
   if (code === 'auth/network-request-failed') {
-    return 'PixTaffy could not reach the sign-in service. Check your connection and try again.';
+    return 'PixTaffy could not reach the login service. Check your connection and try again.';
   }
   if (code?.startsWith('auth/')) {
     return 'PixTaffy could not sign you in. Try again in a moment.';

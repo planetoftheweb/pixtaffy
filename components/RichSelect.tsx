@@ -378,7 +378,6 @@ export const RichSelect: React.FC<RichSelectProps> = ({
                             )}
                           </span>
                         </span>
-                        {hideOptionDescriptions && option.description && <Tip text={option.description} />}
                         {selected && <Check size={14} className="shrink-0 mt-0.5 text-brand-teal" />}
                         {hideOptionDescriptions && option.description && <Tip title={option.label} text={option.description} side="left" />}
                       </button>

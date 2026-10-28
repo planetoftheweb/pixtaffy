@@ -127,7 +127,8 @@ const ToolbarPanel: React.FC<{ name: string | null; className: string; width: nu
   return createPortal(<div ref={panelRef} data-toolbar-panel={name} className={className} style={{ position: 'fixed', margin: 0, zIndex: 120, overflowY: 'auto' }}>{children}</div>, document.body);
 };
 
-const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false, accentClass, dropdownName }: any) => {
+const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors, disabled = false, disabledReason = 'Selection is locked', accentClass, dropdownName }: any) => {
+  const disabledReasonId = useId();
   // Menu-style item (no per-button border). Five responsive tiers driven by pure CSS:
   //   - base  (< md):   icon-only 44x44 tap target (tooltip shows label)
   //   - md+  (>=768):   icon + UPPERCASE category label (TYPE, STYLE, ...)
@@ -143,10 +144,15 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         ? subLabel
         : undefined;
   return (
+    <span className="relative inline-flex shrink-0 lg:shrink lg:min-w-0 align-top">
     <button
-      onClick={onClick}
+      onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+        if (disabled) return;
+        onClick?.(event);
+      }}
       data-toolbar-dropdown-trigger={dropdownName}
-      disabled={disabled}
+      aria-disabled={disabled}
+      aria-describedby={disabled ? disabledReasonId : undefined}
       aria-label={titleText}
       aria-haspopup="listbox"
       aria-expanded={Boolean(isActive)}
@@ -155,14 +161,14 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         md:w-auto md:justify-start md:px-2.5 md:gap-2
         xl:px-3 xl:gap-2.5
         ${
-          isActive
-            ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal'
-            : disabled
-              ? 'text-slate-500 dark:text-slate-300 cursor-default'
+          disabled
+            ? 'text-slate-500 dark:text-slate-300 cursor-not-allowed'
+            : isActive
+              ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal'
               : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1c2128]'
         }`}
     >
-      <Tip title={subLabel} text={typeof label === 'string' ? label : titleText || 'Choose a setting'} />
+      {!disabled && <Tip title={subLabel} text={typeof label === 'string' ? label : titleText || 'Choose a setting'} />}
       <Icon
         size={20}
         className={`shrink-0 ${
@@ -172,14 +178,14 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         }`}
       />
       {/* Compact category label, md through lg (when there's no room for the full value). */}
-      <span className={`hidden md:inline xl:hidden text-[11px] uppercase font-bold tracking-wider whitespace-nowrap ${
+      <span className={`hidden md:inline xl:hidden text-xs uppercase font-bold tracking-wider whitespace-nowrap ${
         isActive ? 'text-brand-teal' : 'text-slate-600 dark:text-slate-300 group-hover:text-brand-teal'
       }`}>
         {subLabel}
       </span>
       {/* Selected value and optional stacked sublabel and palette, xl+ */}
       <div className="hidden xl:flex flex-col flex-1 min-w-0 text-left">
-        <span className="hidden xl:block text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
+        <span className="hidden xl:block text-xs uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-none mb-0.5">
           {subLabel}
         </span>
         {typeof label === 'string' || typeof label === 'number' ? (
@@ -206,6 +212,9 @@ const DropdownButton = ({ icon: Icon, label, isActive, onClick, subLabel, colors
         }`}
       />
     </button>
+    {disabled && <Tip title={subLabel} text={disabledReason} />}
+    <span id={disabledReasonId} className="sr-only">{disabledReason}</span>
+    </span>
   );
 };
 
@@ -991,6 +1000,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         : 'Generate';
   const generateButtonDisabled = !hasSetupAction && (!config.prompt || exceedsBatchCap);
   const generateReasonId = useId();
+  const expandReasonId = useId();
+  const expandButtonDisabled = !config.prompt || isExpandingPrompt;
+  const expandButtonTitle = isExpandingPrompt
+    ? 'Expanding prompt...'
+    : !config.prompt ? 'Type a prompt to expand it' : 'Expand prompt';
   const generateButtonTitle = generateButtonDisabled
     ? !config.prompt
       ? 'Type a prompt to generate'
@@ -2266,6 +2280,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 onClick={() => toggleDropdown('model')} 
                 dropdownName="model"
                 disabled={modelSelectionLocked}
+                disabledReason="Model selection is locked"
                 accentClass="text-brand-pink"
               />
               {activeDropdown === 'model' && (
@@ -2292,7 +2307,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   >
                     <span className="flex items-center gap-2">
                       <GitCompare size={15} className={compareModelsMode ? 'text-brand-teal' : 'text-slate-500'} />
-                      <span>Compare models</span><Tip text="Toggle multi-model generation. When two or more models are selected, each Generate click runs once per model and tags the results as a comparison batch." />
+                      <span>Compare models</span>
                     </span>
                     <span className={`text-[11px] uppercase tracking-wider font-bold ${compareModelsMode ? 'text-brand-teal' : 'text-slate-400'}`}>
                       {compareModelsMode ? 'On' : 'Off'}
@@ -3011,20 +3026,28 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <Tip title="Variations per prompt" text={`Variations per prompt${Number.isFinite(batchCap) ? ` (max ${batchCapLabel})` : ''}`} side="top" />
                 </div>
 
+                <span className="relative inline-flex h-12 w-12 shrink-0">
                 <button
                   type="button"
-                  onClick={handleExpandPrompt}
-                  disabled={!config.prompt || isExpandingPrompt}
+                  onClick={() => {
+                    if (expandButtonDisabled) return;
+                    void handleExpandPrompt();
+                  }}
+                  aria-disabled={expandButtonDisabled}
+                  aria-describedby={expandButtonDisabled ? expandReasonId : undefined}
                   className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border font-semibold transition-all group ${
-                    !config.prompt || isExpandingPrompt
+                    expandButtonDisabled
                       ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
                       : 'bg-white dark:bg-[#161b22] text-brand-purple dark:text-brand-cyan border-gray-200 dark:border-[#30363d] hover:bg-brand-purple hover:border-brand-purple hover:text-white shadow-sm'
                   }`}
                   aria-label="Expand prompt with additional creative detail"
                 >
                   {isExpandingPrompt ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                  <Tip text="Expand prompt" side="top" />
+                  {!expandButtonDisabled && <Tip text={expandButtonTitle} side="top" />}
                 </button>
+                {expandButtonDisabled && <Tip text={expandButtonTitle} side="top" />}
+                <span id={expandReasonId} className="sr-only">{expandButtonTitle}</span>
+                </span>
 
                 <span className="relative inline-flex h-12 w-12 shrink-0">
                   <button

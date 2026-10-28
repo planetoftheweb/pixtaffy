@@ -82,7 +82,7 @@ for (const [code, message] of [
   ['unavailable', 'AI assist is temporarily unavailable. Please try again shortly.'],
   ['resource-exhausted', 'AI assist is busy or your credits are low. Check your balance and try again shortly.'],
   ['failed-precondition', 'AI assist could not complete this request. Check your account and try rephrasing it.'],
-  ['unauthenticated', 'Sign in to use AI assist, then try again.'],
+  ['unauthenticated', 'Log in to use AI assist, then try again.'],
   ['internal', 'AI assist could not finish. Please try again.'],
   ['unknown', 'AI assist could not finish. Please try again.'],
 ]) {

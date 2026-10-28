@@ -47,6 +47,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     isSubmittingRef.current = false;
   }, [initialMode, isOpen]);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(() => {
+      panelRef.current?.querySelector<HTMLInputElement>('input:not([disabled]):not([type="hidden"])')?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
+
   // Form State
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -72,8 +80,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
       onClose();
     };
+    const handleTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const tabbable = Array.from(panel.querySelectorAll<HTMLElement>(
+        'button, input, textarea, select, a[href], [tabindex], [contenteditable="true"]'
+      )).filter((element) => element.tabIndex >= 0
+        && !element.matches(':disabled')
+        && !element.closest('[hidden], [inert], [aria-hidden="true"]')
+        && element.getClientRects().length > 0
+        && getComputedStyle(element).visibility !== 'hidden');
+      const first = tabbable[0];
+      const last = tabbable[tabbable.length - 1];
+      const active = document.activeElement;
+      if (!first) {
+        event.preventDefault();
+        panel.focus();
+      } else if (!tabbable.includes(active as HTMLElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener('keydown', handleEscape, true);
-    return () => document.removeEventListener('keydown', handleEscape, true);
+    document.addEventListener('keydown', handleTab, true);
+    return () => {
+      document.removeEventListener('keydown', handleEscape, true);
+      document.removeEventListener('keydown', handleTab, true);
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -141,8 +181,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }} className="fixed inset-0 z-[100] flex justify-center overflow-y-auto p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={isLogin ? "Log in" : "Create account"} className="outline-none bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md m-auto shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
         
-        <button 
-          onClick={onClose}
+        <button
+          type="button"
+          onClick={() => { if (!busyRef.current) onClose(); }}
           aria-label="Close"
           className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
         >
@@ -277,7 +318,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <button 
+              <button
+                type="button"
                 onClick={toggleMode}
                 className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center text-brand-teal font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
               >

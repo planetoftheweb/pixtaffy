@@ -3825,7 +3825,7 @@ const App: React.FC = () => {
             onClick={handleLogout}
             className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold"
           >
-            <LogOut size={16} /> Sign out
+            <LogOut size={16} /> Log out
           </button>
         </div>
       </div>
@@ -4098,7 +4098,7 @@ const App: React.FC = () => {
                       className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-brand-red hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
                       <LogOut size={16} className="shrink-0" />
-                      <span>Logout</span>
+                      <span>Log out</span>
                     </button>
                   </div>
                 </>
@@ -4108,7 +4108,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2 sm:gap-4">
               <button 
                 onClick={() => openAuthModal('login')}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs sm:px-4 sm:text-sm font-bold text-slate-800 shadow-[0_10px_15px_-3px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:border-brand-teal hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.45)] dark:hover:border-brand-teal dark:hover:text-brand-teal dark:focus-visible:ring-offset-[#0d1117]"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs sm:px-4 sm:text-sm font-bold text-slate-800 shadow-[0_10px_15px_-3px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:border-brand-teal hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.45)] dark:hover:border-brand-teal dark:hover:text-brand-teal dark:focus-visible:ring-offset-[#0d1117]"
               >
                 Log in<Tip text="Log in" />
               </button>
@@ -5104,7 +5104,7 @@ const App: React.FC = () => {
                       onClick={() => openAuthModal('signup')}
                       className="inline-flex items-center gap-2 rounded-xl bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"
                     >
-                      Create Free Account
+                      Create free account
                       <ArrowRight size={15} />
                     </button>
                   </>

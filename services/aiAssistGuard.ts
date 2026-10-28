@@ -14,7 +14,7 @@ export function friendlyAiAssistError(error: unknown): string {
     case 'failed-precondition':
       return 'AI assist could not complete this request. Check your account and try rephrasing it.';
     case 'unauthenticated':
-      return 'Sign in to use AI assist, then try again.';
+      return 'Log in to use AI assist, then try again.';
     default:
       return 'AI assist could not finish. Please try again.';
   }

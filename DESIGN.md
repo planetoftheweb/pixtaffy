@@ -230,8 +230,7 @@ one — the tooltip is part of the control, not an afterthought.
   `overflow-hidden` ancestor (round the child buttons instead of clipping the
   group — or portal the tip), and screen-edge overflow (clamp or flip).
   Hover-test after any layout change.
-- Suppress the hover tip while the control is `disabled`; instead, prefer a
-  **disabled button + explanatory tooltip over a thrown error**.
+- Disabled controls still show their tip, explaining why they're disabled; wrap the control or use aria-disabled so the tip can fire.
 
 ## 8. Destructive & paid actions
 
