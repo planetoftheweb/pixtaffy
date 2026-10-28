@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Generation, GenerationVersion, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, INBOX_FOLDER_ID } from '../types';
 import { Download, RefreshCw, Send, Image as ImageIcon, Copy, Link, Trash2, ChevronDown, ChevronLeft, ChevronRight, Layers, FileImage, Code, Play, Pause, FileCode, Info, X, Globe, Wand2, Maximize, Maximize2, Minimize, GitCompare, Plus, Expand, ScanSearch, Check, Star, Film, Sparkles, GripVertical } from 'lucide-react';
@@ -14,6 +14,9 @@ import { normalizeAspectRatio } from '../services/aspectRatioService';
 import { RichSelect, RichSelectOption } from './RichSelect';
 import { DownloadMenu } from './DownloadMenu';
 import { JuxtaposeSlider } from './JuxtaposeSlider';
+import { setErrorToast } from '../utils/errorToastStore';
+import { dismissErrorToastOnEscape, dismissTopErrorToast, hasVisibleErrorToast } from '../utils/errorToastEscape';
+import { Tip } from './settings/Tip';
 
 export interface ImageDisplayMarkRef {
   generationId: string;
@@ -223,6 +226,32 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   // the current asset (raster vs SVG). Keeps the action bar uncluttered
   // while preserving every action.
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
+  const copyMenuRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!copyMenuOpen) return;
+    const clampMenu = () => {
+      const menu = copyMenuRef.current;
+      if (!menu) return;
+      menu.style.transform = '';
+      const rect = menu.getBoundingClientRect();
+      const left = Math.max(8, Math.min(window.innerWidth - rect.width - 8, rect.left));
+      menu.style.transform = `translateX(${left - rect.left}px)`;
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (dismissErrorToastOnEscape(event, hasVisibleErrorToast(), dismissTopErrorToast)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setCopyMenuOpen(false);
+    };
+    clampMenu();
+    window.addEventListener('resize', clampMenu);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('resize', clampMenu);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [copyMenuOpen]);
   // Refine / Recompose panel was previously a permanent footer under every
   // tile preview — useful but visually heavy and stealing vertical room
   // from the main image. It now hides behind a single Wand2 icon in the
@@ -273,15 +302,6 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   // and a state (for rendering the floating badge on the "+" button).
   const heldDigitRef = useRef<number | null>(null);
   const [heldDigit, setHeldDigit] = useState<number | null>(null);
-  // Anchor + visibility for the "+" button's rich hover tooltip. Portaled to
-  // body so the rail's `overflow-y-auto` (which also clips horizontally)
-  // doesn't truncate the tip. Position computed on enter; hidden on leave.
-  const [addMarkTipAnchor, setAddMarkTipAnchor] = useState<{
-    top: number;
-    bottom: number;
-    right: number;
-  } | null>(null);
-  const [addMarkTipVisible, setAddMarkTipVisible] = useState(false);
   const [resizeAspectRatio, setResizeAspectRatio] = useState('');
   /** True while refine / analysis / expand / recompose is in flight. */
   const refinementControlsLocked =
@@ -1504,6 +1524,7 @@ ${version.svgCode}
 
   const handleAnalyzeRefineClick = async () => {
     if (refinementControlsLocked) return;
+    setErrorToast(null);
     setIsAnalyzingRefinePrompt(true);
     try {
       const prompt = await onAnalyzeRefinePrompt();
@@ -1516,7 +1537,7 @@ ${version.svgCode}
         showNotice('Analysis finished with no prompt.');
       }
     } catch (error: any) {
-      showNotice(error?.message || 'Analysis failed', 'error');
+      setErrorToast(error?.message || 'Analysis failed');
     } finally {
       setIsAnalyzingRefinePrompt(false);
     }
@@ -1524,6 +1545,7 @@ ${version.svgCode}
 
   const handleExpandRefinementClick = async () => {
     if (refinementControlsLocked) return;
+    setErrorToast(null);
     setIsExpandingRefinement(true);
     try {
       const expanded = await onExpandRefinementPrompt(refinementInput);
@@ -1534,7 +1556,7 @@ ${version.svgCode}
         showNotice('Expand finished with no text.');
       }
     } catch (error: any) {
-      showNotice(error?.message || 'Expand failed', 'error');
+      setErrorToast(error?.message || 'Expand failed');
     } finally {
       setIsExpandingRefinement(false);
     }
@@ -1758,9 +1780,9 @@ ${version.svgCode}
     return acc;
   }, []);
 
-  const ActionButton = ({ onClick, title, children, tooltip, variant = 'default', className: extraClass }: {
+  const ActionButton = ({ onClick, description, children, tooltip, variant = 'default', className: extraClass }: {
     onClick: () => void;
-    title: string;
+    description: string;
     children: React.ReactNode;
     tooltip: string;
     variant?: 'default' | 'danger' | 'busy';
@@ -1768,18 +1790,16 @@ ${version.svgCode}
   }) => (
     <button
       onClick={onClick}
-      className={`group/btn ${variant === 'danger'
+      className={`group/tip ${variant === 'danger'
         ? 'bg-white/85 dark:bg-[#2b1c1c]/85 border border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white'
         : variant === 'busy'
           ? 'bg-brand-red border border-brand-red text-white cursor-default animate-pulse'
           : 'bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white'
       } p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative ${extraClass || ''}`}
-      title={title}
+      aria-label={description}
     >
       {children}
-      <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/btn:opacity-100 transition-opacity">
-        {tooltip}
-      </span>
+      <Tip title={tooltip} text={description} side="top" align="right" />
     </button>
   );
 
@@ -1897,14 +1917,14 @@ ${version.svgCode}
                         handleEnterCompareFromButton();
                       }
                     }}
-                    title={
+                    aria-label={
                       isCompareMode
-                        ? 'Cancel — exit compare mode'
+                        ? 'Cancel - exit compare mode'
                         : isComparing
                           ? 'Close the comparison viewer'
                           : 'Open compare: click two marks (or Shift-click to pick without toggling)'
                     }
-                    className={`sticky top-0 z-10 -mx-2 -mt-2 mb-1 px-2 py-1.5 flex items-center gap-1.5 justify-center text-[12px] font-bold uppercase tracking-wide border-b transition-all ${
+                    className={`group/tip sticky top-0 z-10 -mx-2 -mt-2 mb-1 px-2 py-1.5 flex items-center gap-1.5 justify-center text-xs font-bold uppercase tracking-wider border-b transition-all ${
                       isCompareMode || isComparing
                         ? 'opacity-100 bg-brand-teal text-white border-brand-teal hover:bg-brand-teal/90'
                         : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 bg-gray-100 dark:bg-[#161b22] text-slate-600 dark:text-slate-300 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal/10 hover:text-brand-teal hover:border-brand-teal/40'
@@ -1912,6 +1932,13 @@ ${version.svgCode}
                   >
                     <GitCompare size={12} />
                     {isCompareMode ? 'Cancel' : isComparing ? 'Close' : 'Compare'}
+                    <Tip text={
+                      isCompareMode
+                        ? 'Cancel - exit compare mode'
+                        : isComparing
+                          ? 'Close the comparison viewer'
+                          : 'Open compare: click two marks (or Shift-click to pick without toggling)'
+                    } side="top" align="right" />
                   </button>
                 )}
                 {generation.versions.map((v, idx) => {
@@ -1923,6 +1950,10 @@ ${version.svgCode}
                   // comparison runs (mixed-model tiles) pick the right model
                   // for the slider label / refine fan-out.
                   const thumbModelId = v.modelId || generation.modelId;
+                  const thumbTipDetail = [
+                    isCommitted && !pickSide ? 'Currently shown' : '',
+                    hasMixedModels && thumbModelId ? modelLabelMap[thumbModelId] || getModelDisplayName(thumbModelId) : '',
+                  ].filter(Boolean).join(' · ');
                   const thumbImageUrl = getVersionDisplayImageUrl(generation.id, v);
                   const markRef: ImageDisplayMarkRef = {
                     generationId: generation.id,
@@ -1983,12 +2014,12 @@ ${version.svgCode}
                       type="button"
                       role="option"
                       aria-selected={isCommitted}
-                      title={v.label}
+                      aria-label={v.label}
                       onMouseEnter={handleEnter}
                       onFocus={handleFocus}
                       onBlur={() => setHoveredVersionIdx((prev) => (prev === idx ? null : prev))}
                       onClick={(event) => handleMarkActivate(event, markRef, () => onVersionChange(idx))}
-                      className={`relative shrink-0 w-full aspect-square rounded-md overflow-hidden border transition-all ${
+                      className={`group/tip relative shrink-0 w-full aspect-square rounded-md overflow-hidden border transition-all ${
                         pickSide
                           ? 'border-2 border-amber-400 ring-2 ring-amber-400/50 ring-offset-2 ring-offset-gray-50 dark:ring-offset-[#0d1117]'
                           : isCompareMode
@@ -2024,17 +2055,20 @@ ${version.svgCode}
                       {isCommitted && !pickSide && (
                         <span
                           aria-hidden="true"
-                          className="absolute top-1 right-1 inline-flex items-center justify-center w-2.5 h-2.5 rounded-full bg-brand-teal shadow ring-2 ring-white dark:ring-[#0d1117]"
-                          title="Currently shown"
+                          className="group/tip absolute top-1 right-1 inline-flex items-center justify-center w-2.5 h-2.5 rounded-full bg-brand-teal shadow ring-2 ring-white dark:ring-[#0d1117]"
                         />
                       )}
                       {hasMixedModels && thumbModelId && (
                         <span
-                          className="absolute bottom-1 left-1 right-1 inline-flex items-center justify-center px-1 py-0.5 rounded text-[12px] font-bold uppercase tracking-normal bg-black/70 text-white shadow whitespace-nowrap"
-                          title={modelLabelMap[thumbModelId] || getModelDisplayName(thumbModelId)}
+                          className="group/tip absolute bottom-1 left-1 right-1 inline-flex items-center justify-center px-1 py-0.5 rounded text-xs font-bold uppercase tracking-wide bg-black/70 text-white shadow truncate"
                         >
                           {modelShortLabelMap[thumbModelId] || modelLabelMap[thumbModelId] || getModelDisplayName(thumbModelId)}
                         </span>
+                      )}
+                      {thumbTipDetail ? (
+                        <Tip title={v.label} text={thumbTipDetail} side="top" />
+                      ) : (
+                        <Tip text={v.label} side="top" />
                       )}
                     </button>
                     {showRailDelete && (
@@ -2048,8 +2082,7 @@ ${version.svgCode}
                         }}
                         disabled={Boolean(deletingRefinementId)}
                         aria-label={isRailDeleteArmed ? `Click again to confirm deleting ${v.label}` : `Delete ${v.label}`}
-                        title={isRailDeleteArmed ? `Click again to confirm` : `Delete ${v.label}`}
-                        className={`absolute top-1 right-1 z-10 inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-400/70 ${
+                        className={`group/tip absolute top-1 right-1 z-10 inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-400/70 ${
                           railDeleteVisible
                             ? 'opacity-100'
                             : 'opacity-0 group-hover/railThumb:opacity-100'
@@ -2057,7 +2090,7 @@ ${version.svgCode}
                           deletingRefinementId
                             ? 'cursor-not-allowed bg-red-400 text-white'
                             : isRailDeleteArmed
-                              ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
+                              ? 'bg-amber-500 text-[#0d1117] animate-pulse'
                               : 'bg-red-600 text-white hover:bg-red-700'
                         }`}
                       >
@@ -2068,6 +2101,7 @@ ${version.svgCode}
                         ) : (
                           <X size={11} strokeWidth={3} />
                         )}
+                        <Tip text={isRailDeleteArmed ? `Click again to confirm` : `Delete ${v.label}`} side="top" align="right" />
                       </button>
                     )}
                     {/* "Best Mark" star toggle on each rail thumb. Hidden by
@@ -2087,18 +2121,18 @@ ${version.svgCode}
                         }}
                         aria-label={isStarredVersion ? `Unstar ${v.label}` : `Star ${v.label} as the best Mark`}
                         aria-pressed={isStarredVersion}
-                        title={isStarredVersion ? `Starred — Unstar ${v.label}` : `Star ${v.label} as the best Mark (S)`}
-                        className={`absolute top-1 left-1 z-10 inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70 ${
+                        className={`group/tip absolute top-1 left-1 z-10 inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70 bg-black/90 text-white ${
                           isStarredVersion
-                            ? 'opacity-100 bg-amber-400 text-white hover:bg-amber-300'
-                            : 'opacity-0 group-hover/railThumb:opacity-100 bg-black/50 text-white hover:bg-amber-400'
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover/railThumb:opacity-100'
                         }`}
                       >
                         <Star
                           size={11}
                           strokeWidth={2.5}
-                          className={isStarredVersion ? 'fill-current' : ''}
+                          className={isStarredVersion ? 'text-amber-400 fill-current' : 'text-white'}
                         />
+                        <Tip text={isStarredVersion ? `Starred - Unstar ${v.label}` : `Star ${v.label} as the best Mark (S)`} side="top" align="right" />
                       </button>
                     )}
                     </div>
@@ -2116,12 +2150,12 @@ ${version.svgCode}
                   Array.from({ length: pendingRerunCount }).map((_, i) => (
                     <div
                       key={`pending-rerun-${i}`}
-                      className="shrink-0 w-full aspect-square rounded-md border-2 border-dashed border-brand-teal/50 bg-brand-teal/5 flex items-center justify-center text-brand-teal animate-pulse"
+                      className="group/tip relative shrink-0 w-full aspect-square rounded-md border-2 border-dashed border-brand-teal/50 bg-brand-teal/5 flex items-center justify-center text-brand-teal animate-pulse"
                       role="status"
                       aria-label={`Mark ${i + 1} of ${pendingRerunCount} generating`}
-                      title={`Generating Mark ${i + 1} of ${pendingRerunCount}…`}
                     >
                       <RefreshCw size={22} strokeWidth={2.5} className="animate-spin" aria-hidden="true" />
+                      <Tip text={`Generating Mark ${i + 1} of ${pendingRerunCount}…`} side="top" align="right" />
                     </div>
                   ))
                 )}
@@ -2162,9 +2196,6 @@ ${version.svgCode}
                     }
                     onRerun!(lastPrompt, heldDigit ?? 1);
                   };
-                  const titleText = canRerun
-                    ? 'Add a new Mark — re-roll the original prompt. Hold 1-9 to batch; Shift-click to edit prompt or count.'
-                    : 'Add a new Mark — open the refine editor';
                   // Show the "×N" badge whenever a digit is held, even
                   // briefly — gives the user immediate visual confirmation
                   // that the next click will batch N re-rolls. We only
@@ -2172,21 +2203,9 @@ ${version.svgCode}
                   // path won't fire) and never for "1" (that's the default
                   // and would just be visual noise).
                   const showHeldBadge = canRerun && heldDigit !== null && heldDigit > 1;
-                  const openTip = (e: React.MouseEvent | React.FocusEvent) => {
-                    if (!canRerun) return;
-                    const wrapper = e.currentTarget as HTMLElement;
-                    const r = wrapper.getBoundingClientRect();
-                    setAddMarkTipAnchor({ top: r.top, bottom: r.bottom, right: r.right });
-                    setAddMarkTipVisible(true);
-                  };
-                  const closeTip = () => setAddMarkTipVisible(false);
                   return (
                     <div
                       className="group/addmark relative shrink-0 w-full"
-                      onMouseEnter={openTip}
-                      onMouseLeave={closeTip}
-                      onFocus={openTip}
-                      onBlur={closeTip}
                     >
                       <button
                         type="button"
@@ -2194,12 +2213,8 @@ ${version.svgCode}
                         onMouseEnter={() => setHoveredVersionIdx(null)}
                         onFocus={() => setHoveredVersionIdx(null)}
                         disabled={refinementControlsLocked}
-                        aria-label={canRerun ? 'Add a new Mark — re-roll the original prompt' : 'Add a new Mark'}
-                        // Keep the native `title` as a short fallback for
-                        // screen readers / browser-default tooltips. The rich
-                        // panel below is the primary discovery surface.
-                        title={titleText}
-                        className="block w-full aspect-square rounded-md border-2 border-dashed border-gray-300 dark:border-[#30363d] text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-[#161b22]/60 hover:border-brand-teal hover:text-brand-teal hover:bg-brand-teal/5 focus:outline-none focus:ring-2 focus:ring-brand-teal/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label={canRerun ? 'Add a new Mark - re-roll the original prompt' : 'Add a new Mark'}
+                        className="group/tip relative block w-full aspect-square rounded-md border-2 border-dashed border-gray-300 dark:border-[#30363d] text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-[#161b22]/60 hover:border-brand-teal hover:text-brand-teal hover:bg-brand-teal/5 focus:outline-none focus:ring-2 focus:ring-brand-teal/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <span className="w-full h-full flex items-center justify-center">
                           {/* Always show the Plus glyph so the button stays
@@ -2212,6 +2227,7 @@ ${version.svgCode}
                               clickable target. */}
                           <Plus size={28} strokeWidth={2.5} aria-hidden="true" />
                         </span>
+                        <Tip title="Add a new Mark" text={canRerun ? 'Re-rolls the original prompt as a fresh generation. Click to add one Mark. Hold 1-9 and click to add that many Marks. Shift-click to edit the prompt or count; hold 1-9 and Shift-click to pre-fill that count. The model is free to rethink layout, palette, and composition.' : 'Open the refine editor'} side="top" wide />
                       </button>
                       {showHeldBadge && (
                         <span
@@ -2227,66 +2243,6 @@ ${version.svgCode}
                   );
                 })()}
 
-                {/* Portaled rich tooltip for the "+" button. Lives outside
-                    the rail's `overflow-y-auto` container so it can extend
-                    to the right of the rail without being clipped. Anchored
-                    to the wrapper's rect, captured on enter/focus. */}
-                {addMarkTipVisible && addMarkTipAnchor && typeof document !== 'undefined' &&
-                  createPortal(
-                    <div
-                      role="tooltip"
-                      style={{
-                        position: 'fixed',
-                        top: Math.max(8, Math.min(addMarkTipAnchor.bottom - 234, window.innerHeight - 242)),
-                        left: addMarkTipAnchor.right + 12,
-                        zIndex: 80,
-                      }}
-                      className="pointer-events-none w-64 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl"
-                    >
-                      <div className="text-[12px] font-bold uppercase tracking-wide text-slate-400 mb-1">
-                        Add a new Mark
-                      </div>
-                      <div className="text-[12px] leading-relaxed text-slate-100 mb-2">
-                        Re-rolls the original prompt as a fresh generation — the model is free to rethink layout, palette, and composition.
-                      </div>
-                      <div className="pt-2 border-t border-white/10 space-y-1.5 text-[12px] text-slate-300">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 shrink-0">
-                            <kbd className="inline-flex items-center justify-center min-h-5 min-w-5 px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">Click</kbd>
-                          </span>
-                          <span>Add one Mark</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 shrink-0">
-                            <kbd className="inline-flex items-center justify-center min-h-5 min-w-5 px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">1-9</kbd>
-                            <span className="text-slate-400">+</span>
-                            <kbd className="inline-flex items-center justify-center min-h-5 min-w-5 px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">Click</kbd>
-                          </span>
-                          <span>Add that many Marks</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="inline-flex items-center gap-1 shrink-0 mt-0.5">
-                            <kbd className="inline-flex items-center justify-center min-h-5 min-w-5 px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">⇧</kbd>
-                            <span className="text-slate-400">+</span>
-                            <kbd className="inline-flex items-center justify-center min-h-5 min-w-5 px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">Click</kbd>
-                          </span>
-                          <span>Open the editor (edit the prompt or pick a count)</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="inline-flex items-center gap-1 shrink-0 mt-0.5">
-                            <kbd className="inline-flex items-center justify-center min-h-5 min-w-5 px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">1-9</kbd>
-                            <span className="text-slate-400">+</span>
-                            <kbd className="inline-flex items-center justify-center min-h-5 min-w-5 px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">⇧</kbd>
-                            <span className="text-slate-400">+</span>
-                            <kbd className="inline-flex items-center justify-center min-h-5 min-w-5 px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">Click</kbd>
-                          </span>
-                          <span>Open the editor pre-filled with that count</span>
-                        </div>
-                      </div>
-                    </div>,
-                    document.body
-                  )
-                }
               </div>
 
               {/* Ephemeral "shift-click another to compare" hint. Pops up for
@@ -2504,15 +2460,15 @@ ${version.svgCode}
               chrome (delete / fullscreen) at top-right. */}
           {generation.starredVersionId && generation.starredVersionId === version.id && (
             <div
-              className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-400 text-white shadow-lg ring-2 ring-white/60 dark:ring-black/40 animate-in fade-in slide-in-from-left-2 duration-150"
+              className="group/tip absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/90 text-white border border-white/10 shadow-lg ring-2 ring-white/60 dark:ring-black/40 animate-in fade-in slide-in-from-left-2 duration-150"
               role="status"
               aria-label={`${version.label} is starred as the best Mark`}
-              title={`${version.label} is starred as the best Mark — press S to unstar`}
             >
-              <Star size={12} strokeWidth={2.5} className="fill-current" />
-              <span className="text-[12px] font-bold uppercase tracking-wide leading-none">
+              <Star size={12} strokeWidth={2.5} className="text-amber-400 fill-current" />
+              <span className="text-[12px] font-bold uppercase tracking-wider leading-none">
                 Best
               </span>
+              <Tip text={`${version.label} is starred as the best Mark - press S to unstar`} side="top" align="right" />
             </div>
           )}
 
@@ -2553,10 +2509,10 @@ ${version.svgCode}
                     ) : null;
                   })()}
                   <span
-                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-brand-teal/15 text-brand-teal border border-brand-teal/50"
-                    title={hasMixedModels ? 'Model that produced this version' : undefined}
+                    className="group/tip relative inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-brand-teal/15 text-brand-teal border border-brand-teal/50"
                   >
                     {modelLabelMap[version.modelId || generation.modelId || ''] || getModelDisplayName(version.modelId || generation.modelId)}
+                      {hasMixedModels && <Tip text="Model that produced this version" side="top" align="right" />}
                   </span>
                   {isSvg && cfg?.svgMode && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-purple-500/15 text-purple-400 border border-purple-500/50 capitalize">
@@ -2622,27 +2578,27 @@ ${version.svgCode}
                         corner chips on the slider surface still surfaces the
                         full model + mark identity if the user needs it. */}
                     <span
-                      className="px-2 py-0.5 rounded bg-brand-teal/15 border border-brand-teal/40 text-brand-teal text-xs whitespace-nowrap"
-                      title={`${modelLabelMap[comparisonA.modelId] || getModelDisplayName(comparisonA.modelId)} · ${comparisonA.markLabel}`}
+                      className="group/tip relative px-2 py-0.5 rounded bg-brand-teal/15 border border-brand-teal/40 text-brand-teal text-xs whitespace-nowrap"
                     >
                       {comparisonA.markLabel}
+                      <Tip text={`${modelLabelMap[comparisonA.modelId] || getModelDisplayName(comparisonA.modelId)} · ${comparisonA.markLabel}`} side="top" align="right" />
                     </span>
                     <span className="text-slate-400 shrink-0">vs</span>
                     <span
-                      className="px-2 py-0.5 rounded bg-brand-teal/15 border border-brand-teal/40 text-brand-teal text-xs whitespace-nowrap"
-                      title={`${modelLabelMap[comparisonB.modelId] || getModelDisplayName(comparisonB.modelId)} · ${comparisonB.markLabel}`}
+                      className="group/tip relative px-2 py-0.5 rounded bg-brand-teal/15 border border-brand-teal/40 text-brand-teal text-xs whitespace-nowrap"
                     >
                       {comparisonB.markLabel}
+                      <Tip text={`${modelLabelMap[comparisonB.modelId] || getModelDisplayName(comparisonB.modelId)} · ${comparisonB.markLabel}`} side="top" align="right" />
                     </span>
                     {onExitComparePicker && (
                       <button
                         type="button"
                         onClick={onExitComparePicker}
-                        title="Close the comparison viewer"
                         aria-label="Close the comparison viewer"
-                        className="ml-1 inline-flex items-center justify-center h-7 w-7 shrink-0 rounded-md text-slate-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-900 dark:hover:text-white transition-colors"
+                        className="group/tip relative ml-1 inline-flex items-center justify-center h-7 w-7 shrink-0 rounded-md text-slate-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-900 dark:hover:text-white transition-colors"
                       >
                         <X size={14} />
+                        <Tip text="Close the comparison viewer" side="top" align="right" />
                       </button>
                     )}
                   </div>
@@ -2658,11 +2614,11 @@ ${version.svgCode}
                       <button
                         type="button"
                         onClick={onExitComparePicker}
-                        title="Cancel compare"
                         aria-label="Cancel compare"
-                        className="ml-1 text-[12px] uppercase tracking-wide font-bold text-brand-teal/80 hover:text-brand-teal underline-offset-2 hover:underline shrink-0"
+                        className="group/tip relative ml-1 text-xs uppercase tracking-wider font-bold text-brand-teal/80 hover:text-brand-teal underline-offset-2 hover:underline shrink-0"
                       >
                         Cancel
+                        <Tip text="Cancel compare" side="top" align="right" />
                       </button>
                     )}
                   </div>
@@ -2742,8 +2698,8 @@ ${version.svgCode}
                                 onVersionChange(idx);
                                 setVersionDropdownOpen(false);
                               }}
-                              title={v.type === 'refinement' && v.refinementPrompt ? `Refined: ${v.refinementPrompt}` : v.label}
-                              className={`flex-1 min-w-0 text-left pl-3 pr-2 py-2 text-sm font-mono inline-flex items-center gap-1.5 transition-colors ${
+                              aria-label={v.type === 'refinement' && v.refinementPrompt ? `Refined: ${v.refinementPrompt}` : v.label}
+                              className={`group/tip relative flex-1 min-w-0 text-left pl-3 pr-2 py-2 text-sm font-mono inline-flex items-center gap-1.5 transition-colors ${
                                 idx === generation.currentVersionIndex
                                   ? 'text-brand-teal font-semibold'
                                   : 'text-slate-700 dark:text-slate-300'
@@ -2755,6 +2711,11 @@ ${version.svgCode}
                                   className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0"
                                   aria-label="Refinement"
                                 />
+                              )}
+                              {v.type === 'refinement' && v.refinementPrompt ? (
+                                <Tip title={v.label} text={`Refined: ${v.refinementPrompt}`} side="top" align="right" />
+                              ) : (
+                                <Tip text={v.label} side="top" align="right" />
                               )}
                             </button>
                             {/* Allow deleting any version, not just refinements.
@@ -2781,15 +2742,14 @@ ${version.svgCode}
                                     handleVersionDeleteClick(v.id);
                                   }}
                                   disabled={disabled}
-                                  className={`h-8 w-8 mr-1 inline-flex items-center justify-center rounded-md border transition-colors ${
+                                  className={`group/tip relative h-8 w-8 mr-1 inline-flex items-center justify-center rounded-md border transition-colors ${
                                     disabled
                                       ? 'border-gray-200 dark:border-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
                                       : isPopoverArmed
-                                        ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600 hover:border-amber-600 animate-pulse'
+                                        ? 'border-amber-500 bg-amber-500 text-[#0d1117] animate-pulse'
                                         : 'border-red-200/80 dark:border-red-900/40 text-red-500 dark:text-red-300 hover:bg-red-600 hover:border-red-600 hover:text-white'
                                   }`}
                                   aria-label={tooltip}
-                                  title={tooltip}
                                 >
                                   {deletingRefinementId === v.id ? (
                                     <RefreshCw size={13} className="animate-spin" />
@@ -2798,6 +2758,7 @@ ${version.svgCode}
                                   ) : (
                                     <Trash2 size={13} />
                                   )}
+                                  <Tip text={tooltip} side="top" align="right" />
                                 </button>
                               );
                             })()}
@@ -2831,7 +2792,7 @@ ${version.svgCode}
               <div className="relative">
                 <ActionButton
                   onClick={() => setIsRefinePanelOpen((p) => !p)}
-                  title={isRefinePanelOpen ? 'Hide refine & recompose panel' : 'Show refine & recompose panel'}
+                  description={isRefinePanelOpen ? 'Hide refine & recompose panel' : 'Show refine & recompose panel'}
                   tooltip={aiBusySource === 'refine' ? 'AI is working…' : isRefinePanelOpen ? 'Hide refine' : 'Refine'}
                   variant={aiBusySource === 'refine' ? 'busy' : 'default'}
                   className={aiBusySource !== 'refine' && isRefinePanelOpen ? 'text-brand-teal' : undefined}
@@ -2893,10 +2854,10 @@ ${version.svgCode}
                           type="button"
                           onClick={() => setIsRefinePanelOpen(false)}
                           aria-label="Close refine panel"
-                          title="Close refine panel"
-                          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                          className="group/tip relative h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                         >
                           <X size={14} />
+                          <Tip text="Close refine panel" side="top" align="right" />
                         </button>
                       </div>
                       <div className="px-1 pb-1 flex flex-wrap items-center gap-2">
@@ -2932,19 +2893,16 @@ ${version.svgCode}
                           type="button"
                           onClick={handleResizeCanvasClick}
                           disabled={refinementControlsLocked || !canResizeToSelected}
-                          className={`relative inline-flex h-9 items-center gap-1.5 px-3.5 rounded-xl border text-xs font-semibold transition-all group/recomposeBtn ${
+                          className={`group/tip relative inline-flex h-9 items-center gap-1.5 px-3.5 rounded-xl border text-xs font-semibold transition-all group/recomposeBtn ${
                             refinementControlsLocked || !canResizeToSelected
                               ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
                               : 'bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
                           }`}
                           aria-label={`Recompose image from ${resizeSourceAspectRatio || 'current'} to ${resizeAspectLabel} while preserving style`}
-                          title={canResizeToSelected ? `Recompose to ${resizeAspectLabel}` : 'Select a different target size'}
                         >
                           {isResizingCanvas ? <RefreshCw size={12} className="animate-spin" /> : <Maximize2 size={12} />}
                           {isResizingCanvas ? 'Recomposing…' : 'Recompose'}
-                          <span className="pointer-events-none absolute top-full mt-2 right-0 w-72 text-left text-[12px] leading-relaxed px-3 py-2 rounded-lg bg-black/90 text-white shadow-xl opacity-0 group-hover/recomposeBtn:opacity-100 transition-opacity z-20">
-                            Rebuilds the image for {resizeAspectLabel} while preserving the same style and palette.
-                          </span>
+                          <Tip title={canResizeToSelected ? `Recompose to ${resizeAspectLabel}` : 'Select a different target size'} text={`Rebuilds the image for ${resizeAspectLabel} while preserving the same style and palette.`} side="top" align="right" />
                         </button>
                       </div>
                       <div className="px-1 pb-2 text-[12px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2">
@@ -2975,65 +2933,56 @@ ${version.svgCode}
                           type="button"
                           onClick={handleExpandRefinementClick}
                           disabled={refinementControlsLocked}
-                          className={`relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all group/expandBtn ${
+                          className={`group/tip relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all group/expandBtn ${
                             refinementControlsLocked
                               ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
                               : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
                           }`}
                           aria-label="Expand refine prompt with richer creative detail"
-                          title="Expand prompt — uses your text, or the tile's original prompt if empty"
                         >
                           {isExpandingRefinement ? <RefreshCw size={16} className="animate-spin" /> : <Expand size={16} />}
-                          <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/expandBtn:opacity-100 transition-opacity">
-                            Expand prompt
-                          </span>
+                          <Tip title="Expand prompt" text="Uses your text, or the tile's original prompt if empty" side="top" align="right" />
                         </button>
                         <button
                           type="button"
                           onClick={() => { setPromptEditorMode('refine'); setIsPromptEditorOpen(true); }}
                           disabled={refinementControlsLocked}
-                          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all ${
+                          className={`group/tip relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all ${
                             refinementControlsLocked
                               ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
                               : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
                           }`}
                           aria-label="Open refine prompt in full-screen editor"
-                          title="Open full editor (modal)"
                         >
                           <Maximize2 size={16} />
+                          <Tip text="Open full editor (modal)" side="top" align="right" />
                         </button>
                         <button
                           type="button"
                           onClick={handleAnalyzeRefineClick}
                           disabled={refinementControlsLocked}
-                          className={`relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all group/analyzeBtn ${
+                          className={`group/tip relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all group/analyzeBtn ${
                             refinementControlsLocked
                               ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
                               : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
                           }`}
                           aria-label="Analyze current image for spelling, factual, and annotation issues and generate a correction prompt"
-                          title="Run analysis"
                         >
                           {isAnalyzingRefinePrompt ? <RefreshCw size={16} className="animate-spin" /> : <ScanSearch size={16} />}
-                          <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/analyzeBtn:opacity-100 transition-opacity">
-                            Run analysis
-                          </span>
-                          <span className="pointer-events-none absolute top-full mt-2 right-0 w-72 text-left text-[12px] leading-relaxed px-3 py-2 rounded-lg bg-black/90 text-white shadow-xl opacity-0 group-hover/analyzeBtn:opacity-100 transition-opacity z-20">
-                            Checks text accuracy, spelling, and label/factual issues, then drafts a detailed correction prompt and switches refine model to Nano Banana Pro. Uses a fast vision model (not image generation) with the same API provider as your toolbar when your keys allow it.
-                          </span>
+                          <Tip title="Run analysis" text="Checks text accuracy, spelling, and label/factual issues, then drafts a detailed correction prompt and switches refine model to Nano Banana Pro. Uses a fast vision model (not image generation) with the same API provider as your toolbar when your keys allow it." side="top" align="right" wide />
                         </button>
                         <button
                           type="submit"
-                          title={
+                          aria-label={
                             !refinementInput.trim() && !canResizeToSelected
                               ? 'Enter a refine prompt, or choose a different target size and use Recompose'
                               : 'Apply refine or recompose'
                           }
                           disabled={(!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked}
-                          className={`h-11 w-11 shrink-0 rounded-xl font-medium text-white inline-flex items-center justify-center transition-all ${
+                          className={`group/tip relative h-11 w-11 shrink-0 rounded-xl font-medium inline-flex items-center justify-center transition-all ${
                             (!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked
                               ? 'bg-gray-200 dark:bg-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                              : 'bg-brand-red hover:bg-red-700 text-white shadow-lg shadow-brand-red/20'
+                              : 'bg-brand-teal hover:bg-teal-600 text-[#0d1117] shadow-lg shadow-brand-teal/20'
                           }`}
                         >
                           {isRefining || isResizingCanvas ? (
@@ -3041,6 +2990,11 @@ ${version.svgCode}
                           ) : (
                             <Send size={16} />
                           )}
+                          <Tip text={
+                            !refinementInput.trim() && !canResizeToSelected
+                              ? 'Enter a refine prompt, or choose a different target size and use Recompose'
+                              : 'Apply refine or recompose'
+                          } side="top" align="right" />
                         </button>
                       </form>
                     </div>
@@ -3059,7 +3013,7 @@ ${version.svgCode}
                   setAiBusySource('simplify');
                   onRefine(CLEANUP_FOR_ANIMATION_PROMPT);
                 }}
-                title="AI redraws this image with each block isolated on a flat background — easier to animate in Build Studio. Adds a new Mark (your original stays) · uses your image model."
+                description="AI redraws this image with each block isolated on a flat background - easier to animate in Build Studio. Adds a new Mark (your original stays) · uses your image model."
                 tooltip={aiBusySource === 'simplify' ? 'AI is working…' : 'Simplify'}
                 variant={aiBusySource === 'simplify' ? 'busy' : 'default'}
               >
@@ -3076,7 +3030,7 @@ ${version.svgCode}
                     if (isCompareMode) onExitComparePicker();
                     else handleEnterCompareFromButton();
                   }}
-                  title="Click two marks to open a before/after slider (or Shift-click any mark)"
+                  description="Click two marks to open a before/after slider (or Shift-click any mark)"
                   tooltip={isCompareMode ? 'Cancel compare' : 'Compare'}
                   className={isCompareMode ? 'text-brand-teal' : undefined}
                 >
@@ -3090,7 +3044,7 @@ ${version.svgCode}
               {!infoVisible && (
                 <ActionButton
                   onClick={() => setInfoVisible(true)}
-                  title="Show details"
+                  description="Show details"
                   tooltip="Info"
                 >
                   <Info size={18} />
@@ -3101,7 +3055,7 @@ ${version.svgCode}
                   H hides the chrome, ← → walk the current folder. */}
               <ActionButton
                 onClick={toggleFullscreen}
-                title="Fullscreen slideshow (F) — H hides chrome, ←/→ navigates the folder"
+                description="Fullscreen slideshow (F) - H hides chrome, ←/→ navigates the folder"
                 tooltip="Fullscreen (F)"
               >
                 <Maximize size={18} />
@@ -3112,7 +3066,7 @@ ${version.svgCode}
               {onOpenBuildStudio && (
                 <ActionButton
                   onClick={onOpenBuildStudio}
-                  title="Build Studio — reveal parts of this image as an animation you can play and export"
+                  description="Build Studio - reveal parts of this image as an animation you can play and export"
                   tooltip="Animate"
                 >
                   <Film size={18} />
@@ -3123,7 +3077,7 @@ ${version.svgCode}
               {isSvg && (
                 <ActionButton
                   onClick={() => setAnimationPaused(p => !p)}
-                  title={animationPaused ? 'Resume animation' : 'Pause animation'}
+                  description={animationPaused ? 'Resume animation' : 'Pause animation'}
                   tooltip={animationPaused ? 'Play' : 'Pause'}
                 >
                   {animationPaused ? <Play size={18} /> : <Pause size={18} />}
@@ -3145,17 +3099,15 @@ ${version.svgCode}
                     onClick={() => setCopyMenuOpen((p) => !p)}
                     aria-haspopup="menu"
                     aria-expanded={copyMenuOpen}
-                    title="Copy…"
-                    className="group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative inline-flex items-center gap-1"
+                    aria-label="Copy…"
+                    className="group/tip group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative inline-flex items-center gap-1"
                   >
                     <Copy size={18} />
                     <ChevronDown
                       size={12}
                       className={`transition-transform ${copyMenuOpen ? 'rotate-180' : ''}`}
                     />
-                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/btn:opacity-100 transition-opacity">
-                      Copy
-                    </span>
+                    <Tip text="Copy…" side="top" align="right" />
                   </button>
                   {copyMenuOpen && (
                     <>
@@ -3164,8 +3116,9 @@ ${version.svgCode}
                           the menu (`z-20`) so menu clicks still register. */}
                       <div className="fixed inset-0 z-10" onClick={() => setCopyMenuOpen(false)} />
                       <div
+                        ref={copyMenuRef}
                         role="menu"
-                        className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-20 overflow-hidden p-1"
+                        className="absolute top-full right-0 mt-2 w-48 max-w-[calc(100vw-1rem)] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-20 overflow-hidden p-1"
                       >
                         {onCopy && (
                           <button
@@ -3236,6 +3189,7 @@ ${version.svgCode}
                 allLabel="Export all in this tile"
                 triggerClassName="group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition inline-flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                 triggerTitle="Download"
+                triggerTooltip="Download"
                 icon={<Download size={18} />}
                 onNotify={showNotice}
                 align="right"
@@ -3245,18 +3199,15 @@ ${version.svgCode}
               {onDelete && (
                 <button
                   onClick={handleDeleteWithNotice}
-                  title={isGenerationDeleteArmed ? 'Click again to confirm delete' : 'Delete'}
                   aria-label={isGenerationDeleteArmed ? 'Click again to confirm delete' : 'Delete'}
-                  className={`group/btn p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative border ${
+                  className={`group/tip group/btn p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative border ${
                     isGenerationDeleteArmed
-                      ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600 hover:border-amber-600 focus:ring-amber-400/70 animate-pulse'
+                      ? 'border-amber-500 focus:ring-amber-400/70 bg-amber-500 text-[#0d1117] animate-pulse'
                       : 'bg-white/85 dark:bg-[#2b1c1c]/85 border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white focus:ring-brand-teal/70'
                   }`}
                 >
                   {isGenerationDeleteArmed ? <Check size={18} /> : <Trash2 size={18} />}
-                  <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/btn:opacity-100 transition-opacity">
-                    {isGenerationDeleteArmed ? 'Confirm delete' : 'Delete'}
-                  </span>
+                  <Tip text={isGenerationDeleteArmed ? 'Click again to confirm delete' : 'Delete'} side="top" align="right" />
                 </button>
               )}
             </div>
@@ -3296,34 +3247,30 @@ ${version.svgCode}
       </div>
 
       {copyNotice && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
-          <div className={`text-white text-base px-6 py-4 rounded-2xl shadow-2xl border animate-in fade-in duration-150 pointer-events-none ${copyNoticeTone === 'error' ? 'bg-brand-red border-brand-red/70' : 'bg-black/90 border-white/10'}`} role="status" aria-live="polite">
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
+          <div className={`text-white text-sm px-4 py-3 rounded-lg shadow-2xl border animate-in fade-in duration-150 ${copyNoticeTone === 'error' ? 'bg-red-900 border-brand-red/70' : 'bg-black/90 border-white/10'}`} role={copyNoticeTone === 'error' ? 'alert' : 'status'} aria-live={copyNoticeTone === 'error' ? undefined : 'polite'}>
             {copyNotice}
           </div>
         </div>
       )}
 
-      {/* Star-toggle feedback. Centered amber pill with a filled / outline
+      {/* Star-toggle feedback. Centered neutral pill with a filled / outline
           star glyph that matches the on/off state. Pointer-events disabled
           so it never intercepts a follow-up click. Auto-dismisses ~1.6s
           after the toggle. */}
       {starFeedback && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
           <div
-            className={`inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl border animate-in fade-in zoom-in-95 duration-150 ${
-              starFeedback.on
-                ? 'bg-amber-400 text-white border-amber-300'
-                : 'bg-slate-800 text-white border-slate-700'
-            }`}
+            className="inline-flex items-center gap-2.5 text-sm px-4 py-3 rounded-lg shadow-2xl border animate-in fade-in zoom-in-95 duration-150 bg-black/90 text-white border-white/10"
             role="status"
             aria-live="polite"
           >
             <Star
               size={20}
               strokeWidth={2.5}
-              className={starFeedback.on ? 'fill-current' : ''}
+              className={starFeedback.on ? 'text-amber-400 fill-current' : ''}
             />
-            <span className="text-base font-semibold">{starFeedback.message}</span>
+            <span className="font-semibold">{starFeedback.message}</span>
           </div>
         </div>
       )}
@@ -3379,10 +3326,10 @@ ${version.svgCode}
                   }
                 }}
                 disabled={(!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked}
-                className={`min-h-11 px-4 rounded-lg text-sm font-semibold text-white transition-colors ${
+                className={`min-h-11 px-4 rounded-lg text-sm font-semibold transition-colors ${
                   (!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked
                     ? 'bg-gray-300 dark:bg-[#30363d] cursor-not-allowed'
-                    : 'bg-brand-red hover:bg-red-700'
+                    : 'bg-brand-teal hover:bg-teal-600 text-[#0d1117]'
                 }`}
               >
                 Submit
@@ -3604,12 +3551,12 @@ ${version.svgCode}
             <button
               type="button"
               onClick={exitFullscreen}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 px-3 text-xs font-medium text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              className="group/tip relative inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 px-3 text-xs font-medium text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               aria-label="Exit fullscreen (F or Esc)"
-              title="Exit fullscreen (F or Esc)"
             >
               <Minimize size={14} />
               <span>Exit</span>
+              <Tip text="Exit fullscreen (F or Esc)" side="top" align="right" />
             </button>
           </div>
 

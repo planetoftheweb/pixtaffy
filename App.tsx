@@ -7,6 +7,8 @@ import { getUserApiKeyStatus } from './services/userApiKeyService';
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ControlPanel } from './components/ControlPanel';
 import { ImageDisplay } from './components/ImageDisplay';
+import { ErrorToastHost } from './components/ErrorToast';
+import { setErrorToast as setError } from './utils/errorToastStore';
 import { RecentGenerations } from './components/RecentGenerations';
 import type { GalleryPresetSource } from './components/GalleryPresetMenu';
 import { ToolbarPresetSnapshot } from './utils/toolbarPresetUtils';
@@ -74,8 +76,9 @@ import {
 } from './services/timeEstimationService';
 import { detectLikelyCanvasPadding } from './services/recomposeQualityService';
 import { toMarkLabel } from './services/versionUtils';
-import { buildProfileImageCacheKey, getCachedImageBlob } from './services/imageCache';
+import { buildImageCacheKey, buildProfileImageCacheKey, getCachedImageBlob } from './services/imageCache';
 import { fetchProfileThumbnailDataUrl } from './services/imageService';
+import { friendlyAiAssistError } from './services/aiAssistGuard';
 import { billingService, makeRequestId, SITE_FUNDED_MODEL_MILLICREDITS, type BillingState } from './services/billingService';
 import {
   analyzeBrandGuidelinesPaid,
@@ -558,7 +561,6 @@ const App: React.FC = () => {
   const currentGenerationRef = useRef<Generation | null>(null);
   const historyRef = useRef<Generation[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeGenerationJobs, setActiveGenerationJobs] = useState<ActiveGenerationJob[]>([]);
   const hasRunningGenerationJobs = activeGenerationJobs.some((job) =>
     job.status === 'running' || job.status === 'stopping'
@@ -1624,6 +1626,7 @@ const App: React.FC = () => {
         }
       } catch (err) {
         console.warn('Image describe fallback (main image):', err);
+        setError(friendlyAiAssistError(err));
       }
 
       const structured = buildStructuredPrompt(currentGeneration.config);
@@ -2681,6 +2684,7 @@ const App: React.FC = () => {
   );
 
   const handleAnalyzeRefinePrompt = async (): Promise<string> => {
+    setError(null);
     if (!currentGeneration) {
       throw new Error('Restore or generate an image first.');
     }
@@ -2724,7 +2728,11 @@ const App: React.FC = () => {
       currentGeneration.config,
       context,
       user.preferences.systemPrompt
-    );
+    ).catch((error: unknown) => {
+      const message = friendlyAiAssistError(error);
+      setError(message);
+      throw new Error(message);
+    });
 
     const issueLines = plan.issues.length > 0
       ? plan.issues.map((issue, idx) => `${idx + 1}. ${issue.trim()}`).join('\n')
@@ -2748,6 +2756,7 @@ const App: React.FC = () => {
   };
 
   const handleExpandRefinementPrompt = async (draft: string): Promise<string> => {
+    setError(null);
     if (!currentGeneration) {
       throw new Error('Restore or generate an image first.');
     }
@@ -2764,7 +2773,11 @@ const App: React.FC = () => {
       currentGeneration.config,
       context,
       user.preferences.systemPrompt
-    );
+    ).catch((error: unknown) => {
+      const message = friendlyAiAssistError(error);
+      setError(message);
+      throw new Error(message);
+    });
     return expanded.trim();
   };
 
@@ -2895,7 +2908,10 @@ const App: React.FC = () => {
             const sourceForDescription = currentVersion.imageData
               ? { base64: currentVersion.imageData, mime: currentVersion.mimeType }
               : await fetchImageAsBase64(currentVersion.imageUrl);
-            const conceptBrief = await describeImagePaid(sourceForDescription.base64, sourceForDescription.mime);
+            const conceptBrief = await describeImagePaid(sourceForDescription.base64, sourceForDescription.mime).catch((error: unknown) => {
+              setError(friendlyAiAssistError(error));
+              throw error;
+            });
             const styleReferencePrompt = [
               `Rebuild this as a new composition at ${normalizedTarget}.`,
               'Use the original image as style reference only, not as a layout template.',
@@ -3085,14 +3101,14 @@ const App: React.FC = () => {
     try {
       if (!user) {
         openAuthModal('signup');
-        throw new Error('Create an account to analyze brand guidelines.');
+        throw { code: 'unauthenticated' };
       }
 
       const result = await analyzeBrandGuidelinesPaid(file);
       setAnalysisResult(result);
       setIsAnalysisModalOpen(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to analyze brand guidelines.');
+      setError(friendlyAiAssistError(err));
     } finally {
       setIsAnalyzing(false);
     }
@@ -3809,7 +3825,7 @@ const App: React.FC = () => {
             onClick={handleLogout}
             className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold"
           >
-            <LogOut size={16} /> Sign out
+            <LogOut size={16} /> Log out
           </button>
         </div>
       </div>
@@ -3818,6 +3834,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col w-full min-h-screen font-sans transition-colors duration-200">
+      <ErrorToastHost />
 
       {/* What's New spotlight - auto-fires for the newest featured entry the
           current user hasn't dismissed. Lives outside the scrollable layout
@@ -3836,7 +3853,7 @@ const App: React.FC = () => {
 
       {/* 1. Dedicated Header Row */}
       <header className="w-full flex items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] sticky top-0 z-50">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-max flex-1 shrink-0">
           <button 
             onClick={() => {
               writePreferStudioFlag();
@@ -4081,7 +4098,7 @@ const App: React.FC = () => {
                       className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-brand-red hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
                       <LogOut size={16} className="shrink-0" />
-                      <span>Logout</span>
+                      <span>Log out</span>
                     </button>
                   </div>
                 </>
@@ -4091,7 +4108,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2 sm:gap-4">
               <button 
                 onClick={() => openAuthModal('login')}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs sm:px-4 sm:text-sm font-bold text-slate-800 shadow-[0_10px_15px_-3px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:border-brand-teal hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.45)] dark:hover:border-brand-teal dark:hover:text-brand-teal dark:focus-visible:ring-offset-[#0d1117]"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs sm:px-4 sm:text-sm font-bold text-slate-800 shadow-[0_10px_15px_-3px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:border-brand-teal hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white dark:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.45)] dark:hover:border-brand-teal dark:hover:text-brand-teal dark:focus-visible:ring-offset-[#0d1117]"
               >
                 Log in<Tip text="Log in" />
               </button>
@@ -4115,12 +4132,13 @@ const App: React.FC = () => {
            {!adminMode && !settingsMode && !billingMode && !catalogMode && !whatsNewMode && !welcomeMode && (
              <button
                onClick={toggleToolbarCollapsed}
-               className="hidden md:inline-flex min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 items-center justify-center p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
+               className="relative hidden md:inline-flex min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 items-center justify-center p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
                aria-pressed={isToolbarCollapsed}
                aria-label={isToolbarCollapsed ? 'Show toolbar and prompt' : 'Hide toolbar and prompt'}
              >
-               <Tip text={isToolbarCollapsed ? "Show toolbar and prompt" : "Hide toolbar and prompt to focus on preview"} />
+               
                {isToolbarCollapsed ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
+               <Tip text={isToolbarCollapsed ? 'Show toolbar and prompt' : 'Hide toolbar and prompt to focus on preview'} side="top" align="right" />
              </button>
            )}
 
@@ -4159,7 +4177,7 @@ const App: React.FC = () => {
           <button
             type="button"
             onClick={() => setAuthRetryNonce((attempt) => attempt + 1)}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-900 px-4 py-2 text-sm font-black text-white hover:bg-amber-800 dark:bg-amber-300 dark:text-amber-950 dark:hover:bg-amber-200"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-500 text-[#0d1117] px-4 py-2 text-sm font-black hover:bg-amber-400"
           >
             <RefreshCw size={16} /> Try again
           </button>
@@ -4329,17 +4347,6 @@ const App: React.FC = () => {
           {/* Main Content Area */}
           <main className="pixtaffy-studio-surface flex-1 relative flex flex-col min-w-0 transition-colors duration-200">
             
-            {/* Error Toast */}
-            {error && (
-              <div className="absolute top-8 left-1/2 -translate-x-1/2 z-50 bg-red-100 dark:bg-red-900/90 text-red-800 dark:text-red-100 px-4 py-3 rounded-lg shadow-lg border border-red-200 dark:border-red-800 flex items-center gap-2 animate-bounce-in backdrop-blur-sm">
-                <AlertCircle size={20} />
-                <span className="text-sm font-medium">{error}</span>
-                <button onClick={() => setError(null)} className="ml-2 hover:bg-red-200 dark:hover:bg-red-800 p-1 rounded">
-                  ✕
-                </button>
-              </div>
-            )}
-
             {/* Finished-generation toast - quiet click-to-view notice shown
                 when a generation completes while the user is on another tile
                 (the preview is never hijacked). Bottom-right so it stays
@@ -4364,11 +4371,11 @@ const App: React.FC = () => {
                     className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 pl-2 pr-4 py-2 text-left shadow-lg backdrop-blur-sm transition-colors hover:border-brand-teal"
                   >
                     {toastVersion?.imageUrl ? (
-                      <img
+                      <CachedImage
+                        cacheKey={buildImageCacheKey(completionToast.id, toastVersion.id)}
                         src={toastVersion.imageUrl}
                         alt=""
                         className="h-12 w-12 shrink-0 rounded-lg bg-gray-100 object-cover dark:bg-[#0d1117]"
-                        onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
                       />
                     ) : (
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-[#0d1117]">
@@ -4437,8 +4444,7 @@ const App: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsGenerationsPanelCollapsed(false)}
-                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:border-brand-teal hover:text-brand-teal transition-colors"
-                      title="Show active generations"
+                      className="relative inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:border-brand-teal hover:text-brand-teal transition-colors"
                       aria-label={`Show active generations panel (${docLabel})`}
                     >
                       {runningCount > 0 ? (
@@ -4447,6 +4453,7 @@ const App: React.FC = () => {
                         <Sparkles size={13} className="text-brand-teal" />
                       )}
                       <span className="tabular-nums">{docLabel}</span>
+                      <Tip title="Active generations" text={docLabel} side="top" align="right" />
                     </button>
                   </div>
                 );
@@ -4472,11 +4479,11 @@ const App: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsGenerationsPanelCollapsed(true)}
-                          className="inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
-                          title="Dock to corner"
+                          className="relative inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
                           aria-label="Minimize active generations panel"
                         >
                           <Minimize2 size={13} />
+                          <Tip text="Dock to corner" side="top" align="right" />
                         </button>
                       </div>
                     </div>
@@ -4578,35 +4585,40 @@ const App: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => void handleRestoreFromHistory(job.latest!)}
-                                    className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-brand-teal hover:border-brand-teal transition-colors"
-                                    title="View latest result"
+                                    className="relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-brand-teal hover:border-brand-teal transition-colors"
                                     aria-label="View latest result"
                                   >
                                     <ArrowRight size={14} />
+                                    <Tip text="View latest result" side="top" align="right" />
                                   </button>
                                 )}
                                 {running ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleStopGenerationJob(job.id)}
-                                    disabled={job.status === 'stopping'}
-                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-[#30363d] text-[12px] font-semibold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                                    title={job.status === 'stopping'
+                                  <span className="relative inline-flex">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStopGenerationJob(job.id)}
+                                      disabled={job.status === 'stopping'}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-[#30363d] text-[12px] font-semibold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                      aria-label={job.status === 'stopping'
+                                        ? 'Waiting for in-flight generations to finish'
+                                        : 'Stop queuing new generations for this run'}
+                                    >
+                                      <span className="block w-2 h-2 rounded-sm bg-red-500" aria-hidden="true" />
+                                      {job.status === 'stopping' ? 'Stopping' : 'Stop'}
+                                    </button>
+                                    <Tip title={job.status === 'stopping' ? 'Stopping' : 'Stop queuing'} text={job.status === 'stopping'
                                       ? 'Waiting for in-flight generations to finish'
-                                      : 'Stop queuing new generations for this run'}
-                                  >
-                                    <span className="block w-2 h-2 rounded-sm bg-red-500" aria-hidden="true" />
-                                    {job.status === 'stopping' ? 'Stopping' : 'Stop'}
-                                  </button>
+                                      : 'Stop queuing new generations for this run'} side="top" align="right" />
+                                  </span>
                                 ) : (
                                   <button
                                     type="button"
                                     onClick={() => clearGenerationJob(job.id)}
-                                    className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
-                                    title="Dismiss"
+                                    className="relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
                                     aria-label="Dismiss generation status"
                                   >
                                     <X size={14} />
+                                    <Tip text="Dismiss" side="top" align="right" />
                                   </button>
                                 )}
                               </div>
@@ -4662,14 +4674,14 @@ const App: React.FC = () => {
                                 {modelChips.map(({ modelId, stats }) => (
                                   <span
                                     key={modelId}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-gray-200 dark:border-[#30363d] text-[12px] font-medium text-slate-600 dark:text-slate-300"
-                                    title={`${MODEL_NAME_BY_ID[modelId] || modelId}: ${stats!.completed + stats!.failed}/${stats!.total} complete, ${stats!.inFlight} running`}
+                                    className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-gray-200 dark:border-[#30363d] text-[12px] font-medium text-slate-600 dark:text-slate-300"
                                   >
                                     <span className={`inline-block w-1.5 h-1.5 rounded-full ${stats!.inFlight > 0 ? 'bg-brand-teal animate-pulse' : 'bg-slate-400'}`} />
                                     {MODEL_NAME_BY_ID[modelId] || modelId}
                                     <span className="text-slate-400 dark:text-slate-500">
                                       {stats!.completed + stats!.failed}/{stats!.total}
                                     </span>
+                                    <Tip title={MODEL_NAME_BY_ID[modelId] || modelId} text={`${stats!.completed + stats!.failed}/${stats!.total} complete, ${stats!.inFlight} running`} side="top" align="right" />
                                   </span>
                                 ))}
                               </div>
@@ -4763,7 +4775,7 @@ const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => openAuthModal('signup')}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-red/20 transition-colors hover:bg-red-700"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-teal px-4 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600"
                 >
                   {guestImageSavedInBrowser ? 'Sync it and get 10 credits' : 'Create account for future work'}
                   <ArrowRight size={15} />
@@ -5090,9 +5102,9 @@ const App: React.FC = () => {
                     </button>
                     <button
                       onClick={() => openAuthModal('signup')}
-                      className="inline-flex items-center gap-2 rounded-xl bg-brand-red hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-red/20 transition-colors"
+                      className="inline-flex items-center gap-2 rounded-xl bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"
                     >
-                      Create Free Account
+                      Create free account
                       <ArrowRight size={15} />
                     </button>
                   </>
@@ -5104,7 +5116,7 @@ const App: React.FC = () => {
                         setSettingsMode(false);
                         setIsSetupModalOpen(false);
                       }}
-                      className="inline-flex items-center gap-2 rounded-xl bg-brand-red hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-red/20 transition-colors"
+                      className="inline-flex items-center gap-2 rounded-xl bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"
                     >
                       <Coins size={15} />
                       View Credits

@@ -25,6 +25,26 @@ const DB_VERSION = 1;
 const CACHE_BUDGET_BYTES = 200 * 1024 * 1024; // 200 MB total
 const BACKFILL_CONCURRENCY = 3;
 const BACKFILL_TIMEOUT_MS = 12_000;
+const MISSING_IMAGE_LIMIT = 256;
+const missingImageUrls = new Map<string, string>();
+
+export const isMissingImageStatus = (status?: number): boolean =>
+  status === 403 || status === 404;
+
+export const isImageMissing = (key: string, url: string): boolean => {
+  const missingUrl = missingImageUrls.get(key);
+  if (missingUrl === url) return true;
+  if (missingUrl !== undefined) missingImageUrls.delete(key);
+  return false;
+};
+
+const rememberMissingImage = (key: string, url: string): void => {
+  missingImageUrls.delete(key);
+  missingImageUrls.set(key, url);
+  if (missingImageUrls.size > MISSING_IMAGE_LIMIT) {
+    missingImageUrls.delete(missingImageUrls.keys().next().value!);
+  }
+};
 
 export interface CachedImageRecord {
   key: string;
@@ -339,26 +359,28 @@ const inflightBackfillsByKey = new Map<string, Promise<void>>();
 
 export const backfillBlobByKey = (key: string, url: string): Promise<void> => {
   if (!isBrowser() || !key || !url || !/^https?:/i.test(url)) return Promise.resolve();
-  const existing = inflightBackfillsByKey.get(key);
+  if (isImageMissing(key, url)) return Promise.resolve();
+  const requestKey = JSON.stringify([key, url]);
+  const existing = inflightBackfillsByKey.get(requestKey);
   if (existing) return existing;
 
   const work = (async () => {
     try {
       const cached = await cachedKeysSnapshot();
       if (cached.has(key)) return;
-      const response = await fetchWithTimeout(url, BACKFILL_TIMEOUT_MS);
-      if (!response.ok) return;
+      const response = await fetchImageResponseByKey(key, url);
+      if (!response?.ok) return;
       const blob = await response.blob();
       if (blob.size === 0) return;
       await cacheBlobByKey(key, blob);
     } catch {
-      // VPN block / CORS / network drop — silently skip. Next session retries.
+      // VPN block / CORS / network drop: silently skip. Next session retries.
     } finally {
-      inflightBackfillsByKey.delete(key);
+      inflightBackfillsByKey.delete(requestKey);
     }
   })();
 
-  inflightBackfillsByKey.set(key, work);
+  inflightBackfillsByKey.set(requestKey, work);
   return work;
 };
 
@@ -411,6 +433,16 @@ const fetchWithTimeout = async (url: string, timeoutMs: number): Promise<Respons
   }
 };
 
+export const fetchImageResponseByKey = async (key: string, url: string): Promise<Response | null> => {
+  if (isImageMissing(key, url)) return null;
+  const response = await fetchWithTimeout(url, BACKFILL_TIMEOUT_MS);
+  if (isMissingImageStatus(response.status)) {
+    rememberMissingImage(key, url);
+    return null;
+  }
+  return response;
+};
+
 const filterUncachedTargets = async (targets: BackfillTarget[]): Promise<BackfillTarget[]> => {
   if (!isBrowser() || targets.length === 0) return [];
   try {
@@ -458,14 +490,16 @@ export const backfillImageCache = (targets: BackfillTarget[]): Promise<void> => 
             const index = cursor;
             cursor += 1;
             const target = uncached[index];
+            const key = getBackfillTargetKey(target);
+            if (isImageMissing(key, target.imageUrl)) continue;
             try {
-              const response = await fetchWithTimeout(target.imageUrl, BACKFILL_TIMEOUT_MS);
-              if (!response.ok) continue;
+              const response = await fetchImageResponseByKey(key, target.imageUrl);
+              if (!response?.ok) continue;
               const blob = await response.blob();
               if (blob.size === 0) continue;
               await cacheImageBlob(target.generationId, target.versionId, blob);
             } catch {
-              // VPN block, network drop, CORS — silently skip. We'll try again
+              // VPN block, network drop, CORS: silently skip. We'll try again
               // next session.
             }
           }

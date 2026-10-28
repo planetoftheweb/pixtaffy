@@ -1,4 +1,5 @@
 import React from 'react';
+import { Tip } from './settings/Tip';
 import { createPortal } from 'react-dom';
 import { Generation, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, Folder, INBOX_FOLDER_ID, ToolbarPreset } from '../types';
 import { ArrowUpRight, Trash2, Archive, CheckSquare, Square, GitCompare, Eye, EyeOff, LayoutGrid, Folder as FolderIcon, FolderPlus, Pencil, FolderInput, X as XIcon, Check, ChevronLeft, ChevronRight, ChevronDown, Loader2, FileText, MoreVertical, ClipboardCopy, Download } from 'lucide-react';
@@ -10,8 +11,9 @@ import {
   getEffectiveFolderInstructions,
 } from '../services/folderTreeUtils';
 import { sanitizeSvg } from '../services/svgService';
-import { createBlobUrlFromImage } from '../services/imageSourceService';
-import { backfillImageCache, getCachedImageBlobUrl } from '../services/imageCache';
+import { createBlobUrlFromImage, getImagePayload } from '../services/imageSourceService';
+import { backfillImageCache, buildImageCacheKey, getCachedImageBlobUrl } from '../services/imageCache';
+import { CachedImage } from './CachedImage';
 import { getLatestVersion } from '../services/historyService';
 import {
   buildVersionDownload,
@@ -1134,6 +1136,16 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
     return imageSrcById[gen.id] || latestVersion.imageUrl;
   };
 
+  const getFallbackImageUrl = (gen: Generation): string | undefined => {
+    const version = getLatestVersion(gen);
+    const payload = getImagePayload({
+      imageUrl: version.imageUrl,
+      base64Data: version.imageData,
+      mimeType: version.mimeType,
+    });
+    return payload ? `data:${payload.mimeType};base64,${payload.base64Data}` : undefined;
+  };
+
   const applyFallbackBlobUrl = (generationId: string, blobUrl: string) => {
     const previousBlobUrl = blobUrlsRef.current[generationId];
     if (previousBlobUrl) URL.revokeObjectURL(previousBlobUrl);
@@ -1446,8 +1458,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     }
                   >
                     <FolderIcon size={14} aria-hidden className="shrink-0" />
-                    <span className="flex-1 min-w-0 truncate" title={folder.name}>
+                    <span className="relative flex-1 min-w-0 truncate">
                       {folder.name}
+                      <Tip text={folder.name} side="top" align="right" />
                     </span>
                     {hasInstructions && (
                       <FileText
@@ -1996,7 +2009,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           `flex-wrap` lets the left cluster and right toolbar wrap onto two
           rows naturally at narrow widths without forcing a fixed mobile
           breakpoint. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-4">
+      <div className="flex flex-wrap min-w-0 max-w-full items-center justify-between gap-x-3 gap-y-2 mb-4">
         <div className="flex flex-wrap items-center gap-2 min-w-0 text-slate-500 dark:text-slate-400">
           {/* Folder picker — combines the prior "Inbox" chip and "(N items in
               folder)" text into one dropdown. The trigger surfaces the active
@@ -2189,21 +2202,10 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             </span>
           )}
         </div>
-        {/* Toolbar — `flex-nowrap` so action buttons never break onto a
-            second row. Buttons are fully icon-only at every breakpoint;
-            each one renders the dark `bg-black/90` floating tooltip used
-            elsewhere in the app (see `ControlPanel` Reset / Upload brand)
-            so the meaning is still discoverable on hover or keyboard
-            focus. Going icon-only at all widths frees ~150px the gallery
-            heading + selection counter need on the left. The DownloadMenu
-            count is folded into its tooltip text — the leading "X selected"
-            indicator already exposes the same number visibly. Tooltips
-            sit *below* the button (`top-full mt-2`) so they don't get
-            clipped by the sticky control panel that floats above the
-            gallery. Every button uses a distinct named group
-            (`group/tip-<id>`) so a single hovered button never lights up
-            siblings. */}
-        <div className="flex flex-nowrap items-center gap-1.5">
+        {/* Wrap below sm so every action fits at 320px; desktop keeps one
+            row. Portal hints stay visible at the viewport edges and cannot
+            add horizontal overflow, even while hidden. */}
+        <div className="flex flex-wrap sm:flex-nowrap min-w-0 max-w-full items-center gap-1.5">
           {selectionMode ? (
             <>
               <button
@@ -2211,29 +2213,19 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 onClick={toggleSelectVisible}
                 disabled={visibleHistory.length === 0}
                 aria-label={allVisibleSelected ? 'Deselect all items in this folder' : 'Select all items in this folder'}
-                className="group/tip-selectall relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0 disabled:opacity-50 disabled:pointer-events-none"
+                className="group/tip group/tip-selectall relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0 disabled:opacity-50 disabled:pointer-events-none"
               >
                 {allVisibleSelected ? <Square size={16} aria-hidden /> : <CheckSquare size={16} aria-hidden />}
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-selectall:opacity-100 group-focus-visible/tip-selectall:opacity-100 transition-opacity z-20"
-                >
-                  {allVisibleSelected ? 'Deselect this folder' : 'Select this folder'}
-                </span>
+                <Tip text={allVisibleSelected ? 'Deselect this folder' : 'Select this folder'} side="bottom" align="right" />
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedIds([])}
                 aria-label="Clear current selection"
-                className="group/tip-clear relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0"
+                className="group/tip group/tip-clear relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0"
               >
                 <Square size={16} aria-hidden />
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-clear:opacity-100 group-focus-visible/tip-clear:opacity-100 transition-opacity z-20"
-                >
-                  Clear selection
-                </span>
+                <Tip text="Clear selection" side="bottom" align="right" />
               </button>
               <DownloadMenu
                 mode="all-only"
@@ -2247,7 +2239,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 // fallback would render `allLabel` as a visible span.
                 triggerLabelClassName="hidden"
                 icon={<Archive size={16} aria-hidden />}
-                triggerClassName="inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-11 rounded-lg bg-brand-teal text-white hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none transition shrink-0"
+                triggerClassName="inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-11 min-w-11 rounded-lg bg-brand-teal text-white hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none transition shrink-0"
                 disabled={downloadScope.length === 0}
                 onNotify={showToast}
                 align="right"
@@ -2260,15 +2252,10 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   aria-haspopup="menu"
                   aria-expanded={moveMenuOpen}
                   aria-label="Move selected items to a folder"
-                  className="group/tip-move relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition disabled:opacity-50 disabled:pointer-events-none"
+                  className="group/tip group/tip-move relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition disabled:opacity-50 disabled:pointer-events-none"
                 >
                   <FolderInput size={16} aria-hidden />
-                  <span
-                    role="tooltip"
-                    className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-move:opacity-100 group-focus-visible/tip-move:opacity-100 transition-opacity z-20"
-                  >
-                    Move to folder
-                  </span>
+                  <Tip text="Move to folder" side="bottom" align="right" />
                 </button>
                 {moveMenuOpen &&
                   moveMenuAnchor &&
@@ -2361,9 +2348,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                         ? `Click again to delete ${selectedIds.length} selected item${selectedIds.length === 1 ? '' : 's'}`
                         : 'Delete selected items'
                     }
-                    className={`group/tip-bulkdelete relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border transition shrink-0 disabled:opacity-50 disabled:pointer-events-none ${
+                    className={`group/tip group/tip-bulkdelete relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border transition shrink-0 disabled:opacity-50 disabled:pointer-events-none ${
                       isArmed
-                        ? 'border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400 animate-pulse'
+                        ? 'border-amber-500 bg-amber-500 text-[#0d1117] animate-pulse'
                         : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-red-600 dark:text-red-400 hover:border-red-500 hover:bg-red-500/5'
                     }`}
                   >
@@ -2372,16 +2359,11 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     ) : (
                       <Trash2 size={16} aria-hidden />
                     )}
-                    <span
-                      role="tooltip"
-                      className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-bulkdelete:opacity-100 group-focus-visible/tip-bulkdelete:opacity-100 transition-opacity z-20"
-                    >
-                      {isArmed
+                    <Tip text={isArmed
                         ? `Click again to delete ${selectedIds.length}`
                         : selectedIds.length === 0
                           ? 'Delete selected'
-                          : `Delete ${selectedIds.length} selected`}
-                    </span>
+                          : `Delete ${selectedIds.length} selected`} side="bottom" align="right" />
                   </button>
                 );
               })()}
@@ -2389,15 +2371,10 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 type="button"
                 onClick={exitSelectionMode}
                 aria-label="Exit selection mode"
-                className="group/tip-cancel relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-slate-500 transition shrink-0"
+                className="group/tip group/tip-cancel relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-slate-500 transition shrink-0"
               >
                 <XIcon size={16} aria-hidden />
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-cancel:opacity-100 group-focus-visible/tip-cancel:opacity-100 transition-opacity z-20"
-                >
-                  Exit selection mode
-                </span>
+                <Tip text="Exit selection mode" side="bottom" align="right" />
               </button>
             </>
           ) : (
@@ -2417,7 +2394,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   placeholder="Size"
                   icon={LayoutGrid}
                   compact
-                  buttonClassName="rounded-lg min-h-11"
+                  buttonClassName="rounded-lg min-h-11 min-w-11"
                   menuClassName="max-w-[16rem] z-[40]"
                   triggerLabelClassName="hidden xl:inline"
                 />
@@ -2446,7 +2423,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     ? 'Edit folder instructions'
                     : 'Add folder instructions'
                 }
-                className={`group/tip-instructions relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border transition shrink-0 ${
+                className={`group/tip group/tip-instructions relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border transition shrink-0 ${
                   viewFolderEffectiveInstructions
                     ? 'border-brand-teal bg-brand-teal/10 text-brand-teal'
                     : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
@@ -2457,19 +2434,14 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   aria-hidden
                   className={viewFolderEffectiveInstructions ? 'text-brand-teal' : 'text-orange-700 dark:text-brand-orange'}
                 />
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-instructions:opacity-100 group-focus-visible/tip-instructions:opacity-100 transition-opacity z-20"
-                >
-                  {viewFolderEffectiveInstructions ? 'Folder instructions' : 'Add instructions'}
-                </span>
+                <Tip text={viewFolderEffectiveInstructions ? 'Folder instructions' : 'Add instructions'} side="bottom" align="right" />
               </button>
               <button
                 type="button"
                 onClick={() => setShowDetails((v) => !v)}
                 aria-pressed={showDetails}
                 aria-label={showDetails ? 'Hide prompt and tag details under each thumbnail' : 'Show prompt and tag details under each thumbnail'}
-                className={`group/tip-details relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border transition shrink-0 ${
+                className={`group/tip group/tip-details relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border transition shrink-0 ${
                   showDetails
                     ? 'border-brand-teal bg-brand-teal/10 text-brand-teal'
                     : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
@@ -2478,12 +2450,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 {showDetails
                   ? <EyeOff size={16} aria-hidden className="text-brand-teal" />
                   : <Eye size={16} aria-hidden className="text-brand-teal dark:text-brand-cyan" />}
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-details:opacity-100 group-focus-visible/tip-details:opacity-100 transition-opacity z-20"
-                >
-                  {showDetails ? 'Hide details' : 'Show details'}
-                </span>
+                <Tip text={showDetails ? 'Hide details' : 'Show details'} side="bottom" align="right" />
               </button>
               <DownloadMenu
                 mode="all-only"
@@ -2498,7 +2465,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 // fallback would render `allLabel` as a visible span.
                 triggerLabelClassName="hidden"
                 icon={<Archive size={16} aria-hidden className="text-brand-pink" />}
-                triggerClassName="inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition disabled:opacity-50 disabled:pointer-events-none shrink-0"
+                triggerClassName="inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition disabled:opacity-50 disabled:pointer-events-none shrink-0"
                 disabled={visibleHistory.length === 0}
                 onNotify={showToast}
                 align="right"
@@ -2507,15 +2474,10 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 type="button"
                 onClick={() => setSelectionMode(true)}
                 aria-label="Select items to move, export, or delete in bulk"
-                className="group/tip-select relative inline-flex items-center justify-center px-3 py-2 min-h-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0"
+                className="group/tip group/tip-select relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0"
               >
                 <CheckSquare size={16} aria-hidden className="text-brand-purple" />
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-select:opacity-100 group-focus-visible/tip-select:opacity-100 transition-opacity z-20"
-                >
-                  Select items
-                </span>
+                <Tip text="Select items" side="bottom" align="right" />
               </button>
             </>
           )}
@@ -2722,16 +2684,16 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               {showCompareBadge && (
                 <div
                   className={`absolute z-10 top-2 ${selectionMode ? 'left-14' : 'left-2'}`}
-                  title={
-                    isInTileComparison
-                      ? `Comparison tile — ${distinctTileModelIds.map((id) => getModelLabel(id)).join(' vs ')}`
-                      : `Part of a comparison run with ${legacyBatchSiblings} tiles`
-                  }
                 >
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-bold bg-brand-teal/90 text-white shadow-sm">
                     <GitCompare size={10} />
                     Compare · {compareLabel}
                   </span>
+                  <Tip title="Comparison" text={
+                    isInTileComparison
+                      ? `Comparison tile - ${distinctTileModelIds.map((id) => getModelLabel(id)).join(' vs ')}`
+                      : `Part of a comparison run with ${legacyBatchSiblings} tiles`
+                  } side="top" />
                 </div>
               )}
               {isPickedSide && (
@@ -2768,7 +2730,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     dangerouslySetInnerHTML={{ __html: sanitizeSvg(latestVersion.svgCode) }}
                   />
                 ) : (
-                  <img 
+                  <CachedImage
+                    cacheKey={buildImageCacheKey(gen.id, latestVersion.id)}
+                    fallbackSrc={getFallbackImageUrl(gen)}
                     src={getDisplayImageUrl(gen)} 
                     alt={gen.config.prompt} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -3135,7 +3099,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     dangerouslySetInnerHTML={{ __html: sanitizeSvg(latestVersion.svgCode) }}
                   />
                 ) : (
-                  <img
+                  <CachedImage
+                    cacheKey={buildImageCacheKey(gen.id, latestVersion.id)}
+                    fallbackSrc={getFallbackImageUrl(gen)}
                     src={imageUrl}
                     alt=""
                     className="block w-auto h-auto max-w-full max-h-full object-contain"
@@ -3168,7 +3134,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
 
       {toastMessage && (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
-          <div className={`text-white text-sm px-4 py-3 rounded-lg shadow-2xl border animate-in fade-in duration-150 ${toastTone === 'error' ? 'bg-brand-red border-brand-red/70' : 'bg-black/90 border-white/10'}`} role="status" aria-live="polite">
+          <div className={`text-white text-sm px-4 py-3 rounded-lg shadow-2xl border animate-in fade-in duration-150 ${toastTone === 'error' ? 'bg-red-900 border-brand-red/70' : 'bg-black/90 border-white/10'}`} role={toastTone === 'error' ? 'alert' : 'status'} aria-live={toastTone === 'error' ? undefined : 'polite'}>
             {toastMessage}
           </div>
         </div>

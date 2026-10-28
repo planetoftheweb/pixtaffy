@@ -25,6 +25,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
+  const busyRef = useRef(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
@@ -46,11 +47,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     isSubmittingRef.current = false;
   }, [initialMode, isOpen]);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(() => {
+      panelRef.current?.querySelector<HTMLInputElement>('input:not([disabled]):not([type="hidden"])')?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
+
   // Form State
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // While a sign-in or reset request is running, Esc and backdrop clicks are
+  // ignored, like FeedbackModal does while it is sending.
+  busyRef.current = isLoading || isResetting;
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -58,6 +71,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();
+      if (busyRef.current) return;
       const target = event.target;
       if (target instanceof HTMLElement && target.matches('input,textarea,[contenteditable="true"]')) {
         target.blur();
@@ -66,8 +80,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
       onClose();
     };
+    const handleTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const tabbable = Array.from(panel.querySelectorAll<HTMLElement>(
+        'button, input, textarea, select, a[href], [tabindex], [contenteditable="true"]'
+      )).filter((element) => element.tabIndex >= 0
+        && !element.matches(':disabled')
+        && !element.closest('[hidden], [inert], [aria-hidden="true"]')
+        && element.getClientRects().length > 0
+        && getComputedStyle(element).visibility !== 'hidden');
+      const first = tabbable[0];
+      const last = tabbable[tabbable.length - 1];
+      const active = document.activeElement;
+      if (!first) {
+        event.preventDefault();
+        panel.focus();
+      } else if (!tabbable.includes(active as HTMLElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener('keydown', handleEscape, true);
-    return () => document.removeEventListener('keydown', handleEscape, true);
+    document.addEventListener('keydown', handleTab, true);
+    return () => {
+      document.removeEventListener('keydown', handleEscape, true);
+      document.removeEventListener('keydown', handleTab, true);
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -128,13 +174,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={isLogin ? "Log in" : "Create account"} onClick={event => event.stopPropagation()} className="outline-none bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
+    <div onMouseDown={(event) => {
+      // Presses on the backdrop's own scrollbar must not close the dialog.
+      const onScrollbar = event.clientX >= event.currentTarget.clientWidth || event.clientY >= event.currentTarget.clientHeight;
+      if (event.target === event.currentTarget && !onScrollbar && !busyRef.current) onClose();
+    }} className="fixed inset-0 z-[100] flex justify-center overflow-y-auto p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={isLogin ? "Log in" : "Create account"} className="outline-none bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md m-auto shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
         
-        <button 
-          onClick={onClose}
+        <button
+          type="button"
+          onClick={() => { if (!busyRef.current) onClose(); }}
+          disabled={isLoading || isResetting}
           aria-label="Close"
-          className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
+          className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
         >
           <X size={20} /><Tip text="Close" />
         </button>
@@ -181,7 +233,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-red/50 transition-all"
+                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                       placeholder="John Doe"
                       required={!isLogin}
                     />
@@ -195,7 +247,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-8 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-red/50 transition-all"
+                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-8 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                       placeholder="johndoe"
                       required={!isLogin}
                     />
@@ -214,7 +266,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type={isLogin ? "text" : "email"}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-red/50 transition-all"
+                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                   placeholder={isLogin ? "john@example.com or johndoe" : "john@example.com"}
                   required
                 />
@@ -225,7 +277,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="button"
                   onClick={handlePasswordReset}
                   disabled={isResetting || isLoading}
-                  className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center ml-auto text-xs font-semibold text-brand-red dark:text-brand-orange hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center ml-auto text-xs font-semibold text-brand-teal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isResetting ? 'Sending reset link…' : 'Forgot password?'}<Tip text="Forgot password?" />
                 </button>
@@ -241,7 +293,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-red/50 transition-all"
+                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                   placeholder="••••••••"
                   required
                 />
@@ -251,7 +303,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="submit"
               disabled={isLoading || isResetting}
-              className="w-full bg-brand-teal hover:bg-teal-600 text-[#0d1117] font-bold py-3.5 rounded-lg shadow-lg shadow-brand-teal/20 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="w-full min-h-11 bg-brand-teal hover:bg-teal-600 text-[#0d1117] text-sm font-bold py-3.5 rounded-lg shadow-lg shadow-brand-teal/20 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#161b22]"
             >
               {isLoading ? (
                 <Loader2 size={20} className="animate-spin" />
@@ -267,9 +319,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <button 
+              <button
+                type="button"
                 onClick={toggleMode}
-                className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center text-brand-teal font-bold hover:underline"
+                className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center text-brand-teal font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
               >
                 {isLogin ? 'Sign up' : 'Log in'}<Tip text={isLogin ? 'Sign up' : 'Log in'} />
               </button>

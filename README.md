@@ -101,6 +101,8 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 
     PixTaffy's shared OpenRouter, Gemini, and GitHub credentials must not use `VITE_` variables. Store them as Firebase Function secrets named `OPENROUTER_API_KEY`, `PIXTAFFY_GEMINI_API_KEY`, and `GITHUB_TOKEN`. The GitHub token needs Issues read/write access to `planetoftheweb/pixtaffy`.
 
+    `runAiAssist` uses `PIXTAFFY_GEMINI_API_KEY` and `gemini-flash-latest` by default. Backend selection uses the committed project map in `functions/src/aiAssistBackend.ts` because firebase-tools does not load `.env` files during source discovery. The map selects Vertex AI for `pixtaffy-staging`, using the dedicated runtime service account `pixtaffy-aiassist-runtime@pixtaffy-staging.iam.gserviceaccount.com` and its Application Default Credentials with no Gemini key declared or bound. Prod (`brandoit`) keeps its default runtime identity and stays on `apikey`, as do unknown or missing project IDs. `GCLOUD_PROJECT` takes precedence over `GOOGLE_CLOUD_PROJECT`, with empty values treated as missing. `AI_ASSIST_BACKEND` is unused. Vertex runtime settings in `functions/.env.pixtaffy-staging` default to location `global` and model `gemini-3.8-flash`, configurable through `AI_ASSIST_VERTEX_LOCATION` and `AI_ASSIST_VERTEX_MODEL`.
+
 4.  **Configure Firebase Storage CORS:**
     To allow image uploads from localhost and your production domain, you must apply CORS rules to your Storage bucket.
     
@@ -148,6 +150,12 @@ requires Node.js 20 or newer. See [`mcp/README.md`](./mcp/README.md) for setup
 and the raw HTTP contract.
 
 ## Deployment
+
+Build with the target project's `.env.production.local` and unset stray `VITE_` shell variables. The hosting guard runs first in `prebuild` and checks the built bundle against the deploy target in the hosting predeploy hook.
+
+`PIXTAFFY_GUARD_ALLOW_MISSING` accepts a comma list of deliberately absent variable names and prints a warning for each; it never permits placeholders or a wrong project. For build-only CI output, `CI=true` or `PIXTAFFY_ALLOW_PLACEHOLDER_BUILD=1` permits placeholder or missing config with a notice that the bundle is not deployable. The deploy guard always applies strict checks.
+
+The client falls back to a built-in App Check site key when `VITE_FIREBASE_APPCHECK_SITE_KEY` is unset, so a built bundle always contains one. The build-time check is therefore the one that catches a missing App Check variable; the deploy-time bundle check validates the Firebase config and project id.
 
 PixTaffy is hosted on Firebase Hosting, with Firebase Functions, Firestore, and Storage in the `brandoit` project. Deploy the frontend and protected backend with the Firebase CLI after the production build and test gates pass.
 

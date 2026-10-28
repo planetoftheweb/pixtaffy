@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Tip } from './settings/Tip';
 import { ArrowRight, Bell, Sparkles } from 'lucide-react';
 import type { WhatsNewEntry } from '../types';
 
@@ -136,7 +137,6 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         className="relative p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
-        title={hasUnread ? `What's new (${unreadCount} unread)` : "What's new"}
       >
         <Bell size={20} />
         {hasUnread && (
@@ -151,6 +151,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
             {badgeLabel}
           </span>
         )}
+        <Tip text={hasUnread ? `What's new (${unreadCount} unread)` : "What's new"} side="top" align="right" />
       </button>
 
       {isOpen && (

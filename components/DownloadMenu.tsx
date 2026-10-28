@@ -1,3 +1,4 @@
+import { Tip } from './settings/Tip';
 import React, { useRef, useState, useEffect } from "react";
 import {
   Download,
@@ -198,26 +199,18 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
         type="button"
         onClick={() => !isDisabled && setIsOpen((v) => !v)}
         disabled={isDisabled}
-        title={triggerTooltip ? undefined : triggerTitle || "Download"}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label={triggerTitle || resolvedLabel || "Download"}
-        className={`${triggerClassName || defaultTriggerClasses}${triggerTooltip ? " relative group/dl-tip" : ""}`}
+        className={triggerClassName || defaultTriggerClasses}
       >
         {triggerIcon}
         {showTriggerText && resolvedLabel ? (
           <span className={triggerLabelClassName}>{resolvedLabel}</span>
         ) : null}
         <ChevronDown size={14} className="opacity-70" aria-hidden="true" />
-        {triggerTooltip && (
-          <span
-            role="tooltip"
-            className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/dl-tip:opacity-100 group-focus-visible/dl-tip:opacity-100 transition-opacity z-20"
-          >
-            {triggerTooltip}
-          </span>
-        )}
       </button>
+      <Tip title={showTriggerText ? resolvedLabel : undefined} text={triggerTooltip || triggerTitle || "Download"} side="top" align="right" />
 
       {isOpen && (
         <div

@@ -41,5 +41,12 @@ pubsub-debug.log*
 # Env files (never commit secrets)
 .env*
 !.env.example
+# functions/.env.pixtaffy-staging is intentionally tracked and guarded by CI.
 
 e2e-results/
+
+# Service account credentials
+*service-account*.json
+*-credentials*.json
+serviceAccountKey.json
+*-firebase-adminsdk-*.json

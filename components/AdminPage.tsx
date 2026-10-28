@@ -30,6 +30,7 @@ import {
   ListUsersPage,
 } from '../services/adminService';
 import { StatsPage } from './StatsPage';
+import { Tip } from './settings/Tip';
 
 type AdminTab = 'users' | 'stats';
 
@@ -388,31 +389,33 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
         >
           <Sparkles size={14} /> Wipe system prompt
         </button>
-        <button
-          type="button"
-          disabled={isBusy || isSelf}
-          onClick={() =>
-            handleMenuPick({
-              type: 'disable',
-              uid: row.id,
-              name: row.email || row.username || row.id,
-              nextDisabled: !row.isDisabled,
-            })
-          }
-          title={isSelf ? 'You cannot disable your own account.' : undefined}
-          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 disabled:opacity-50"
-          role="menuitem"
-        >
-          {row.isDisabled ? (
-            <>
-              <Unlock size={14} /> Enable account
-            </>
-          ) : (
-            <>
-              <Lock size={14} /> Suspend account
-            </>
-          )}
-        </button>
+        <div className="group/tip relative">
+          <button
+            type="button"
+            disabled={isBusy || isSelf}
+            onClick={() =>
+              handleMenuPick({
+                type: 'disable',
+                uid: row.id,
+                name: row.email || row.username || row.id,
+                nextDisabled: !row.isDisabled,
+              })
+            }
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 disabled:opacity-50 disabled:pointer-events-none"
+            role="menuitem"
+          >
+            {row.isDisabled ? (
+              <>
+                <Unlock size={14} /> Enable account
+              </>
+            ) : (
+              <>
+                <Lock size={14} /> Suspend account
+              </>
+            )}
+          </button>
+          {isSelf && <Tip text="You cannot disable your own account." align="right" />}
+        </div>
         <div className="my-1 h-px bg-gray-200 dark:bg-[#30363d]" />
         <button
           type="button"
@@ -438,18 +441,20 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
           )}
         </button>
         <div className="my-1 h-px bg-gray-200 dark:bg-[#30363d]" />
-        <button
-          type="button"
-          disabled={isBusy || isSelf}
-          onClick={() =>
-            handleMenuPick({ type: 'delete', uid: row.id, name: row.email || row.username || row.id })
-          }
-          title={isSelf ? 'You cannot delete your own account here.' : undefined}
-          className="w-full flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
-          role="menuitem"
-        >
-          <Trash2 size={14} /> Delete account
-        </button>
+        <div className="group/tip relative">
+          <button
+            type="button"
+            disabled={isBusy || isSelf}
+            onClick={() =>
+              handleMenuPick({ type: 'delete', uid: row.id, name: row.email || row.username || row.id })
+            }
+            className="w-full flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:pointer-events-none"
+            role="menuitem"
+          >
+            <Trash2 size={14} /> Delete account
+          </button>
+          {isSelf && <Tip text="You cannot delete your own account here." align="right" />}
+        </div>
       </div>
     );
   };
@@ -578,7 +583,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                 type="button"
                 onClick={handleBootstrapSelfPromote}
                 disabled={bootstrapClaiming}
-                className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium disabled:opacity-50"
+                className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500 text-[#0d1117] hover:bg-amber-400 text-sm font-medium disabled:opacity-50"
               >
                 {bootstrapClaiming ? <Loader2 size={14} className="animate-spin" /> : <Crown size={14} />}
                 Claim admin role
@@ -682,13 +687,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                             )}
                           </button>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap" title={lastSignInFull}>
-                          <span className="relative group/cell inline-block">
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                          <span className="relative group/tip inline-block">
                             {lastSignInRelative}
                             {row.lastSignInAt != null && (
-                              <span className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/cell:opacity-100 transition-opacity z-20">
-                                {lastSignInFull}
-                              </span>
+                              <Tip text={lastSignInFull} side="top" />
                             )}
                           </span>
                         </td>
@@ -737,13 +740,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                             onClick={() =>
                               setOpenRowMenu((prev) => (prev === row.id ? null : row.id))
                             }
-                            className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-gray-200 dark:border-[#30363d] hover:border-brand-teal bg-white dark:bg-[#0d1117] hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-600 dark:text-slate-300 hover:text-brand-teal transition-colors"
+                            className="group/tip relative inline-flex items-center justify-center w-11 h-11 rounded-lg border border-gray-200 dark:border-[#30363d] hover:border-brand-teal bg-white dark:bg-[#0d1117] hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-600 dark:text-slate-300 hover:text-brand-teal transition-colors"
                             aria-label={`Actions for ${row.email || row.username || row.id}`}
                             aria-haspopup="menu"
                             aria-expanded={openRowMenu === row.id}
-                            title="Actions"
                           >
                             <MoreHorizontal size={18} />
+                            <Tip text="Actions" align="right" />
                           </button>
                           {openRowMenu === row.id && renderRowMenu(row)}
                         </td>
@@ -780,8 +783,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                                   <dt className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
                                     Created
                                   </dt>
-                                  <dd className="text-slate-800 dark:text-slate-100" title={createdFull}>
+                                  <dd className="group/tip relative text-slate-800 dark:text-slate-100">
                                     {createdShort}
+                                    <Tip text={createdFull} side="top" align="right" />
                                   </dd>
                                 </div>
                               </div>

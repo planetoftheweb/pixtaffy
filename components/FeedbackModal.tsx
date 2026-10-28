@@ -156,7 +156,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
               Help make PixTaffy better
             </h2>
           </div>
-          <button type="button" onClick={onClose} disabled={busy} aria-label="Close feedback" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 dark:hover:bg-[#21262d] dark:hover:text-white">
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Close feedback" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 dark:hover:bg-[#21262d] dark:hover:text-white">
             <X size={20} />
           </button>
         </div>
@@ -179,7 +179,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
               <a href={issue.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-teal px-4 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600">
                 View issue <ExternalLink size={16} /><Tip text="View issue" />
               </a>
-              <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:text-slate-200">
+              <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 hover:border-brand-teal hover:text-brand-teal dark:border-[#30363d] dark:text-slate-200">
                 Done
               </button>
             </div>
@@ -236,7 +236,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
             {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">{error}</p>}
 
             <div className="sticky bottom-0 -mx-5 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur dark:border-[#30363d] dark:bg-[#0d1117]/95 sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
-              <button type="button" onClick={onClose} disabled={busy} className="min-h-11 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-[#30363d] dark:text-slate-200">Cancel</button>
+              <button type="button" onClick={onClose} disabled={busy} className="min-h-11 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-[#30363d] dark:text-slate-200">Cancel</button>
               <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600 disabled:cursor-wait disabled:opacity-60">
                 <Send size={16} /> {busy ? 'Sending…' : 'Send feedback'}<Tip text="Send feedback" />
               </button>
