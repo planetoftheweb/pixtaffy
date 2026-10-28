@@ -6,6 +6,18 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+
+test('npm test and prebuild include the design and error-toast regression suites', () => {
+  const { scripts } = JSON.parse(source('package.json'));
+  const [frontend, functions] = scripts.test.split(' && ');
+  const testFiles = frontend.split(/\s+/).filter(arg => arg.endsWith('.test.mjs'));
+  for (const file of ['tests/error-toast.test.mjs', 'tests/design-67-70.test.mjs']) {
+    assert.equal(testFiles.filter(path => path === file).length, 1, `${file} must run in npm test`);
+  }
+  assert.equal(functions, 'npm --prefix functions test');
+  assert.ok(scripts.prebuild.split(' && ').includes('npm test'), 'prebuild must run the same suites');
+});
+
 const image = source('components/ImageDisplay.tsx');
 const gallery = source('components/RecentGenerations.tsx');
 const studio = source('components/BuildStudio.tsx');
