@@ -164,7 +164,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const handlePasswordReset = async () => {
-    if (resetDisabled) return;
+    if (busy) return;
     if (!email.trim()) {
       setError('Enter your email or username first.');
       setStatus(null);

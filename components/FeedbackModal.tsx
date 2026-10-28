@@ -121,7 +121,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
     event.preventDefault();
     if (busy) return;
     setError(null);
-    const blocker = getFeedbackFormBlocker(message);
+    const blocker = getFeedbackFormBlocker(message, contactEmail);
     if (blocker) {
       setError(blocker);
       return;
@@ -191,7 +191,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
             </div>
           </div>
         ) : (
-          <form onSubmit={(event) => void sendFeedback(event)} className="space-y-6 px-5 py-5 sm:px-6 sm:py-6">
+          <form noValidate onSubmit={(event) => void sendFeedback(event)} className="space-y-6 px-5 py-5 sm:px-6 sm:py-6">
             <fieldset>
               <legend className="text-sm font-bold text-slate-900 dark:text-white">What kind of note is this?</legend>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">

@@ -15,6 +15,8 @@ export function getAuthFormBlocker({ isLogin, name, username, email, password }:
   return null;
 }
 
-export function getFeedbackFormBlocker(message: string): string | null {
-  return message.trim().length < 3 ? 'Write a short note so we know what to look at.' : null;
+export function getFeedbackFormBlocker(message: string, contactEmail?: string): string | null {
+  if (message.trim().length < 3) return 'Write a short note so we know what to look at.';
+  if (contactEmail?.trim() && !/^[^\s@]+@[^\s@]+$/.test(contactEmail.trim())) return 'Enter a valid email address.';
+  return null;
 }
