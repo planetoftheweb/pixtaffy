@@ -388,7 +388,13 @@ test('auth modal scrolls on short screens and uses teal focus styling', () => {
   assert.match(auth, /role="dialog"[^\n]*rounded-2xl w-full max-w-md m-auto/);
   assert.equal((auth.match(/focus:ring-brand-teal/g) || []).length, 4);
   assert.doesNotMatch(auth, /focus:ring-brand-red|text-brand-red|brand-orange/);
-  assert.equal((auth.match(/focus-visible:ring-2 focus-visible:ring-brand-teal/g) || []).length, 3);
+  assert.equal((auth.match(/focus-visible:ring-2 focus-visible:ring-brand-teal/g) || []).length, 4);
   const forgot = auth.slice(auth.indexOf('onClick={handlePasswordReset}'), auth.indexOf('onClick={handlePasswordReset}') + 700);
   assert.match(forgot, /text-brand-teal/);
+});
+
+test('auth submit button shows an offset teal focus ring instead of the browser outline', () => {
+  const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
+  const submit = auth.slice(auth.indexOf('type="submit"'), auth.indexOf('type="submit"') + 700);
+  assert.match(submit, /focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-\[#161b22\]/);
 });
