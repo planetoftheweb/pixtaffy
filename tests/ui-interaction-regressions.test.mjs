@@ -178,3 +178,178 @@ test('settings toast escapes page stacking contexts and sits above overlays and 
   assert.match(feedback, /document\.body/);
   assert.match(feedback, /fixed bottom-.*z-\[500\]/);
 });
+
+// Exercise the real cache paths with local browser stubs and no network access.
+test('history image misses are quiet, session-scoped, and bounded', async (t) => {
+  const cache = await import('../services/imageCache.ts');
+  const records = new Map();
+  const request = (result) => {
+    const pending = { result };
+    queueMicrotask(() => pending.onsuccess?.());
+    return pending;
+  };
+  const database = {
+    transaction() {
+      const tx = {
+        objectStore: () => ({
+          getAllKeys: () => request([...records.keys()]),
+          get: (key) => request(records.get(key)),
+          getAll: () => request([...records.values()]),
+          put: (record) => {
+            records.set(record.key, record);
+            queueMicrotask(() => tx.oncomplete?.());
+          },
+        }),
+      };
+      return tx;
+    },
+  };
+  for (const [name, value] of Object.entries({
+    window: {},
+    indexedDB: { open: () => request(database) },
+  })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, name);
+    Object.defineProperty(globalThis, name, { configurable: true, value });
+    t.after(() => {
+      if (previous) Object.defineProperty(globalThis, name, previous);
+      else delete globalThis[name];
+    });
+  }
+  const warnings = t.mock.method(console, 'warn', () => {});
+  const errors = t.mock.method(console, 'error', () => {});
+  let status = 403;
+  let offline = false;
+  const fetching = t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    assert.equal(options.mode, 'cors');
+    assert.equal(options.credentials, 'omit');
+    if (offline) throw new TypeError('Network unavailable');
+    return {
+      status,
+      ok: status === 200,
+      blob: async () => new Blob(['pixels'], { type: 'image/png' }),
+    };
+  });
+  const url = 'https://images.example.test/asset';
+
+  await t.test('only 403 and 404 are missing-image statuses', () => {
+    for (const value of [403, 404]) assert.equal(cache.isMissingImageStatus(value), true);
+    for (const value of [200, 500, 503, undefined, new TypeError('Network unavailable')]) {
+      assert.equal(cache.isMissingImageStatus(value), false);
+    }
+  });
+
+  await t.test('403 and 404 suppress subsequent fetches and remain silent', async () => {
+    for (status of [403, 404]) {
+      const key = `missing-${status}`;
+      const before = fetching.mock.callCount();
+      await Promise.all([cache.backfillBlobByKey(key, url), cache.backfillBlobByKey(key, url)]);
+      await cache.backfillBlobByKey(key, url);
+      assert.equal(cache.isImageMissing(key, url), true);
+      assert.equal(fetching.mock.callCount() - before, 1);
+    }
+    assert.equal(warnings.mock.callCount(), 0);
+    assert.equal(errors.mock.callCount(), 0);
+  });
+
+  await t.test('a changed URL clears the miss and caches valid bytes', async () => {
+    status = 200;
+    const before = fetching.mock.callCount();
+    await cache.backfillBlobByKey('missing-403', `${url}/fresh`);
+    assert.equal(fetching.mock.callCount() - before, 1);
+    assert.equal(cache.isImageMissing('missing-403', url), false);
+    assert.equal((await cache.getCachedBlobByKey('missing-403')).size, 6);
+  });
+
+  await t.test('a changed URL can load while the previous URL is still in flight', async () => {
+    let release;
+    let started;
+    const pending = new Promise(resolve => { started = resolve; });
+    fetching.mock.mockImplementation(async (source) => {
+      if (source.endsWith('/old')) {
+        started();
+        return new Promise(resolve => { release = () => resolve({ status: 404, ok: false }); });
+      }
+      return { status: 200, ok: true, blob: async () => new Blob(['fresh']) };
+    });
+    const before = fetching.mock.callCount();
+    const previous = cache.backfillBlobByKey('changing', `${url}/old`);
+    await pending;
+    await cache.backfillBlobByKey('changing', `${url}/new`);
+    release();
+    await previous;
+    assert.equal(fetching.mock.callCount() - before, 2);
+    assert.equal(cache.isImageMissing('changing', `${url}/new`), false);
+  });
+
+  fetching.mock.mockImplementation(async () => {
+    if (offline) throw new TypeError('Network unavailable');
+    return { status, ok: false };
+  });
+
+  await t.test('500, 503 and offline failures retain later-call retry behavior', async () => {
+    for (const value of [500, 503, 'offline']) {
+      status = value;
+      offline = value === 'offline';
+      const key = `transient-${value}`;
+      const before = fetching.mock.callCount();
+      await cache.backfillBlobByKey(key, url);
+      await cache.backfillBlobByKey(key, url);
+      assert.equal(fetching.mock.callCount() - before, 2);
+      assert.equal(cache.isImageMissing(key, url), false);
+    }
+    offline = false;
+  });
+
+  await t.test('history batch and single-key backfills share misses and accept fresh URLs', async () => {
+    status = 404;
+    const target = { generationId: 'batch', versionId: 'image', imageUrl: url };
+    const key = cache.buildImageCacheKey(target.generationId, target.versionId);
+    const before = fetching.mock.callCount();
+    await cache.backfillImageCache([target]);
+    await cache.backfillImageCache([target]);
+    await cache.backfillBlobByKey(key, url);
+    assert.equal(fetching.mock.callCount() - before, 1);
+    await cache.backfillImageCache([{ ...target, imageUrl: `${url}/updated` }]);
+    assert.equal(fetching.mock.callCount() - before, 2);
+    assert.equal(cache.isImageMissing(key, `${url}/updated`), true);
+    assert.equal(warnings.mock.callCount(), 0);
+    assert.equal(errors.mock.callCount(), 0);
+  });
+
+  await t.test('the negative cache evicts the oldest miss after 256 entries', async () => {
+    status = 403;
+    for (let index = 0; index <= 256; index += 1) {
+      await cache.backfillBlobByKey(`bounded-${index}`, url);
+    }
+    assert.equal(cache.isImageMissing('bounded-0', url), false);
+    assert.equal(cache.isImageMissing('bounded-1', url), true);
+    assert.equal(cache.isImageMissing('bounded-256', url), true);
+    const before = fetching.mock.callCount();
+    await cache.backfillBlobByKey('bounded-256', url);
+    assert.equal(fetching.mock.callCount(), before);
+    await cache.backfillBlobByKey('bounded-0', url);
+    assert.equal(fetching.mock.callCount() - before, 1);
+  });
+});
+
+test('history images use a terminal accessible placeholder and try each fallback once', () => {
+  const source = readFileSync(new URL('../components/CachedImage.tsx', import.meta.url), 'utf8');
+  assert.match(source, /fallback \?\? \([\s\S]*?<span[\s\S]*?aria-label="Image unavailable"/);
+  assert.match(source, /min-h-\[44px\] min-w-\[44px\]/);
+  assert.match(source, /<ImageOff size=\{20\} aria-hidden="true"/);
+  assert.doesNotMatch(source, /\btitle=|\u2014|setTimeout|setInterval/);
+  assert.match(source, /if \(!renderSrc \|\| failed\)/);
+  assert.match(source, /if \(!triedCache\.current\)/);
+  assert.match(source, /triedCache\.current = true/);
+  assert.match(source, /!triedSources\.current\.has\(fallbackSrc\)/);
+  assert.match(source, /if \(triedSources\.current\.has\(renderSrc\)\) return/);
+  assert.match(source, /knownMissing \? undefined : src/);
+  assert.match(source, /key=\{JSON\.stringify\(\[props\.cacheKey, props\.src, props\.fallbackSrc\]\)\}/);
+  const placeholder = source.slice(source.indexOf('if (!renderSrc || failed)'), source.indexOf('return <img'));
+  assert.doesNotMatch(placeholder, /onError|<img\b/);
+  assert.match(buildStudioSource, /if \(missing\) throw new Error\('Image unavailable'\)/);
+  assert.match(buildStudioSource, /fetchImageResponseByKey\(buildImageCacheKey\(generation\.id, version\.id\), version\.imageUrl\)/);
+  assert.equal((recentGenerationsSource.match(/<CachedImage\b/g) || []).length, 2);
+  assert.doesNotMatch(recentGenerationsSource, /^\s*<img(?:\s|>)/m);
+  assert.match(appSource, /<CachedImage\s+cacheKey=\{buildImageCacheKey\(completionToast\.id, toastVersion\.id\)\}/);
+});

@@ -71,7 +71,7 @@ import {
 } from './services/timeEstimationService';
 import { detectLikelyCanvasPadding } from './services/recomposeQualityService';
 import { toMarkLabel } from './services/versionUtils';
-import { buildProfileImageCacheKey, getCachedImageBlob } from './services/imageCache';
+import { buildImageCacheKey, buildProfileImageCacheKey, getCachedImageBlob } from './services/imageCache';
 import { fetchProfileThumbnailDataUrl } from './services/imageService';
 import { friendlyAiAssistError } from './services/aiAssistGuard';
 import { billingService, makeRequestId, SITE_FUNDED_MODEL_MILLICREDITS, type BillingState } from './services/billingService';
@@ -4327,11 +4327,11 @@ const App: React.FC = () => {
                     className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 pl-2 pr-4 py-2 text-left shadow-lg backdrop-blur-sm transition-colors hover:border-brand-teal"
                   >
                     {toastVersion?.imageUrl ? (
-                      <img
+                      <CachedImage
+                        cacheKey={buildImageCacheKey(completionToast.id, toastVersion.id)}
                         src={toastVersion.imageUrl}
                         alt=""
                         className="h-12 w-12 shrink-0 rounded-lg bg-gray-100 object-cover dark:bg-[#0d1117]"
-                        onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
                       />
                     ) : (
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-[#0d1117]">
