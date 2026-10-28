@@ -102,7 +102,7 @@ export const PresetHoverPreview: React.FC<PresetHoverPreviewProps> = ({
       style={style}
       className="bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg shadow-xl p-3 text-[13px] text-slate-600 dark:text-slate-300"
     >
-      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 truncate">
+      <p className="text-[12px] font-bold uppercase tracking-wide text-slate-400 mb-2 truncate">
         {name}
       </p>
       {sampleUrl && (
@@ -124,7 +124,7 @@ export const PresetHoverPreview: React.FC<PresetHoverPreviewProps> = ({
       </dl>
       {instructions && (
         <div className="mt-2 pt-2 border-t border-gray-100 dark:border-[#30363d]">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-brand-teal mb-1">Art direction</p>
+          <p className="text-[12px] font-bold uppercase tracking-wide text-brand-teal mb-1">Art direction</p>
           <p className="leading-snug text-slate-600 dark:text-slate-300 line-clamp-4">{instructions}</p>
         </div>
       )}

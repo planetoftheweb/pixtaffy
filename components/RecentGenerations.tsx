@@ -1245,7 +1245,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         >
           <FolderIcon size={14} aria-hidden />
           <span className="truncate max-w-[14rem] sm:max-w-[18rem]">{activeName}</span>
-          <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[10px] font-bold leading-none tabular-nums bg-gray-200 dark:bg-[#30363d] text-slate-600 dark:text-slate-300">
+          <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[12px] font-bold leading-none tabular-nums bg-gray-200 dark:bg-[#30363d] text-slate-600 dark:text-slate-300">
             {activeCount}
           </span>
           <ChevronDown
@@ -1269,7 +1269,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             style={panelAnchorStyle(folderPickerAnchor, 352, 480)}
           >
             <div
-              className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 select-none rounded-md hover:bg-gray-50 dark:hover:bg-[#21262d]"
+              className="px-2.5 py-1.5 text-[12px] font-bold uppercase tracking-wide text-slate-400 select-none rounded-md hover:bg-gray-50 dark:hover:bg-[#21262d]"
               onContextMenu={(e) => {
                 e.preventDefault();
                 setFolderActionsMenuId(null);
@@ -1494,7 +1494,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       />
                     )}
                     <span
-                      className={`inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[10px] font-bold leading-none tabular-nums shrink-0 ${
+                      className={`inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[12px] font-bold leading-none tabular-nums shrink-0 ${
                         isViewing
                           ? 'bg-brand-teal text-[#0d1117]'
                           : 'bg-gray-200 dark:bg-[#30363d] text-slate-600 dark:text-slate-300'
@@ -1852,7 +1852,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               <Download size={14} className="shrink-0 text-slate-400" />
               <span className="truncate flex-1">{opt.label}</span>
               {opt.description && (
-                <span className="text-[10px] text-slate-400 shrink-0">{opt.description}</span>
+                <span className="text-[12px] text-slate-400 shrink-0">{opt.description}</span>
               )}
             </button>
               <Tip text={(tileDownloadBusy) ? ('Preparing download…') : (opt.label)} side="top" />
@@ -1904,7 +1904,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 <FolderIcon size={14} className="shrink-0 text-slate-400" />
                 <span className="truncate flex-1">{folder.name}</span>
                 {inFolder && (
-                  <span className="text-[10px] text-slate-400 shrink-0">here</span>
+                  <span className="text-[12px] text-slate-400 shrink-0">here</span>
                 )}
               </button>
                 <Tip text={(inFolder || folderBusy) ? (inFolder ? 'This image is already in this folder' : 'Wait for the folder action to finish') : (folder.name)} side="top" />
@@ -2116,7 +2116,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 <ChevronDown size={14} aria-hidden className="text-slate-400 dark:text-slate-500" />
                 <span
                   role="tooltip"
-                  className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-pages:opacity-100 group-focus-visible/tip-pages:opacity-100 transition-opacity z-20"
+                  className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-pages:opacity-100 group-focus-visible/tip-pages:opacity-100 transition-opacity z-20"
                 >
                   Jump to page or change per-page
                 </span>
@@ -2152,7 +2152,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       folders (e.g. 40 pages at 25 per page) stay
                       navigable inside the popover. */}
                   <div className="mb-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1.5">
                       Jump to page
                     </p>
                     <div className="flex flex-wrap gap-1">
@@ -2184,7 +2184,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       dropdown so users can pick a size in one click and
                       we save vertical space. */}
                   <div className="mb-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1.5">
                       Per page
                     </p>
                     <div className="flex flex-wrap gap-1">
@@ -2217,7 +2217,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                       "1–50 / 51" caption that used to live in the header
                       row. Surfacing it here keeps the data without
                       cluttering the chrome. */}
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums border-t border-gray-100 dark:border-[#30363d] pt-2">
+                  <p className="text-[12px] text-slate-400 dark:text-slate-500 tabular-nums border-t border-gray-100 dark:border-[#30363d] pt-2">
                     Showing {galleryRangeStart}–{galleryRangeEnd} of {visibleHistory.length}
                     {history.length !== visibleHistory.length ? ` · ${history.length} total in history` : ''}
                   </p>
@@ -2351,7 +2351,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                         >
                           <FolderIcon size={14} aria-hidden />
                           <span className="truncate flex-1">{folder.name}</span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[12px] text-slate-400">
                             {folderCounts.get(folder.id) || 0}
                           </span>
                         </button>
@@ -2612,7 +2612,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   <span className="block text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
                     {sub.name}
                   </span>
-                  <span className="text-[10px] text-slate-400">{subCount} item{subCount === 1 ? '' : 's'}</span>
+                  <span className="text-[12px] text-slate-400">{subCount} item{subCount === 1 ? '' : 's'}</span>
                 </span>
               </button>
             );
@@ -2725,8 +2725,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 <div
                   className={`absolute z-10 top-2 ${selectionMode ? 'left-14' : 'left-2'}`}
                 >
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-teal/90 text-[#0d1117] shadow-sm">
-                    <GitCompare size={10} />
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-bold bg-brand-teal/90 text-[#0d1117] shadow-sm">                    <GitCompare size={10} />
                     Compare · {compareLabel}
                   </span>
                   <Tip title="Comparison" text={
@@ -2738,7 +2737,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               )}
               {isPickedSide && (
                 <div className="absolute top-2 right-2 z-20 pointer-events-none">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-[11px] font-bold text-slate-900 shadow">
+                  <span className="inline-flex items-center justify-center min-w-6 h-6 rounded-full bg-amber-400 text-[12px] font-bold text-slate-900 shadow">
                     {isPickedSide}
                   </span>
                 </div>
@@ -2750,8 +2749,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     pendingRerunCounts![gen.id] === 1 ? 'task' : 'tasks'
                   } in progress on this tile`}
                 >
-                  <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full bg-brand-teal text-[11px] font-bold text-[#0d1117] shadow animate-pulse">
-                    {pendingRerunCounts![gen.id]}
+                  <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full bg-brand-teal text-[12px] font-bold text-[#0d1117] shadow animate-pulse">                    {pendingRerunCounts![gen.id]}
                   </span>
                 </div>
               )}
@@ -3167,10 +3165,10 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                   {gen.config.prompt}
                 </p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-brand-teal/10 text-brand-teal border border-brand-teal/40">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-bold bg-brand-teal/10 text-brand-teal border border-brand-teal/40">
                     {modelLabel}
                   </span>
-                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 tabular-nums">
+                  <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
                     {formatTimestamp(gen.createdAt)}
                   </span>
                 </div>

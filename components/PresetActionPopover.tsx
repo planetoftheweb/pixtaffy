@@ -184,7 +184,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
     >
       {isEditingInstructions ? (
         <div className="p-1 space-y-2">
-          <p className="px-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-brand-teal">
+          <p className="px-1 pt-1 text-[12px] font-bold uppercase tracking-wide text-brand-teal">
             Art direction
           </p>
           <textarea
@@ -208,7 +208,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
             className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-[13px] leading-snug rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal resize-none"
           />
           {instructionsError && (
-            <p className="text-[11px] text-red-500">{instructionsError}</p>
+            <p className="text-[12px] text-red-500">{instructionsError}</p>
           )}
           <div className="flex gap-2">
             <span className="relative inline-flex flex-1">
@@ -261,7 +261,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
             className="w-full bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] text-[13px] rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal"
           />
           {renameError && (
-            <p className="text-[11px] text-red-500">{renameError}</p>
+            <p className="text-[12px] text-red-500">{renameError}</p>
           )}
           <div className="flex gap-2">
             <span className="relative inline-flex flex-1">

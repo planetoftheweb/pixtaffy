@@ -282,7 +282,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
             {hasToolbarPresentation ? (
               <span className="flex flex-col min-w-0">
                 {subLabel && (
-                  <span className="text-[11px] uppercase font-bold text-brand-teal leading-none mb-0.5">
+                  <span className="text-[12px] uppercase tracking-wide font-bold text-brand-teal leading-none mb-0.5">
                     {subLabel}
                   </span>
                 )}
@@ -352,7 +352,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
               return (
                 <div key={group.key || 'ungrouped'} className="mb-1">
                   {hasGroupLabel && (
-                    <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-gray-50 dark:bg-[#161b22] sticky top-0 z-[1] border-b border-gray-100 dark:border-[#30363d]">
+                    <div className="px-2 py-1 text-[12px] font-bold text-slate-400 uppercase tracking-wide bg-gray-50 dark:bg-[#161b22] sticky top-0 z-[1] border-b border-gray-100 dark:border-[#30363d]">
                       {group.label}
                     </div>
                   )}
@@ -379,7 +379,7 @@ export const RichSelect: React.FC<RichSelectProps> = ({
                               {option.label}
                             </span>
                             {!hideOptionDescriptions && option.description && (
-                              <span className="block whitespace-normal break-words leading-tight text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              <span className="block whitespace-normal break-words leading-tight text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
                                 {option.description}
                               </span>
                             )}

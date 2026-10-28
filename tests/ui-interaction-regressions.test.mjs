@@ -835,9 +835,7 @@ test('reviewed buttons use rounded-lg and auth copy follows Log in and Log out s
 
 test('Login is the noun and log in the verb; toolbar labels stay at least 12px; AuthModal Close is disabled while busy', () => {
   const panel = readFileSync(new URL('../components/ControlPanel.tsx', import.meta.url), 'utf8');
-  assert.match(panel, /hidden md:inline xl:hidden text-\[12px\] uppercase font-bold/);
-  assert.match(panel, /hidden xl:block text-\[12px\] uppercase font-bold/);
-  assert.ok(panel.includes("'Expanding prompt\u2026'") || panel.includes("'Expanding prompt…'"));
+  assert.match(panel, /hidden md:inline xl:hidden text-\[12px\] uppercase font-bold/);  assert.match(panel, /hidden xl:block whitespace-nowrap text-\[12px\] uppercase font-bold/);  assert.ok(panel.includes("'Expanding prompt\u2026'") || panel.includes("'Expanding prompt…'"));
   assert.doesNotMatch(panel, /Expanding prompt\.\.\./);
   const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
   const close = auth.slice(auth.indexOf('aria-label="Close"') - 220, auth.indexOf('aria-label="Close"') + 40);

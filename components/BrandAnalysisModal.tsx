@@ -69,7 +69,7 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
 
           {/* Scope Selection */}
           <div className="bg-gray-50 dark:bg-[#0d1117] p-4 rounded-xl border border-gray-200 dark:border-[#30363d]">
-             <h4 className="font-bold text-sm uppercase tracking-wider text-slate-500 mb-3">Import Visibility</h4>
+             <h4 className="font-bold text-sm uppercase tracking-wide text-slate-500 mb-3">Import Visibility</h4>
              <div className="flex gap-4">
                <button 
                  onClick={() => setScope('public')}
@@ -114,7 +114,7 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <Palette size={18} className="text-brand-red dark:text-brand-orange" />
-                <h4 className="font-bold text-sm uppercase tracking-wider text-slate-500">Proposed Color Palettes</h4>
+                <h4 className="font-bold text-sm uppercase tracking-wide text-slate-500">Proposed Color Palettes</h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {analysisResult.brandColors.map((palette, index) => {
@@ -152,7 +152,7 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <PenTool size={18} className="text-brand-teal" />
-                <h4 className="font-bold text-sm uppercase tracking-wider text-slate-500">Proposed Visual Styles</h4>
+                <h4 className="font-bold text-sm uppercase tracking-wide text-slate-500">Proposed Visual Styles</h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {analysisResult.visualStyles.map((style, index) => {
@@ -186,7 +186,7 @@ export const BrandAnalysisModal: React.FC<BrandAnalysisModalProps> = ({
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <Layout size={18} className="text-blue-500" />
-                <h4 className="font-bold text-sm uppercase tracking-wider text-slate-500">Proposed Graphic Types</h4>
+                <h4 className="font-bold text-sm uppercase tracking-wide text-slate-500">Proposed Graphic Types</h4>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {analysisResult.graphicTypes.map((type, index) => {

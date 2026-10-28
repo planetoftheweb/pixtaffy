@@ -1384,7 +1384,7 @@ test('round 3 overlays use documented tiers and selected teal labels use dark te
   assert.match(source('components/PresetHoverPreview.tsx'), /zIndex: 70/);
   assert.match(source('components/settings/SettingsFeedback.tsx'), /fixed bottom-[^\n]+z-\[400\]/);
   assert.match(design, /selected `bg-brand-teal text-\[#0d1117\]`/);
-  assert.match(design, /bg-brand-teal text-\[#0d1117\] text-\[11px\] font-bold shadow-lg/);
+  assert.match(design, /bg-brand-teal text-\[#0d1117\] text-\[12px\] font-bold shadow-lg/);
   assert.match(studio, /style=\{\{ fontSize: 12, lineHeight: '24px' \}\}/);
 });
 

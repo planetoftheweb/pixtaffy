@@ -147,7 +147,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
           // gray in dark) so the bubble stays crisp on either background.
           <span
             aria-hidden="true"
-            className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-brand-red text-white text-[10px] font-extrabold leading-none ring-2 ring-white dark:ring-[#0d1117] shadow-sm shadow-brand-red/30"
+            className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-brand-red text-white text-[12px] font-extrabold leading-none ring-2 ring-white dark:ring-[#0d1117] shadow-sm shadow-brand-red/30"
           >
             {badgeLabel}
           </span>
@@ -176,7 +176,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
                 </h2>
               </div>
               {hasUnread && (
-                <span className="text-[10px] font-bold uppercase tracking-wide text-brand-teal">
+                <span className="text-[12px] font-bold uppercase tracking-wide text-brand-teal">
                   {unreadCount} new
                 </span>
               )}
@@ -250,7 +250,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
                                 {entry.title}
                               </h3>
                               {isUnseen && (
-                                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-brand-red/10 text-brand-red border border-brand-red/30">
+                                <span className="text-[12px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-brand-red/10 text-brand-red border border-brand-red/30">
                                   New
                                 </span>
                               )}
@@ -258,7 +258,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
                             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">
                               {entry.summary}
                             </p>
-                            <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-500">
+                            <div className="mt-2 flex items-center gap-2 text-[12px] text-slate-500 dark:text-slate-500">
                               {entry.version && (
                                 <>
                                   <span>v{entry.version}</span>
@@ -333,7 +333,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
                     {hoveredEntry.title}
                   </div>
                   {hoveredEntry.version && (
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500 mt-0.5">
+                    <div className="text-[12px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500 mt-0.5">
                       v{hoveredEntry.version}
                     </div>
                   )}

@@ -176,7 +176,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
       >
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur dark:border-[#30363d] dark:bg-[#0d1117]/95 sm:px-6">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-teal">Send feedback</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-brand-teal">Send feedback</p>
             <h2 id="feedback-title" className="mt-1 text-2xl font-bold text-slate-950 dark:text-white">
               Help make PixTaffy better
             </h2>

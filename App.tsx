@@ -4420,10 +4420,10 @@ const App: React.FC = () => {
                       <span className="block text-xs font-semibold text-slate-900 dark:text-white">
                         Generation finished
                       </span>
-                      <span className="block max-w-[190px] truncate text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="block max-w-[190px] truncate text-[12px] text-slate-500 dark:text-slate-400">
                         {completionToast.config.prompt}
                       </span>
-                      <span className="block text-[11px] font-semibold text-brand-teal">
+                      <span className="block text-[12px] font-semibold text-brand-teal">
                         Click to view
                       </span>
                     </span>
@@ -4432,8 +4432,7 @@ const App: React.FC = () => {
                     type="button"
                     onClick={dismissCompletionToast}
                     aria-label="Dismiss"
-                    className={`group/dismiss [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-white text-[10px] text-slate-500 opacity-0 focus-visible:opacity-100 shadow transition-opacity hover:text-slate-900 group-hover:opacity-100 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-400 dark:hover:text-white ${FOCUS_RING}`}
-                  >
+                    className={`group/dismiss [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-gray-200 bg-white text-[12px] text-slate-500 opacity-0 focus-visible:opacity-100 shadow transition-opacity hover:text-slate-900 group-hover:opacity-100 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-400 dark:hover:text-white ${FOCUS_RING}`}                  >
                     ✕
                     <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 hidden whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[13px] font-medium text-white group-hover/dismiss:block">
                       Dismiss
@@ -4510,7 +4509,7 @@ const App: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
+                        <span className="text-[12px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
                           {docLabel}
                         </span>
                         <button
@@ -4666,7 +4665,7 @@ const App: React.FC = () => {
                                 style={{ width: `${progressPct}%` }}
                               />
                             </div>
-                            <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                            <div className="mt-1.5 flex items-center justify-between gap-2 text-[12px] text-slate-500 dark:text-slate-400">
                               <span>{elapsedLabel} elapsed</span>
                               {running && isOverdue ? (
                                 <span>Taking longer than expected</span>
@@ -4683,7 +4682,7 @@ const App: React.FC = () => {
                                 {job.currentJobs.slice(0, 3).map((currentJob) => (
                                   <div
                                     key={currentJob.key}
-                                    className="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400"
+                                    className="flex items-center justify-between gap-2 text-[12px] text-slate-500 dark:text-slate-400"
                                   >
                                     <span className="font-medium truncate">
                                       {MODEL_NAME_BY_ID[currentJob.modelId] || currentJob.modelId}
@@ -4699,7 +4698,7 @@ const App: React.FC = () => {
                                     with concurrency 2 looked like only 2
                                     generations were happening. */}
                                 {running && remainingJobs > job.inFlight && (
-                                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 italic">
+                                  <div className="flex items-center gap-1.5 text-[12px] text-slate-500 dark:text-slate-400 italic">
                                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
                                     {remainingJobs - job.inFlight} queued
                                   </div>
@@ -4711,7 +4710,7 @@ const App: React.FC = () => {
                                 {modelChips.map(({ modelId, stats }) => (
                                   <span
                                     key={modelId}
-                                    className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-gray-200 dark:border-[#30363d] text-[10px] font-medium text-slate-600 dark:text-slate-300"
+                                    className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-gray-200 dark:border-[#30363d] text-[12px] font-medium text-slate-600 dark:text-slate-300"
                                   >
                                     <span className={`inline-block w-1.5 h-1.5 rounded-full ${stats!.inFlight > 0 ? 'bg-brand-teal animate-pulse' : 'bg-slate-400'}`} />
                                     {MODEL_NAME_BY_ID[modelId] || modelId}
@@ -5080,7 +5079,7 @@ const App: React.FC = () => {
                 <Tip text="Close setup instructions" />
               </button>
 
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-900/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-200">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-900/20 px-3 py-1 text-[12px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-200">
                 <Sparkles size={12} />
                 Quick Start
               </div>
@@ -5176,8 +5175,7 @@ const App: React.FC = () => {
                 )}
                 <button
                   onClick={() => setIsSetupModalOpen(false)}
-                  className={`inline-flex items-center rounded-xl border border-transparent px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors ${FOCUS_RING}`}
-                >
+                  className={`inline-flex items-center rounded-xl border border-transparent px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors ${FOCUS_RING}`}                >
                   Continue Exploring
                 </button>
               </div>
