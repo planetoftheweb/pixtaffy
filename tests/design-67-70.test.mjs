@@ -6,6 +6,9 @@ import { compile } from 'tailwindcss';
 import postcss from 'postcss';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { nextMenuItemIndex } from '../utils/menuKeyboard.ts';
+import { getAuthFormBlocker, getFeedbackFormBlocker } from '../utils/formValidation.ts';
+import { shouldAutoCollapseGenerationPanel } from '../utils/generationPanel.ts';
 
 const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -431,18 +434,213 @@ test('primary actions are teal with dark text while folder deletion stays red', 
 
 test('copy menu clamps its measured position before paint and keeps outside-click and Escape dismissal', () => {
   assert.match(image, /ref=\{copyMenuRef\}/);
+  assert.match(image, /ref=\{copyMenuTriggerRef\}/);
   assert.match(image, /w-48 max-w-\[calc\(100vw-1rem\)\]/);
-  assert.match(image, /Math.max\(8, Math.min\(window.innerWidth - rect.width - 8, rect.left\)\)/);
-  assert.match(image, /menu.style.transform = `translateX\(\$\{left - rect.left\}px\)`/);
-  assert.match(image, /fixed inset-0 z-10" onClick=\{\(\) => setCopyMenuOpen\(false\)\}/);
+  assert.match(image, /useLayoutEffect\(\(\) => \{\s+if \(!copyMenuOpen\) return;\s+const clampMenu/);
+  assert.match(image, /Math.max\(8, Math.min\(window.innerWidth - rect.width - 8, anchor.right - rect.width\)\)/);
+  assert.match(image, /menu.style.left = `\$\{left\}px`/);
+  assert.match(image, /menu.style.top = `\$\{top\}px`/);
+  assert.match(image, /copyMenuOpen && typeof document !== 'undefined' && createPortal\(/);
+  const menu = image.slice(image.indexOf('{copyMenuOpen &&'), image.indexOf('{/* Unified Download menu'));
+  assert.match(menu, /document.body/);
+  assert.match(menu, /data-copy-menu-portal\s+data-folder-menu/);
+  assert.match(menu, /className="fixed left-0 top-0[^"\n]*z-\[60\]/);
+  assert.match(menu, /fixed inset-0 z-\[59\]" onClick=\{\(\) => setCopyMenuOpen\(false\)\}/);
+  assert.match(gallery, /target.closest\('\[data-folder-menu\]'\)/);
   assert.match(image, /dismissErrorToastOnEscape\(event, hasVisibleErrorToast\(\), dismissTopErrorToast\)/);
   assert.match(image, /window.addEventListener\('keydown', onKey, true\)/);
+  for (const event of ['scroll', 'resize']) {
+    assert.ok(image.includes(`window.addEventListener('${event}', clampMenu`));
+    assert.ok(image.includes(`window.removeEventListener('${event}', clampMenu`));
+  }
+  for (const width of [320, 390, 768, 1280]) {
+    for (const anchor of [
+      { right: 40, top: 400, bottom: 444 },
+      { right: width - 12, top: 600, bottom: 644 },
+      { right: width + 100, top: -20, bottom: 24 },
+    ]) {
+      const style = {};
+      const clampMenu = evaluateComponent('components/ImageDisplay.tsx', 'clampMenu', {
+        copyMenuRef: { current: { style, getBoundingClientRect: () => ({ width: 192, height: 142 }) } },
+        copyMenuTriggerRef: { current: { getBoundingClientRect: () => anchor } },
+        window: { innerWidth: width, innerHeight: 700 },
+      });
+      clampMenu();
+      assert.equal(parseFloat(style.left), Math.max(8, Math.min(width - 200, anchor.right - 192)));
+      assert.equal(parseFloat(style.top), anchor.top === 600 ? 450 : anchor.bottom + 8);
+      assert.ok(parseFloat(style.left) + 192 <= width - 8);
+      assert.ok(parseFloat(style.top) + 142 <= 692);
+      assert.equal(style.maxHeight, '684px');
+    }
+  }
+});
+
+test('site footer reserves measured error-toast clearance and the toast uses the floating shadow', () => {
+  const app = source('App.tsx');
+  assert.match(app, /import \{[^}]*useErrorToastClearance[^}]*\} from '.\/utils\/errorToastStore'/);
+  assert.match(app, /const errorToastClearance = useErrorToastClearance\(\)/);
+  const footer = app.slice(app.indexOf('<footer'), app.indexOf('</footer>'));
+  assert.match(footer, /style=\{\{ paddingBottom: errorToastClearance \? errorToastClearance \+ 16 : undefined \}\}/);
+  for (const label of ['Changelog', 'Releases', 'Feedback']) assert.ok(footer.includes(label));
+  const toast = source('components/ErrorToast.tsx');
+  assert.match(toast, /role="alert"[^\n]*shadow-2xl/);
+  assert.doesNotMatch(toast, /shadow-lg/);
+});
+
+function hookHarness() {
+  const slots = [];
+  let cursor = 0;
+  let pending = [];
+  const changed = (previous, deps) => !previous || deps.some((value, index) => !Object.is(value, previous[index]));
+  return {
+    bindings: {
+      useRef: value => slots[cursor++] ??= { current: value },
+      useState: initial => {
+        const index = cursor++;
+        if (!(index in slots)) slots[index] = initial;
+        return [slots[index], value => { slots[index] = typeof value === 'function' ? value(slots[index]) : value; }];
+      },
+      useCallback: (callback, deps) => {
+        const index = cursor++;
+        if (changed(slots[index]?.deps, deps)) slots[index] = { callback, deps };
+        return slots[index].callback;
+      },
+      useEffect: (effect, deps) => {
+        const index = cursor++;
+        if (changed(slots[index]?.deps, deps)) pending.push(() => {
+          slots[index]?.cleanup?.();
+          slots[index] = { deps, cleanup: effect() };
+        });
+      },
+      window: { setTimeout: (...args) => setTimeout(...args), clearTimeout: timer => clearTimeout(timer) },
+    },
+    render: callback => {
+      cursor = 0;
+      const value = callback();
+      pending.forEach(effect => effect());
+      pending = [];
+      return value;
+    },
+    unmount: () => slots.forEach(slot => slot?.cleanup?.()),
+  };
+}
+
+test('generation dock collapses after three idle seconds and cancels for new work, manual expansion and unmount', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const harness = hookHarness();
+  const hook = evaluateComponent('App.tsx', 'useGenerationPanelAutoCollapse', { ...harness.bindings, shouldAutoCollapseGenerationPanel });
+  const collapsed = [];
+  const setCollapsed = value => collapsed.push(value);
+  const render = (hasJobs, running) => harness.render(() => hook(hasJobs ? [{ status: running ? 'running' : 'completed' }] : [], setCollapsed));
+  render(false, false);
+  t.mock.timers.tick(3001);
+  assert.deepEqual(collapsed, []);
+  render(true, true);
+  t.mock.timers.tick(3001);
+  assert.deepEqual(collapsed, []);
+  render(true, false);
+  t.mock.timers.tick(2999);
+  assert.deepEqual(collapsed, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(collapsed, [true]);
+  render(true, true);
+  const cancel = render(true, false);
+  t.mock.timers.tick(1000);
+  cancel();
+  render(true, false);
+  t.mock.timers.tick(5000);
+  assert.deepEqual(collapsed, [true], 'manual expansion must not reschedule while idle');
+  render(true, true);
+  render(true, false);
+  t.mock.timers.tick(1000);
+  render(true, true);
+  t.mock.timers.tick(3000);
+  assert.deepEqual(collapsed, [true], 'new work cancels the pending collapse');
+  render(true, false);
+  harness.unmount();
+  t.mock.timers.tick(3001);
+  assert.deepEqual(collapsed, [true]);
+  const app = source('App.tsx');
+  assert.match(app, /useGenerationPanelAutoCollapse\(\s+activeGenerationJobs,/);
+  assert.match(app, /const canAutoCollapse = shouldAutoCollapseGenerationPanel\(jobs\)/);
+  assert.match(app, /if \(!canAutoCollapse\) return/);
+  assert.match(app, /job.status === 'running' \|\| job.status === 'stopping'/);
+  assert.match(app, /cancelGenerationsPanelAutoCollapse\(\);\s+setIsGenerationsPanelCollapsed\(false\)/);
+  assert.equal((app.match(/cancelGenerationsPanelAutoCollapse\(\);/g) || []).length, 2);
+  assert.match(app, /scheduleGenerationJobDismissal = \(jobId: string, delayMs = 9000\)/);
+  assert.match(app, /Toolbar hidden – scroll up or tap/);
+});
+
+test('Generate icons inherit their disabled and enabled foreground and Variations adds detail', () => {
+  const panel = source('components/ControlPanel.tsx');
+  const generate = panel.slice(panel.indexOf('aria-disabled={generateButtonDisabled}'), panel.indexOf('{!generateButtonDisabled &&'));
+  const tree = ts.createSourceFile('generate.tsx', `<button ${generate}</button>`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const icons = [];
+  const scan = node => {
+    if (ts.isJsxSelfClosingElement(node) && ['KeyRound', 'UserPlus', 'Send'].includes(node.tagName.getText(tree))) {
+      icons.push(node.tagName.getText(tree));
+      assert.equal(node.attributes.properties.some(attr => attr.name?.getText(tree) === 'className'), false);
+    }
+    ts.forEachChild(node, scan);
+  };
+  scan(tree);
+  assert.deepEqual(icons, ['KeyRound', 'UserPlus', 'Send']);
+  assert.match(generate, /text-slate-400 dark:text-slate-500/);
+  assert.match(generate, /: 'bg-gradient[^'\n]*text-white/);
+  assert.match(panel, /<Tip title="Variations per prompt" text=\{Number.isFinite\(batchCap\) \? `Max \$\{batchCapLabel\} per prompt`/);
+});
+
+test('gallery context Delete arms before firing, auto-disarms and resets when its menu changes', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const harness = hookHarness();
+  const useConfirmAction = evaluateComponent('hooks/useConfirmAction.ts', 'useConfirmAction', harness.bindings);
+  const calls = [];
+  const render = () => harness.render(() => evaluateComponent('components/RecentGenerations.tsx', 'tileDelete', {
+    useConfirmAction,
+    onDelete: id => calls.push(['delete', id]),
+    showToast: message => calls.push(['toast', message]),
+    closeAllContextMenus: () => calls.push(['close']),
+  }));
+  let action = render();
+  assert.equal(action.trigger('tile-1'), false);
+  assert.deepEqual(calls, [], 'first click must keep the menu open without deleting');
+  action = render();
+  assert.equal(action.isArmed('tile-1'), true);
+  t.mock.timers.tick(2999);
+  assert.equal(action.trigger('tile-1'), true);
+  assert.deepEqual(calls, [['delete', 'tile-1'], ['toast', 'Deleting…'], ['close']]);
+  action = render();
+  action.trigger('tile-1');
+  t.mock.timers.tick(3000);
+  action = render();
+  assert.equal(action.isArmed('tile-1'), false);
+  assert.equal(action.trigger('tile-1'), false);
+  action = render();
+  action.reset();
+  action = render();
+  assert.equal(action.isArmed('tile-1'), false);
+  harness.unmount();
+  const menu = gallery.slice(gallery.indexOf('onClick={() => tileDelete.trigger(gen.id)}'), gallery.indexOf('onClick={() => tileDelete.trigger(gen.id)}') + 1000);
+  assert.doesNotMatch(menu, /onDelete\(/);
+  assert.match(menu, /aria-label=\{tileDelete.isArmed\(gen.id\) \? 'Click again to confirm' : 'Delete'\}/);
+  assert.match(menu, /\{tileDelete.isArmed\(gen.id\) \? 'Click again to confirm' : 'Delete'\}/);
+  assert.match(menu, /w-full min-w-\[13rem\]/);
+  const minWidthPx = Number(menu.match(/min-w-\[(\d+)rem\]/)[1]) * 16;
+  // Chrome measures Mona Sans 14px semibold at 147.77px for the armed label.
+  // Reserve 24px padding, a 14px icon, an 8px gap and another 8px of margin.
+  assert.ok(minWidthPx >= 147.77 + 24 + 14 + 8 + 8, 'armed label must fit without widening the menu');
+  assert.ok(minWidthPx + 2 <= Math.min(320 - 16, 16 * 16), 'row and panel borders fit the 320px viewport cap');
+  assert.match(gallery, /max-w-\[min\(100vw-1rem,16rem\)\]/);
+  assert.doesNotMatch(menu, /Click again to delete/);
+  assert.match(menu, /bg-amber-500 text-\[#0d1117\] animate-pulse/);
+  assert.match(menu, /<Check size=\{14\}/);
+  assert.match(gallery, /React.useEffect\(\(\) => \{\s+resetTileDelete\(\);\s+\}, \[tileContextMenu\?\.generationId, tileContextMenu\?\.view, resetTileDelete\]\)/);
 });
 
 test('disabled-control wrappers can show one viewport-clamped shared Tip', () => {
   const tip = source('components/settings/Tip.tsx');
   assert.doesNotMatch(tip, /host.querySelector\(':disabled'\)/);
-  assert.match(tip, /host.matches\(':disabled'\)/);
+  assert.doesNotMatch(tip, /host.matches\(':disabled'\)/);
   assert.match(tip, /w-72 max-w-\[calc\(100vw-16px\)\]/);
   const download = source('components/DownloadMenu.tsx');
   assert.equal((download.match(/<Tip\b/g) || []).length, 1);
@@ -545,4 +743,329 @@ test('favorite chips use neutral backgrounds with amber icons and warnings use o
   assert.ok(contrast('fbbf24', '1a1a1a') >= 3, 'amber-400 icon against the worst-case white photo through black/90');
   assert.ok(contrast('ffffff', '1a1a1a') >= 4.5, 'BEST label on its neutral chip');
   assert.ok(contrast('f59e0b', '0d1117') >= 4.5, 'opaque amber-500 text in juxtapose and admin');
+});
+
+test('Build Studio sidebar draws its divider on the matching edge for stacked and side layouts', () => {
+  const studio = source('components/BuildStudio.tsx');
+  const sidebar = studio.match(/<div className="(relative shrink-0 min-h-0 stack:flex-1[^"]*)" style=\{\{ width: sidebarW/);
+  assert.ok(sidebar, 'Build Studio edit sidebar not found');
+  const classes = sidebar[1].split(/\s+/);
+  assert.ok(classes.includes('side:border-l'), 'side layout keeps the left divider');
+  assert.ok(classes.includes('stack:border-t'), 'stacked layout gets a top divider');
+  assert.ok(!classes.includes('border-l'), 'unconditional border-l leaves a stray left border when stacked');
+});
+
+test('enabled Generate uses brightness hover only in its enabled gradient branch', () => {
+  const panel = source('components/ControlPanel.tsx');
+  assert.match(panel, /generateButtonDisabled\s*\? 'bg-gray[^']*'\s*: 'bg-gradient[^']*hover:brightness-95[^']*'/);
+  assert.doesNotMatch(panel, /hover:saturate-125/);
+});
+
+test('copy menu index navigation wraps arrows and Tab, supports Home and End, and ignores other keys', () => {
+  for (const count of [1, 2, 4]) {
+    for (let index = 0; index < count; index++) {
+      for (const [key, shift, expected] of [
+        ['ArrowDown', false, (index + 1) % count], ['ArrowUp', false, (index + count - 1) % count],
+        ['Tab', false, (index + 1) % count], ['Tab', true, (index + count - 1) % count],
+        ['Home', false, 0], ['End', false, count - 1], ['Escape', false, null], ['x', false, null],
+      ]) assert.equal(nextMenuItemIndex(index, count, key, shift), expected);
+    }
+  }
+  assert.equal(nextMenuItemIndex(-1, 3, 'ArrowDown'), 0);
+  assert.equal(nextMenuItemIndex(-1, 3, 'ArrowUp'), 2);
+  assert.equal(nextMenuItemIndex(-1, 3, 'Tab', true), 2);
+  assert.equal(nextMenuItemIndex(-1, 0, 'Tab'), null);
+});
+
+test('copy menu focuses its first enabled item, traps navigation and returns focus for every close path', () => {
+  const selector = 'button[role="menuitem"]:not(:disabled):not([aria-disabled="true"])';
+  const items = [0, 1, 2].map(index => ({ focus: () => { document.activeElement = items[index]; } }));
+  const document = { activeElement: null };
+  const menu = {
+    style: {}, getBoundingClientRect: () => ({ width: 192, height: 142 }),
+    querySelector: query => { assert.equal(query, selector); return items[0]; },
+    querySelectorAll: query => { assert.equal(query, selector); return items; },
+  };
+  const handler = evaluateComponent('components/ImageDisplay.tsx', 'handleCopyMenuKeyDown', { nextMenuItemIndex, document });
+  const tree = ts.createSourceFile('image.tsx', image, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let effect;
+  const find = node => {
+    if (ts.isCallExpression(node) && node.expression.getText() === 'useLayoutEffect'
+      && node.arguments[0].getText().includes('if (!copyMenuOpen)')) effect = node.arguments[0];
+    ts.forEachChild(node, find);
+  };
+  find(tree);
+  assert.ok(effect);
+  const listeners = new Map();
+  let triggerFocus = 0;
+  let open = true;
+  let cleanup;
+  let toastOpen = false;
+  const bindings = {
+    copyMenuOpen: true, copyMenuRef: { current: menu },
+    copyMenuTriggerRef: { current: { focus: () => { triggerFocus++; }, getBoundingClientRect: () => ({ right: 300, top: 100, bottom: 144 }) } },
+    window: {
+      innerWidth: 390, innerHeight: 844,
+      addEventListener: (type, fn, capture) => { listeners.set(type, { fn, capture }); },
+      removeEventListener: (type, fn, capture) => { assert.deepEqual(listeners.get(type), { fn, capture }); listeners.delete(type); },
+    },
+    setCopyMenuOpen: value => { open = value; cleanup(); },
+    hasVisibleErrorToast: () => toastOpen, dismissTopErrorToast() {},
+    dismissErrorToastOnEscape: (_event, visible) => visible,
+  };
+  const compiled = ts.transpileModule(`return (${effect.getText()});`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const runEffect = new Function(...Object.keys(bindings), compiled)(...Object.values(bindings));
+  cleanup = runEffect();
+  assert.equal(document.activeElement, items[0], 'opening focuses the first eligible menuitem');
+  for (const [key, shiftKey, expected] of [['ArrowUp', false, 2], ['Tab', false, 0], ['Tab', true, 2], ['Home', false, 0], ['End', false, 2]]) {
+    let prevented = false;
+    let stopped = false;
+    handler({ key, shiftKey, currentTarget: menu, preventDefault: () => { prevented = true; }, stopPropagation: () => { stopped = true; } });
+    assert.equal(document.activeElement, items[expected]);
+    assert.ok(prevented && stopped, 'navigation stays inside the portaled menu');
+  }
+  assert.equal(listeners.get('keydown').capture, true);
+  let prevented = false;
+  let stopped = false;
+  const escape = { key: 'Escape', preventDefault: () => { prevented = true; }, stopImmediatePropagation: () => { stopped = true; } };
+  toastOpen = true;
+  listeners.get('keydown').fn(escape);
+  assert.equal(open, true, 'the visible error toast retains Escape priority');
+  toastOpen = false;
+  listeners.get('keydown').fn(escape);
+  assert.equal(open, false);
+  assert.ok(prevented && stopped, 'Escape cannot dismiss the parent modal');
+  assert.equal(triggerFocus, 1);
+  assert.equal(listeners.size, 0);
+  assert.match(image, /role="menu"\s+onKeyDown=\{handleCopyMenuKeyDown\}/);
+  const portal = image.slice(image.indexOf('{copyMenuOpen &&'), image.indexOf('{/* Unified Download menu'));
+  assert.equal((portal.match(/setCopyMenuOpen\(false\)/g) || []).length, 5, 'outside catcher and all four selection paths close through effect cleanup');
+  assert.match(portal, /z-\[60\]/);
+});
+
+function reasonSpanViolations(text, filename = 'fixture.tsx') {
+  const tree = ts.createSourceFile(filename, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const nodes = [];
+  const visit = node => {
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) nodes.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  const attr = (node, name) => (ts.isJsxElement(node) ? node.openingElement : node).attributes.properties
+    .find(prop => ts.isJsxAttribute(prop) && prop.name.getText() === name)?.initializer;
+  const normalize = node => node?.getText().replace(/\s/g, '').replace(/^Boolean\((.*)\)$/, '$1');
+  const references = nodes.flatMap(node => {
+    const described = attr(node, 'aria-describedby')?.expression;
+    if (!described) return [];
+    return [{ node, described, id: ts.isConditionalExpression(described) ? described.whenTrue : described }];
+  });
+  const violations = [];
+  let checked = 0;
+  for (const node of nodes) {
+    if ((ts.isJsxElement(node) ? node.openingElement : node).tagName.getText() !== 'span'
+      || attr(node, 'className')?.text !== 'sr-only') continue;
+    const id = attr(node, 'id')?.expression;
+    const controls = references.filter(ref => normalize(ref.id) === normalize(id));
+    if (!id || !controls.length) continue;
+    checked++;
+    for (const { node: control, described } of controls) {
+      const condition = ts.isConditionalExpression(described) ? described.condition : null;
+      const disabled = attr(control, 'aria-disabled')?.expression || attr(control, 'disabled')?.expression;
+      let guarded = false;
+      for (let child = node, parent = child.parent; parent && !ts.isSourceFile(parent); child = parent, parent = parent.parent) {
+        if (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+          && parent.right === child && normalize(parent.left) === normalize(condition)) guarded = true;
+        if (ts.isConditionalExpression(parent) && parent.whenTrue === child
+          && normalize(parent.condition) === normalize(condition)) guarded = true;
+      }
+      if (!condition || !disabled || normalize(disabled) !== normalize(condition) || !guarded
+        || normalize(described.whenFalse) !== 'undefined') {
+        violations.push(`${filename}:${tree.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
+      }
+    }
+  }
+  return { violations, checked };
+}
+
+test('all described sr-only reason spans are conditional on the matching disabled condition', t => {
+  const control = '<button aria-disabled={blocked} aria-describedby={blocked ? reasonId : undefined} />';
+  const span = '<span id={reasonId} className="sr-only">Reason</span>';
+  for (const bad of [span, `{other && ${span}}`, `{blocked ? null : ${span}}`]) {
+    assert.equal(reasonSpanViolations(`<div>${control}${bad}</div>`).violations.length, 1);
+  }
+  for (const good of [`{blocked && ${span}}`, `{blocked ? (${span}) : null}`]) {
+    assert.deepEqual(reasonSpanViolations(`<div>${control}${good}</div>`), { violations: [], checked: 1 });
+  }
+  assert.equal(reasonSpanViolations(`<div>${control.replace('aria-disabled={blocked}', 'aria-disabled={other}')}{blocked && ${span}}</div>`).violations.length, 1);
+  const filesIn = dir => readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })
+    .flatMap(entry => entry.isDirectory() ? filesIn(`${dir}/${entry.name}`) : entry.name.endsWith('.tsx') ? [`${dir}/${entry.name}`] : []);
+  const files = ['App.tsx', ...filesIn('components')];
+  const scans = files.map(file => reasonSpanViolations(source(file), file));
+  assert.deepEqual(scans.flatMap(scan => scan.violations), []);
+  assert.equal(scans.reduce((count, scan) => count + scan.checked, 0), 19, 'cover every round 1/2 reason including Model, Generate and both Expand controls');
+  t.diagnostic(`AST scan: ${files.length} files, 19 conditional disabled-reason spans`);
+});
+
+test('incomplete auth and feedback form guards report specific errors before any backend work', async () => {
+  const filled = { isLogin: true, name: 'Name', username: 'name', email: 'fixture', password: 'fixture' };
+  const cases = [
+    [{ ...filled, email: '' }, 'Enter your email or username first.'],
+    [{ ...filled, email: '   ' }, 'Enter your email or username first.'],
+    [{ ...filled, password: '' }, 'Password is required'],
+    [{ ...filled, isLogin: false, name: ' ' }, 'Name is required'],
+    [{ ...filled, isLogin: false, username: ' ' }, 'Username is required'],
+    [{ ...filled, isLogin: false, email: '' }, 'Email address is required.'],
+    [{ ...filled, isLogin: false }, 'Enter a valid email address.'],
+    [{ ...filled, isLogin: false, email: 'a@b', password: '' }, 'Password is required'],
+  ];
+  assert.equal(getAuthFormBlocker(filled), null);
+  assert.equal(getAuthFormBlocker({ ...filled, isLogin: false, email: 'a@b' }), null);
+  for (const [state, expected] of cases) {
+    assert.equal(getAuthFormBlocker(state), expected);
+    let error;
+    let status = 'old status';
+    let prevented = false;
+    const handle = evaluateComponent('components/AuthModal.tsx', 'handleSubmit', {
+      ...state, busy: false, isSubmittingRef: { current: false }, getAuthFormBlocker,
+      setError: value => { error = value; }, setStatus: value => { status = value; },
+      setIsLoading: () => assert.fail('incomplete form must not start a request'),
+      authService: new Proxy({}, { get: () => assert.fail('Auth must never be called') }),
+    });
+    await handle({ preventDefault: () => { prevented = true; } });
+    assert.ok(prevented);
+    assert.equal(error, expected);
+    assert.equal(status, null);
+  }
+  for (const message of ['', ' ', 'a', ' ab ']) {
+    const expected = 'Write a short note so we know what to look at.';
+    assert.equal(getFeedbackFormBlocker(message), expected);
+    let error;
+    const handle = evaluateComponent('components/FeedbackModal.tsx', 'sendFeedback', {
+      message, contactEmail: '', busy: false, getFeedbackFormBlocker, setError: value => { error = value; },
+      setBusy: () => assert.fail('incomplete feedback must not start a request'),
+      submitFeedback: () => assert.fail('feedback backend must never be called'),
+    });
+    await handle({ preventDefault() {} });
+    assert.equal(error, expected);
+  }
+  assert.equal(getFeedbackFormBlocker(' abc '), null);
+  for (const [file, handler, bindings] of [
+    ['AuthModal', 'handleSubmit', { busy: true, isSubmittingRef: { current: false } }],
+    ['AuthModal', 'handleSubmit', { busy: false, isSubmittingRef: { current: true } }],
+    ['FeedbackModal', 'sendFeedback', { busy: true }],
+  ]) {
+    await evaluateComponent(`components/${file}.tsx`, handler, {
+      ...bindings, setError: () => assert.fail('busy submissions return silently'),
+      getAuthFormBlocker: () => assert.fail('busy guard runs first'), getFeedbackFormBlocker: () => assert.fail('busy guard runs first'),
+    })({ preventDefault() {} });
+  }
+  const auth = source('components/AuthModal.tsx');
+  const feedback = source('components/FeedbackModal.tsx');
+  assert.match(auth, /<form noValidate onSubmit=\{handleSubmit\}/);
+  assert.match(feedback, /<form noValidate onSubmit=\{\(event\) => void sendFeedback\(event\)\}/);
+  for (const text of [auth, feedback]) {
+    assert.match(text, /role="alert"/);
+    assert.match(text, /<button\s+type="submit"\s+aria-disabled=/);
+    assert.doesNotMatch(text, /if \((?:submitDisabled|sendDisabled)(?: \|\|[^)]*)?\) return/);
+  }
+});
+
+test('password reset reports an empty email before backend work and returns silently while busy', async () => {
+  const auth = source('components/AuthModal.tsx');
+  const handler = auth.slice(auth.indexOf('  const handlePasswordReset ='), auth.indexOf('  const toggleMode ='));
+  assert.match(handler, /const handlePasswordReset = async \(\) => \{\s+if \(busy\) return;/);
+  assert.doesNotMatch(handler, /if \(resetDisabled\) return;/);
+  for (const email of ['', '   ']) {
+    for (const busy of [false, true]) {
+      let error = 'old error';
+      let status = 'old status';
+      await evaluateComponent('components/AuthModal.tsx', 'handlePasswordReset', {
+        busy, resetDisabled: true, email,
+        setError: value => { error = value; }, setStatus: value => { status = value; },
+        setIsResetting: () => assert.fail('empty email must not start a reset request'),
+        authService: { requestPasswordReset: () => assert.fail('reset service must never be called') },
+      })();
+      assert.equal(error, busy ? 'old error' : 'Enter your email or username first.');
+      assert.equal(status, busy ? 'old status' : null);
+    }
+  }
+});
+
+test('feedback accepts optional contact emails and checks the message before the email', () => {
+  for (const contactEmail of [undefined, '', '   ', 'a@b', ' a@b ']) {
+    assert.equal(getFeedbackFormBlocker('A useful note', contactEmail), null);
+  }
+  for (const contactEmail of ['not an email', 'a@', '@b', 'a@@b', 'a b@c']) {
+    assert.equal(getFeedbackFormBlocker('A useful note', contactEmail), 'Enter a valid email address.');
+  }
+  assert.equal(getFeedbackFormBlocker(' ab ', 'not an email'), 'Write a short note so we know what to look at.');
+});
+
+test('feedback reports a bad contact email inline without starting a request', async () => {
+  let error;
+  let prevented = false;
+  await evaluateComponent('components/FeedbackModal.tsx', 'sendFeedback', {
+    message: 'A useful note', contactEmail: 'not an email', busy: false, getFeedbackFormBlocker,
+    setError: value => { error = value; },
+    setBusy: () => assert.fail('invalid contact email must not start a request'),
+    submitFeedback: () => assert.fail('feedback backend must never be called'),
+  })({ preventDefault: () => { prevented = true; } });
+  assert.ok(prevented);
+  assert.equal(error, 'Enter a valid email address.');
+  assert.match(source('components/FeedbackModal.tsx'), /const sendDisabled = busy \|\| message\.trim\(\)\.length < 3;/);
+});
+
+test('feedback keeps its inline error inside the sticky footer above both actions', () => {
+  const tree = ts.createSourceFile('FeedbackModal.tsx', source('components/FeedbackModal.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const footers = [];
+  const findFooter = node => {
+    if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attr =>
+      attr.name?.getText(tree) === 'className' && attr.initializer?.text?.includes('sticky bottom-0'))) footers.push(node);
+    ts.forEachChild(node, findFooter);
+  };
+  findFooter(tree);
+  assert.equal(footers.length, 1);
+  const footer = footers[0];
+  const alert = footer.children.find(node => ts.isJsxExpression(node) && node.getText(tree).includes('role="alert"'));
+  const actions = footer.children.find(node => ts.isJsxElement(node) && node.getText(tree).includes('type="submit"'));
+  assert.ok(alert, 'the sticky footer must contain the inline error so it cannot cover it');
+  assert.ok(actions, 'the action row stays inside the same sticky footer');
+  assert.ok(alert.end < actions.getStart(tree), 'the error must precede the action row at every breakpoint');
+  assert.match(actions.getText(tree), /flex flex-col-reverse gap-2 sm:flex-row sm:justify-end/);
+  assert.match(actions.getText(tree), />Cancel<\/button>/);
+});
+
+test('dock eligibility excludes running, stopping and failed rows, including mixed terminal results', () => {
+  for (const [statuses, expected] of [
+    [['running'], false], [['stopping'], false], [['failed'], false], [['completed'], true],
+    [['completed', 'failed'], false], [[], false], [['stopped'], true], [['completed', 'running'], false],
+  ]) assert.equal(shouldAutoCollapseGenerationPanel(statuses.map(status => ({ status }))), expected);
+});
+
+test('failed dock rows cancel pending collapse until dismissal without changing removal timers', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const harness = hookHarness();
+  const hook = evaluateComponent('App.tsx', 'useGenerationPanelAutoCollapse', { ...harness.bindings, shouldAutoCollapseGenerationPanel });
+  const collapsed = [];
+  const setCollapsed = value => collapsed.push(value);
+  const render = statuses => harness.render(() => hook(statuses.map(status => ({ status })), setCollapsed));
+  render(['completed']);
+  t.mock.timers.tick(2000);
+  render(['completed', 'failed']);
+  t.mock.timers.tick(14000);
+  assert.deepEqual(collapsed, [], 'Needs attention stays visible beyond the collapse timeout');
+  render(['completed']);
+  t.mock.timers.tick(2999);
+  assert.deepEqual(collapsed, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(collapsed, [true], 'dismissing the failure restores the ordinary idle collapse rule');
+  render(['failed']);
+  render([]);
+  t.mock.timers.tick(14000);
+  assert.deepEqual(collapsed, [true], 'dismissing the final row never schedules a collapse');
+  harness.unmount();
+  const app = source('App.tsx');
+  assert.match(app, /scheduleGenerationJobDismissal = \(jobId: string, delayMs = 9000\)/);
+  assert.match(app, /scheduleGenerationJobDismissal\(jobId, 14000\)/);
+  assert.match(app, /onClick=\{\(\) => clearGenerationJob\(job.id\)\}/);
 });

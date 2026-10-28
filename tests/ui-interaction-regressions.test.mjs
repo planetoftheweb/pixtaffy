@@ -599,7 +599,7 @@ const hostTipCount = node => node.children.reduce((sum, child) => sum + directTi
 const componentFiles = directory => readdirSync(new URL(`../${directory}`, import.meta.url), { withFileTypes: true })
   .flatMap(entry => entry.isDirectory() ? componentFiles(`${directory}/${entry.name}`)
     : entry.name.endsWith('.tsx') ? [`${directory}/${entry.name}`] : []);
-const jsxAttribute = (node, name) => node.openingElement.attributes.properties
+const jsxAttribute = (node, name) => (ts.isJsxSelfClosingElement(node) ? node : node.openingElement).attributes.properties
   .find(attribute => ts.isJsxAttribute(attribute) && attribute.name.getText() === name);
 const compileExpression = node => ts.transpileModule(`(${node.getText()})`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
@@ -626,10 +626,18 @@ test('every App and component JSX host has at most one direct Tip, including con
   assert.equal(findNodes(compare, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip').length, 1);
 });
 
-test('ControlPanel never hosts a direct Tip on a natively disabled button', () => {
-  const invalid = findNodes(controlPanelAst, node => ts.isJsxElement(node)
+test('every App and component button keeps direct Tips off native disabled hosts', t => {
+  const invalidButtons = tree => findNodes(tree, node => ts.isJsxElement(node)
     && node.openingElement.tagName.getText() === 'button' && jsxAttribute(node, 'disabled') && hostTipCount(node) > 0);
-  assert.deepEqual(invalid.map(node => node.getText()), []);
+  assert.equal(invalidButtons(parseTsx('fixture.tsx', '<button disabled><><Tip /></></button>')).length, 1);
+  assert.equal(invalidButtons(parseTsx('fixture.tsx', '<span><button disabled /><Tip /></span>')).length, 0);
+  const files = ['App.tsx', ...componentFiles('components')];
+  const invalid = files.flatMap(file => {
+    const tree = parseTsx(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
+    return invalidButtons(tree).map(node => `${file}:${tree.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
+  });
+  assert.deepEqual(invalid, []);
+  t.diagnostic(`AST scan: ${files.length} files, ${invalid.length} native disabled Tip hosts`);
 });
 
 test('Expand and Model controls retain wrapper tips, accessible reasons and guarded clicks when unavailable', () => {
@@ -783,20 +791,256 @@ test('Login is the noun and log in the verb; eyebrow labels use the 12px floor; 
   assert.doesNotMatch(panel, /Expanding prompt\.\.\./);
   const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
   const close = auth.slice(auth.indexOf('aria-label="Close"') - 220, auth.indexOf('aria-label="Close"') + 40);
-  assert.match(close, /disabled=\{isLoading \|\| isResetting\}/);
+  assert.match(close, /aria-disabled=\{busy\}/);
+  assert.doesNotMatch(close, /\sdisabled=/);
 });
 
-test('issue #74: Edit prompt Done, Edit prompt Expand prompt and Build Studio section headers are 44px on coarse pointers', () => {
-  const panel = readFileSync(new URL('../components/ControlPanel.tsx', import.meta.url), 'utf8');
-  const studio = readFileSync(new URL('../components/BuildStudio.tsx', import.meta.url), 'utf8');
+test('issue #74: Edit prompt controls and every Build Studio header and toolbar button keep coarse 44px targets', () => {
   const coarse = '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
-  const done = panel.slice(panel.lastIndexOf('<button', panel.indexOf('                  Done\n')), panel.indexOf('                  Done\n'));
-  assert.ok(done.includes(coarse), 'Done keeps coarse 44px');
-  assert.match(done, /bg-brand-teal hover:bg-teal-600 text-\[#0d1117\]/);
-  const expandStart = panel.indexOf('onClick={handleExpandPrompt}\n                disabled=');
-  assert.ok(expandStart > 0, 'modal Expand prompt button found');
-  assert.ok(panel.slice(expandStart, expandStart + 400).includes(coarse), 'modal Expand prompt keeps coarse 44px');
+  const modal = findNodes(controlPanelAst, node => ts.isJsxElement(node)
+    && jsxAttribute(node, 'aria-label')?.initializer.text === 'Edit prompt')[0];
+  assert.ok(modal, 'Edit prompt dialog must be found');
+  const buttons = findNodes(modal, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button');
+  assert.equal(buttons.length, 3, 'review the Close, Expand prompt and Done controls if the dialog changes');
+  for (const button of buttons) assert.ok(jsxAttribute(button, 'className').initializer.getText().includes(coarse), button.openingElement.getText());
+  const close = buttons.find(button => jsxAttribute(button, 'aria-label')?.initializer.text === 'Close');
+  assert.match(jsxAttribute(close, 'className').initializer.text, /inline-flex items-center justify-center/);
+  const done = buttons.find(button => button.children.some(child => ts.isJsxText(child) && child.text.trim() === 'Done'));
+  assert.match(jsxAttribute(done, 'className').initializer.text, /bg-brand-teal hover:bg-teal-600 text-\[#0d1117\]/);
+
+  const studio = buildStudioSource;
   const header = studio.slice(studio.indexOf('const SidebarSection'), studio.indexOf('const SidebarSection') + 900);
   assert.ok(header.includes('[@media(pointer:coarse)]:min-h-11'), 'SidebarSection header keeps coarse min-h-11');
-}
-);
+  const tree = parseTsx('BuildStudio.tsx', studio);
+  const headerRows = findNodes(tree, node => ts.isJsxElement(node) && node.children.some(child => ts.isJsxElement(child)
+    && child.openingElement.tagName.getText() === 'h2' && child.children.some(text => ts.isJsxText(text) && text.text === 'Build Studio')));
+  assert.equal(headerRows.length, 1, 'review Build Studio header coverage if its row changes');
+  const headerButtons = findNodes(headerRows[0], node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button');
+  assert.deepEqual(headerButtons.map(button => jsxAttribute(button, 'aria-label')?.initializer.text), [
+    'Export PowerPoint with builds', 'Export PNGs for slides', 'Export MP4', 'Close Build Studio',
+  ], 'review all header buttons if the row changes');
+  const toolbar = findNodes(tree, node => ts.isJsxElement(node) && jsxAttribute(node, 'ref')?.initializer.expression?.getText() === 'toolbarRef');
+  assert.equal(toolbar.length, 1, 'floating toolbar must be found');
+  const toolbarButtons = findNodes(toolbar[0], node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button');
+  assert.equal(toolbarButtons.length, 4, 'review grip, AI, cleanup and selected-frame coverage if the toolbar changes');
+  const shared = findNodes(tree, node => ts.isVariableDeclaration(node) && node.name.getText() === 'ToolBarButton');
+  assert.equal(shared.length, 1, 'shared toolbar button must be found');
+  const sharedButtons = findNodes(shared[0], node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button');
+  assert.equal(sharedButtons.length, 1);
+  for (const button of [...headerButtons, ...toolbarButtons, ...sharedButtons]) {
+    assert.ok(jsxAttribute(button, 'className').initializer.getText().includes(coarse), button.openingElement.getText());
+  }
+});
+
+const evaluateExpression = (node, bindings) => new Function(...Object.keys(bindings),
+  `return ${compileExpression(node)}`)(...Object.values(bindings));
+const attributeValue = (node, name, bindings) => {
+  const value = jsxAttribute(node, name)?.initializer;
+  return ts.isStringLiteral(value) ? value.text : evaluateExpression(value.expression, bindings);
+};
+const localExpression = (tree, name) => {
+  const declaration = findNodes(tree, node => ts.isVariableDeclaration(node) && node.name.getText() === name)[0];
+  assert.ok(declaration, `${name} must be exercised`);
+  const value = declaration.initializer;
+  return ts.isCallExpression(value) && value.expression.getText().endsWith('useCallback') ? value.arguments[0] : value;
+};
+
+test('all 16 converted controls expose one sibling reason Tip and block unavailable activation', async t => {
+  const blocked = {
+    busy: true, busyRef: { current: true }, resetDisabled: true, submitDisabled: true, sendDisabled: true,
+    deletingRefinementId: 'pending', refinementControlsLocked: true, disabled: true, moveDisabled: true,
+    applyRefinementDisabled: true, recomposeDisabled: true, expandButtonDisabled: true, isExpandingPrompt: true,
+    config: { prompt: 'fixture' }, visibleHistory: [], disabledTipId: 'fixture', v: { id: 'mark' },
+    closeReasonId: 'close', resetReasonId: 'reset', submitReasonId: 'submit', sendReasonId: 'send', modalExpandReasonId: 'expand',
+    resetTip: 'Wait for the request to finish', submitTip: 'Wait for the request to finish', sendTip: 'Wait for the request to finish',
+    tooltip: 'Wait for the request to finish', recomposeTip: 'Wait for the request to finish', applyRefinementTip: 'Wait for the request to finish',
+    moveTip: 'Wait for the request to finish', deleteTip: 'Wait for the request to finish', expandButtonTitle: 'Expanding prompt…',
+  };
+  let checked = 0;
+  for (const [file, reasonMarker, expected] of [
+    ['AuthModal', /closeReasonId|resetReasonId|submitReasonId/, 3],
+    ['FeedbackModal', /sendReasonId/, 1],
+    ['ImageDisplay', /disabledTipId/, 8],
+    ['RecentGenerations', /disabledTipId/, 3],
+    ['ControlPanel', /modalExpandReasonId/, 1],
+  ]) {
+    const tree = parseTsx(`${file}.tsx`, readFileSync(new URL(`../components/${file}.tsx`, import.meta.url), 'utf8'));
+    const buttons = findNodes(tree, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'button'
+      && reasonMarker.test(jsxAttribute(node, 'aria-describedby')?.getText() || ''));
+    assert.equal(buttons.length, expected, `${file} coverage must not silently shrink`);
+    for (const button of buttons) await t.test(`${file}: ${jsxAttribute(button, 'aria-describedby').getText()}`, async () => {
+      checked++;
+      assert.equal(jsxAttribute(button, 'disabled'), undefined);
+      assert.equal(hostTipCount(button), 0);
+      const wrapper = button.parent;
+      assert.equal(hostTipCount(wrapper), 1, 'each wrapper owns one Tip');
+      const tips = findNodes(wrapper, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip');
+      assert.equal(tips.length, 1);
+      assert.match(attributeValue(tips[0], 'text', blocked), /Wait for|no images|Expanding prompt/);
+      assert.equal(attributeValue(button, 'aria-disabled', blocked), true);
+      const reason = attributeValue(button, 'aria-describedby', blocked);
+      const spans = findNodes(wrapper, node => ts.isJsxElement(node) && node.openingElement.tagName.getText() === 'span'
+        && jsxAttribute(node, 'className')?.initializer.text === 'sr-only');
+      assert.ok(spans.some(span => attributeValue(span, 'id', blocked) === reason), 'aria-describedby resolves to the reason');
+      const classes = attributeValue(button, 'className', blocked);
+      assert.match(classes, /opacity-(?:50|60|70)/);
+      assert.match(classes, /cursor-not-allowed/);
+      assert.doesNotMatch(classes, /(?:hover|active):/, 'unavailable controls have no hover or active styling');
+      let action = jsxAttribute(button, 'onClick')?.initializer.expression;
+      if (!action) {
+        let form = wrapper;
+        while (form && (!ts.isJsxElement(form) || form.openingElement.tagName.getText() !== 'form')) form = form.parent;
+        assert.ok(form, 'submit control must have a guarded form');
+        action = jsxAttribute(form, 'onSubmit').initializer.expression;
+      }
+      if (ts.isIdentifier(action)) action = localExpression(tree, action.getText());
+      let prevented = false;
+      const bindings = file === 'FeedbackModal'
+        ? { ...blocked, sendFeedback: evaluateExpression(localExpression(tree, 'sendFeedback'), blocked) } : blocked;
+      await evaluateExpression(action, bindings)({ preventDefault: () => { prevented = true; }, stopPropagation() {} });
+      if (jsxAttribute(button, 'type')?.initializer.text === 'submit') assert.equal(prevented, true);
+    });
+  }
+  assert.equal(checked, 16);
+});
+
+test('auth busy Close keeps its explanatory Tip and ignores clicks without native disabling', () => {
+  const button = findNodes(authFocusAst, node => ts.isJsxElement(node) && jsxAttribute(node, 'aria-label')?.initializer.text === 'Close')[0];
+  const tip = findNodes(button.parent, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip')[0];
+  for (const busy of [true, false]) {
+    let closes = 0;
+    evaluateExpression(jsxAttribute(button, 'onClick').initializer.expression, { busyRef: { current: busy }, onClose: () => { closes++; } })();
+    assert.equal(closes, busy ? 0 : 1);
+    assert.equal(attributeValue(tip, 'text', { busy }), busy ? 'Wait for the request to finish' : 'Close');
+  }
+});
+
+test('form reasons cover missing input and requests already in flight without calling Auth', () => {
+  const derive = (tree, inputs, names) => {
+    const bindings = { ...inputs };
+    for (const name of names) bindings[name] = evaluateExpression(localExpression(tree, name), bindings);
+    return bindings;
+  };
+  const filled = { isLoading: false, isResetting: false, isLogin: true, name: '', username: '', email: 'fixture', password: 'fixture' };
+  for (const [inputs, expected] of [
+    [filled, [false, false]],
+    [{ ...filled, email: '' }, [true, true]],
+    [{ ...filled, password: '' }, [false, true]],
+    [{ ...filled, isLogin: false }, [false, true]],
+    [{ ...filled, isLoading: true }, [true, true]],
+    [{ ...filled, isResetting: true }, [true, true]],
+  ]) {
+    const state = derive(authFocusAst, inputs, ['busy', 'resetDisabled', 'resetTip', 'submitDisabled', 'submitTip']);
+    assert.deepEqual([state.resetDisabled, state.submitDisabled], expected);
+    if (state.busy) assert.equal(state.submitTip, 'Wait for the request to finish');
+    else if (state.submitDisabled) assert.match(state.submitTip, /Enter your/);
+  }
+  const tree = parseTsx('FeedbackModal.tsx', readFileSync(new URL('../components/FeedbackModal.tsx', import.meta.url), 'utf8'));
+  for (const [busy, message, expected] of [[false, '', true], [false, ' a ', true], [false, 'note', false], [true, 'note', true]]) {
+    const state = derive(tree, { busy, message }, ['sendDisabled', 'sendTip']);
+    assert.equal(state.sendDisabled, expected);
+    if (busy) assert.equal(state.sendTip, 'Wait for the request to finish');
+    else if (expected) assert.match(state.sendTip, /at least 3 characters/);
+  }
+});
+
+test('Edit prompt footer hints use the shared portal and the placeholder ends with one ellipsis', () => {
+  const modal = findNodes(controlPanelAst, node => ts.isJsxElement(node) && jsxAttribute(node, 'aria-label')?.initializer.text === 'Edit prompt')[0];
+  const tips = findNodes(modal, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'Tip');
+  assert.equal(tips.length, 2);
+  assert.equal(jsxAttribute(tips[0], 'text').initializer.expression.getText(), 'expandButtonTitle');
+  assert.equal(jsxAttribute(tips[1], 'text').initializer.text, 'Close the editor');
+  assert.ok(tips.every(tip => jsxAttribute(tip, 'side').initializer.text === 'top'));
+  const textarea = findNodes(modal, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'textarea')[0];
+  assert.equal(jsxAttribute(textarea, 'placeholder').initializer.text, 'Prompt or drop image ({a,b} or ["tile 1","tile 2"])…');
+  const tip = readFileSync(new URL('../components/settings/Tip.tsx', import.meta.url), 'utf8');
+  assert.match(tip, /createPortal\([\s\S]*document.body/);
+  assert.match(tip, /position: 'fixed'[\s\S]*zIndex: 500/);
+});
+
+test('locked Model wrapper suppresses hints while neighbouring menus are open and preserves button focus lookups', () => {
+  const dropdown = findNodes(controlPanelAst, node => ts.isVariableDeclaration(node) && node.name.getText() === 'DropdownButton')[0];
+  const wrapper = findNodes(dropdown, node => ts.isJsxElement(node) && jsxAttribute(node, 'data-toolbar-dropdown-wrapper'))[0];
+  assert.ok(wrapper, 'disabled Model Tip needs the toolbar wrapper marker');
+  assert.equal(jsxAttribute(wrapper, 'data-toolbar-dropdown-trigger'), undefined);
+  assert.equal(jsxAttribute(wrapper, 'aria-expanded').initializer.expression.getText(), 'Boolean(isActive)');
+  const triggers = findNodes(controlPanelAst, node => ts.isJsxElement(node) && jsxAttribute(node, 'data-toolbar-dropdown-trigger'));
+  assert.ok(triggers.length > 0);
+  assert.ok(triggers.every(node => node.openingElement.tagName.getText() === 'button'), 'focus-return selectors must still resolve to buttons');
+
+  const source = readFileSync(new URL('../components/settings/Tip.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /:disabled/);
+  const tree = parseTsx('Tip.tsx', source);
+  const effect = findNodes(tree, node => ts.isCallExpression(node) && node.expression.getText() === 'useEffect')[0];
+  const listeners = new Map();
+  const toolbar = {};
+  const rect = { left: 20, top: 30, right: 64, bottom: 74, width: 44, height: 44 };
+  let otherOpen = false;
+  let ownOpen = false;
+  let observed;
+  let notify;
+  let visible = null;
+  const host = {
+    matches: selector => selector === ':disabled' || selector.includes('[data-toolbar-dropdown-wrapper]'),
+    getAttribute: () => String(ownOpen),
+    getBoundingClientRect: () => rect,
+    closest: () => toolbar,
+    addEventListener: (name, handler) => listeners.set(name, handler),
+    removeEventListener: name => listeners.delete(name),
+  };
+  class Element { matches() { return true; } }
+  class Observer {
+    constructor(callback) { notify = callback; }
+    observe(target, options) { observed = { target, options }; }
+    disconnect() {}
+  }
+  const cleanup = new Function('anchorRef', 'setHostRect', 'MutationObserver', 'document', 'window', 'HTMLElement',
+    `let hideVisibleTip = null; const lastInputWasKeyboard = true; return (${compileExpression(effect.arguments[0]).replace(/;\s*$/, '')})();`)(
+    { current: { parentElement: host } }, value => { visible = value; }, Observer,
+    { querySelector: () => otherOpen ? {} : null }, { addEventListener() {}, removeEventListener() {} }, Element);
+  assert.equal(observed.target, toolbar);
+  assert.equal(observed.options.subtree, true, 'a neighbouring trigger expanding must hide an already visible Tip');
+  listeners.get('pointerenter')({ pointerType: 'touch' });
+  assert.equal(visible, null);
+  listeners.get('pointerenter')({ pointerType: 'mouse' });
+  assert.equal(visible, rect, 'native-disabled state is no longer a Tip suppression rule');
+  otherOpen = true;
+  notify();
+  assert.equal(visible, null);
+  listeners.get('pointerenter')({ pointerType: 'mouse' });
+  listeners.get('focusin')({ target: new Element() });
+  assert.equal(visible, null, 'hover and keyboard hints stay hidden beside an open menu');
+  otherOpen = false;
+  listeners.get('focusin')({ target: new Element() });
+  assert.equal(visible, rect);
+  ownOpen = true;
+  notify();
+  assert.equal(visible, null);
+  cleanup();
+  assert.equal(listeners.size, 0);
+});
+
+test('portal hints clamp within the four requested viewports near modal footer edges', () => {
+  const tree = parseTsx('Tip.tsx', readFileSync(new URL('../components/settings/Tip.tsx', import.meta.url), 'utf8'));
+  const layout = findNodes(tree, node => ts.isCallExpression(node) && node.expression.getText() === 'useLayoutEffect')[0];
+  for (const [width, height] of [[320, 640], [390, 844], [768, 1024], [1280, 800]]) {
+    for (const left of [8, width - 52]) {
+      const style = {};
+      evaluateExpression(layout.arguments[0], {
+        tipRef: { current: { style, getBoundingClientRect: () => ({ width: 240, height: 48 }) } },
+        hostRect: { left, top: height - 64, bottom: height - 20, width: 44 },
+        side: 'top', window: { innerWidth: width, innerHeight: height },
+      })();
+      assert.ok(parseFloat(style.left) >= 8 && parseFloat(style.left) + 240 <= width - 8);
+      assert.ok(parseFloat(style.top) >= 8 && parseFloat(style.top) + 48 <= height - 8);
+      assert.equal(style.visibility, 'visible');
+    }
+  }
+});
+
+test('section 8 documents the settings delete confirmation exception once', () => {
+  const design = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
+  const section = design.slice(design.indexOf('## 8.'), design.indexOf('## 9.'));
+  const line = '- Settings deletes may use an inline pale-amber confirm panel instead of double-tap arming';
+  assert.equal(section.split('\n').filter(value => value === line).length, 1);
+});

@@ -340,6 +340,9 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
   const [createFolderParentId, setCreateFolderParentId] = React.useState<string | undefined>(undefined);
   const [newFolderDraft, setNewFolderDraft] = React.useState('');
   const [folderBusy, setFolderBusy] = React.useState(false);
+  const disabledTipId = React.useId();
+  const moveDisabled = selectedIds.length === 0 || folderBusy;
+  const moveTip = folderBusy ? 'Wait for the request to finish' : selectedIds.length === 0 ? 'Select at least one image' : 'Move to folder';
   const [instructionsFolderId, setInstructionsFolderId] = React.useState<string | null>(null);
   const [instructionsDraft, setInstructionsDraft] = React.useState('');
   const [draggingTileId, setDraggingTileId] = React.useState<string | null>(null);
@@ -640,6 +643,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
   );
 
   const toggleSelectVisible = React.useCallback(() => {
+    if (visibleHistory.length === 0) return;
     setSelectedIds((previous) => {
       const visibleIds = new Set(visibleHistory.map((generation) => generation.id));
       const everyVisibleSelected =
@@ -764,6 +768,18 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
     setFolderContextMenu(null);
     setTileContextMenu(null);
   }, []);
+
+  const tileDelete = useConfirmAction({
+    onConfirm: (generationId: string) => {
+      onDelete(generationId);
+      showToast('Deleting…');
+      closeAllContextMenus();
+    },
+  });
+  const resetTileDelete = tileDelete.reset;
+  React.useEffect(() => {
+    resetTileDelete();
+  }, [tileContextMenu?.generationId, tileContextMenu?.view, resetTileDelete]);
 
   const downloadTileFormat = React.useCallback(
     async (gen: Generation, format: DownloadFormat) => {
@@ -1983,15 +1999,16 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         <button
           type="button"
           role="menuitem"
-          onClick={() => {
-            onDelete(gen.id);
-            showToast('Deleting…');
-            closeAllContextMenus();
-          }}
-          className={CONTEXT_MENU_ITEM_DANGER}
+          onClick={() => tileDelete.trigger(gen.id)}
+          aria-label={tileDelete.isArmed(gen.id) ? 'Click again to confirm' : 'Delete'}
+          className={`w-full min-w-[13rem] flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold [@media(pointer:coarse)]:min-h-11 ${
+            tileDelete.isArmed(gen.id)
+              ? 'bg-amber-500 text-[#0d1117] animate-pulse'
+              : 'text-slate-500 hover:text-red-500 hover:bg-red-500/10'
+          }`}
         >
-          <Trash2 size={14} className="shrink-0" />
-          Delete
+          {tileDelete.isArmed(gen.id) ? <Check size={14} className="shrink-0" /> : <Trash2 size={14} className="shrink-0" />}
+          {tileDelete.isArmed(gen.id) ? 'Click again to confirm' : 'Delete'}
         </button>
       </div>,
       document.body
@@ -2208,16 +2225,20 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         <div className="flex flex-wrap sm:flex-nowrap min-w-0 max-w-full items-center gap-1.5">
           {selectionMode ? (
             <>
+              <span className="relative inline-flex shrink-0">
               <button
                 type="button"
                 onClick={toggleSelectVisible}
-                disabled={visibleHistory.length === 0}
+                aria-disabled={visibleHistory.length === 0}
+                aria-describedby={visibleHistory.length === 0 ? `${disabledTipId}-select` : undefined}
                 aria-label={allVisibleSelected ? 'Deselect all items in this folder' : 'Select all items in this folder'}
-                className="group/tip group/tip-selectall relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition shrink-0 disabled:opacity-50 disabled:pointer-events-none"
+                className={`group/tip group/tip-selectall relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 transition shrink-0 ${visibleHistory.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:border-brand-teal hover:text-brand-teal'}`}
               >
                 {allVisibleSelected ? <Square size={16} aria-hidden /> : <CheckSquare size={16} aria-hidden />}
-                <Tip text={allVisibleSelected ? 'Deselect this folder' : 'Select this folder'} side="bottom" align="right" />
               </button>
+              <Tip text={visibleHistory.length === 0 ? 'There are no images in this folder' : allVisibleSelected ? 'Deselect this folder' : 'Select this folder'} side="bottom" align="right" />
+              {visibleHistory.length === 0 && <span id={`${disabledTipId}-select`} className="sr-only">There are no images in this folder</span>}
+              </span>
               <button
                 type="button"
                 onClick={() => setSelectedIds([])}
@@ -2244,19 +2265,21 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                 onNotify={showToast}
                 align="right"
               />
-              <div className="relative shrink-0" data-folder-menu ref={moveMenuTriggerRef}>
+              <div className="relative inline-flex shrink-0" data-folder-menu ref={moveMenuTriggerRef} aria-expanded={moveMenuOpen}>
                 <button
                   type="button"
-                  onClick={() => setMoveMenuOpen((prev) => !prev)}
-                  disabled={selectedIds.length === 0 || folderBusy}
+                  onClick={() => { if (moveDisabled) return; setMoveMenuOpen((prev) => !prev); }}
+                  aria-disabled={moveDisabled}
+                  aria-describedby={moveDisabled ? `${disabledTipId}-move` : undefined}
                   aria-haspopup="menu"
                   aria-expanded={moveMenuOpen}
                   aria-label="Move selected items to a folder"
-                  className="group/tip group/tip-move relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal transition disabled:opacity-50 disabled:pointer-events-none"
+                  className={`group/tip group/tip-move relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 transition ${moveDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-brand-teal hover:text-brand-teal'}`}
                 >
                   <FolderInput size={16} aria-hidden />
-                  <Tip text="Move to folder" side="bottom" align="right" />
                 </button>
+                <Tip text={moveTip} side="bottom" align="right" />
+                {moveDisabled && <span id={`${disabledTipId}-move`} className="sr-only">{moveTip}</span>}
                 {moveMenuOpen &&
                   moveMenuAnchor &&
                   typeof document !== 'undefined' &&
@@ -2338,18 +2361,22 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               {(() => {
                 const isArmed = bulkDelete.isArmed('delete-selected');
                 const disabled = selectedIds.length === 0 || bulkDeleting;
+                const deleteTip = bulkDeleting ? 'Wait for the request to finish' : selectedIds.length === 0 ? 'Select at least one image'
+                  : isArmed ? `Click again to delete ${selectedIds.length}` : `Delete ${selectedIds.length} selected`;
                 return (
+                  <span className="relative inline-flex shrink-0">
                   <button
                     type="button"
-                    onClick={() => bulkDelete.trigger('delete-selected')}
-                    disabled={disabled}
+                    onClick={() => { if (disabled) return; bulkDelete.trigger('delete-selected'); }}
+                    aria-disabled={disabled}
+                    aria-describedby={disabled ? `${disabledTipId}-delete` : undefined}
                     aria-label={
                       isArmed
                         ? `Click again to delete ${selectedIds.length} selected item${selectedIds.length === 1 ? '' : 's'}`
                         : 'Delete selected items'
                     }
-                    className={`group/tip group/tip-bulkdelete relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border transition shrink-0 disabled:opacity-50 disabled:pointer-events-none ${
-                      isArmed
+                    className={`group/tip group/tip-bulkdelete relative inline-flex items-center justify-center px-3 py-2 min-h-11 min-w-11 rounded-lg border transition shrink-0 ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${
+                      disabled ? 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-red-600 dark:text-red-400' : isArmed
                         ? 'border-amber-500 bg-amber-500 text-[#0d1117] animate-pulse'
                         : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-red-600 dark:text-red-400 hover:border-red-500 hover:bg-red-500/5'
                     }`}
@@ -2359,12 +2386,10 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
                     ) : (
                       <Trash2 size={16} aria-hidden />
                     )}
-                    <Tip text={isArmed
-                        ? `Click again to delete ${selectedIds.length}`
-                        : selectedIds.length === 0
-                          ? 'Delete selected'
-                          : `Delete ${selectedIds.length} selected`} side="bottom" align="right" />
                   </button>
+                  <Tip text={deleteTip} side="bottom" align="right" />
+                  {disabled && <span id={`${disabledTipId}-delete`} className="sr-only">{deleteTip}</span>}
+                  </span>
                 );
               })()}
               <button

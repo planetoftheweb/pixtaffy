@@ -250,6 +250,7 @@ auto-disarm. Everything destructive must also be undoable (⌘Z).
   brand-red).
 - The same double-tap discipline applies across surfaces (tile delete, main
   preview delete, bulk delete, context menus) **so muscle memory transfers**.
+- Settings deletes may use an inline pale-amber confirm panel instead of double-tap arming
 - No "don't ask me again" bypasses for destructive taps.
 - **No button inside a button** — a delete badge over a thumbnail is a sibling
   `<div>`, never nested in the thumb's `<button>`.

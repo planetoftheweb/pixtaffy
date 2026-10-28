@@ -45,7 +45,7 @@ export const ErrorToast: React.FC<{
   }, []);
 
   return createPortal(
-    <div ref={toastRef} role="alert" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[400] w-max max-w-[calc(100vw-2rem)] flex items-center gap-2 rounded-lg bg-red-900 border border-brand-red/70 text-white text-sm px-4 py-2 shadow-lg">
+    <div ref={toastRef} role="alert" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[400] w-max max-w-[calc(100vw-2rem)] flex items-center gap-2 rounded-lg bg-red-900 border border-brand-red/70 text-white text-sm px-4 py-2 shadow-2xl">
       <span className="min-w-0 break-words font-medium">{message}</span>
       <button type="button" aria-label={dismissLabel} onClick={() => onDismiss()} className="group/tip relative min-h-11 min-w-11 shrink-0 rounded-lg hover:bg-white/10 flex items-center justify-center">
         <X size={18} />

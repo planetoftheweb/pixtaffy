@@ -2504,7 +2504,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             titled sections, item rows carry just a badge/name/duration, and
             everything else appears on hover or selection. */}
         {mode === 'edit' && !cleanMode && sidebarOpen && (
-          <div className="relative shrink-0 min-h-0 stack:flex-1 stack:max-h-none stack:min-h-[40%] stack:!w-full overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
+          <div className="relative shrink-0 min-h-0 stack:flex-1 stack:max-h-none stack:min-h-[40%] stack:!w-full overflow-y-auto side:border-l stack:border-t border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
             {/* Drag the left edge to resize the panel. */}
             <div
               onPointerDown={onSideResizeDown}
