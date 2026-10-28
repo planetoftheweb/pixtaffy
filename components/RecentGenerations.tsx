@@ -769,6 +769,18 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
     setTileContextMenu(null);
   }, []);
 
+  const tileDelete = useConfirmAction({
+    onConfirm: (generationId: string) => {
+      onDelete(generationId);
+      showToast('Deleting…');
+      closeAllContextMenus();
+    },
+  });
+  const resetTileDelete = tileDelete.reset;
+  React.useEffect(() => {
+    resetTileDelete();
+  }, [tileContextMenu?.generationId, tileContextMenu?.view, resetTileDelete]);
+
   const downloadTileFormat = React.useCallback(
     async (gen: Generation, format: DownloadFormat) => {
       const version = getLatestVersion(gen);
@@ -1987,15 +1999,16 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         <button
           type="button"
           role="menuitem"
-          onClick={() => {
-            onDelete(gen.id);
-            showToast('Deleting…');
-            closeAllContextMenus();
-          }}
-          className={CONTEXT_MENU_ITEM_DANGER}
+          onClick={() => tileDelete.trigger(gen.id)}
+          aria-label={tileDelete.isArmed(gen.id) ? 'Click again to delete' : 'Delete'}
+          className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold [@media(pointer:coarse)]:min-h-11 ${
+            tileDelete.isArmed(gen.id)
+              ? 'bg-amber-500 text-[#0d1117] animate-pulse'
+              : 'text-slate-500 hover:text-red-500 hover:bg-red-500/10'
+          }`}
         >
-          <Trash2 size={14} className="shrink-0" />
-          Delete
+          {tileDelete.isArmed(gen.id) ? <Check size={14} className="shrink-0" /> : <Trash2 size={14} className="shrink-0" />}
+          {tileDelete.isArmed(gen.id) ? 'Click again to delete' : 'Delete'}
         </button>
       </div>,
       document.body

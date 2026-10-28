@@ -8,7 +8,7 @@ import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMem
 import { ControlPanel } from './components/ControlPanel';
 import { ImageDisplay } from './components/ImageDisplay';
 import { ErrorToastHost } from './components/ErrorToast';
-import { setErrorToast as setError } from './utils/errorToastStore';
+import { setErrorToast as setError, useErrorToastClearance } from './utils/errorToastStore';
 import { RecentGenerations } from './components/RecentGenerations';
 import type { GalleryPresetSource } from './components/GalleryPresetMenu';
 import { ToolbarPresetSnapshot } from './utils/toolbarPresetUtils';
@@ -352,7 +352,32 @@ const ConfigurationErrorScreen: React.FC<{ keys: string[] }> = ({ keys }) => (
   </div>
 );
 
+const useGenerationPanelAutoCollapse = (
+  hasJobs: boolean,
+  hasRunningJobs: boolean,
+  setCollapsed: (collapsed: boolean) => void
+) => {
+  const timerRef = useRef<number | null>(null);
+  const cancelAutoCollapse = useCallback(() => {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    cancelAutoCollapse();
+    if (!hasJobs || hasRunningJobs) return;
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      setCollapsed(true);
+    }, 3000);
+    return cancelAutoCollapse;
+  }, [hasJobs, hasRunningJobs, setCollapsed, cancelAutoCollapse]);
+
+  return cancelAutoCollapse;
+};
+
 const App: React.FC = () => {
+  const errorToastClearance = useErrorToastClearance();
   const ActiveSettingsPage = serverKeysEnabled() ? SettingsPage : LegacySettingsPage;
   // Theme State
   // Hard-set dark (DESIGN D-01). index.html ships class="dark"; do not follow OS light preference on boot.
@@ -590,6 +615,11 @@ const App: React.FC = () => {
   // Active Generations panel can be docked to a small floating pill so it
   // doesn't cover the main preview while batches run.
   const [isGenerationsPanelCollapsed, setIsGenerationsPanelCollapsed] = useState(false);
+  const cancelGenerationsPanelAutoCollapse = useGenerationPanelAutoCollapse(
+    activeGenerationJobs.length > 0,
+    hasRunningGenerationJobs,
+    setIsGenerationsPanelCollapsed
+  );
   // Count of in-flight "Add a new Mark" re-rolls. The version rail renders
   // spinner placeholders after the real versions for the generation that
   // started the work. Keyed by generation id so navigating to another slide
@@ -1792,6 +1822,7 @@ const App: React.FC = () => {
     // user docked it during a previous run. They explicitly asked for this
     // run, so showing progress by default is the right call; they can dock
     // it again with the minimize button.
+    cancelGenerationsPanelAutoCollapse();
     setIsGenerationsPanelCollapsed(false);
 
     let jobId = '';
@@ -4332,7 +4363,7 @@ const App: React.FC = () => {
           >
             <div className="flex items-center gap-2 rounded-full bg-slate-900/90 dark:bg-[#161b22]/95 px-3.5 py-2 text-xs font-medium text-white shadow-lg ring-1 ring-white/10 backdrop-blur-sm">
               <Maximize2 size={13} className="shrink-0 text-brand-teal" />
-              <span>Toolbar hidden - scroll up or tap <span className="font-semibold">⤢</span> to show it</span>
+              <span>Toolbar hidden – scroll up or tap <span className="font-semibold">⤢</span> to show it</span>
             </div>
           </div>
 
@@ -4443,7 +4474,10 @@ const App: React.FC = () => {
                   >
                     <button
                       type="button"
-                      onClick={() => setIsGenerationsPanelCollapsed(false)}
+                      onClick={() => {
+                        cancelGenerationsPanelAutoCollapse();
+                        setIsGenerationsPanelCollapsed(false);
+                      }}
                       className="relative inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:border-brand-teal hover:text-brand-teal transition-colors"
                       aria-label={`Show active generations panel (${docLabel})`}
                     >
@@ -4852,6 +4886,7 @@ const App: React.FC = () => {
         className="mt-auto w-full border-t border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] px-4 py-4 sm:px-6"
         role="contentinfo"
         aria-label="Site copyright and project links"
+        style={{ paddingBottom: errorToastClearance ? errorToastClearance + 16 : undefined }}
       >
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-1">
           <p>© {new Date().getFullYear()} PixTaffy. All rights reserved.</p>

@@ -226,16 +226,23 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   // the current asset (raster vs SVG). Keeps the action bar uncluttered
   // while preserving every action.
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
+  const copyMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const copyMenuRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (!copyMenuOpen) return;
     const clampMenu = () => {
       const menu = copyMenuRef.current;
-      if (!menu) return;
-      menu.style.transform = '';
+      const trigger = copyMenuTriggerRef.current;
+      if (!menu || !trigger) return;
+      const anchor = trigger.getBoundingClientRect();
+      menu.style.maxHeight = `${window.innerHeight - 16}px`;
       const rect = menu.getBoundingClientRect();
-      const left = Math.max(8, Math.min(window.innerWidth - rect.width - 8, rect.left));
-      menu.style.transform = `translateX(${left - rect.left}px)`;
+      const left = Math.max(8, Math.min(window.innerWidth - rect.width - 8, anchor.right - rect.width));
+      const below = anchor.bottom + 8;
+      const top = Math.max(8, Math.min(window.innerHeight - rect.height - 8,
+        below + rect.height <= window.innerHeight - 8 ? below : anchor.top - rect.height - 8));
+      menu.style.left = `${left}px`;
+      menu.style.top = `${top}px`;
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
@@ -246,9 +253,11 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
     };
     clampMenu();
     window.addEventListener('resize', clampMenu);
+    window.addEventListener('scroll', clampMenu, true);
     window.addEventListener('keydown', onKey, true);
     return () => {
       window.removeEventListener('resize', clampMenu);
+      window.removeEventListener('scroll', clampMenu, true);
       window.removeEventListener('keydown', onKey, true);
     };
   }, [copyMenuOpen]);
@@ -3135,6 +3144,7 @@ ${version.svgCode}
                 <div className="relative">
                   <button
                     type="button"
+                    ref={copyMenuTriggerRef}
                     onClick={() => setCopyMenuOpen((p) => !p)}
                     aria-haspopup="menu"
                     aria-expanded={copyMenuOpen}
@@ -3148,16 +3158,16 @@ ${version.svgCode}
                     />
                     <Tip text="Copy…" side="top" align="right" />
                   </button>
-                  {copyMenuOpen && (
+                  {copyMenuOpen && typeof document !== 'undefined' && createPortal(
                     <>
-                      {/* Outside-click backdrop — same pattern as the
-                          version dropdown above. `z-10` keeps it below
-                          the menu (`z-20`) so menu clicks still register. */}
-                      <div className="fixed inset-0 z-10" onClick={() => setCopyMenuOpen(false)} />
+                      {/* Keep the click catcher above the rail and below the menu. */}
+                      <div className="fixed inset-0 z-[59]" onClick={() => setCopyMenuOpen(false)} />
                       <div
+                        data-copy-menu-portal
+                        data-folder-menu
                         ref={copyMenuRef}
                         role="menu"
-                        className="absolute top-full right-0 mt-2 w-48 max-w-[calc(100vw-1rem)] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-20 overflow-hidden p-1"
+                        className="fixed left-0 top-0 w-48 max-w-[calc(100vw-1rem)] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-[60] overflow-y-auto p-1 [&_button]:[@media(pointer:coarse)]:min-h-11"
                       >
                         {onCopy && (
                           <button
@@ -3212,7 +3222,8 @@ ${version.svgCode}
                           </button>
                         )}
                       </div>
-                    </>
+                    </>,
+                    document.body
                   )}
                 </div>
               )}

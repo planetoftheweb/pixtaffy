@@ -431,12 +431,196 @@ test('primary actions are teal with dark text while folder deletion stays red', 
 
 test('copy menu clamps its measured position before paint and keeps outside-click and Escape dismissal', () => {
   assert.match(image, /ref=\{copyMenuRef\}/);
+  assert.match(image, /ref=\{copyMenuTriggerRef\}/);
   assert.match(image, /w-48 max-w-\[calc\(100vw-1rem\)\]/);
-  assert.match(image, /Math.max\(8, Math.min\(window.innerWidth - rect.width - 8, rect.left\)\)/);
-  assert.match(image, /menu.style.transform = `translateX\(\$\{left - rect.left\}px\)`/);
-  assert.match(image, /fixed inset-0 z-10" onClick=\{\(\) => setCopyMenuOpen\(false\)\}/);
+  assert.match(image, /useLayoutEffect\(\(\) => \{\s+if \(!copyMenuOpen\) return;\s+const clampMenu/);
+  assert.match(image, /Math.max\(8, Math.min\(window.innerWidth - rect.width - 8, anchor.right - rect.width\)\)/);
+  assert.match(image, /menu.style.left = `\$\{left\}px`/);
+  assert.match(image, /menu.style.top = `\$\{top\}px`/);
+  assert.match(image, /copyMenuOpen && typeof document !== 'undefined' && createPortal\(/);
+  const menu = image.slice(image.indexOf('{copyMenuOpen &&'), image.indexOf('{/* Unified Download menu'));
+  assert.match(menu, /document.body/);
+  assert.match(menu, /data-copy-menu-portal\s+data-folder-menu/);
+  assert.match(menu, /className="fixed left-0 top-0[^"\n]*z-\[60\]/);
+  assert.match(menu, /fixed inset-0 z-\[59\]" onClick=\{\(\) => setCopyMenuOpen\(false\)\}/);
+  assert.match(gallery, /target.closest\('\[data-folder-menu\]'\)/);
   assert.match(image, /dismissErrorToastOnEscape\(event, hasVisibleErrorToast\(\), dismissTopErrorToast\)/);
   assert.match(image, /window.addEventListener\('keydown', onKey, true\)/);
+  for (const event of ['scroll', 'resize']) {
+    assert.ok(image.includes(`window.addEventListener('${event}', clampMenu`));
+    assert.ok(image.includes(`window.removeEventListener('${event}', clampMenu`));
+  }
+  for (const width of [320, 390, 768, 1280]) {
+    for (const anchor of [
+      { right: 40, top: 400, bottom: 444 },
+      { right: width - 12, top: 600, bottom: 644 },
+      { right: width + 100, top: -20, bottom: 24 },
+    ]) {
+      const style = {};
+      const clampMenu = evaluateComponent('components/ImageDisplay.tsx', 'clampMenu', {
+        copyMenuRef: { current: { style, getBoundingClientRect: () => ({ width: 192, height: 142 }) } },
+        copyMenuTriggerRef: { current: { getBoundingClientRect: () => anchor } },
+        window: { innerWidth: width, innerHeight: 700 },
+      });
+      clampMenu();
+      assert.equal(parseFloat(style.left), Math.max(8, Math.min(width - 200, anchor.right - 192)));
+      assert.equal(parseFloat(style.top), anchor.top === 600 ? 450 : anchor.bottom + 8);
+      assert.ok(parseFloat(style.left) + 192 <= width - 8);
+      assert.ok(parseFloat(style.top) + 142 <= 692);
+      assert.equal(style.maxHeight, '684px');
+    }
+  }
+});
+
+test('site footer reserves measured error-toast clearance and the toast uses the floating shadow', () => {
+  const app = source('App.tsx');
+  assert.match(app, /import \{[^}]*useErrorToastClearance[^}]*\} from '.\/utils\/errorToastStore'/);
+  assert.match(app, /const errorToastClearance = useErrorToastClearance\(\)/);
+  const footer = app.slice(app.indexOf('<footer'), app.indexOf('</footer>'));
+  assert.match(footer, /style=\{\{ paddingBottom: errorToastClearance \? errorToastClearance \+ 16 : undefined \}\}/);
+  for (const label of ['Changelog', 'Releases', 'Feedback']) assert.ok(footer.includes(label));
+  const toast = source('components/ErrorToast.tsx');
+  assert.match(toast, /role="alert"[^\n]*shadow-2xl/);
+  assert.doesNotMatch(toast, /shadow-lg/);
+});
+
+function hookHarness() {
+  const slots = [];
+  let cursor = 0;
+  let pending = [];
+  const changed = (previous, deps) => !previous || deps.some((value, index) => !Object.is(value, previous[index]));
+  return {
+    bindings: {
+      useRef: value => slots[cursor++] ??= { current: value },
+      useState: initial => {
+        const index = cursor++;
+        if (!(index in slots)) slots[index] = initial;
+        return [slots[index], value => { slots[index] = typeof value === 'function' ? value(slots[index]) : value; }];
+      },
+      useCallback: (callback, deps) => {
+        const index = cursor++;
+        if (changed(slots[index]?.deps, deps)) slots[index] = { callback, deps };
+        return slots[index].callback;
+      },
+      useEffect: (effect, deps) => {
+        const index = cursor++;
+        if (changed(slots[index]?.deps, deps)) pending.push(() => {
+          slots[index]?.cleanup?.();
+          slots[index] = { deps, cleanup: effect() };
+        });
+      },
+      window: { setTimeout: (...args) => setTimeout(...args), clearTimeout: timer => clearTimeout(timer) },
+    },
+    render: callback => {
+      cursor = 0;
+      const value = callback();
+      pending.forEach(effect => effect());
+      pending = [];
+      return value;
+    },
+    unmount: () => slots.forEach(slot => slot?.cleanup?.()),
+  };
+}
+
+test('generation dock collapses after three idle seconds and cancels for new work, manual expansion and unmount', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const harness = hookHarness();
+  const hook = evaluateComponent('App.tsx', 'useGenerationPanelAutoCollapse', harness.bindings);
+  const collapsed = [];
+  const setCollapsed = value => collapsed.push(value);
+  const render = (hasJobs, running) => harness.render(() => hook(hasJobs, running, setCollapsed));
+  render(false, false);
+  t.mock.timers.tick(3001);
+  assert.deepEqual(collapsed, []);
+  render(true, true);
+  t.mock.timers.tick(3001);
+  assert.deepEqual(collapsed, []);
+  render(true, false);
+  t.mock.timers.tick(2999);
+  assert.deepEqual(collapsed, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(collapsed, [true]);
+  render(true, true);
+  const cancel = render(true, false);
+  t.mock.timers.tick(1000);
+  cancel();
+  render(true, false);
+  t.mock.timers.tick(5000);
+  assert.deepEqual(collapsed, [true], 'manual expansion must not reschedule while idle');
+  render(true, true);
+  render(true, false);
+  t.mock.timers.tick(1000);
+  render(true, true);
+  t.mock.timers.tick(3000);
+  assert.deepEqual(collapsed, [true], 'new work cancels the pending collapse');
+  render(true, false);
+  harness.unmount();
+  t.mock.timers.tick(3001);
+  assert.deepEqual(collapsed, [true]);
+  const app = source('App.tsx');
+  assert.match(app, /useGenerationPanelAutoCollapse\(\s+activeGenerationJobs.length > 0,\s+hasRunningGenerationJobs,/);
+  assert.match(app, /job.status === 'running' \|\| job.status === 'stopping'/);
+  assert.match(app, /cancelGenerationsPanelAutoCollapse\(\);\s+setIsGenerationsPanelCollapsed\(false\)/);
+  assert.equal((app.match(/cancelGenerationsPanelAutoCollapse\(\);/g) || []).length, 2);
+  assert.match(app, /scheduleGenerationJobDismissal = \(jobId: string, delayMs = 9000\)/);
+  assert.match(app, /Toolbar hidden – scroll up or tap/);
+});
+
+test('Generate icons inherit their disabled and enabled foreground and Variations adds detail', () => {
+  const panel = source('components/ControlPanel.tsx');
+  const generate = panel.slice(panel.indexOf('aria-disabled={generateButtonDisabled}'), panel.indexOf('{!generateButtonDisabled &&'));
+  const tree = ts.createSourceFile('generate.tsx', `<button ${generate}</button>`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const icons = [];
+  const scan = node => {
+    if (ts.isJsxSelfClosingElement(node) && ['KeyRound', 'UserPlus', 'Send'].includes(node.tagName.getText(tree))) {
+      icons.push(node.tagName.getText(tree));
+      assert.equal(node.attributes.properties.some(attr => attr.name?.getText(tree) === 'className'), false);
+    }
+    ts.forEachChild(node, scan);
+  };
+  scan(tree);
+  assert.deepEqual(icons, ['KeyRound', 'UserPlus', 'Send']);
+  assert.match(generate, /text-slate-400 dark:text-slate-500/);
+  assert.match(generate, /: 'bg-gradient[^'\n]*text-white/);
+  assert.match(panel, /<Tip title="Variations per prompt" text=\{Number.isFinite\(batchCap\) \? `Max \$\{batchCapLabel\} per prompt`/);
+});
+
+test('gallery context Delete arms before firing, auto-disarms and resets when its menu changes', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const harness = hookHarness();
+  const useConfirmAction = evaluateComponent('hooks/useConfirmAction.ts', 'useConfirmAction', harness.bindings);
+  const calls = [];
+  const render = () => harness.render(() => evaluateComponent('components/RecentGenerations.tsx', 'tileDelete', {
+    useConfirmAction,
+    onDelete: id => calls.push(['delete', id]),
+    showToast: message => calls.push(['toast', message]),
+    closeAllContextMenus: () => calls.push(['close']),
+  }));
+  let action = render();
+  assert.equal(action.trigger('tile-1'), false);
+  assert.deepEqual(calls, [], 'first click must keep the menu open without deleting');
+  action = render();
+  assert.equal(action.isArmed('tile-1'), true);
+  t.mock.timers.tick(2999);
+  assert.equal(action.trigger('tile-1'), true);
+  assert.deepEqual(calls, [['delete', 'tile-1'], ['toast', 'Deleting…'], ['close']]);
+  action = render();
+  action.trigger('tile-1');
+  t.mock.timers.tick(3000);
+  action = render();
+  assert.equal(action.isArmed('tile-1'), false);
+  assert.equal(action.trigger('tile-1'), false);
+  action = render();
+  action.reset();
+  action = render();
+  assert.equal(action.isArmed('tile-1'), false);
+  harness.unmount();
+  const menu = gallery.slice(gallery.indexOf('onClick={() => tileDelete.trigger(gen.id)}'), gallery.indexOf('onClick={() => tileDelete.trigger(gen.id)}') + 1000);
+  assert.doesNotMatch(menu, /onDelete\(/);
+  assert.match(menu, /aria-label=\{tileDelete.isArmed\(gen.id\) \? 'Click again to delete' : 'Delete'\}/);
+  assert.match(menu, /bg-amber-500 text-\[#0d1117\] animate-pulse/);
+  assert.match(menu, /<Check size=\{14\}/);
+  assert.match(gallery, /React.useEffect\(\(\) => \{\s+resetTileDelete\(\);\s+\}, \[tileContextMenu\?\.generationId, tileContextMenu\?\.view, resetTileDelete\]\)/);
 });
 
 test('disabled-control wrappers can show one viewport-clamped shared Tip', () => {

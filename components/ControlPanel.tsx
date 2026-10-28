@@ -3024,7 +3024,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       </div>,
                       document.body
                     )}
-                  <Tip title="Variations per prompt" text={`Variations per prompt${Number.isFinite(batchCap) ? ` (max ${batchCapLabel})` : ''}`} side="top" />
+                  <Tip title="Variations per prompt" text={Number.isFinite(batchCap) ? `Max ${batchCapLabel} per prompt` : 'Choose how many images to generate per prompt'} side="top" />
                 </div>
 
                 <span className="relative inline-flex h-12 w-12 shrink-0">
@@ -3071,9 +3071,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     aria-label={hasSetupAction ? generateButtonLabel : "Generate image"}
                   >
                     {hasSetupAction ? (
-                      user ? <KeyRound size={16} className="text-white" /> : <UserPlus size={16} className="text-white" />
+                      user ? <KeyRound size={16} /> : <UserPlus size={16} />
                     ) : (
-                      <Send size={16} className="text-white" />
+                      <Send size={16} />
                     )}
                     {!generateButtonDisabled && <Tip text={generateButtonTitle} side="top" />}
                   </button>
