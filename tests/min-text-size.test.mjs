@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { extname, join, relative } from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
+import postcss from 'postcss';
 
 const root = new URL('../', import.meta.url);
 const excluded = new Set(['node_modules', 'dist', 'functions', '.git']);
@@ -23,22 +25,25 @@ function violations(source) {
     .map((match) => ({ text: match[0], line: source.slice(0, match.index).split('\n').length })));
 }
 
-function eyebrowViolations(source) {
-  const ast = ts.createSourceFile('source.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+function eyebrowViolations(source, filename = 'source.tsx') {
   const failures = [];
+  function check(text, line) {
+    const tokens = text.split(/\s+/);
+    if (!tokens.some(token => /^(?:\S+:)?!?uppercase!?$/.test(token))) return;
+    const tracking = tokens.filter(token => /^(?:\S+:)?!?tracking-/.test(token));
+    const invalid = tracking.some(token => !/^(?:\S+:)?tracking-wide$/.test(token));
+    if (invalid || !tracking.length) failures.push({ text, line, reason: invalid ? 'use tracking-wide' : 'missing tracking-wide' });
+  }
+  if (extname(filename) === '.css') {
+    postcss.parse(source).walkAtRules('apply', rule => check(rule.params, rule.source.start.line));
+    return failures;
+  }
+  const ast = ts.createSourceFile(filename, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   function visit(node) {
     const text = ts.isStringLiteralLike(node) ? node.text
       : ts.isTemplateExpression(node) ? [node.head.text, ...node.templateSpans.map(span => span.literal.text)].join(' ')
       : '';
-    if (/(?:^|\s)(?:\S+:)?uppercase(?=\s|$)/.test(text)) {
-      const invalid = /(?:^|\s)(?:\S+:)?tracking-(?:wider|widest|\[)/.test(text);
-      const missing = !/(?:^|\s)(?:\S+:)?tracking-/.test(text);
-      if (invalid || missing) failures.push({
-        text,
-        line: ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1,
-        reason: invalid ? 'use tracking-wide' : 'missing tracking-wide',
-      });
-    }
+    if (text) check(text, ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1);
     ts.forEachChild(node, visit);
   }
   visit(ast);
@@ -52,6 +57,11 @@ function* appFiles(directory) {
     if (entry.isDirectory()) yield* appFiles(path);
     else if (['.tsx', '.ts', '.css', '.html'].includes(extname(path))) yield path;
   }
+}
+
+function eyebrowFiles(directory) {
+  return ['App.tsx', 'constants.ts', 'index.css'].map(file => join(directory, file))
+    .concat(['components', 'utils', 'hooks', 'data'].flatMap(dir => [...appFiles(join(directory, dir))]));
 }
 
 test('all app text declarations meet the 12px minimum', () => {
@@ -81,11 +91,69 @@ test('DESIGN.md states the eyebrow label rule exactly', () => {
   assert.match(design, /^- Eyebrow labels are 12px \(text-\[12px\]\), uppercase, tracking-wide, never smaller\.$/m);
 });
 
-test('uppercase labels use tracking-wide in App, components and utils', () => {
-  const paths = [new URL('App.tsx', root).pathname, ...appFiles(new URL('components', root).pathname), ...appFiles(new URL('utils', root).pathname)];
-  const failures = paths.flatMap(path => eyebrowViolations(readFileSync(path, 'utf8'))
+test('uppercase labels use tracking-wide in App, components, utils, hooks, data, constants and CSS', () => {
+  const failures = eyebrowFiles(root.pathname).flatMap(path => eyebrowViolations(readFileSync(path, 'utf8'), path)
     .map(match => `${relative(root.pathname, path)}:${match.line}: ${match.reason}: ${match.text}`));
   assert.deepEqual(failures, [], `Eyebrow tracking violations:\n${failures.join('\n')}`);
+});
+
+test('eyebrow guard permits only tracking-wide, including variant tokens', () => {
+  for (const tracking of ['tracking-tight', 'tracking-normal', 'tracking-tighter', 'tracking-[0.2em]', 'tracking-wider', 'tracking-widest']) {
+    for (const classes of [`uppercase ${tracking}`, `uppercase tracking-wide sm:${tracking}`]) {
+      assert.equal(eyebrowViolations(`<p className="${classes}" />`).length, 1, classes);
+    }
+  }
+  assert.equal(eyebrowViolations('<p className="uppercase font-bold" />')[0].reason, 'missing tracking-wide');
+  assert.deepEqual(eyebrowViolations('<p className="uppercase tracking-wide sm:tracking-wide dark:md:tracking-wide" />'), []);
+});
+
+test('eyebrow guard recognizes both important uppercase modifiers and variants', () => {
+  for (const uppercase of ['uppercase!', '!uppercase', 'md:uppercase!', 'md:!uppercase']) {
+    for (const tracking of ['', 'tracking-tight', 'tracking-wide sm:tracking-normal']) {
+      assert.equal(eyebrowViolations(`<p className="${uppercase} ${tracking}" />`).length, 1, `${uppercase} ${tracking}`);
+    }
+    assert.deepEqual(eyebrowViolations(`<p className="${uppercase} tracking-wide" />`), []);
+  }
+});
+
+test('eyebrow guard inspects nested template expressions, conditional branches and call arguments', () => {
+  for (const source of [
+    '<p className={`text-sm ${cond ? "uppercase TRACKING" : ""}`} />',
+    '<p className={`text-sm ${cond ? "" : "uppercase TRACKING"}`} />',
+    '<p className={cond ? "uppercase TRACKING" : ""} />',
+    '<p className={clsx("text-sm", "uppercase TRACKING")} />',
+    '<p className={`text-sm ${clsx(cond && "uppercase TRACKING")}`} />',
+    '<p className={`text-sm ${cond ? `uppercase TRACKING ${tone}` : ""}`} />',
+  ]) {
+    assert.equal(eyebrowViolations(source.replace('TRACKING', 'tracking-wider')).length, 1, source);
+    assert.deepEqual(eyebrowViolations(source.replace('TRACKING', 'tracking-wide')), [], source);
+  }
+});
+
+test('eyebrow file scan covers added source locations and CSS while skipping excluded directories', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'pixtaffy-eyebrow-'));
+  const files = ['App.tsx', 'constants.ts', 'index.css', 'components/Label.tsx', 'components/settings/labels.css',
+    'utils/label.ts', 'hooks/useLabel.ts', 'data/labels.ts'];
+  const fixture = (file, tracking) => file.endsWith('.css')
+    ? `.label { @apply uppercase ${tracking}; }` : `export const label = 'uppercase ${tracking}';`;
+  const write = (file, text) => {
+    const path = join(directory, file);
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, text);
+  };
+  try {
+    for (const file of files) write(file, fixture(file, 'tracking-tight'));
+    for (const excludedDir of [...excluded, '.hidden']) write(`components/${excludedDir}/Label.tsx`, fixture('Label.tsx', 'tracking-widest'));
+    const paths = eyebrowFiles(directory);
+    assert.deepEqual(paths.map(path => relative(directory, path)).sort(), [...files].sort());
+    for (const path of paths) {
+      assert.equal(eyebrowViolations(readFileSync(path, 'utf8'), path).length, 1, path);
+      writeFileSync(path, fixture(path, 'tracking-wide'));
+      assert.deepEqual(eyebrowViolations(readFileSync(path, 'utf8'), path), [], path);
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('eyebrow guard rejects invalid or missing tracking in literal and template classes', () => {

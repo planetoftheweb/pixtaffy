@@ -2168,7 +2168,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
             {/* SVG Mode (only for vector models) */}
             {isSvgModel && (
-              <div className="relative">
+              <div className="relative min-w-0 lg:shrink">
                 <DropdownButton 
                   icon={config.svgMode === 'animated' ? Play : config.svgMode === 'interactive' ? MousePointer2 : Pause} 
                   subLabel="Mode" 
@@ -2489,7 +2489,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
             {/* Quality (OpenAI models only — gpt-image-1.5 ignores this but is harmless) */}
             {(selectedModel === 'openai-2' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare' || selectedModel === 'openai-mini') && onOpenAIQualityChange && (
-              <div className="relative">
+              <div className="relative min-w-0 lg:shrink">
                 <DropdownButton
                   icon={Gauge}
                   subLabel="Quality"
@@ -2548,7 +2548,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
             {/* Background (GPT Image 2 / 2.5 family — transparent PNG/WebP alpha) */}
             {supportsOpenAIBackground(selectedModel) && onOpenAIBackgroundChange && (
-              <div className="relative">
+              <div className="relative min-w-0 lg:shrink">
                 <DropdownButton
                   icon={SquareDashed}
                   subLabel="Background"
@@ -2603,7 +2603,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             {/* Presets — recall a saved grouping of toolbar settings.
                 Hidden for guests (saving requires a user document). */}
             {user && (
-              <div className="relative">
+              <div className="relative min-w-0 lg:shrink">
                 <DropdownButton
                   icon={Bookmark}
                   subLabel="Presets"

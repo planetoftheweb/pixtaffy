@@ -1414,7 +1414,20 @@ test('round 3 feedback uses a short mobile label, accessible busy text and 44px 
 
 test('round 3 responsive controls fit narrow screens without shrinking text', () => {
   const control = source('components/ControlPanel.tsx');
-  assert.equal((control.match(/className="relative min-w-0 lg:shrink">\s*<DropdownButton/g) || []).length, 5);
+  const tree = ts.createSourceFile('ControlPanel.tsx', control, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const dropdowns = [];
+  const visit = node => {
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'DropdownButton') dropdowns.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  assert.equal(dropdowns.length, 9, 'include Mode, Quality, Background and Presets');
+  for (const dropdown of dropdowns) {
+    const wrapper = dropdown.parent.openingElement;
+    assert.equal(wrapper.tagName.getText(), 'div');
+    const classes = wrapper.attributes.properties.find(prop => prop.name?.getText() === 'className').initializer.text.split(/\s+/);
+    for (const token of ['relative', 'min-w-0', 'lg:shrink']) assert.ok(classes.includes(token), dropdown.getText());
+  }
   assert.equal((control.match(/max-w-\[100px\] xl:max-w-\[160px\]/g) || []).length, 2);
   assert.match(source('components/LandingPage.tsx'), /group mt-7 inline-flex w-full sm:w-auto whitespace-normal min-h-14/);
   assert.match(source('App.tsx'), /className="text-sm font-semibold text-slate-900 dark:text-white">\s*Active Generations/);
