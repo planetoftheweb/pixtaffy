@@ -140,6 +140,9 @@ test('every product DOM element uses portal Tips instead of native titles', () =
   const files = ['App.tsx', ...readdirSync(new URL('../components/', import.meta.url), { recursive: true })
     .filter(path => path.endsWith('.tsx'))
     .map(path => `components/${path}`)];
+  for (const file of ['components/AdminPage.tsx', 'components/StatsPage.tsx']) {
+    assert.ok(files.includes(file), `${file} must remain in the native-title audit`);
+  }
   const violations = [];
   for (const file of files) {
     const tree = ts.createSourceFile(file, source(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -228,6 +231,56 @@ test('daily bars expose date and counts to keyboard users with a single portal h
   const markup = renderToStaticMarkup(chart);
   assert.match(markup, /<h3[^>]*>Daily activity<\/h3>/, 'component heading props are preserved');
   assert.doesNotMatch(markup, /\stitle=/);
+});
+
+test('admin values, actions, stats labels and uid render one portal hint with the full value', () => {
+  const Tip = ({ text }) => React.createElement('span', { 'data-tip': text });
+  const bindings = {
+    Tip, MoreHorizontal: () => null, Hash: () => null,
+    entry: { label: 'A long model label that truncates in a narrow card' },
+    u: { uid: 'fixture-user-with-a-long-uid-for-truncation' },
+    row: { id: 'self', email: 'self@example.test', lastSignInAt: 1 },
+    openRowMenu: null,
+    lastSignInRelative: '1 day ago', lastSignInFull: 'October 27, 2026, 12:00:00 PM',
+    createdShort: 'Oct 1, 2026', createdFull: 'October 1, 2026, 12:00:00 PM',
+  };
+  for (const [file, expression, expected] of [
+    ['AdminPage', 'lastSignInFull', bindings.lastSignInFull],
+    ['AdminPage', 'createdFull', bindings.createdFull],
+    ['AdminPage', '"Actions"', 'Actions'],
+    ['StatsPage', 'entry.label', bindings.entry.label],
+    ['StatsPage', 'u.uid', bindings.u.uid],
+  ]) {
+    const text = source(`components/${file}.tsx`);
+    assert.match(text, /import \{ Tip \} from '\.\/settings\/Tip'/);
+    const tree = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const hosts = [];
+    const find = node => {
+      if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(tree) === 'Tip' &&
+          node.attributes.properties.some(attr => attr.name?.getText(tree) === 'text' &&
+            (attr.initializer?.expression || attr.initializer)?.getText(tree) === expression)) {
+        let host = node.parent;
+        while (host && !ts.isJsxElement(host)) host = host.parent;
+        hosts.push(host);
+      }
+      ts.forEachChild(node, find);
+    };
+    find(tree);
+    assert.equal(hosts.length, 1, `${file}: ${expression} must have one tooltip host`);
+    const compiled = ts.transpileModule(`return (${hosts[0].getText(tree)});`, {
+      compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const host = new Function('React', ...Object.keys(bindings), compiled)(React, ...Object.values(bindings));
+    assert.match(host.props.className, /\brelative\b/);
+    assert.ok(host.props.className.includes('group/tip'));
+    const tips = React.Children.toArray(host.props.children).filter(child => child.type === Tip);
+    assert.equal(tips.length, 1);
+    assert.equal(tips[0].props.text, expected);
+    const markup = renderToStaticMarkup(host);
+    assert.equal((markup.match(/data-tip=/g) || []).length, 1);
+    assert.doesNotMatch(markup, /\stitle=|group-hover\/tip:opacity/);
+    if (expression === '"Actions"') assert.ok(host.props['aria-label']);
+  }
 });
 
 test('coarse-pointer studio controls keep 44px targets at tablet widths and hide mobile dividers', () => {
