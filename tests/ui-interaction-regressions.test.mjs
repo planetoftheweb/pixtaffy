@@ -249,8 +249,8 @@ test('reviewed controls compact only for fine pointers and values appear at xl',
   assert.match(controlPanelSource, /focus:ring-1 focus:ring-brand-teal/);
   assert.match(auth, /flex justify-end/);
   assert.match(auth, /target\.blur\(\)/);
-  assert.match(auth, /onClick=\{onClose\}/);
-  assert.match(auth, /onClick=\{event => event.stopPropagation\(\)\}/);
+  assert.match(auth, /onMouseDown=\{\(event\) => \{\s*if \(event\.target === event\.currentTarget && !busyRef\.current\) onClose\(\);/);
+  assert.doesNotMatch(auth, /fixed inset-0 z-\[100\][^\n]*\n?[^\n]*onClick=\{onClose\}/);
   for (const source of [appSource, auth, readFileSync(new URL('../components/FeedbackModal.tsx', import.meta.url), 'utf8')]) {
     assert.match(source, /bg-brand-teal[^\n]*text-\[#0d1117\]/);
   }
@@ -361,6 +361,14 @@ test('Generate remains focusable with a stable action name and guarded activatio
   assert.equal((controlPanelSource.match(/onGenerate\(safeBatchCount\)/g) || []).length, 2);
   const button = controlPanelSource.slice(controlPanelSource.indexOf('aria-disabled={generateButtonDisabled}'), controlPanelSource.indexOf('aria-label={hasSetupAction ? generateButtonLabel : "Generate image"}'));
   assert.doesNotMatch(button, /pointer-events-none/);
+});
+
+test('auth modal ignores Esc and backdrop presses while a request is busy and uses the FeedbackModal backdrop guard', () => {
+  const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
+  assert.match(auth, /busyRef\.current = isLoading \|\| isResetting;/);
+  assert.match(auth, /if \(event\.key !== 'Escape'\) return;[\s\S]*?if \(busyRef\.current\) return;[\s\S]*?target\.blur\(\)/);
+  assert.match(auth, /onMouseDown=\{\(event\) => \{\s*if \(event\.target === event\.currentTarget && !busyRef\.current\) onClose\(\);\s*\}\}/);
+  assert.doesNotMatch(auth, /<div onClick=\{onClose\}/);
 });
 
 test('auth Escape keeps focus in the dialog and dismissal restores a connected opener', () => {

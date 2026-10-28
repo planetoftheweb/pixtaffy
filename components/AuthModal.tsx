@@ -25,6 +25,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
+  const busyRef = useRef(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
@@ -52,12 +53,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // While a sign-in or reset request is running, Esc and backdrop clicks are
+  // ignored, like FeedbackModal does while it is sending.
+  busyRef.current = isLoading || isResetting;
+
   React.useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();
+      if (busyRef.current) return;
       const target = event.target;
       if (target instanceof HTMLElement && target.matches('input,textarea,[contenteditable="true"]')) {
         target.blur();
@@ -128,8 +134,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={isLogin ? "Log in" : "Create account"} onClick={event => event.stopPropagation()} className="outline-none bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
+    <div onMouseDown={(event) => {
+      if (event.target === event.currentTarget && !busyRef.current) onClose();
+    }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={isLogin ? "Log in" : "Create account"} className="outline-none bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
         
         <button 
           onClick={onClose}
