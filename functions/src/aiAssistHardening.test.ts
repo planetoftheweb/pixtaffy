@@ -6,7 +6,7 @@ import { resolve, basename } from "node:path";
 import { HttpsError } from "firebase-functions/v2/https";
 import { writePaidAssistDeliveryWithRetry, type CachedPaidAssistDelivery } from "./paidDelivery";
 import { geminiAssistCost } from "./geminiRates";
-import { isAssistBlocked, mapAiAssistError, resolveAiAssistTimeoutMs, runAiAssist } from "./paidAi";
+import { generateWithUpstreamRetry, isAssistBlocked, mapAiAssistError, resolveAiAssistTimeoutMs, resolveAiAssistFallbackModel, runAiAssist, upstreamStatusOf } from "./paidAi";
 
 const delivery: CachedPaidAssistDelivery = {
   version: 1, uid: "user", idempotencyKey: "request-123", action: "expand_prompt",
@@ -115,11 +115,21 @@ test("unknown models use the highest table rates regardless of date", () => {
 
 test("assist error mapper classifies provider errors without exposing internals", () => {
   const cases: Array<[unknown, string]> = [
-    [{ status: 429, message: '{"error":{"status":"RESOURCE_EXHAUSTED","message":"private quota"}}' }, "resource-exhausted"],
-    [Object.assign(new Error("private"), { code: "RESOURCE_EXHAUSTED" }), "resource-exhausted"],
-    [new Error("quota exceeded private"), "resource-exhausted"],
+    [{ status: 429, message: '{"error":{"status":"RESOURCE_EXHAUSTED","message":"private quota"}}' }, "unavailable"],
+    [Object.assign(new Error("private"), { code: "RESOURCE_EXHAUSTED" }), "unavailable"],
+    [new Error("quota exceeded private"), "unavailable"],
+    [{ status: "503" }, "unavailable"], [{ status: "UNAVAILABLE" }, "unavailable"],
+    [{ code: 503 }, "unavailable"], [{ error: { code: 503 } }, "unavailable"],
+    [{ error: { status: "UNAVAILABLE" } }, "unavailable"],
+    [new Error('{"error":{"code":503,"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}'), "unavailable"],
+    [new Error("The model provider reports it is overloaded"), "unavailable"],
+    [new Error("The model provider reports high demand"), "unavailable"],
+    [{ status: "429" }, "unavailable"], [{ error: { code: 429 } }, "unavailable"],
+    [{ error: { status: "RESOURCE_EXHAUSTED" } }, "unavailable"],
+    [new Error('{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}'), "unavailable"],
     [new HttpsError("deadline-exceeded", "Please try again."), "deadline-exceeded"],
-    [{ status: 504 }, "deadline-exceeded"], [Object.assign(new Error("private"), { code: "DEADLINE_EXCEEDED" }), "deadline-exceeded"],
+    [{ status: 504 }, "deadline-exceeded"], [{ error: { code: "504", status: "UNAVAILABLE" } }, "deadline-exceeded"],
+    [Object.assign(new Error("private"), { code: "DEADLINE_EXCEEDED" }), "deadline-exceeded"],
     [Object.assign(new Error("private"), { name: "AbortError" }), "deadline-exceeded"], [new Error("timeout private"), "deadline-exceeded"],
     [{ status: 500 }, "unavailable"], [{ status: 503 }, "unavailable"], [{ code: "UNAVAILABLE" }, "unavailable"], [{ code: "INTERNAL" }, "unavailable"],
     [new Error("fetch failed private"), "unavailable"], [Object.assign(new Error("private"), { code: "ECONNRESET" }), "unavailable"],
@@ -129,6 +139,7 @@ test("assist error mapper classifies provider errors without exposing internals"
     const mapped = mapAiAssistError(raw);
     assert.equal(mapped.code, code);
     assert.doesNotMatch(mapped.message, /private/);
+    if (code === "unavailable") assert.equal(mapped.message, "PixTaffy AI is temporarily unavailable. Wait a moment and try again.");
   }
 });
 test("assist blocks map even without text, and own HttpsErrors pass through", () => {
@@ -252,12 +263,13 @@ function assertSpend(spend: Record<string, any>) {
   assert.equal(spend.geminiReservedUsd, 0);
 }
 
-function skipRetrySleeps(t: import("node:test").TestContext) {
+function skipRetrySleeps(t: import("node:test").TestContext, advance: (ms: number) => void = () => {}) {
   const delays: number[] = [];
   const realSetTimeout = globalThis.setTimeout;
   t.mock.method(globalThis, "setTimeout", ((callback: () => void, ms: number) => {
     if (ms >= 5_000) return realSetTimeout(callback, ms);
     delays.push(ms);
+    advance(ms);
     callback();
     return undefined;
   }) as typeof setTimeout);
@@ -661,7 +673,7 @@ for (const failure of ["provider", "cache"]) {
     fund(mocks.store);
     let calls = 0, writes = 0;
     t.mock.method(require("@google/genai"), "GoogleGenAI", class {
-      models = { generateContent: async () => { if (++calls === 1 && failure === "provider") throw { status: 503 }; return providerResponse; } };
+      models = { generateContent: async () => { if (++calls === 1 && failure === "provider") throw { status: 500 }; return providerResponse; } };
     });
     t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => {
       if (++writes === 1 && failure === "cache") throw new Error("storage failure");
@@ -894,16 +906,16 @@ test("assist timeout resolver defaults safely and clamps below the service limit
   }
 });
 
-function assistDeadlineClock(t: import("node:test").TestContext) {
+function assistDeadlineClock(t: import("node:test").TestContext, timeoutMs = 5_000) {
   const previous = process.env.AI_ASSIST_TIMEOUT_MS;
-  process.env.AI_ASSIST_TIMEOUT_MS = "5000";
+  process.env.AI_ASSIST_TIMEOUT_MS = String(timeoutMs);
   t.after(() => {
     if (previous === undefined) delete process.env.AI_ASSIST_TIMEOUT_MS;
     else process.env.AI_ASSIST_TIMEOUT_MS = previous;
   });
   const timers = new Map<ReturnType<typeof setTimeout>, () => void>();
   const set = t.mock.method(globalThis, "setTimeout", ((callback: () => void, ms: number) => {
-    assert.equal(ms, 5_000);
+    assert.equal(ms, timeoutMs);
     const handle = {} as ReturnType<typeof setTimeout>;
     timers.set(handle, callback);
     return handle;
@@ -997,6 +1009,7 @@ test("runAiAssist completes before its deadline, settles once and clears the tim
   assert.equal((await runAiAssist.run(assistRequest())).result, providerResponse.text);
   assert.equal(mocks.commit.mock.callCount(), 1);
   assert.equal(mocks.release.mock.callCount(), 0);
+  assert.equal(mocks.providerCalls(), 1);
   const reservation = await mocks.reserve.mock.calls[0].result;
   assert.equal(reservationDoc(mocks.store, reservation.reservationId).state, "committed");
   assert.equal(mocks.store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
@@ -1009,3 +1022,472 @@ test("runAiAssist completes before its deadline, settles once and clears the tim
   assert.equal(clock.clear.mock.callCount(), 1);
   assert.equal(clock.timers.size, 0);
 });
+
+test("upstream status extraction only returns HTTP numbers or known status words", () => {
+  for (const [error, status] of [
+    [{ status: 503 }, 503], [{ status: "503" }, 503], [{ code: "UNAVAILABLE" }, "UNAVAILABLE"],
+    [{ error: { code: 429, status: "RESOURCE_EXHAUSTED" } }, 429],
+    [{ error: { status: "UNAVAILABLE" } }, "UNAVAILABLE"],
+    [new Error('{"error":{"code":503,"status":"UNAVAILABLE"}}'), 503],
+    [{ status: 504, message: "UNAVAILABLE" }, 504],
+    [{ status: "private provider text", code: "private code" }, undefined],
+    [new Error("The model provider reports it is overloaded"), undefined], [null, undefined],
+  ] as const) assert.equal(upstreamStatusOf(error), status);
+});
+
+test("upstream retry uses two backoffs and passes the remaining budget and same signal", async () => {
+  for (const random of [0, 0.5, 0.999999]) {
+    let now = 0, calls = 0;
+    const delays: number[] = [];
+    const signal = new AbortController().signal;
+    const result = await generateWithUpstreamRetry(async (receivedSignal, timeoutMs) => {
+      assert.equal(receivedSignal, signal);
+      assert.equal(timeoutMs, 75_000 - now);
+      if (++calls <= 2) {
+        now += 1_000;
+        throw { status: "UNAVAILABLE" };
+      }
+      return "result";
+    }, signal, 75_000, {
+      now: () => now, random: () => random,
+      sleep: async ms => { delays.push(ms); now += ms; },
+    });
+    assert.equal(result, "result");
+    assert.equal(calls, 3);
+    assert.deepEqual(delays, [500 + Math.floor(random * 501), 1500 + Math.floor(random * 1501)]);
+    assert.ok(delays[0] >= 500 && delays[0] <= 1000);
+    assert.ok(delays[1] >= 1500 && delays[1] <= 3000);
+  }
+});
+
+test("upstream retry skips non-503, timeouts, blocked responses and own errors", async () => {
+  for (const error of [
+    { status: 429 }, { code: "RESOURCE_EXHAUSTED" }, new Error("quota"),
+    { status: 400 }, { status: 400, message: "UNAVAILABLE" }, { status: 500 }, { status: 504 },
+    { status: 503, message: "timeout" }, { name: "AbortError" },
+    { status: 503, promptFeedback: { blockReason: "SAFETY" } },
+    new SyntaxError("503 UNAVAILABLE"), new HttpsError("resource-exhausted", "quota"),
+    new HttpsError("unavailable", "UNAVAILABLE"), new Error("overloaded"),
+  ]) {
+    let calls = 0, sleeps = 0;
+    await assert.rejects(generateWithUpstreamRetry(async () => { calls++; throw error; },
+      new AbortController().signal, 75_000, { sleep: async () => { sleeps++; } }),
+    received => received === error);
+    assert.equal(calls, 1);
+    assert.equal(sleeps, 0);
+  }
+});
+
+test("upstream retry requires ten seconds after the delay and respects aborts during sleep", async () => {
+  for (const scenario of ["insufficient", "boundary", "elapsed first attempt", "late sleep", "aborted"] as const) {
+    let calls = 0, sleeps = 0, now = 0;
+    const controller = new AbortController();
+    const error = { status: 503 };
+    const pending = generateWithUpstreamRetry(async () => {
+      calls++;
+      if (calls === 1) {
+        if (scenario === "elapsed first attempt") now = 65_000;
+        throw error;
+      }
+      return "result";
+    }, controller.signal, scenario === "insufficient" ? 10_499 : scenario === "boundary" ? 10_500 : 75_000, {
+      random: () => 0, now: () => now,
+      sleep: async ms => {
+        sleeps++;
+        now += scenario === "late sleep" ? 66_000 : ms;
+        if (scenario === "aborted") controller.abort();
+      },
+    });
+    if (scenario === "boundary") assert.equal(await pending, "result");
+    else await assert.rejects(pending, received => received === error);
+    assert.equal(calls, scenario === "boundary" ? 2 : 1);
+    assert.equal(sleeps, scenario === "insufficient" || scenario === "elapsed first attempt" ? 0 : 1);
+  }
+});
+
+test("upstream retry does not sleep after first-attempt success", async () => {
+  let calls = 0;
+  assert.equal(await generateWithUpstreamRetry(async () => { calls++; return "result"; },
+    new AbortController().signal, 75_000, { sleep: async () => { assert.fail("unexpected retry"); } }), "result");
+  assert.equal(calls, 1);
+});
+
+test("runAiAssist recovers two upstream 503 failures with one spend write and credit commit", async (t) => {
+  const clock = assistDeadlineClock(t, 75_000);
+  const delays = skipRetrySleeps(t);
+  const signals: AbortSignal[] = [];
+  const mocks = mockAssist(t, async input => {
+    signals.push(input.config.abortSignal);
+    if (signals.length <= 2) throw { error: { code: 503, status: "UNAVAILABLE" } };
+    return providerResponse;
+  }, true);
+  fund(mocks.store);
+  const writes = failSpendWrites(t, mocks.store, 0);
+  const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+  assert.equal((await runAiAssist.run(assistRequest())).result, providerResponse.text);
+  assert.equal(mocks.providerCalls(), 3);
+  assert.ok(signals.every(signal => signal === signals[0]));
+  assert.equal(delays.length, 2);
+  assert.ok(delays[1] >= 1500 && delays[1] <= 3000);
+  assert.ok(delays[0] >= 500 && delays[0] <= 1000);
+  assert.equal(mocks.reserve.mock.callCount(), 1);
+  assert.equal(mocks.commit.mock.callCount(), 1);
+  assert.equal(mocks.release.mock.callCount(), 0);
+  const reservation = await mocks.reserve.mock.calls[0].result;
+  assert.equal(reservationDoc(mocks.store, reservation.reservationId).state, "committed");
+  assert.equal(mocks.store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
+  assert.equal(writes.writes(), 1);
+  assert.equal(writes.releases(), 0);
+  assert.equal([...mocks.store.docs.values()].filter(doc => doc.state === "settled").length, 1);
+  assert.equal([...mocks.store.docs.keys()].filter(path => path.includes("/billingLedger/debit-")).length, 1);
+  assertSpend(mocks.spend());
+  assert.equal(cache.mock.callCount(), 1);
+  assert.equal(clock.set.mock.callCount(), 1);
+  assert.equal(clock.clear.mock.callCount(), 1);
+});
+
+const promptMarker = "private-prompt-marker";
+for (const [label, error, upstreamStatus, expectedCalls, code] of [
+  ["numeric 503", { status: 503, message: promptMarker }, 503, 3, "unavailable"],
+  ["string 503", { status: "503", message: promptMarker }, 503, 3, "unavailable"],
+  ["nested UNAVAILABLE", { error: { status: "UNAVAILABLE", message: promptMarker } }, "UNAVAILABLE", 3, "unavailable"],
+  ["JSON 503", new Error(JSON.stringify({ error: { code: 503, status: "UNAVAILABLE", message: promptMarker } })), 503, 3, "unavailable"],
+  ["429", { status: 429, message: promptMarker }, 429, 1, "unavailable"],
+  ["nested RESOURCE_EXHAUSTED", { error: { status: "RESOURCE_EXHAUSTED", message: promptMarker } }, "RESOURCE_EXHAUSTED", 1, "unavailable"],
+  ["400", { status: 400, code: promptMarker, message: promptMarker }, 400, 1, "internal"],
+  ["invalid JSON", new SyntaxError(promptMarker), undefined, 1, "internal"],
+] as const) {
+  test(`runAiAssist releases billing and logs only safe fields after ${label}`, async (t) => {
+    const clock = assistDeadlineClock(t, 75_000);
+    const delays = skipRetrySleeps(t);
+    const mocks = mockAssist(t, async input => {
+      assert.ok(input.contents[0].parts[0].text.includes(promptMarker));
+      throw error;
+    }, true);
+    fund(mocks.store);
+    const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+    const warn = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+    const log = t.mock.method(require("firebase-functions/logger"), "error", () => {});
+    const info = t.mock.method(require("firebase-functions/logger"), "info", () => {});
+    const request = assistRequest();
+    request.data.payload.text = promptMarker;
+    await assert.rejects(runAiAssist.run(request), { code });
+    assert.equal(mocks.providerCalls(), expectedCalls);
+    assert.equal(delays.length, expectedCalls - 1);
+    await assertAssistBillingReleased(mocks);
+    assert.equal(cache.mock.callCount(), 0);
+    const warnings = warn.mock.calls.filter((call: { arguments: unknown[] }) => call.arguments[0] === "AI assist upstream unavailable");
+    if (code === "unavailable") {
+      assert.equal(warnings.length, expectedCalls);
+      assert.equal(log.mock.callCount(), 0);
+      warnings.forEach((call: { arguments: unknown[] }, index: number) => {
+        assert.deepEqual(call.arguments, ["AI assist upstream unavailable", {
+          action: "expand_prompt", upstreamStatus, upstreamMessage: "[redacted]", attempt: index + 1, model: "gemini-flash-latest",
+        }]);
+      });
+    } else {
+      assert.equal(log.mock.callCount(), 1);
+      assert.equal(warnings.length, 0);
+      assert.deepEqual(log.mock.calls[0].arguments, ["AI assist failed", {
+        action: "expand_prompt", upstreamStatus, attempt: 1, model: "gemini-flash-latest",
+        code: error instanceof SyntaxError ? "Invalid AI response JSON" : code,
+      }]);
+    }
+    const logged = JSON.stringify([warn, log, info].flatMap(spy => spy.mock.calls.map((call: { arguments: unknown[] }) => call.arguments)));
+    assert.ok(!logged.includes(promptMarker));
+    assert.equal(clock.set.mock.callCount(), 1);
+    assert.equal(clock.clear.mock.callCount(), 1);
+  });
+}
+
+test("runAiAssist skips the 503 retry when its overall budget is too short", async (t) => {
+  const clock = assistDeadlineClock(t);
+  const mocks = mockAssist(t, async () => { throw { status: 503 }; }, true);
+  fund(mocks.store);
+  const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+  t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+  await assert.rejects(runAiAssist.run(assistRequest()), { code: "unavailable" });
+  assert.equal(mocks.providerCalls(), 1);
+  await assertAssistBillingReleased(mocks);
+  assert.equal(cache.mock.callCount(), 0);
+  assert.equal(clock.set.mock.callCount(), 1);
+});
+
+test("runAiAssist bounds a stalled second attempt by the single overall deadline", async (t) => {
+  const clock = assistDeadlineClock(t, 75_000);
+  const delays = skipRetrySleeps(t);
+  let started!: () => void, finish!: (value: typeof providerResponse) => void;
+  const secondStarted = new Promise<void>(resolve => { started = resolve; });
+  const signals: AbortSignal[] = [];
+  const mocks = mockAssist(t, async input => {
+    signals.push(input.config.abortSignal);
+    if (signals.length === 1) throw { status: 503 };
+    started();
+    return new Promise(resolve => { finish = resolve; });
+  }, true);
+  fund(mocks.store);
+  const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+  t.mock.method(require("firebase-functions/logger"), "error", () => {});
+  const rejected = assert.rejects(runAiAssist.run(assistRequest()), { code: "deadline-exceeded" });
+  await secondStarted;
+  assert.equal(clock.set.mock.callCount(), 1);
+  assert.equal(signals[0], signals[1]);
+  clock.expire();
+  await rejected;
+  assert.equal(signals[1].aborted, true);
+  finish(providerResponse);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  await assertAssistBillingReleased(mocks);
+  assert.equal(cache.mock.callCount(), 0);
+  assert.equal(mocks.providerCalls(), 2);
+  assert.equal(delays.length, 1);
+  assert.equal(clock.clear.mock.callCount(), 1);
+  assert.equal(clock.timers.size, 0);
+});
+
+type AssistLogCall = { arguments: any[] };
+const fallbackModel = "gemini-pinned-flash";
+function configureFallback(t: import("node:test").TestContext, model?: string) {
+  const previous = process.env.AI_ASSIST_FALLBACK_MODEL;
+  if (model === undefined) delete process.env.AI_ASSIST_FALLBACK_MODEL;
+  else process.env.AI_ASSIST_FALLBACK_MODEL = model;
+  t.after(() => {
+    if (previous === undefined) delete process.env.AI_ASSIST_FALLBACK_MODEL;
+    else process.env.AI_ASSIST_FALLBACK_MODEL = previous;
+  });
+}
+
+test("fallback model resolver accepts only distinct valid model ids", () => {
+  assert.equal(resolveAiAssistFallbackModel({}, "gemini-flash-latest"), undefined);
+  assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: fallbackModel }, "gemini-flash-latest"), fallbackModel);
+  assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: "a".repeat(64) }, "primary"), "a".repeat(64));
+  for (const model of ["", "ab", "a".repeat(65), "Gemini-flash", "_gemini", "model/name", "model?key=value", " gemini-flash", "gemini-flash-latest"]) {
+    assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: model }, "gemini-flash-latest"), undefined);
+  }
+});
+
+for (const status of [503, 429] as const) {
+  test(`runAiAssist uses fallback after ${status} and bills the successful model once`, async (t) => {
+    configureFallback(t, fallbackModel);
+    const clock = assistDeadlineClock(t, 75_000);
+    const delays = skipRetrySleeps(t);
+    const models: string[] = [], signals: AbortSignal[] = [];
+    const response = { ...providerResponse, modelVersion: "unknown" };
+    const mocks = mockAssist(t, async input => {
+      models.push(input.model);
+      signals.push(input.config.abortSignal);
+      if (input.model !== fallbackModel) throw { status, message: "The model provider reports it is overloaded" };
+      return response;
+    }, true);
+    fund(mocks.store);
+    const writes = failSpendWrites(t, mocks.store, 0);
+    const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+    const warn = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+    assert.equal((await runAiAssist.run(assistRequest())).result, response.text);
+    assert.deepEqual(models, status === 503 ? ["gemini-flash-latest", "gemini-flash-latest", fallbackModel] : ["gemini-flash-latest", fallbackModel]);
+    assert.ok(signals.every(signal => signal === signals[0]));
+    assert.equal(delays.length, status === 503 ? 1 : 0);
+    if (delays.length) assert.ok(delays[0] >= 500 && delays[0] <= 1000);
+    assert.equal(mocks.reserve.mock.callCount(), 1);
+    assert.equal(mocks.commit.mock.callCount(), 1);
+    assert.equal(mocks.release.mock.callCount(), 0);
+    assert.equal(writes.writes(), 1);
+    assert.equal(writes.releases(), 0);
+    assert.equal(cache.mock.callCount(), 1);
+    const cost = geminiAssistCost({ backend: "apikey", model: fallbackModel, modelVersion: response.modelVersion, requestedAt: Date.now(), usage: response.usageMetadata }).actualCostUsd;
+    assert.equal(mocks.spend().geminiUsd, cost);
+    assert.equal(mocks.commit.mock.calls[0].arguments[0].actualCostUsd, cost);
+    assert.equal(mocks.spend().geminiReservedUsd, 0);
+    assert.equal([...mocks.store.docs.values()].filter(doc => doc.state === "settled").length, 1);
+    assert.equal(mocks.store.docs.get("users/user/private/billing").balanceMilliCredits, 900);
+    const reservation = await mocks.reserve.mock.calls[0].result;
+    assert.equal(reservationDoc(mocks.store, reservation.reservationId).state, "committed");
+    const warnings = warn.mock.calls.filter((call: AssistLogCall) => call.arguments[0] === "AI assist used fallback model");
+    assert.deepEqual(warnings.map((call: AssistLogCall) => call.arguments), [["AI assist used fallback model", { action: "expand_prompt", model: fallbackModel }]]);
+    assert.equal(warn.mock.calls.filter((call: AssistLogCall) => call.arguments[0] === "AI assist upstream unavailable").length, models.length - 1);
+    assert.equal(clock.set.mock.callCount(), 1);
+    assert.equal(clock.clear.mock.callCount(), 1);
+  });
+}
+
+for (const configured of [undefined, "invalid/model", "gemini-flash-latest"]) {
+  test(`runAiAssist disables ${configured === undefined ? "unset" : configured === "gemini-flash-latest" ? "equal" : "invalid"} fallback and releases billing after three primary failures`, async (t) => {
+    configureFallback(t, configured);
+    assistDeadlineClock(t, 75_000);
+    const delays = skipRetrySleeps(t);
+    const mocks = mockAssist(t, async input => {
+      assert.equal(input.model, "gemini-flash-latest");
+      throw { status: 503 };
+    }, true);
+    fund(mocks.store);
+    const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+    const warn = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+    await assert.rejects(runAiAssist.run(assistRequest()), { code: "unavailable" });
+    assert.equal(mocks.providerCalls(), 3);
+    assert.equal(delays.length, 2);
+    assert.ok(delays[0] >= 500 && delays[0] <= 1000);
+    assert.ok(delays[1] >= 1500 && delays[1] <= 3000);
+    assert.equal(warn.mock.calls.filter((call: AssistLogCall) => call.arguments[0] === "AI assist fallback model disabled").length, configured === undefined ? 0 : 1);
+    await assertAssistBillingReleased(mocks);
+    assert.equal(cache.mock.callCount(), 0);
+  });
+}
+
+for (const status of [503, 429] as const) {
+  test(`runAiAssist releases billing after the fallback also fails with ${status}`, async (t) => {
+    configureFallback(t, fallbackModel);
+    assistDeadlineClock(t, 75_000);
+    skipRetrySleeps(t);
+    const models: string[] = [];
+    const mocks = mockAssist(t, async input => { models.push(input.model); throw { status }; }, true);
+    fund(mocks.store);
+    const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+    const warn = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+    await assert.rejects(runAiAssist.run(assistRequest()), { code: "unavailable" });
+    assert.equal(models.length, status === 503 ? 3 : 2);
+    assert.equal(models.at(-1), fallbackModel);
+    const warnings = warn.mock.calls.filter((call: AssistLogCall) => call.arguments[0] === "AI assist upstream unavailable");
+    assert.equal(warnings.length, models.length);
+    assert.deepEqual(warnings.at(-1)!.arguments[1], { action: "expand_prompt", upstreamStatus: status, attempt: models.length, model: fallbackModel });
+    assert.equal(warn.mock.calls.some((call: AssistLogCall) => call.arguments[0] === "AI assist used fallback model"), false);
+    await assertAssistBillingReleased(mocks);
+    assert.equal(cache.mock.callCount(), 0);
+  });
+}
+
+for (const status of [400, 401, 403, 404, 500, 502, 504]) {
+  test(`runAiAssist never retries or falls back for ${status} and limits message logging`, async (t) => {
+    configureFallback(t, fallbackModel);
+    assistDeadlineClock(t, 75_000);
+    const delays = skipRetrySleeps(t);
+    const mocks = mockAssist(t, async () => { throw { status, message: "Generic provider diagnostic" }; }, true);
+    fund(mocks.store);
+    const warn = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+    const log = t.mock.method(require("firebase-functions/logger"), "error", () => {});
+    await assert.rejects(runAiAssist.run(assistRequest()), { code: status === 504 ? "deadline-exceeded" : status >= 500 ? "unavailable" : "internal" });
+    assert.equal(mocks.providerCalls(), 1);
+    assert.deepEqual(delays, []);
+    const entries = [...warn.mock.calls, ...log.mock.calls].filter((call: AssistLogCall) => String(call.arguments[0]).startsWith("AI assist"));
+    assert.equal(entries.length, 1);
+    const data = entries[0].arguments[1];
+    assert.equal(data.upstreamStatus, status);
+    assert.equal(data.upstreamMessage, status === 400 || status === 401 ? undefined : "Generic provider diagnostic");
+    assert.equal(Object.prototype.hasOwnProperty.call(data, "message"), false);
+    await assertAssistBillingReleased(mocks);
+  });
+}
+
+test("runAiAssist logs high demand from the inner JSON message with safe attempt metadata", async (t) => {
+  configureFallback(t);
+  assistDeadlineClock(t, 75_000);
+  skipRetrySleeps(t);
+  const upstreamMessage = "This model is currently experiencing high demand. Spikes in demand are usually temporary.";
+  const mocks = mockAssist(t, async () => {
+    throw new Error(JSON.stringify({ error: { code: 503, message: upstreamMessage, status: "UNAVAILABLE" } }));
+  });
+  const warn = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+  const log = t.mock.method(require("firebase-functions/logger"), "error", () => {});
+  const request = assistRequest();
+  request.data.payload.text = promptMarker;
+  await assert.rejects(runAiAssist.run(request), { code: "unavailable" });
+  assert.equal(mocks.providerCalls(), 3);
+  assert.equal(log.mock.callCount(), 0);
+  const warnings = warn.mock.calls.filter((call: AssistLogCall) => call.arguments[0] === "AI assist upstream unavailable");
+  assert.equal(warnings.length, 3);
+  warnings.forEach((call: AssistLogCall, index: number) => assert.deepEqual(call.arguments, ["AI assist upstream unavailable", {
+    action: "expand_prompt", upstreamStatus: 503, upstreamMessage, attempt: index + 1, model: "gemini-flash-latest",
+  }]));
+  assert.ok(!JSON.stringify(warn.mock.calls.map((call: AssistLogCall) => call.arguments)).includes(promptMarker));
+});
+
+test("runAiAssist redacts keys and request strings, collapses whitespace and caps diagnostics", async (t) => {
+  configureFallback(t);
+  assistDeadlineClock(t, 5_000);
+  const fakeKey = ["AIza", "Sy", "FAKE".repeat(7), "12345"].join("");
+  const mocks = mockAssist(t, async () => {
+    throw { status: 503, message: `High demand.\n\t${fakeKey} https://provider.invalid?key=query-secret&other=safe ${promptMarker} ${"details ".repeat(60)}` };
+  });
+  const warn = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+  const log = t.mock.method(require("firebase-functions/logger"), "error", () => {});
+  const info = t.mock.method(require("firebase-functions/logger"), "info", () => {});
+  const request = assistRequest();
+  request.data.payload.text = promptMarker;
+  await assert.rejects(runAiAssist.run(request), { code: "unavailable" });
+  assert.equal(mocks.providerCalls(), 1);
+  const logged = JSON.stringify([warn, log, info].flatMap(spy => spy.mock.calls.map((call: AssistLogCall) => call.arguments)));
+  for (const value of [fakeKey, "query-secret", promptMarker]) assert.ok(!logged.includes(value));
+  const data = warn.mock.calls.find((call: AssistLogCall) => call.arguments[0] === "AI assist upstream unavailable")!.arguments[1];
+  assert.deepEqual(Object.keys(data).sort(), ["action", "attempt", "model", "upstreamMessage", "upstreamStatus"]);
+  assert.equal(data.upstreamMessage.length, 200);
+  assert.doesNotMatch(data.upstreamMessage, /\s{2,}|\n|\t/);
+  assert.match(data.upstreamMessage, /High demand\. \[redacted\]/);
+});
+
+test("upstream retries and fallback require ten seconds remaining before every new attempt", async () => {
+  for (const scenario of ["first retry", "second retry", "fallback", "429 fallback", "boundary fallback"]) {
+    let now = 0, calls = 0;
+    const models: string[] = [], delays: number[] = [];
+    const pending = generateWithUpstreamRetry(async (_signal, timeout, model) => {
+      assert.equal(timeout, 75_000 - now);
+      calls++;
+      models.push(model);
+      if (model === fallbackModel) return "result";
+      if (scenario === "first retry") now = 65_000;
+      if (scenario === "second retry" && calls === 2) now = 64_000;
+      if (scenario === "fallback" && calls === 2 || scenario === "429 fallback") now = 65_001;
+      if (scenario === "boundary fallback" && calls === 2) now = 65_000;
+      throw { status: scenario === "429 fallback" ? 429 : 503 };
+    }, new AbortController().signal, 75_000, {
+      now: () => now, random: () => 0,
+      fallbackModel: scenario.includes("fallback") ? fallbackModel : undefined,
+      sleep: async ms => { delays.push(ms); now += ms; },
+    });
+    if (scenario === "boundary fallback") assert.equal(await pending, "result");
+    else await assert.rejects(pending, { status: scenario === "429 fallback" ? 429 : 503 });
+    assert.equal(calls, scenario === "boundary fallback" ? 3 : scenario === "first retry" || scenario === "429 fallback" ? 1 : 2);
+    assert.equal(delays.length, scenario === "first retry" || scenario === "429 fallback" ? 0 : 1);
+    assert.equal(models.includes(fallbackModel), scenario === "boundary fallback");
+  }
+});
+
+for (const useFallback of [false, true]) {
+  test(`runAiAssist bounds a stalled ${useFallback ? "fallback" : "third primary"} attempt with the single deadline`, async (t) => {
+    configureFallback(t, useFallback ? fallbackModel : undefined);
+    let now = 0;
+    t.mock.method(Date, "now", () => now);
+    const clock = assistDeadlineClock(t, 75_000);
+    const delays = skipRetrySleeps(t, ms => { now += ms; });
+    let started!: () => void, finish!: (value: typeof providerResponse) => void;
+    const stalled = new Promise<void>(resolve => { started = resolve; });
+    const inputs: any[] = [];
+    const mocks = mockAssist(t, async input => {
+      inputs.push(input);
+      if (inputs.length < 3) { now += 1000; throw { status: 503 }; }
+      started();
+      return new Promise(resolve => { finish = resolve; });
+    }, true);
+    fund(mocks.store);
+    const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+    t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+    t.mock.method(require("firebase-functions/logger"), "error", () => {});
+    const rejected = assert.rejects(runAiAssist.run(assistRequest()), { code: "deadline-exceeded" });
+    await stalled;
+    assert.equal(clock.set.mock.callCount(), 1);
+    assert.equal(inputs[2].model, useFallback ? fallbackModel : "gemini-flash-latest");
+    assert.deepEqual(inputs.map(input => input.config.httpOptions.timeout), [75_000, 74_000 - delays[0], 73_000 - delays.reduce((sum, ms) => sum + ms, 0)]);
+    assert.ok(inputs.every(input => input.config.abortSignal === inputs[0].config.abortSignal));
+    now = 75_000;
+    clock.expire();
+    await rejected;
+    assert.equal(now, 75_000);
+    assert.equal(inputs[2].config.abortSignal.aborted, true);
+    finish(providerResponse);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(mocks.providerCalls(), 3);
+    assert.equal(delays.length, useFallback ? 1 : 2);
+    await assertAssistBillingReleased(mocks);
+    assert.equal(cache.mock.callCount(), 0);
+    assert.equal(clock.clear.mock.callCount(), 1);
+    assert.equal(clock.timers.size, 0);
+  });
+}

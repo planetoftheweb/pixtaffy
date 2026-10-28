@@ -799,24 +799,109 @@ export function isAssistBlocked(response: {
     || Boolean(response.candidates?.some((candidate) => ASSIST_BLOCK_REASONS.has(candidate.finishReason ?? "")));
 }
 
+function upstreamErrorFields(error: unknown): unknown[] {
+  const raw = (error ?? {}) as { status?: unknown; code?: unknown; message?: unknown; name?: unknown; error?: unknown };
+  let parsed: unknown;
+  if (typeof raw.message === "string") {
+    try { parsed = JSON.parse(raw.message); } catch { /* Provider messages may be plain text. */ }
+  }
+  return [raw, raw.error, parsed, (parsed as typeof raw | undefined)?.error].flatMap((value) => {
+    const item = value as typeof raw | undefined;
+    return [item?.status, item?.code, item?.name, item?.message];
+  });
+}
+
+export function upstreamStatusOf(error: unknown): number | string | undefined {
+  const fields = upstreamErrorFields(error);
+  for (const value of fields) {
+    if (/^[1-5]\d\d$/.test(String(value))) return Number(value);
+  }
+  const description = fields.map(String).join(" ");
+  const httpStatus = description.match(/\b([45]\d\d)\b/);
+  if (httpStatus) return Number(httpStatus[1]);
+  // Only allow known status words into logs, never arbitrary provider text.
+  return description.match(/\b(UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED|INTERNAL|INVALID_ARGUMENT|PERMISSION_DENIED|UNAUTHENTICATED|NOT_FOUND)\b/i)?.[1].toUpperCase();
+}
+
 export function mapAiAssistError(error: unknown): HttpsError {
   if (error instanceof HttpsError) return error;
   if (error instanceof SyntaxError) return new HttpsError("internal", "AI assist failed. Try again.");
-  const raw = (error ?? {}) as { status?: unknown; code?: unknown; message?: unknown; name?: unknown };
-  const description = [raw.status, raw.code, raw.name, raw.message].map(String).join(" ");
+  const description = upstreamErrorFields(error).map(String).join(" ");
   if (isAssistBlocked(error as Parameters<typeof isAssistBlocked>[0] ?? {})) {
     return new HttpsError("failed-precondition", "The AI could not complete this request. Try rephrasing it.");
   }
-  if (/429|RESOURCE_EXHAUSTED|quota/i.test(description)) {
-    return new HttpsError("resource-exhausted", "PixTaffy AI is busy right now. Wait a moment and try again.");
-  }
-  if (/504|DEADLINE_EXCEEDED|timeout|timed[ -]?out|abort/i.test(description)) {
+  if (/\b504\b|DEADLINE_EXCEEDED|timeout|timed[ -]?out|abort/i.test(description)) {
     return new HttpsError("deadline-exceeded", "The AI request timed out. Wait a moment and try again.");
   }
-  if (/\b5\d\d\b|UNAVAILABLE|INTERNAL|network|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|socket/i.test(description)) {
+  if (/\b429\b|RESOURCE_EXHAUSTED|quota|\b5\d\d\b|UNAVAILABLE|overloaded|high demand|INTERNAL|network|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|socket/i.test(description)) {
     return new HttpsError("unavailable", "PixTaffy AI is temporarily unavailable. Wait a moment and try again.");
   }
   return new HttpsError("internal", "AI assist failed. Try again.");
+}
+
+export function resolveAiAssistFallbackModel(env: Record<string, string | undefined>, primary: string): string | undefined {
+  const model = env.AI_ASSIST_FALLBACK_MODEL;
+  return model && /^[a-z0-9][a-z0-9._-]{2,63}$/.test(model) && model !== primary ? model : undefined;
+}
+
+function safeUpstreamMessage(error: unknown, sensitiveValues: string[]): string | undefined {
+  if (error instanceof HttpsError || error instanceof SyntaxError) return undefined;
+  const status = upstreamStatusOf(error);
+  if (status === undefined || ![403, 404, 429, 500, 502, 503, 504, "UNAVAILABLE", "RESOURCE_EXHAUSTED", "PERMISSION_DENIED", "NOT_FOUND", "INTERNAL"].includes(status)) return undefined;
+  // Prefer the inner provider message over its JSON envelope.
+  const message = upstreamErrorFields(error).filter((value, index) => index % 4 === 3 && typeof value === "string").pop();
+  if (typeof message !== "string") return undefined;
+  let sanitized = message.replace(/AIza[A-Za-z0-9_-]+/g, "[redacted]")
+    .replace(/(\bkey=)[^\s&#"'<>]+/gi, "$1[redacted]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted]")
+    .replace(/\s+/g, " ").trim();
+  const normalizedValues = sensitiveValues.map(value => value.replace(/\s+/g, " ").trim());
+  for (const value of normalizedValues.filter(Boolean).sort((a, b) => b.length - a.length)) {
+    sanitized = sanitized.split(value).join("[redacted]");
+  }
+  return sanitized.slice(0, 200);
+}
+
+export async function generateWithUpstreamRetry<T>(
+  generate: (signal: AbortSignal, timeoutMs: number, model: string, attempt: number) => Promise<T>,
+  signal: AbortSignal,
+  timeoutMs: number,
+  {
+    sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
+    random = Math.random, now = Date.now, primaryModel = "gemini-flash-latest",
+    fallbackModel, onFailure,
+  }: {
+    sleep?: (ms: number) => Promise<void>; random?: () => number; now?: () => number;
+    primaryModel?: string; fallbackModel?: string;
+    onFailure?: (error: unknown, attempt: number, model: string) => void;
+  } = {},
+): Promise<T> {
+  const deadline = now() + timeoutMs;
+  let model = primaryModel;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await generate(signal, Math.max(0, deadline - now()), model, attempt);
+    } catch (error) {
+      if (signal.aborted) throw error;
+      onFailure?.(error, attempt, model);
+      const status = upstreamStatusOf(error);
+      const unavailable = !(error instanceof HttpsError) && mapAiAssistError(error).code === "unavailable";
+      const retryable = unavailable && (status === 503 || status === "UNAVAILABLE");
+      const limited = unavailable && (status === 429 || status === "RESOURCE_EXHAUSTED");
+      if (model !== primaryModel || (!retryable && !limited)) throw error;
+      // A configured fallback takes the third call, or follows a primary rate limit immediately.
+      if (fallbackModel && (limited || attempt >= 2)) {
+        if (deadline - now() < 10_000) throw error;
+        model = fallbackModel;
+      } else {
+        if (!retryable || attempt >= 3) throw error;
+        const delay = attempt === 1 ? 500 + Math.floor(random() * 501) : 1500 + Math.floor(random() * 1501);
+        if (deadline - now() - delay < 10_000) throw error;
+        await sleep(delay);
+        if (signal.aborted || deadline - now() < 10_000) throw error;
+      }
+    }
+  }
 }
 
 export const runAiAssist = onCall(
@@ -880,6 +965,20 @@ export const runAiAssist = onCall(
     const helperSpendReserveUsd = 0.05;
     let cacheWriteAttempted = false;
     let spendSettlementFailed = false;
+    let attempt = 0;
+    let model = "gemini-flash-latest";
+    let loggedUnavailable: unknown;
+    // Collect request strings only for redaction, never for structured log data.
+    const requestStrings = (value: unknown): string[] => typeof value === "string" ? [value]
+      : value && typeof value === "object" ? Object.values(value).flatMap(requestStrings) : [];
+    const sensitiveValues = [...requestStrings(payload), uid, String(request.auth?.token?.email ?? "")];
+    for (const value of [payload.text, payload.context]) {
+      if (typeof value === "string") sensitiveValues.push(value.slice(0, 20_000));
+    }
+    const failureFields = (error: unknown) => {
+      const upstreamMessage = safeUpstreamMessage(error, sensitiveValues);
+      return { action, upstreamStatus: upstreamStatusOf(error), ...(upstreamMessage ? { upstreamMessage } : {}), attempt, model };
+    };
     try {
       await reserveSpendCapacity("gemini", helperSpendReserveUsd, holdId);
       const vertexConfig = AI_ASSIST_BACKEND === "vertex" ? resolveAiAssistVertexConfig(process.env) : undefined;
@@ -890,23 +989,41 @@ export const runAiAssist = onCall(
       if (imageBase64) {
         parts.unshift({ inlineData: { data: imageBase64, mimeType: payload.mimeType || "image/png" } });
       }
-      const response = await withAiAssistDeadline((abortSignal, timeoutMs) => ai.models.generateContent({
-        model: vertexConfig ? vertexConfig.model : "gemini-flash-latest",
-        contents: [{ role: "user", parts }],
-        config: {
-          abortSignal,
-          httpOptions: { timeout: timeoutMs },
-          temperature: action === "expand_prompt" ? 0.7 : 0.2,
-          ...(action === "expand_prompt" || action === "image_description"
-            ? {}
-            : { responseMimeType: "application/json" }),
+      const primaryModel = vertexConfig?.model ?? "gemini-flash-latest";
+      const fallbackModel = resolveAiAssistFallbackModel(process.env, primaryModel);
+      if (process.env.AI_ASSIST_FALLBACK_MODEL !== undefined && !fallbackModel) {
+        logger.warn("AI assist fallback model disabled", { action });
+      }
+      const response = await withAiAssistDeadline((signal, deadlineMs) => generateWithUpstreamRetry((abortSignal, timeoutMs, attemptModel, attemptNumber) => {
+        model = attemptModel;
+        attempt = attemptNumber;
+        return ai.models.generateContent({
+          model,
+          contents: [{ role: "user", parts }],
+          config: {
+            abortSignal,
+            httpOptions: { timeout: timeoutMs },
+            temperature: action === "expand_prompt" ? 0.7 : 0.2,
+            ...(action === "expand_prompt" || action === "image_description"
+              ? {}
+              : { responseMimeType: "application/json" }),
+          },
+        });
+      }, signal, deadlineMs, {
+        primaryModel, fallbackModel,
+        onFailure: (error) => {
+          if (mapAiAssistError(error).code === "unavailable") {
+            logger.warn("AI assist upstream unavailable", failureFields(error));
+            loggedUnavailable = error;
+          }
         },
       }));
+      if (model !== primaryModel) logger.warn("AI assist used fallback model", { action, model });
       const usage = response.usageMetadata as any;
       const { actualCostUsd, unknownModel } = geminiAssistCost({
         backend: AI_ASSIST_BACKEND,
         location: vertexConfig?.location,
-        model: vertexConfig?.model ?? "gemini-flash-latest",
+        model,
         modelVersion: response.modelVersion,
         requestedAt,
         usage,
@@ -967,8 +1084,12 @@ export const runAiAssist = onCall(
         balanceMilliCredits: delivery.balanceMilliCredits,
       };
     } catch (error) {
-      const raw = error as { status?: unknown; code?: unknown; message?: unknown };
-      logger.error("AI assist failed", { status: raw?.status, code: raw?.code, message: error instanceof SyntaxError ? "Invalid AI response JSON" : raw?.message });
+      const mapped = mapAiAssistError(error);
+      if (mapped.code === "unavailable") {
+        if (loggedUnavailable !== error) logger.warn("AI assist upstream unavailable", failureFields(error));
+      } else {
+        logger.error("AI assist failed", { ...failureFields(error), code: error instanceof SyntaxError ? "Invalid AI response JSON" : mapped.code });
+      }
       if (!spendSettlementFailed) {
         await releaseSpendCapacity("gemini", helperSpendReserveUsd, holdId).catch((releaseError) => {
           logger.error("Unable to release Gemini spend capacity", { action, releaseError });
@@ -987,7 +1108,7 @@ export const runAiAssist = onCall(
         reservationId: reservation.reservationId,
         reason: error instanceof Error ? error.message : "Gemini request failed",
       });
-      throw mapAiAssistError(error);
+      throw mapped;
     }
   },
 );
