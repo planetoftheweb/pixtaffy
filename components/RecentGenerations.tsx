@@ -2001,7 +2001,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           role="menuitem"
           onClick={() => tileDelete.trigger(gen.id)}
           aria-label={tileDelete.isArmed(gen.id) ? 'Click again to confirm' : 'Delete'}
-          className={`w-full min-w-[12rem] flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold [@media(pointer:coarse)]:min-h-11 ${
+          className={`w-full min-w-[13rem] flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold [@media(pointer:coarse)]:min-h-11 ${
             tileDelete.isArmed(gen.id)
               ? 'bg-amber-500 text-[#0d1117] animate-pulse'
               : 'text-slate-500 hover:text-red-500 hover:bg-red-500/10'

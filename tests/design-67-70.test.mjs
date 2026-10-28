@@ -624,7 +624,13 @@ test('gallery context Delete arms before firing, auto-disarms and resets when it
   assert.doesNotMatch(menu, /onDelete\(/);
   assert.match(menu, /aria-label=\{tileDelete.isArmed\(gen.id\) \? 'Click again to confirm' : 'Delete'\}/);
   assert.match(menu, /\{tileDelete.isArmed\(gen.id\) \? 'Click again to confirm' : 'Delete'\}/);
-  assert.match(menu, /w-full min-w-\[12rem\]/);
+  assert.match(menu, /w-full min-w-\[13rem\]/);
+  const minWidthPx = Number(menu.match(/min-w-\[(\d+)rem\]/)[1]) * 16;
+  // Chrome measures Mona Sans 14px semibold at 147.77px for the armed label.
+  // Reserve 24px padding, a 14px icon, an 8px gap and another 8px of margin.
+  assert.ok(minWidthPx >= 147.77 + 24 + 14 + 8 + 8, 'armed label must fit without widening the menu');
+  assert.ok(minWidthPx + 2 <= Math.min(320 - 16, 16 * 16), 'row and panel borders fit the 320px viewport cap');
+  assert.match(gallery, /max-w-\[min\(100vw-1rem,16rem\)\]/);
   assert.doesNotMatch(menu, /Click again to delete/);
   assert.match(menu, /bg-amber-500 text-\[#0d1117\] animate-pulse/);
   assert.match(menu, /<Check size=\{14\}/);
