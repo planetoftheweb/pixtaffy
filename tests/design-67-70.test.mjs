@@ -1248,8 +1248,33 @@ test('reviewed icon buttons preserve coarse sizes and teal label contrast withou
   for (const [file, expected] of [
     ['ControlPanel', /rounded-md bg-brand-teal text-\[#0d1117\] hover:bg-teal-600/],
     ['RecentGenerations', /rounded-lg bg-brand-teal text-\[#0d1117\] hover:opacity-90/],
-    ['ImageDisplay', /min-h-11 px-4 rounded-lg text-sm font-semibold text-\[#0d1117\]/],
   ]) assert.match(source(`components/${file}.tsx`), expected);
   assert.equal((source('components/GalleryPresetMenu.tsx').match(/\? 'bg-brand-teal text-white'/g) || []).length, 2);
   assert.match(studio, /w-6 h-6[^\n]*bg-brand-teal text-white/);
+});
+
+test('Add Marks keeps dark labels on enabled teal and readable labels in every disabled state', () => {
+  const buttons = elements.filter(node => node.tagName.getText(ast) === 'button'
+    && node.attributes.properties.some(prop => prop.name?.getText(ast) === 'aria-disabled'
+      && prop.getText(ast).includes('rerunDraft')));
+  assert.equal(buttons.length, 1);
+  const expression = buttons[0].attributes.properties.find(prop => prop.name?.getText(ast) === 'className').initializer.expression;
+  const compiled = ts.transpileModule(`return (${expression.getText(ast)});`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const classesFor = new Function('rerunDraft', 'refinementControlsLocked', 'onRerun', 'FOCUS_RING', compiled);
+  for (const [draft, locked, onRerun] of [
+    ['', false, () => {}], ['   ', false, () => {}], ['A prompt', true, () => {}], ['A prompt', false, undefined],
+  ]) {
+    const classes = classesFor(draft, locked, onRerun, FOCUS_RING).split(/\s+/);
+    for (const token of ['bg-gray-300', 'text-slate-600', 'dark:bg-[#30363d]', 'dark:text-slate-300']) {
+      assert.ok(classes.includes(token), `disabled Add Marks needs ${token}`);
+    }
+    assert.ok(!classes.includes('text-[#0d1117]'), 'dark disabled backgrounds must not inherit the enabled dark label');
+  }
+  const enabled = classesFor('A prompt', false, () => {}, FOCUS_RING).split(/\s+/);
+  for (const token of ['bg-brand-teal', 'hover:bg-teal-600', 'text-[#0d1117]']) assert.ok(enabled.includes(token));
+  assert.ok(!enabled.includes('dark:bg-[#30363d]'));
+  assert.ok(contrast('475569', 'd1d5db') >= 4.5, 'disabled light label contrast');
+  assert.ok(contrast('cbd5e1', '30363d') >= 4.5, 'disabled dark label contrast');
 });

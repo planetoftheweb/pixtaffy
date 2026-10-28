@@ -3514,10 +3514,10 @@ ${version.svgCode}
 
                 }}
                 aria-disabled={!rerunDraft.trim() || refinementControlsLocked || !onRerun} aria-describedby={(!rerunDraft.trim() || refinementControlsLocked || !onRerun) ? `${unavailableId}-6` : undefined}
-                className={`min-h-11 px-4 rounded-lg text-sm font-semibold text-[#0d1117] transition-colors ${
+                className={`min-h-11 px-4 rounded-lg text-sm font-semibold transition-colors ${
                   !rerunDraft.trim() || refinementControlsLocked || !onRerun
-                    ? 'bg-gray-300 dark:bg-[#30363d] cursor-not-allowed'
-                    : 'bg-brand-teal hover:bg-teal-600'
+                    ? 'bg-gray-300 text-slate-600 dark:bg-[#30363d] dark:text-slate-300 cursor-not-allowed'
+                    : 'bg-brand-teal hover:bg-teal-600 text-[#0d1117]'
                 } ${FOCUS_RING}`}
               >
                 Add {rerunCount} Mark{rerunCount === 1 ? '' : 's'}
