@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { dismissErrorToastOnEscape, dismissTopErrorToast, hasVisibleErrorToast, registerErrorToast } from '../utils/errorToastEscape.ts';
+import { createErrorToastStore, errorToastStore, setErrorToast } from '../utils/errorToastStore.ts';
 
 const source = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const toast = source('components/ErrorToast.tsx');
@@ -9,6 +10,8 @@ const studio = source('components/BuildStudio.tsx');
 const panel = source('components/ControlPanel.tsx');
 const app = source('App.tsx');
 const design = source('DESIGN.md');
+const storeSource = source('utils/errorToastStore.ts');
+const imageDisplay = source('components/ImageDisplay.tsx');
 
 function keyEvent(key = 'Escape') {
   const calls = [];
@@ -50,25 +53,24 @@ test('one Escape dismisses only the toast; the next reaches studio close', () =>
   assert.deepEqual(calls, ['dismiss', 'close']);
 });
 
-test('mounted toast registry dismisses the newest toast and cleans up on unmount', () => {
+test('mounted shared slot registry dismisses once and cleans up on unmount', () => {
+  const store = createErrorToastStore(() => undefined);
   const calls = [];
-  const unregisterFirst = registerErrorToast(() => calls.push('first'));
-  const unregisterSecond = registerErrorToast(() => calls.push('second'));
+  store.show('ControlPanel error');
+  store.show('App error');
+  const unregister = registerErrorToast(() => { store.dismiss(); calls.push('dismiss'); });
   try {
     assert.equal(hasVisibleErrorToast(), true);
-    dismissTopErrorToast();
-    assert.deepEqual(calls, ['second']);
-    unregisterSecond();
-    unregisterSecond();
-    dismissTopErrorToast();
-    assert.deepEqual(calls, ['second', 'first']);
+    dismissErrorToastOnEscape(keyEvent().event, hasVisibleErrorToast(), dismissTopErrorToast);
+    assert.deepEqual(store.getSnapshot(), { message: null, height: 0 });
+    assert.deepEqual(calls, ['dismiss']);
   } finally {
-    unregisterFirst();
-    unregisterSecond();
+    unregister();
+    unregister();
   }
   assert.equal(hasVisibleErrorToast(), false);
   dismissTopErrorToast();
-  assert.deepEqual(calls, ['second', 'first']);
+  assert.deepEqual(calls, ['dismiss']);
 });
 
 test('App error peels before studio or Edit prompt regardless of capture listener order', () => {
@@ -129,15 +131,18 @@ test('shared toast portals one stable alert above modals with no extra live regi
     assert.ok(toast.includes(token), `missing ${token}`);
   }
   assert.doesNotMatch(toast, /bg-red-100|text-red-800|border-red-200|dark:/);
-  for (const [parent, value] of [[panel, 'aiAssistError'], [studio, 'aiAssistError'], [app, 'error']]) {
-    assert.match(parent, new RegExp(`\\{${value} && \\(\\s*<ErrorToast message=\\{${value}\\}`));
+  assert.equal((app.match(/<ErrorToastHost \/>/g) ?? []).length, 1);
+  assert.match(toast, /useSyncExternalStore\(errorToastStore.subscribe, errorToastStore.getSnapshot/);
+  assert.match(toast, /message === null \? null : <ErrorToast message=\{message\} onDismiss=\{errorToastStore.dismiss\}/);
+  for (const parent of [panel, studio, app, imageDisplay]) {
+    assert.doesNotMatch(parent, /<ErrorToast\b/);
     assert.doesNotMatch(parent, /(?:const|function) ErrorToast\b/);
   }
 });
 
 test('dismiss control retains its accessible name, touch target, and portaled rich Tip', () => {
   assert.match(toast, /dismissLabel = 'Dismiss AI assist error'/);
-  assert.match(toast, /<button type="button" aria-label=\{dismissLabel\} onClick=\{onDismiss\}/);
+  assert.match(toast, /<button type="button" aria-label=\{dismissLabel\} onClick=\{\(\) => onDismiss\(\)\}/);
   assert.match(toast, /min-h-11 min-w-11/);
   assert.match(toast, /import \{ Tip \} from '\.\/settings\/Tip'/);
   assert.match(toast, /<Tip text="Dismiss" side="top" \/>/);
@@ -149,7 +154,7 @@ test('dismiss control retains its accessible name, touch target, and portaled ri
 });
 
 test('shared Escape capture listener uses the helper and removes itself on unmount', () => {
-  assert.match(toast, /registerErrorToast\(\(\) => onDismissRef\.current\(\)\)/);
+  assert.match(toast, /registerErrorToast\(\(restoreFocus\) => onDismissRef\.current\(restoreFocus\)\)/);
   assert.match(toast, /useLayoutEffect\(\(\) => \{\s*onDismissRef\.current = onDismiss;\s*\}, \[onDismiss\]\)/);
   assert.match(toast, /dismissErrorToastOnEscape\(event, hasVisibleErrorToast\(\), dismissTopErrorToast\)/);
   assert.match(toast, /window\.addEventListener\('keydown', onKeyDown, \{ capture: true \}\)/);
@@ -161,17 +166,25 @@ test('Edit prompt handles the next Escape even after its toast button loses focu
   assert.ok(modalEscape, 'Edit prompt must capture Escape outside its textarea');
   assert.match(modalEscape[0], /if \(dismissErrorToastOnEscape\(event, hasVisibleErrorToast\(\), dismissTopErrorToast\)\) return;/);
   assert.match(modalEscape[0], /if \(event.key !== 'Escape'\) return;/);
+  assert.match(modalEscape[0], /closest\('input, textarea, select, \[contenteditable="true"\]'\)/);
+  assert.match(modalEscape[0], /if \(field\) \{\s*\(field as HTMLElement\).blur\(\);\s*return;/);
+  assert.match(modalEscape[0], /event.stopPropagation\(\);\s*event.stopImmediatePropagation\(\)/);
   assert.ok(modalEscape[0].indexOf('dismissErrorToastOnEscape(') < modalEscape[0].indexOf('setIsPromptModalOpen(false)'));
+  assert.ok(modalEscape[0].indexOf('.blur()') < modalEscape[0].indexOf('setIsPromptModalOpen(false)'));
   assert.match(modalEscape[0], /addEventListener\('keydown', onKeyDown, \{ capture: true \}\)/);
   assert.match(modalEscape[0], /removeEventListener\('keydown', onKeyDown, \{ capture: true \}\)/);
 });
 
 test('Build Studio no longer renders a separate error bar', () => {
   assert.doesNotMatch(studio, /role="alert"|bg-red-900\/30|aria-label="Dismiss AI assist error"/);
-  assert.match(studio, /ref=\{rootRef\} className="fixed inset-0 z-\[300\]/);
-  assert.match(studio, /<ErrorToast message=\{aiAssistError\} onDismiss=\{\(\) => setAiAssistError\(null\)\}/);
-  assert.match(panel, /<ErrorToast message=\{aiAssistError\} onDismiss=\{\(\) => setAiAssistError\(null\)\}/);
-  assert.match(app, /<ErrorToast message=\{error\} onDismiss=\{\(\) => setError\(null\)\} dismissLabel="Dismiss error"/);
+  assert.match(studio, /ref=\{rootRef\} data-error-toast-scope className="fixed inset-0 z-\[300\]/);
+  for (const parent of [studio, panel]) {
+    assert.match(parent, /setErrorToast as setAiAssistError/);
+    assert.doesNotMatch(parent, /\[aiAssistError, setAiAssistError\]/);
+    assert.match(parent, /setAiAssistError\(null\);\s*set(?:Is\w+|Naming|AutoSelecting)\(true\)/);
+  }
+  assert.match(app, /setErrorToast as setError/);
+  assert.doesNotMatch(app, /\[error, setError\]/);
 });
 
 test('copy and gallery error notices use red-900 and alert without changing neutral live feedback', () => {
@@ -197,10 +210,174 @@ test('design documents the error-first Escape, persistent error contract, and ne
   assert.match(keyboardAndFeedback, /> error toast dismiss → typing field/);
   assert.match(keyboardAndFeedback, /Neutral toasts[\s\S]*role="status" aria-live="polite"/);
   assert.match(keyboardAndFeedback, /error toasts carry `role="alert"`[\s\S]*no extra `aria-live`/);
-  assert.match(keyboardAndFeedback, /persist until dismissed or the next successful AI call/);
+  assert.match(keyboardAndFeedback, /persist until dismissed or the next AI call starts/);
   for (const text of ['bottom-center', 'bg-red-900', 'border-brand-red/70', 'text-white text-sm', '44px', 'Tip tooltip "Dismiss"', 'Esc dismisses', 'Red is reserved for errors', 'supersedes the old auto-clear pill rule for errors', 'auto-clear ~1.8s']) {
     assert.ok(keyboardAndFeedback.includes(text), `missing ${text}`);
   }
   assert.doesNotMatch(keyboardAndFeedback.slice(keyboardAndFeedback.indexOf('- Error toasts'), keyboardAndFeedback.indexOf('- Progress')), /\u2014/);
-  assert.match(design, /Primary CTA:\s+px-6 py-2 bg-brand-teal hover:bg-teal-600 text-white/);
+  assert.match(design, /Primary CTA:\s+px-6 py-2 bg-brand-teal hover:bg-teal-600 text-\[#0d1117\]/);
+  for (const text of ['single shared slot', 'newest error replaces', 'identical messages dedupe', 'focus returns', 'measured toast height', 'Edit prompt footer', 'Build Studio right panel', 'Esc 1 in a field', 'Esc 2 blurs', 'Esc 3 closes']) {
+    assert.ok(design.includes(text), `missing ${text}`);
+  }
+  assert.match(design, /z-\[140-300\][^\n]+z-\[400\][^\n]+500/);
+  assert.doesNotMatch(design, /next successful AI call/);
+});
+
+test('one shared slot replaces newest and dedupes without publishing or changing the snapshot', () => {
+  const store = createErrorToastStore(() => undefined);
+  let renders = 0;
+  const unsubscribe = store.subscribe(() => renders++);
+  store.show('Panel error');
+  store.show('Studio error');
+  const newest = store.getSnapshot();
+  store.show('Studio error');
+  assert.strictEqual(store.getSnapshot(), newest);
+  assert.equal(store.getSnapshot().message, 'Studio error');
+  assert.equal(renders, 2);
+  store.dismiss();
+  store.dismiss();
+  assert.deepEqual(store.getSnapshot(), { message: null, height: 0 });
+  assert.equal(renders, 3);
+  unsubscribe();
+  store.show('After unmount');
+  assert.equal(renders, 3);
+});
+
+test('starting any next AI call clears the shared slot, including another caller error', () => {
+  try {
+    setErrorToast('Panel failure');
+    setErrorToast('App failure');
+    setErrorToast(null);
+    assert.equal(errorToastStore.getSnapshot().message, null);
+    setErrorToast('The same failure after retry');
+    assert.equal(errorToastStore.getSnapshot().message, 'The same failure after retry');
+  } finally {
+    setErrorToast(null);
+  }
+});
+
+function focusFixture() {
+  const doc = { activeElement: null, defaultView: { getComputedStyle: (element) => ({ visibility: element.visibility, display: element.display }) } };
+  const container = { isConnected: true, querySelectorAll: () => [fallback] };
+  const makeControl = () => ({
+    isConnected: true, disabled: false, hidden: false, visibility: 'visible', display: 'block', focusCount: 0,
+    matches() { return this.disabled; },
+    closest(selector) { return selector.includes('[hidden]') ? (this.hidden ? {} : null) : container; },
+    getClientRects() { return this.hidden ? [] : [{}]; },
+    focus() { this.focusCount++; doc.activeElement = this; },
+  });
+  const original = makeControl();
+  const fallback = makeControl();
+  doc.activeElement = original;
+  return { doc, original, fallback, container, makeControl };
+}
+
+test('show captures focus without stealing it; replace and dedupe keep the original return target', () => {
+  for (const dismissal of ['mouse X', 'Enter X', 'Escape']) {
+    const { doc, original, makeControl } = focusFixture();
+    const store = createErrorToastStore(() => doc);
+    store.show('First failure');
+    assert.equal(original.focusCount, 0);
+    assert.strictEqual(doc.activeElement, original);
+    doc.activeElement = makeControl();
+    store.show('Replacement failure');
+    store.show('Replacement failure');
+    if (dismissal === 'Escape') dismissErrorToastOnEscape(keyEvent().event, true, store.dismiss);
+    else store.dismiss();
+    assert.strictEqual(doc.activeElement, original, dismissal);
+    assert.equal(original.focusCount, 1);
+    store.dismiss();
+    assert.equal(original.focusCount, 1);
+  }
+  assert.match(storeSource, /getDocument\(\)\?\.activeElement/);
+  assert.match(storeSource, /if \(snapshot.message === null\) \{/);
+  assert.match(toast, /onClick=\{\(\) => onDismiss\(\)\}/);
+});
+
+test('Escape keeps focus in the current typing field even after moving from the original target', () => {
+  for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT', 'DIV']) {
+    const { doc, original, makeControl } = focusFixture();
+    const current = makeControl();
+    current.tagName = tagName;
+    current.closest = () => current;
+    const store = createErrorToastStore(() => doc);
+    store.show('Failure');
+    doc.activeElement = current;
+    const { event } = keyEvent();
+    event.target = current;
+    const unregister = registerErrorToast(store.dismiss);
+    try {
+      dismissErrorToastOnEscape(event, hasVisibleErrorToast(), dismissTopErrorToast);
+      assert.equal(store.getSnapshot().message, null);
+      assert.strictEqual(doc.activeElement, current);
+      assert.equal(original.focusCount, 0);
+    } finally {
+      unregister();
+    }
+  }
+});
+
+test('focus falls back for disconnected, disabled and hidden targets without trapping focus', () => {
+  for (const invalid of [{ isConnected: false }, { disabled: true }, { hidden: true }, { visibility: 'hidden' }, { display: 'none' }]) {
+    const { doc, original, fallback } = focusFixture();
+    const store = createErrorToastStore(() => doc);
+    store.show('Failure');
+    Object.assign(original, invalid);
+    store.dismiss();
+    assert.equal(original.focusCount, 0);
+    assert.strictEqual(doc.activeElement, fallback);
+  }
+  const { doc, original, fallback, container } = focusFixture();
+  const store = createErrorToastStore(() => doc);
+  store.show('Failure');
+  original.isConnected = false;
+  container.isConnected = false;
+  assert.doesNotThrow(() => store.dismiss());
+  assert.equal(fallback.focusCount, 0);
+});
+
+test('clearance tracks measured wrapping height plus bottom-6 and resets on dismiss', () => {
+  const store = createErrorToastStore(() => undefined);
+  assert.equal(store.getClearance(), 0);
+  store.show('Wrapped error');
+  store.setHeight(92);
+  assert.equal(store.getClearance(), 116);
+  store.setHeight(140);
+  assert.equal(store.getClearance(), 164);
+  store.dismiss();
+  store.setHeight(140);
+  assert.equal(store.getClearance(), 0);
+  assert.match(toast, /new ResizeObserver\(measure\)/);
+  assert.match(toast, /onHeightChange\(toast.getBoundingClientRect\(\).height\)/);
+  assert.match(panel, /const errorToastClearance = useErrorToastClearance\(\)/);
+  assert.match(panel, /aria-label="Edit prompt"\s*style=\{errorToastClearance \? \{ paddingBottom: errorToastClearance \+ 16 \}/);
+  assert.match(panel, /maxHeight: `min\(85vh, calc\(100dvh - \$\{errorToastClearance \+ 32\}px\)\)`/);
+  assert.match(studio, /overflow-y-auto[^\n]+style=\{\{ width: sidebarW, paddingBottom: errorToastClearance \|\| undefined/);
+});
+
+test('refine analysis and expansion report one deduped persistent error instead of an error pill', () => {
+  const handlers = imageDisplay.slice(imageDisplay.indexOf('const handleAnalyzeRefineClick'), imageDisplay.indexOf('const handleResizeCanvasClick'));
+  assert.match(handlers, /setErrorToast\(error\?\.message \|\| 'Analysis failed'\)/);
+  assert.match(handlers, /setErrorToast\(error\?\.message \|\| 'Expand failed'\)/);
+  assert.equal((handlers.match(/setErrorToast\(null\)/g) ?? []).length, 2);
+  assert.doesNotMatch(handlers, /showNotice\([^\n]+, 'error'\)/);
+  assert.match(handlers, /showNotice\('Prompt expanded\.'\)/);
+  for (const name of ['handleAnalyzeRefinePrompt', 'handleExpandRefinementPrompt']) {
+    assert.match(app.slice(app.indexOf(`const ${name}`)), /=> \{\s*setError\(null\)/);
+  }
+});
+
+test('header signup, auth submit and feedback primary actions use teal with a dark label', () => {
+  const classes = [
+    app.match(/className="([^"]+)"\s*>\s*Sign Up\s*<\/button>/)?.[1],
+    source('components/AuthModal.tsx').match(/type="submit"[\s\S]*?className="([^"]+)"/)?.[1],
+    source('components/FeedbackModal.tsx').match(/<button type="submit"[^>]+className="([^"]+)"/)?.[1],
+    source('components/FeedbackModal.tsx').match(/<a href=\{issue.url\}[^>]+className="([^"]+)"/)?.[1],
+  ];
+  for (const value of classes) {
+    assert.ok(value, 'primary CTA not found');
+    for (const token of ['bg-brand-teal', 'hover:bg-teal-600', 'text-[#0d1117]', 'shadow-lg', 'shadow-brand-teal/20', 'text-sm']) assert.ok(value.includes(token), `missing ${token}`);
+    assert.match(value, /min-h-(?:11|\[44px\])/);
+    assert.doesNotMatch(value, /brand-red|text-white/);
+  }
 });

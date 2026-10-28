@@ -4,7 +4,8 @@ import { getUserApiKeyStatus } from './services/userApiKeyService';
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ControlPanel } from './components/ControlPanel';
 import { ImageDisplay } from './components/ImageDisplay';
-import { ErrorToast } from './components/ErrorToast';
+import { ErrorToastHost } from './components/ErrorToast';
+import { setErrorToast as setError } from './utils/errorToastStore';
 import { RecentGenerations } from './components/RecentGenerations';
 import type { GalleryPresetSource } from './components/GalleryPresetMenu';
 import { ToolbarPresetSnapshot } from './utils/toolbarPresetUtils';
@@ -521,7 +522,6 @@ const App: React.FC = () => {
   const currentGenerationRef = useRef<Generation | null>(null);
   const historyRef = useRef<Generation[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeGenerationJobs, setActiveGenerationJobs] = useState<ActiveGenerationJob[]>([]);
   const hasRunningGenerationJobs = activeGenerationJobs.some((job) =>
     job.status === 'running' || job.status === 'stopping'
@@ -2645,6 +2645,7 @@ const App: React.FC = () => {
   );
 
   const handleAnalyzeRefinePrompt = async (): Promise<string> => {
+    setError(null);
     if (!currentGeneration) {
       throw new Error('Restore or generate an image first.');
     }
@@ -2716,6 +2717,7 @@ const App: React.FC = () => {
   };
 
   const handleExpandRefinementPrompt = async (draft: string): Promise<string> => {
+    setError(null);
     if (!currentGeneration) {
       throw new Error('Restore or generate an image first.');
     }
@@ -3793,6 +3795,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col w-full min-h-screen font-sans transition-colors duration-200">
+      <ErrorToastHost />
 
       {/* What's New spotlight - auto-fires for the newest featured entry the
           current user hasn't dismissed. Lives outside the scrollable layout
@@ -4070,7 +4073,7 @@ const App: React.FC = () => {
               </button>
               <button 
                 onClick={() => openAuthModal('signup')}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg bg-brand-red px-4 py-2 text-sm font-bold text-white shadow-[0_10px_15px_-3px_rgba(220,38,38,0.35)] transition-all duration-150 hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-[#0d1117]"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-lg bg-brand-teal px-4 py-2 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-all duration-150 hover:bg-teal-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-[#0d1117]"
               >
                 Sign Up
               </button>
@@ -4293,11 +4296,6 @@ const App: React.FC = () => {
           {/* Main Content Area */}
           <main className="pixtaffy-studio-surface flex-1 relative flex flex-col min-w-0 transition-colors duration-200">
             
-            {/* Error Toast */}
-            {error && (
-              <ErrorToast message={error} onDismiss={() => setError(null)} dismissLabel="Dismiss error" />
-            )}
-
             {/* Finished-generation toast - quiet click-to-view notice shown
                 when a generation completes while the user is on another tile
                 (the preview is never hijacked). Bottom-right so it stays

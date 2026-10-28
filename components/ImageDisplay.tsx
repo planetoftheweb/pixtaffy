@@ -14,6 +14,7 @@ import { normalizeAspectRatio } from '../services/aspectRatioService';
 import { RichSelect, RichSelectOption } from './RichSelect';
 import { DownloadMenu } from './DownloadMenu';
 import { JuxtaposeSlider } from './JuxtaposeSlider';
+import { setErrorToast } from '../utils/errorToastStore';
 
 export interface ImageDisplayMarkRef {
   generationId: string;
@@ -1504,6 +1505,7 @@ ${version.svgCode}
 
   const handleAnalyzeRefineClick = async () => {
     if (refinementControlsLocked) return;
+    setErrorToast(null);
     setIsAnalyzingRefinePrompt(true);
     try {
       const prompt = await onAnalyzeRefinePrompt();
@@ -1516,7 +1518,7 @@ ${version.svgCode}
         showNotice('Analysis finished with no prompt.');
       }
     } catch (error: any) {
-      showNotice(error?.message || 'Analysis failed', 'error');
+      setErrorToast(error?.message || 'Analysis failed');
     } finally {
       setIsAnalyzingRefinePrompt(false);
     }
@@ -1524,6 +1526,7 @@ ${version.svgCode}
 
   const handleExpandRefinementClick = async () => {
     if (refinementControlsLocked) return;
+    setErrorToast(null);
     setIsExpandingRefinement(true);
     try {
       const expanded = await onExpandRefinementPrompt(refinementInput);
@@ -1534,7 +1537,7 @@ ${version.svgCode}
         showNotice('Expand finished with no text.');
       }
     } catch (error: any) {
-      showNotice(error?.message || 'Expand failed', 'error');
+      setErrorToast(error?.message || 'Expand failed');
     } finally {
       setIsExpandingRefinement(false);
     }
