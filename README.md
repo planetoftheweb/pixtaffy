@@ -151,6 +151,12 @@ and the raw HTTP contract.
 
 ## Deployment
 
+Build with the target project's `.env.production.local` and unset stray `VITE_` shell variables. The hosting guard runs first in `prebuild` and checks the built bundle against the deploy target in the hosting predeploy hook.
+
+`PIXTAFFY_GUARD_ALLOW_MISSING` accepts a comma list of deliberately absent variable names and prints a warning for each; it never permits placeholders or a wrong project. For build-only CI output, `CI=true` or `PIXTAFFY_ALLOW_PLACEHOLDER_BUILD=1` permits placeholder or missing config with a notice that the bundle is not deployable. The deploy guard always applies strict checks.
+
+The client falls back to a built-in App Check site key when `VITE_FIREBASE_APPCHECK_SITE_KEY` is unset, so a built bundle always contains one. The build-time check is therefore the one that catches a missing App Check variable; the deploy-time bundle check validates the Firebase config and project id.
+
 PixTaffy is hosted on Firebase Hosting, with Firebase Functions, Firestore, and Storage in the `brandoit` project. Deploy the frontend and protected backend with the Firebase CLI after the production build and test gates pass.
 
 ## License

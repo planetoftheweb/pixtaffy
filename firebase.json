@@ -26,6 +26,7 @@
     {
       "target": "pixtaffy",
       "public": "dist",
+      "predeploy": ["node scripts/check-hosting-env.mjs --dist"],
       "ignore": [
         "firebase.json",
         "**/.*",
