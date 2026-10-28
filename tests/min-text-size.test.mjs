@@ -52,3 +52,8 @@ test('minimum size guard recognizes responsive, decimal, inline, CSS and SVG siz
   ]) assert.equal(violations(source).length, 1, source);
   assert.equal(violations('text-[12px] fontSize: 12; font-size: 14px').length, 0);
 });
+
+test('DESIGN.md states the eyebrow label rule exactly', () => {
+  const design = readFileSync(new URL('DESIGN.md', root), 'utf8');
+  assert.ok(design.includes('- Eyebrow labels are 12px (text-[12px]), uppercase, tracking-wide, never smaller.\n'));
+});

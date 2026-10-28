@@ -122,8 +122,8 @@ back to Inter. The Tailwind text scale is **remapped one step up** in
 
 - Weights: `font-semibold` and `font-bold` for labels/buttons, `font-medium`
   for body. Nothing lighter than normal.
-- **Section/eyebrow labels**: 12px, bold/semibold, `uppercase
-  tracking-wide`, slate-400/500. Dropdown section headers:
+- Eyebrow labels are 12px (text-[12px]), uppercase, tracking-wide, never smaller.
+- Eyebrow and section labels are bold/semibold, slate-400/500. Dropdown section headers:
   `px-3 pt-2 pb-1 text-[12px] font-bold uppercase tracking-wide
   text-slate-500 dark:text-slate-400`.
 - **Counters and page numbers get `tabular-nums`** (often + `leading-none`) so
