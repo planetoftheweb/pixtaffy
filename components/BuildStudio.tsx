@@ -692,7 +692,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       const availW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
       const layoutTop = el.parentElement!.parentElement!.getBoundingClientRect().top;
       const stageTop = el.getBoundingClientRect().top;
-      const availH = (window.innerWidth < 1024 || (window.innerWidth === 1024 && window.matchMedia('(pointer: coarse)').matches))
+      const availH = window.matchMedia('(max-width:767px), (max-width:1023px) and (orientation:portrait)').matches
         ? Math.max(0, Math.min(window.innerHeight * 0.5, availW * imgDims.h / imgDims.w,
             (window.innerHeight - layoutTop) * 0.6 - (stageTop - layoutTop) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)))
         : el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
@@ -2032,9 +2032,9 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row [@media(pointer:coarse)_and_(max-width:1024px)]:flex-col">
+      <div className="flex-1 min-h-0 flex flex-col side:flex-row">
         {/* Stage */}
-        <div className="flex-1 max-lg:flex-none [@media(pointer:coarse)_and_(max-width:1024px)]:flex-none min-w-0 flex flex-col">
+        <div className="flex-1 stack:flex-none min-w-0 flex flex-col">
           {/* Tool bar — its own strip ABOVE the image, never covering it. */}
           {mode === 'edit' && !cleanMode && image && !loadError && (
             <div className="shrink-0 min-w-0 flex justify-center pt-3 px-4">
@@ -2177,7 +2177,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             onPointerMove={onStagePanMove}
             onPointerUp={endPan}
             onPointerCancel={endPan}
-            className={`flex-1 max-lg:flex-none [@media(pointer:coarse)_and_(max-width:1024px)]:flex-none min-h-0 flex items-center justify-center p-4 relative overflow-hidden ${isFullscreen ? 'bg-black' : ''} ${spaceHeld && mode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex-1 stack:flex-none min-h-0 flex items-center justify-center p-4 relative overflow-hidden ${isFullscreen ? 'bg-black' : ''} ${spaceHeld && mode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
             // In Preview on a 'blank' build, the whole stage (letterbox bars
             // included) takes the image's own background color — a frame shown
             // in isolation then sits on the color it was drawn on instead of
@@ -2504,7 +2504,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
             titled sections, item rows carry just a badge/name/duration, and
             everything else appears on hover or selection. */}
         {mode === 'edit' && !cleanMode && sidebarOpen && (
-          <div className="relative shrink-0 min-h-0 max-lg:flex-1 max-lg:max-h-none max-lg:min-h-[40%] max-lg:!w-full [@media(pointer:coarse)_and_(max-width:1024px)]:flex-1 [@media(pointer:coarse)_and_(max-width:1024px)]:max-h-none [@media(pointer:coarse)_and_(max-width:1024px)]:min-h-[40%] [@media(pointer:coarse)_and_(max-width:1024px)]:!w-full overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
+          <div className="relative shrink-0 min-h-0 stack:flex-1 stack:max-h-none stack:min-h-[40%] stack:!w-full overflow-y-auto border-l border-[#30363d] flex flex-col" style={{ width: sidebarW, paddingBottom: errorToastClearance || undefined }}>
             {/* Drag the left edge to resize the panel. */}
             <div
               onPointerDown={onSideResizeDown}

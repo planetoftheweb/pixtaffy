@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { compile } from 'tailwindcss';
+import postcss from 'postcss';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
@@ -132,8 +134,8 @@ test('gallery toolbar wraps within the content box without clipping tooltip over
 
 test('Build Studio wraps its toolbar and measures both pill dimensions when clamping a drag', () => {
   assert.match(studio, /ref=\{toolbarRef\}\s+className="relative z-30 flex flex-wrap lg:flex-nowrap justify-center max-w-full/);
-  assert.match(studio, /flex-1 min-h-0 flex flex-col lg:flex-row/);
-  assert.match(studio, /max-lg:flex-1 max-lg:max-h-none max-lg:min-h-\[40%\] max-lg:!w-full/);
+  assert.match(studio, /flex-1 min-h-0 flex flex-col side:flex-row/);
+  assert.match(studio, /stack:flex-1 stack:max-h-none stack:min-h-\[40%\] stack:!w-full/);
   assert.match(studio, /toolbarRef\.current\?\.getBoundingClientRect\(\)/);
   assert.match(studio, /rootR\.right - pill\.width/);
   assert.match(studio, /rootR\.bottom - pill\.height/);
@@ -302,6 +304,7 @@ test('coarse-pointer studio controls keep 44px targets at tablet widths and hide
   const dividers = studio.match(/className="w-px h-6[^"]*"/g) || [];
   assert.equal(dividers.length, 5);
   assert.ok(dividers.every(classes => classes.includes('max-lg:hidden')));
+  assert.ok(dividers.every(classes => classes.includes('[@media(pointer:coarse)_and_(max-width:1024px)]:hidden')));
   const tree = ts.createSourceFile('BuildStudio.tsx', studio, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const headerButtons = [];
   const scan = node => {
@@ -319,23 +322,63 @@ test('coarse-pointer studio controls keep 44px targets at tablet widths and hide
   assert.equal(headerButtons.length, 4, 'check every header action, including disabled exports');
 });
 
-test('stage stacks below lg and on 1024px touch screens without measuring its own height', () => {
-  assert.match(studio, /flex-1 max-lg:flex-none[^\n]*min-w-0 flex flex-col/);
-  assert.match(studio, /flex-1 max-lg:flex-none[^\n]*min-h-0 flex items-center/);
-  assert.doesNotMatch(studio, /max-md:|md:flex-row|max-sm:hidden|innerWidth < 768/);
-  const touch = '[@media(pointer:coarse)_and_(max-width:1024px)]:';
-  for (const classes of ['flex-col', 'flex-none', 'flex-1', 'max-h-none', 'min-h-[40%]', '!w-full', 'hidden']) {
-    assert.ok(studio.includes(touch + classes), `1024px touch: ${classes}`);
+const stackQuery = '(max-width:767px), (max-width:1023px) and (orientation:portrait)';
+const sideQuery = '(min-width:1024px), (min-width:768px) and (orientation:landscape)';
+
+test('stack and side variants compile complete complementary media lists', async () => {
+  const css = postcss.parse(source('index.css'));
+  const variants = css.nodes.filter(node => node.name === 'custom-variant' && ['stack', 'side'].includes(node.params));
+  assert.equal(variants.length, 2);
+  assert.ok(variants.every(node => css.nodes.indexOf(node) > css.nodes.findLastIndex(node => node.name === 'import')));
+  const compiler = await compile(variants.map(node => node.toString()).join('\n') + '\n@tailwind utilities;');
+  const compiled = postcss.parse(compiler.build(['stack:flex-none', 'side:flex-row']));
+  for (const [selector, query, property, value] of [
+    ['.stack\\:flex-none', stackQuery, 'flex', 'none'],
+    ['.side\\:flex-row', sideQuery, 'flex-direction', 'row'],
+  ]) {
+    let found = 0;
+    compiled.walkRules(selector, rule => {
+      assert.equal(rule.nodes.length, 1, 'the variant must emit one complete media query list');
+      const media = rule.nodes[0];
+      assert.equal(media.name, 'media');
+      assert.equal(media.params, query);
+      assert.ok(media.nodes.some(node => node.prop === property && node.value === value));
+      found++;
+    });
+    assert.equal(found, 1, `${selector} must compile`);
   }
+  const matches = (query, width, height) => query.split(',').some(branch =>
+    [...branch.matchAll(/\((max|min)-width:(\d+)px\)|\(orientation:(portrait|landscape)\)/g)]
+      .every(([, bound, limit, orientation]) => orientation
+        ? (orientation === 'portrait' ? height >= width : width > height)
+        : bound === 'max' ? width <= Number(limit) : width >= Number(limit)));
+  for (const width of [320, 390, 767, 768, 800, 1023, 1024, 1280]) {
+    for (const height of [width - 100, width, width + 100]) {
+      const stacked = matches(stackQuery, width, height);
+      assert.equal(stacked, width <= 767 || (width <= 1023 && height >= width), `${width}x${height}`);
+      assert.notEqual(stacked, matches(sideQuery, width, height), `${width}x${height}: no gap or overlap`);
+    }
+  }
+});
+
+test('stage stacks only when narrow or portrait without measuring its own height', () => {
+  assert.match(studio, /flex flex-col side:flex-row/);
+  assert.match(studio, /flex-1 stack:flex-none[^\n]*min-w-0 flex flex-col/);
+  assert.match(studio, /flex-1 stack:flex-none[^\n]*min-h-0 flex items-center/);
+  assert.match(studio, /stack:flex-1 stack:max-h-none stack:min-h-\[40%\] stack:!w-full/);
+  assert.doesNotMatch(studio, /max-lg:(?!hidden)|lg:flex-row|innerWidth < 1024|pointer: coarse/);
+  const touch = '[@media(pointer:coarse)_and_(max-width:1024px)]:';
+  assert.deepEqual(studio.split(touch).slice(1).map(rest => rest.split(/[\s"]/)[0]), Array(5).fill('hidden'),
+    'coarse pointer conditions only hide dividers');
   const measureBody = studio.match(/const measure = \(\) => \{([\s\S]*?)\n    \};/)[1];
   const compiledMeasure = ts.transpileModule(measureBody, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const measure = new Function('window', 'el', 'imgDims', 'fitBox', 'setBox', compiledMeasure);
   const cs = { paddingTop: '16', paddingBottom: '16', paddingLeft: '16', paddingRight: '16' };
   const layoutTop = 69;
-  for (const [width, viewportHeight, coarse] of [[320, 640, true], [390, 844, true], [768, 1024, true], [1023, 768, false], [1024, 768, true]]) {
-    const window = { innerWidth: width, innerHeight: viewportHeight, getComputedStyle: () => cs, matchMedia: query => {
-      assert.equal(query, '(pointer: coarse)');
-      return { matches: coarse };
+  for (const [width, viewportHeight] of [[320, 640], [390, 844], [767, 500], [768, 1024], [1023, 1366]]) {
+    const window = { innerHeight: viewportHeight, getComputedStyle: () => cs, matchMedia: query => {
+      assert.equal(query, stackQuery);
+      return { matches: true };
     } };
     for (const toolbarHeight of [70, 116, 162]) {
       const el = {
@@ -354,14 +397,21 @@ test('stage stacks below lg and on 1024px touch screens without measuring its ow
       }
     }
   }
-  for (const [width, coarse] of [[1024, false], [1280, false], [1280, true]]) {
-    measure({ innerWidth: width, getComputedStyle: () => cs, matchMedia: () => ({ matches: coarse }) }, {
-      clientWidth: 432, clientHeight: 600,
+  assert.match(studio, /window.addEventListener\('resize', measure\)/);
+  assert.match(studio, /window.removeEventListener\('resize', measure\)/);
+  for (const [width, height] of [[768, 600], [800, 600], [1023, 768], [1024, 768], [1024, 1366], [1280, 800], [768, 1024]]) {
+    const stacked = width <= 767 || (width <= 1023 && height >= width);
+    measure({ innerHeight: height, getComputedStyle: () => cs, matchMedia: query => {
+      assert.equal(query, stackQuery);
+      return { matches: stacked };
+    } }, {
+      clientWidth: width, clientHeight: 600,
       getBoundingClientRect: () => ({ top: 139 }),
       parentElement: { parentElement: { getBoundingClientRect: () => ({ top: layoutTop }) } },
-    }, { w: 1600, h: 900 }, (_w, h) => h, actual => assert.equal(actual, 568));
+    }, { w: 1600, h: 900 }, (_w, h) => h, actual => assert.equal(actual, stacked
+      ? Math.min(height * 0.5, (width - 32) * 900 / 1600, (height - layoutTop) * 0.6 - 70 - 32)
+      : 568));
   }
-  assert.match(studio, /window.addEventListener\('resize', measure\)/);
 });
 
 test('primary actions are teal with dark text while folder deletion stays red', () => {
@@ -450,7 +500,7 @@ test('amber scan catches literal, multiline, hover and conditional combinations 
 
 test('design rules and every component class list keep white off amber, including armed confirms', () => {
   for (const rule of [
-    'Below lg, the stage hugs its image; leftover height goes to the panel, never to empty space around the image.',
+    'Below md, or below lg in portrait, the stage stacks above the panel and hugs its image; leftover height goes to the panel, never to empty space around the image. Landscape tablets stay side by side.',
     'Favorite star icon = amber-400 (icon only, never a fill behind text).',
     'bg-amber-500 text-[#0d1117] animate-pulse',
     'Amber backgrounds always take #0d1117 text; amber text/icons on photos need a solid dark chip behind them.',
