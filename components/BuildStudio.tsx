@@ -25,6 +25,8 @@ import {
 import { loadBuildSync, loadRemoteBuild, saveLocalBuild, saveBuild } from '../services/buildStore';
 import { friendlyAiAssistError } from '../services/aiAssistGuard';
 import { autoDetectBuildRegionsPaid, nameBuildRegionsPaid } from '../services/paidAiService';
+import { ErrorToast } from './ErrorToast';
+import { dismissErrorToastOnEscape, dismissTopErrorToast, hasVisibleErrorToast } from '../utils/errorToastEscape';
 
 type BuildTool = 'freeform' | 'rectangle' | 'brush';
 
@@ -1519,6 +1521,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   // the window listener attaches exactly once.
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   keyHandlerRef.current = (e: KeyboardEvent) => {
+    if (dismissErrorToastOnEscape(e, hasVisibleErrorToast(), dismissTopErrorToast)) return;
     // Build Studio is a modal — keys must never leak to the app's global
     // shortcuts underneath (e.g. holding a digit arms the gallery's
     // "next click adds N Marks"). We listen in the capture phase, so
@@ -2863,12 +2866,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       </div>
 
       {aiAssistError && (
-        <div role="alert" className="shrink-0 px-4 py-2 text-sm text-red-200 border-t border-red-800 bg-red-900/30 flex items-center justify-between gap-2">
-          <span>{aiAssistError}</span>
-          <button type="button" aria-label="Dismiss AI assist error" onClick={() => setAiAssistError(null)} className="min-h-11 min-w-11 flex items-center justify-center rounded-lg hover:bg-red-900/50">
-            <X size={18} />
-          </button>
-        </div>
+        <ErrorToast message={aiAssistError} onDismiss={() => setAiAssistError(null)} />
       )}
       {status && !cleanMode && (
         <div className="shrink-0 px-4 py-2 text-xs text-slate-300 border-t border-[#30363d] bg-black/30">{status}</div>

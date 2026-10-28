@@ -61,6 +61,8 @@ import { RichSelect } from './RichSelect';
 import { useConfirmAction } from '../hooks/useConfirmAction';
 import { AnchorRect, PresetActionPopover } from './PresetActionPopover';
 import { PresetHoverPreview } from './PresetHoverPreview';
+import { ErrorToast } from './ErrorToast';
+import { dismissErrorToastOnEscape, dismissTopErrorToast, hasVisibleErrorToast } from '../utils/errorToastEscape';
 
 /** Fields persisted when saving/updating a toolbar preset (see App `handleSavePreset`). */
 type ToolbarPresetSnapshot = Omit<ToolbarPreset, 'id' | 'name' | 'createdAt'>;
@@ -943,6 +945,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const hueSliderRef = useRef<HTMLDivElement>(null);
 
   const [aiAssistError, setAiAssistError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isPromptModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (dismissErrorToastOnEscape(event, hasVisibleErrorToast(), dismissTopErrorToast)) return;
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setIsPromptModalOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
+  }, [isPromptModalOpen]);
 
   const handleExpandPrompt = async () => {
     if (!config.prompt || isExpandingPrompt) return;
@@ -1932,13 +1947,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <>
-      {aiAssistError && createPortal(
-        <div role="alert" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] max-w-[calc(100vw-2rem)] flex items-center gap-2 rounded-lg border border-red-200 dark:border-red-800 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 px-4 py-2 shadow-lg">
-          <span className="text-sm font-medium">{aiAssistError}</span>
-          <button type="button" aria-label="Dismiss AI assist error" onClick={() => setAiAssistError(null)} className="min-h-11 min-w-11 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 flex items-center justify-center">
-            <X size={18} />
-          </button>
-        </div>, document.body,
+      {aiAssistError && (
+        <ErrorToast message={aiAssistError} onDismiss={() => setAiAssistError(null)} />
       )}
       <div
         className={`sticky top-[73px] z-40 w-full transition-[padding] duration-300 [overflow-anchor:none] ${
@@ -3046,10 +3056,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 value={config.prompt}
                 onChange={(e) => handleChange('prompt', e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    setIsPromptModalOpen(false);
-                  }
                   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                     e.preventDefault();
                     if (!generateButtonDisabled) {
@@ -3125,7 +3131,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsPromptModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-brand-red hover:bg-red-700 text-white font-semibold text-sm shadow-md shadow-brand-red/20 transition-colors"
+                  className="px-4 py-2 rounded-lg bg-brand-teal hover:bg-teal-600 text-[#0d1117] font-semibold text-sm shadow-md shadow-brand-teal/20 transition-colors"
                 >
                   Done
                 </button>

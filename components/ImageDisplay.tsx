@@ -3303,7 +3303,7 @@ ${version.svgCode}
 
       {copyNotice && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
-          <div className={`text-white text-base px-6 py-4 rounded-2xl shadow-2xl border animate-in fade-in duration-150 pointer-events-none ${copyNoticeTone === 'error' ? 'bg-brand-red border-brand-red/70' : 'bg-black/90 border-white/10'}`} role="status" aria-live="polite">
+          <div className={`text-white text-base px-6 py-4 rounded-2xl shadow-2xl border animate-in fade-in duration-150 pointer-events-none ${copyNoticeTone === 'error' ? 'bg-red-900 border-brand-red/70' : 'bg-black/90 border-white/10'}`} role={copyNoticeTone === 'error' ? 'alert' : 'status'} aria-live={copyNoticeTone === 'error' ? undefined : 'polite'}>
             {copyNotice}
           </div>
         </div>

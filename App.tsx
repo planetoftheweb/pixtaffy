@@ -4,6 +4,7 @@ import { getUserApiKeyStatus } from './services/userApiKeyService';
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ControlPanel } from './components/ControlPanel';
 import { ImageDisplay } from './components/ImageDisplay';
+import { ErrorToast } from './components/ErrorToast';
 import { RecentGenerations } from './components/RecentGenerations';
 import type { GalleryPresetSource } from './components/GalleryPresetMenu';
 import { ToolbarPresetSnapshot } from './utils/toolbarPresetUtils';
@@ -4294,13 +4295,7 @@ const App: React.FC = () => {
             
             {/* Error Toast */}
             {error && (
-              <div role="alert" className="absolute top-8 left-1/2 -translate-x-1/2 z-50 bg-red-100 dark:bg-red-900/90 text-red-800 dark:text-red-100 px-4 py-3 rounded-lg shadow-lg border border-red-200 dark:border-red-800 flex items-center gap-2 animate-bounce-in backdrop-blur-sm">
-                <AlertCircle size={20} />
-                <span className="text-sm font-medium">{error}</span>
-                <button type="button" aria-label="Dismiss error" onClick={() => setError(null)} className="ml-2 min-h-11 min-w-11 hover:bg-red-200 dark:hover:bg-red-800 p-1 rounded">
-                  ✕
-                </button>
-              </div>
+              <ErrorToast message={error} onDismiss={() => setError(null)} dismissLabel="Dismiss error" />
             )}
 
             {/* Finished-generation toast - quiet click-to-view notice shown

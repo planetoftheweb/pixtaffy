@@ -3183,7 +3183,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
 
       {toastMessage && (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
-          <div className={`text-white text-sm px-4 py-3 rounded-lg shadow-2xl border animate-in fade-in duration-150 ${toastTone === 'error' ? 'bg-brand-red border-brand-red/70' : 'bg-black/90 border-white/10'}`} role="status" aria-live="polite">
+          <div className={`text-white text-sm px-4 py-3 rounded-lg shadow-2xl border animate-in fade-in duration-150 ${toastTone === 'error' ? 'bg-red-900 border-brand-red/70' : 'bg-black/90 border-white/10'}`} role={toastTone === 'error' ? 'alert' : 'status'} aria-live={toastTone === 'error' ? undefined : 'polite'}>
             {toastMessage}
           </div>
         </div>
