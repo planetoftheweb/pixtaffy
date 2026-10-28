@@ -950,7 +950,7 @@ test('incomplete auth and feedback form guards report specific errors before any
     assert.equal(getFeedbackFormBlocker(message), expected);
     let error;
     const handle = evaluateComponent('components/FeedbackModal.tsx', 'sendFeedback', {
-      message, busy: false, getFeedbackFormBlocker, setError: value => { error = value; },
+      message, contactEmail: '', busy: false, getFeedbackFormBlocker, setError: value => { error = value; },
       setBusy: () => assert.fail('incomplete feedback must not start a request'),
       submitFeedback: () => assert.fail('feedback backend must never be called'),
     });
@@ -971,12 +971,77 @@ test('incomplete auth and feedback form guards report specific errors before any
   const auth = source('components/AuthModal.tsx');
   const feedback = source('components/FeedbackModal.tsx');
   assert.match(auth, /<form noValidate onSubmit=\{handleSubmit\}/);
-  assert.match(feedback, /<form onSubmit=\{\(event\) => void sendFeedback\(event\)\}/);
+  assert.match(feedback, /<form noValidate onSubmit=\{\(event\) => void sendFeedback\(event\)\}/);
   for (const text of [auth, feedback]) {
     assert.match(text, /role="alert"/);
     assert.match(text, /<button\s+type="submit"\s+aria-disabled=/);
     assert.doesNotMatch(text, /if \((?:submitDisabled|sendDisabled)(?: \|\|[^)]*)?\) return/);
   }
+});
+
+test('password reset reports an empty email before backend work and returns silently while busy', async () => {
+  const auth = source('components/AuthModal.tsx');
+  const handler = auth.slice(auth.indexOf('  const handlePasswordReset ='), auth.indexOf('  const toggleMode ='));
+  assert.match(handler, /const handlePasswordReset = async \(\) => \{\s+if \(busy\) return;/);
+  assert.doesNotMatch(handler, /if \(resetDisabled\) return;/);
+  for (const email of ['', '   ']) {
+    for (const busy of [false, true]) {
+      let error = 'old error';
+      let status = 'old status';
+      await evaluateComponent('components/AuthModal.tsx', 'handlePasswordReset', {
+        busy, resetDisabled: true, email,
+        setError: value => { error = value; }, setStatus: value => { status = value; },
+        setIsResetting: () => assert.fail('empty email must not start a reset request'),
+        authService: { requestPasswordReset: () => assert.fail('reset service must never be called') },
+      })();
+      assert.equal(error, busy ? 'old error' : 'Enter your email or username first.');
+      assert.equal(status, busy ? 'old status' : null);
+    }
+  }
+});
+
+test('feedback accepts optional contact emails and checks the message before the email', () => {
+  for (const contactEmail of [undefined, '', '   ', 'a@b', ' a@b ']) {
+    assert.equal(getFeedbackFormBlocker('A useful note', contactEmail), null);
+  }
+  for (const contactEmail of ['not an email', 'a@', '@b', 'a@@b', 'a b@c']) {
+    assert.equal(getFeedbackFormBlocker('A useful note', contactEmail), 'Enter a valid email address.');
+  }
+  assert.equal(getFeedbackFormBlocker(' ab ', 'not an email'), 'Write a short note so we know what to look at.');
+});
+
+test('feedback reports a bad contact email inline without starting a request', async () => {
+  let error;
+  let prevented = false;
+  await evaluateComponent('components/FeedbackModal.tsx', 'sendFeedback', {
+    message: 'A useful note', contactEmail: 'not an email', busy: false, getFeedbackFormBlocker,
+    setError: value => { error = value; },
+    setBusy: () => assert.fail('invalid contact email must not start a request'),
+    submitFeedback: () => assert.fail('feedback backend must never be called'),
+  })({ preventDefault: () => { prevented = true; } });
+  assert.ok(prevented);
+  assert.equal(error, 'Enter a valid email address.');
+  assert.match(source('components/FeedbackModal.tsx'), /const sendDisabled = busy \|\| message\.trim\(\)\.length < 3;/);
+});
+
+test('feedback keeps its inline error inside the sticky footer above both actions', () => {
+  const tree = ts.createSourceFile('FeedbackModal.tsx', source('components/FeedbackModal.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const footers = [];
+  const findFooter = node => {
+    if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attr =>
+      attr.name?.getText(tree) === 'className' && attr.initializer?.text?.includes('sticky bottom-0'))) footers.push(node);
+    ts.forEachChild(node, findFooter);
+  };
+  findFooter(tree);
+  assert.equal(footers.length, 1);
+  const footer = footers[0];
+  const alert = footer.children.find(node => ts.isJsxExpression(node) && node.getText(tree).includes('role="alert"'));
+  const actions = footer.children.find(node => ts.isJsxElement(node) && node.getText(tree).includes('type="submit"'));
+  assert.ok(alert, 'the sticky footer must contain the inline error so it cannot cover it');
+  assert.ok(actions, 'the action row stays inside the same sticky footer');
+  assert.ok(alert.end < actions.getStart(tree), 'the error must precede the action row at every breakpoint');
+  assert.match(actions.getText(tree), /flex flex-col-reverse gap-2 sm:flex-row sm:justify-end/);
+  assert.match(actions.getText(tree), />Cancel<\/button>/);
 });
 
 test('dock eligibility excludes running, stopping and failed rows, including mixed terminal results', () => {
