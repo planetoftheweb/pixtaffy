@@ -799,24 +799,66 @@ export function isAssistBlocked(response: {
     || Boolean(response.candidates?.some((candidate) => ASSIST_BLOCK_REASONS.has(candidate.finishReason ?? "")));
 }
 
+function upstreamErrorFields(error: unknown): unknown[] {
+  const raw = (error ?? {}) as { status?: unknown; code?: unknown; message?: unknown; name?: unknown; error?: unknown };
+  let parsed: unknown;
+  if (typeof raw.message === "string") {
+    try { parsed = JSON.parse(raw.message); } catch { /* Provider messages may be plain text. */ }
+  }
+  return [raw, raw.error, parsed, (parsed as typeof raw | undefined)?.error].flatMap((value) => {
+    const item = value as typeof raw | undefined;
+    return [item?.status, item?.code, item?.name, item?.message];
+  });
+}
+
+export function upstreamStatusOf(error: unknown): number | string | undefined {
+  const fields = upstreamErrorFields(error);
+  for (const value of fields) {
+    if (/^[1-5]\d\d$/.test(String(value))) return Number(value);
+  }
+  const description = fields.map(String).join(" ");
+  const httpStatus = description.match(/\b([45]\d\d)\b/);
+  if (httpStatus) return Number(httpStatus[1]);
+  // Only allow known status words into logs, never arbitrary provider text.
+  return description.match(/\b(UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED|INTERNAL|INVALID_ARGUMENT|PERMISSION_DENIED|UNAUTHENTICATED|NOT_FOUND)\b/i)?.[1].toUpperCase();
+}
+
 export function mapAiAssistError(error: unknown): HttpsError {
   if (error instanceof HttpsError) return error;
   if (error instanceof SyntaxError) return new HttpsError("internal", "AI assist failed. Try again.");
-  const raw = (error ?? {}) as { status?: unknown; code?: unknown; message?: unknown; name?: unknown };
-  const description = [raw.status, raw.code, raw.name, raw.message].map(String).join(" ");
+  const description = upstreamErrorFields(error).map(String).join(" ");
   if (isAssistBlocked(error as Parameters<typeof isAssistBlocked>[0] ?? {})) {
     return new HttpsError("failed-precondition", "The AI could not complete this request. Try rephrasing it.");
   }
-  if (/429|RESOURCE_EXHAUSTED|quota/i.test(description)) {
-    return new HttpsError("resource-exhausted", "PixTaffy AI is busy right now. Wait a moment and try again.");
-  }
-  if (/504|DEADLINE_EXCEEDED|timeout|timed[ -]?out|abort/i.test(description)) {
+  if (/\b504\b|DEADLINE_EXCEEDED|timeout|timed[ -]?out|abort/i.test(description)) {
     return new HttpsError("deadline-exceeded", "The AI request timed out. Wait a moment and try again.");
   }
-  if (/\b5\d\d\b|UNAVAILABLE|INTERNAL|network|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|socket/i.test(description)) {
+  if (/\b429\b|RESOURCE_EXHAUSTED|quota|\b5\d\d\b|UNAVAILABLE|overloaded|high demand|INTERNAL|network|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|socket/i.test(description)) {
     return new HttpsError("unavailable", "PixTaffy AI is temporarily unavailable. Wait a moment and try again.");
   }
   return new HttpsError("internal", "AI assist failed. Try again.");
+}
+
+export async function generateWithUpstreamRetry<T>(
+  generate: (signal: AbortSignal, timeoutMs: number) => Promise<T>,
+  signal: AbortSignal,
+  timeoutMs: number,
+  { sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)), random = Math.random, now = Date.now } = {},
+): Promise<T> {
+  const deadline = now() + timeoutMs;
+  try {
+    return await generate(signal, timeoutMs);
+  } catch (error) {
+    const status = upstreamStatusOf(error);
+    if (error instanceof HttpsError || (status !== 503 && status !== "UNAVAILABLE")
+      || mapAiAssistError(error).code !== "unavailable") throw error;
+    const delay = 250 + Math.floor(random() * 501);
+    if (signal.aborted || deadline - now() - delay < 10_000) throw error;
+    await sleep(delay);
+    const remainingMs = deadline - now();
+    if (signal.aborted || remainingMs < 10_000) throw error;
+    return generate(signal, remainingMs);
+  }
 }
 
 export const runAiAssist = onCall(
@@ -890,7 +932,7 @@ export const runAiAssist = onCall(
       if (imageBase64) {
         parts.unshift({ inlineData: { data: imageBase64, mimeType: payload.mimeType || "image/png" } });
       }
-      const response = await withAiAssistDeadline((abortSignal, timeoutMs) => ai.models.generateContent({
+      const response = await withAiAssistDeadline((signal, deadlineMs) => generateWithUpstreamRetry((abortSignal, timeoutMs) => ai.models.generateContent({
         model: vertexConfig ? vertexConfig.model : "gemini-flash-latest",
         contents: [{ role: "user", parts }],
         config: {
@@ -901,7 +943,7 @@ export const runAiAssist = onCall(
             ? {}
             : { responseMimeType: "application/json" }),
         },
-      }));
+      }), signal, deadlineMs));
       const usage = response.usageMetadata as any;
       const { actualCostUsd, unknownModel } = geminiAssistCost({
         backend: AI_ASSIST_BACKEND,
@@ -967,8 +1009,13 @@ export const runAiAssist = onCall(
         balanceMilliCredits: delivery.balanceMilliCredits,
       };
     } catch (error) {
-      const raw = error as { status?: unknown; code?: unknown; message?: unknown };
-      logger.error("AI assist failed", { status: raw?.status, code: raw?.code, message: error instanceof SyntaxError ? "Invalid AI response JSON" : raw?.message });
+      const mapped = mapAiAssistError(error);
+      const upstreamStatus = upstreamStatusOf(error);
+      if (mapped.code === "unavailable") {
+        logger.warn("AI assist upstream unavailable", { action, upstreamStatus });
+      } else {
+        logger.error("AI assist failed", { action, upstreamStatus, code: error instanceof SyntaxError ? "Invalid AI response JSON" : mapped.code });
+      }
       if (!spendSettlementFailed) {
         await releaseSpendCapacity("gemini", helperSpendReserveUsd, holdId).catch((releaseError) => {
           logger.error("Unable to release Gemini spend capacity", { action, releaseError });
@@ -987,7 +1034,7 @@ export const runAiAssist = onCall(
         reservationId: reservation.reservationId,
         reason: error instanceof Error ? error.message : "Gemini request failed",
       });
-      throw mapAiAssistError(error);
+      throw mapped;
     }
   },
 );
