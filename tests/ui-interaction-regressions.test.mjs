@@ -785,3 +785,18 @@ test('Login is the noun and log in the verb; eyebrow labels keep 11px and 10px; 
   const close = auth.slice(auth.indexOf('aria-label="Close"') - 220, auth.indexOf('aria-label="Close"') + 40);
   assert.match(close, /disabled=\{isLoading \|\| isResetting\}/);
 });
+
+test('issue #74: Edit prompt Done, Edit prompt Expand prompt and Build Studio section headers are 44px on coarse pointers', () => {
+  const panel = readFileSync(new URL('../components/ControlPanel.tsx', import.meta.url), 'utf8');
+  const studio = readFileSync(new URL('../components/BuildStudio.tsx', import.meta.url), 'utf8');
+  const coarse = '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
+  const done = panel.slice(panel.lastIndexOf('<button', panel.indexOf('                  Done\n')), panel.indexOf('                  Done\n'));
+  assert.ok(done.includes(coarse), 'Done keeps coarse 44px');
+  assert.match(done, /bg-brand-teal hover:bg-teal-600 text-\[#0d1117\]/);
+  const expandStart = panel.indexOf('onClick={handleExpandPrompt}\n                disabled=');
+  assert.ok(expandStart > 0, 'modal Expand prompt button found');
+  assert.ok(panel.slice(expandStart, expandStart + 400).includes(coarse), 'modal Expand prompt keeps coarse 44px');
+  const header = studio.slice(studio.indexOf('const SidebarSection'), studio.indexOf('const SidebarSection') + 900);
+  assert.ok(header.includes('[@media(pointer:coarse)]:min-h-11'), 'SidebarSection header keeps coarse min-h-11');
+}
+);

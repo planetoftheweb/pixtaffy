@@ -3256,7 +3256,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 type="button"
                 onClick={handleExpandPrompt}
                 disabled={!config.prompt || isExpandingPrompt}
-                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                className={`inline-flex items-center justify-center gap-2 px-3 py-2 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 rounded-lg border text-sm font-semibold transition-colors ${
                   !config.prompt || isExpandingPrompt
                     ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed'
                     : 'bg-white dark:bg-[#0d1117] text-slate-700 dark:text-slate-200 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white'
@@ -3272,7 +3272,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsPromptModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-brand-teal hover:bg-teal-600 text-[#0d1117] font-semibold text-sm shadow-md shadow-brand-teal/20 transition-colors"
+                  className="px-4 py-2 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 rounded-lg bg-brand-teal hover:bg-teal-600 text-[#0d1117] font-semibold text-sm shadow-md shadow-brand-teal/20 transition-colors"
                 >
                   Done
                 </button>

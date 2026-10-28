@@ -410,7 +410,7 @@ const SidebarSection: React.FC<{ title: string; defaultOpen?: boolean; children:
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="w-full flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-2.5 [@media(pointer:coarse)]:min-h-11 text-[11px] font-bold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition-colors"
       >
         <ChevronRight size={12} className={`transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
         {title}
