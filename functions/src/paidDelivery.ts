@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getStorage } from "firebase-admin/storage";
 
 export interface CachedPaidDelivery {
@@ -107,22 +108,49 @@ export async function readPaidAssistDelivery(
   return parsed;
 }
 
-export async function writePaidAssistDeliveryWithRetry(delivery: CachedPaidAssistDelivery): Promise<void> {
-  const file = getStorage().bucket().file(assistDeliveryPath(delivery.uid, delivery.idempotencyKey));
+type AssistFile = Pick<ReturnType<ReturnType<ReturnType<typeof getStorage>["bucket"]>["file"]>, "save" | "download">;
+
+export async function writePaidAssistDeliveryWithRetry(
+  delivery: CachedPaidAssistDelivery,
+  file: AssistFile = getStorage().bucket().file(assistDeliveryPath(delivery.uid, delivery.idempotencyKey)),
+  sleep: (milliseconds: number) => Promise<void> = wait,
+): Promise<CachedPaidAssistDelivery> {
   let lastError: unknown;
   for (const delay of [0, 250, 750]) {
-    if (delay > 0) await wait(delay);
+    if (delay > 0) await sleep(delay);
     try {
       await file.save(JSON.stringify(delivery), {
         resumable: false,
+        preconditionOpts: { ifGenerationMatch: 0 },
         contentType: "application/json",
         metadata: {
           cacheControl: "private,no-store,max-age=0",
           metadata: { pixtaffyAssistDelivery: "true", createdAt: String(delivery.createdAt) },
         },
       });
-      return;
+      return delivery;
     } catch (error) {
+      const conflict = error as { code?: unknown; status?: unknown; message?: string };
+      if ([409, 412, "409", "412", "ALREADY_EXISTS"].includes(conflict?.code as string | number)
+        || [409, 412].includes(Number(conflict?.status))
+        || /already[ _-]?exists|conditionNotMet/i.test(conflict?.message ?? "")) {
+        let stored: CachedPaidAssistDelivery;
+        try {
+          const [contents] = await file.download();
+          stored = JSON.parse(contents.toString("utf8"));
+          if (!stored || stored.version !== 1 || stored.uid !== delivery.uid
+            || stored.idempotencyKey !== delivery.idempotencyKey || stored.action !== delivery.action
+            || !(stored.reservationId === null || typeof stored.reservationId === "string")) {
+            throw new Error("Invalid delivery identity");
+          }
+        } catch {
+          throw new HttpsError("failed-precondition", "The stored AI delivery could not be validated. Contact support.");
+        }
+        // The first durable delivery wins, including its reservation. If the reservation
+        // differs, the caller settles that stored reservation and releases only its own
+        // unused reservation. Never return the losing provider result or overwrite storage.
+        return stored;
+      }
       lastError = error;
     }
   }

@@ -1,7 +1,10 @@
+import { geminiAssistCost } from "./geminiRates";
+import { enforceRateLimit } from './rateLimit';
 import { stagingOrigins } from "./corsOrigins";
-import { createHash } from "node:crypto";
-import { getFirestore } from "firebase-admin/firestore";
+import { createHash, randomUUID } from "node:crypto";
+import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { GoogleGenAI } from "@google/genai";
+import { buildRunAiAssistOptions, resolveAiAssistBackend, resolveAiAssistVertexConfig } from "./aiAssistBackend";
 import * as logger from "firebase-functions/logger";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
@@ -14,6 +17,7 @@ import {
   releaseBatchReservationItem,
   releaseReservation,
   reserveCredits,
+  reserveAssistCredits,
 } from "./billing";
 import { AI_ASSIST_MILLICREDITS, getPaidModelPrice, paidModelPrices, type AiAssistAction } from "./pricing";
 import { generateOpenRouterImageCore } from "./openRouterProvider";
@@ -39,7 +43,10 @@ import {
 
 const REGION = "us-central1";
 const OPENROUTER_API_KEY = defineSecret("OPENROUTER_API_KEY");
-const PIXTAFFY_GEMINI_API_KEY = defineSecret("PIXTAFFY_GEMINI_API_KEY");
+const AI_ASSIST_BACKEND = resolveAiAssistBackend(process.env);
+const PIXTAFFY_GEMINI_API_KEY = AI_ASSIST_BACKEND === "apikey"
+  ? defineSecret("PIXTAFFY_GEMINI_API_KEY")
+  : undefined;
 const ALLOWED_ORIGINS: Array<string | RegExp> = [
   ...stagingOrigins(),
   "https://pixtaffy.com",
@@ -77,40 +84,17 @@ function validateIdempotencyKey(value: unknown): string {
 }
 
 const dateKey = () => new Date().toISOString().slice(0, 10);
+const holdExpiry = (day: string) => Timestamp.fromMillis(Date.parse(`${day}T00:00:00Z`) + 3 * 24 * 60 * 60 * 1_000);
 
-async function enforceRateLimit(uid: string, kind: "images" | "helpers"): Promise<void> {
-  const now = Date.now();
-  const hourMs = 60 * 60 * 1_000;
-  const dayMs = 24 * hourMs;
-  const hourLimit = kind === "images" ? 20 : 60;
-  const dayLimit = kind === "images" ? 100 : 300;
-  const ref = db().doc(`users/${uid}/private/rate-${kind}`);
+export async function reserveSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number, holdId?: string): Promise<void> {
+  const day = holdId ? holdId.slice(0, 10) : dateKey();
+  const ref = db().doc(`systemSpend/${day}`);
+  // Rules restrict systemSpend and its holds to admins; ordinary clients have no access.
+  const holdRef = holdId ? db().doc(`systemSpend/${day}/holds/${holdId}`) : null;
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const data = snap.data() ?? {};
-    const hourStart = Number(data.hourStart ?? now);
-    const dayStart = Number(data.dayStart ?? now);
-    const inHour = now - hourStart < hourMs;
-    const inDay = now - dayStart < dayMs;
-    const hourCount = inHour ? Number(data.hourCount ?? 0) : 0;
-    const dayCount = inDay ? Number(data.dayCount ?? 0) : 0;
-    if (hourCount >= hourLimit || dayCount >= dayLimit) {
-      throw new HttpsError("resource-exhausted", `PixTaffy ${kind} rate limit reached. Try again later.`);
-    }
-    tx.set(ref, {
-      hourStart: inHour ? hourStart : now,
-      hourCount: hourCount + 1,
-      dayStart: inDay ? dayStart : now,
-      dayCount: dayCount + 1,
-      updatedAt: now,
-    });
-  });
-}
-
-async function reserveSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number): Promise<void> {
-  const ref = db().doc(`systemSpend/${dateKey()}`);
-  await db().runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
+    const hold = holdRef ? await tx.get(holdRef) : null;
+    if (hold?.exists) return;
     const spent = Number(snap.data()?.[`${provider}Usd`] ?? 0);
     const reservedField = `${provider}ReservedUsd`;
     const reserved = Number(snap.data()?.[reservedField] ?? 0);
@@ -122,34 +106,48 @@ async function reserveSpendCapacity(provider: "openrouter" | "gemini", maximumCo
       );
     }
     tx.set(ref, { [reservedField]: reserved + maximumCostUsd, updatedAt: Date.now() }, { merge: true });
+    if (holdRef) tx.set(holdRef, { amount: maximumCostUsd, provider, state: "held", day, expireAt: holdExpiry(day) });
   });
 }
 
-async function releaseSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number): Promise<void> {
-  const ref = db().doc(`systemSpend/${dateKey()}`);
+export async function releaseSpendCapacity(provider: "openrouter" | "gemini", maximumCostUsd: number, holdId?: string): Promise<void> {
+  const day = holdId ? holdId.slice(0, 10) : dateKey();
+  const ref = db().doc(`systemSpend/${day}`);
+  const holdRef = holdId ? db().doc(`systemSpend/${day}/holds/${holdId}`) : null;
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
+    const hold = holdRef ? await tx.get(holdRef) : null;
+    if (holdRef && (!hold?.exists || hold.data()?.state !== "held")) return;
+    const amount = holdRef ? Number(hold!.data()!.amount) : maximumCostUsd;
+    if (holdRef) tx.update(holdRef, { state: "released", releasedAt: Date.now(), expireAt: holdExpiry(day) });
     const field = `${provider}ReservedUsd`;
     const current = Number(snap.data()?.[field] ?? 0);
-    tx.set(ref, { [field]: Math.max(0, current - maximumCostUsd), updatedAt: Date.now() }, { merge: true });
+    tx.set(ref, { [field]: Math.max(0, current - amount), updatedAt: Date.now() }, { merge: true });
   });
 }
 
-async function recordSpend(
+export async function recordSpend(
   provider: "openrouter" | "gemini",
   costUsd: number,
   modelOrAction: string,
   reservedCostUsd = 0,
+  holdId?: string,
 ): Promise<number> {
   const safeCost = Number.isFinite(costUsd) ? Math.max(0, costUsd) : 0;
-  const ref = db().doc(`systemSpend/${dateKey()}`);
+  const day = holdId ? holdId.slice(0, 10) : dateKey();
+  const ref = db().doc(`systemSpend/${day}`);
+  const holdRef = holdId ? db().doc(`systemSpend/${day}/holds/${holdId}`) : null;
   return db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
+    const hold = holdRef ? await tx.get(holdRef) : null;
     const field = `${provider}Usd`;
+    if (hold?.data()?.state === "settled") return { total: Number(snap.data()?.[field] ?? 0), recorded: false };
+    const amount = holdRef ? (hold?.data()?.state === "held" ? Number(hold.data()!.amount) : 0) : reservedCostUsd;
+    if (holdRef) tx.set(holdRef, { state: "settled", settledAt: Date.now(), expireAt: holdExpiry(day), day }, { merge: true });
     const total = Number(snap.data()?.[field] ?? 0) + safeCost;
     const byModel = { ...(snap.data()?.[`${provider}ByModel`] ?? {}) };
     const reservedField = `${provider}ReservedUsd`;
-    const remainingReserved = Math.max(0, Number(snap.data()?.[reservedField] ?? 0) - reservedCostUsd);
+    const remainingReserved = Math.max(0, Number(snap.data()?.[reservedField] ?? 0) - amount);
     const reportingKey = createHash("sha256").update(modelOrAction).digest("hex").slice(0, 16);
     byModel[reportingKey] = Number(byModel[reportingKey] ?? 0) + safeCost;
     tx.set(ref, {
@@ -159,14 +157,57 @@ async function recordSpend(
       reportingLabels: { ...(snap.data()?.reportingLabels ?? {}), [reportingKey]: modelOrAction },
       updatedAt: Date.now(),
     }, { merge: true });
-    return total;
-  }).then((total) => {
+    return { total, recorded: true };
+  }).then(({ total, recorded }) => {
+    if (!recorded) return total;
     const warningThresholds = provider === "openrouter" ? [10, 20] : [2, 4];
     const crossed = warningThresholds.filter((threshold) => total >= threshold && total - safeCost < threshold);
     for (const threshold of crossed) {
       logger.warn("PixTaffy provider spend warning", { provider, thresholdUsd: threshold, totalUsd: total });
     }
     return total;
+  });
+}
+
+export async function recordSpendWithRetry(
+  provider: "gemini",
+  costUsd: number,
+  modelOrAction: string,
+  reservedCostUsd: number,
+  holdId: string,
+  opts: { sleep?: (ms: number) => Promise<void> } = {},
+): Promise<boolean> {
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  for (const delay of [0, 200, 600]) {
+    try {
+      if (delay > 0) await sleep(delay);
+      await recordSpend(provider, costUsd, modelOrAction, reservedCostUsd, holdId);
+      return true;
+    } catch {
+      // A lost acknowledgement is safe to retry because each hold settles once.
+    }
+  }
+  logger.error("Provider spend settlement deferred; reserved capacity retained", { provider });
+  return false;
+}
+
+export async function markAssistDeliveryFailed(
+  reservationId: string,
+  opts: { sleep?: (ms: number) => Promise<void> } = {},
+): Promise<void> {
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  let failure: unknown;
+  for (const delay of [0, 200, 600]) {
+    try {
+      if (delay > 0) await sleep(delay);
+      await db().doc(`billingReservations/${reservationId}`).update({ deliveryFailedAt: Date.now() });
+      return;
+    } catch (error) {
+      failure = error;
+    }
+  }
+  logger.error("Unable to mark AI assist delivery failed", {
+    reservationId, message: failure instanceof Error ? failure.message : String(failure),
   });
 }
 
@@ -444,7 +485,7 @@ export const generateGuestImage = onCall(
     if (!pricing) throw new HttpsError("failed-precondition", "This model is not available with guest credits.");
     const ip = guestRequestIp(request, uid);
     const claimInput = { uid, installId, ip, idempotencyKey, modelId, milliCredits: pricing.milliCredits };
-    await Promise.all([enforceRateLimit(uid, "images"), assertModelEnabled(modelId)]);
+    await Promise.all([enforceRateLimit(uid, "images", { perHour: 20, perDay: 100 }), assertModelEnabled(modelId)]);
     const balanceMilliCredits = await reserveGuestClaim(claimInput);
 
     let spendCapacityHeld = false;
@@ -556,7 +597,7 @@ export const generateWithCredits = onCall(
       });
       return cached.payload;
     }
-    await Promise.all([enforceRateLimit(uid, "images"), assertModelEnabled(modelId)]);
+    await Promise.all([enforceRateLimit(uid, "images", { perHour: 20, perDay: 100 }), assertModelEnabled(modelId)]);
     await ensureStarterGrant(uid, request.auth?.token?.email_verified === true);
     const batchItem = batchReservationId && !isAdmin
       ? await claimBatchReservationItem({
@@ -719,26 +760,181 @@ function requireAssistAction(value: unknown): AiAssistAction {
   return action;
 }
 
+const ASSIST_BLOCK_REASONS = new Set(["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION"]);
+
+export function resolveAiAssistTimeoutMs(env: Record<string, string | undefined>): number {
+  const value = Number(env.AI_ASSIST_TIMEOUT_MS);
+  return Number.isFinite(value) && value > 0
+    ? Math.min(240_000, Math.max(5_000, value))
+    : 75_000;
+}
+
+async function withAiAssistDeadline<T>(generate: (signal: AbortSignal, timeoutMs: number) => Promise<T>): Promise<T> {
+  const timeoutMs = resolveAiAssistTimeoutMs(process.env);
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        reject(new HttpsError("deadline-exceeded", "The AI request timed out. Please try again."));
+        controller.abort();
+      }, timeoutMs);
+    });
+    // The race observes late rejections and ignores late results after the deadline.
+    return await Promise.race([
+      Promise.resolve().then(() => generate(controller.signal, timeoutMs)),
+      deadline,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function isAssistBlocked(response: {
+  promptFeedback?: { blockReason?: string };
+  candidates?: Array<{ finishReason?: string }>;
+}): boolean {
+  const reason = response.promptFeedback?.blockReason;
+  return Boolean(reason && reason !== "BLOCK_REASON_UNSPECIFIED")
+    || Boolean(response.candidates?.some((candidate) => ASSIST_BLOCK_REASONS.has(candidate.finishReason ?? "")));
+}
+
+function upstreamErrorFields(error: unknown): unknown[] {
+  const raw = (error ?? {}) as { status?: unknown; code?: unknown; message?: unknown; name?: unknown; error?: unknown };
+  let parsed: unknown;
+  if (typeof raw.message === "string") {
+    try { parsed = JSON.parse(raw.message); } catch { /* Provider messages may be plain text. */ }
+  }
+  return [raw, raw.error, parsed, (parsed as typeof raw | undefined)?.error].flatMap((value) => {
+    const item = value as typeof raw | undefined;
+    return [item?.status, item?.code, item?.name, item?.message];
+  });
+}
+
+export function upstreamStatusOf(error: unknown): number | string | undefined {
+  const fields = upstreamErrorFields(error);
+  for (const value of fields) {
+    if (/^[1-5]\d\d$/.test(String(value))) return Number(value);
+  }
+  const description = fields.map(String).join(" ");
+  const httpStatus = description.match(/\b([45]\d\d)\b/);
+  if (httpStatus) return Number(httpStatus[1]);
+  // Only allow known status words into logs, never arbitrary provider text.
+  return description.match(/\b(UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED|INTERNAL|INVALID_ARGUMENT|PERMISSION_DENIED|UNAUTHENTICATED|NOT_FOUND)\b/i)?.[1].toUpperCase();
+}
+
+export function mapAiAssistError(error: unknown): HttpsError {
+  if (error instanceof HttpsError) return error;
+  if (error instanceof SyntaxError) return new HttpsError("internal", "AI assist failed. Try again.");
+  const description = upstreamErrorFields(error).map(String).join(" ");
+  if (isAssistBlocked(error as Parameters<typeof isAssistBlocked>[0] ?? {})) {
+    return new HttpsError("failed-precondition", "The AI could not complete this request. Try rephrasing it.");
+  }
+  if (/\b504\b|DEADLINE_EXCEEDED|timeout|timed[ -]?out|abort/i.test(description)) {
+    return new HttpsError("deadline-exceeded", "The AI request timed out. Wait a moment and try again.");
+  }
+  if (/\b429\b|RESOURCE_EXHAUSTED|quota|\b5\d\d\b|UNAVAILABLE|overloaded|high demand|INTERNAL|network|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|socket/i.test(description)) {
+    return new HttpsError("unavailable", "PixTaffy AI is temporarily unavailable. Wait a moment and try again.");
+  }
+  return new HttpsError("internal", "AI assist failed. Try again.");
+}
+
+export function resolveAiAssistFallbackModel(env: Record<string, string | undefined>, primary: string): string | undefined {
+  const model = env.AI_ASSIST_FALLBACK_MODEL;
+  return model && /^[a-z0-9][a-z0-9._-]{2,63}$/.test(model) && model !== primary ? model : undefined;
+}
+
+function safeUpstreamMessage(error: unknown, sensitiveValues: string[]): string | undefined {
+  if (error instanceof HttpsError || error instanceof SyntaxError) return undefined;
+  const status = upstreamStatusOf(error);
+  if (status === undefined || ![403, 404, 429, 500, 502, 503, 504, "UNAVAILABLE", "RESOURCE_EXHAUSTED", "PERMISSION_DENIED", "NOT_FOUND", "INTERNAL"].includes(status)) return undefined;
+  // Prefer the inner provider message over its JSON envelope.
+  const message = upstreamErrorFields(error).filter((value, index) => index % 4 === 3 && typeof value === "string").pop();
+  if (typeof message !== "string") return undefined;
+  let sanitized = message.replace(/AIza[A-Za-z0-9_-]+/g, "[redacted]")
+    .replace(/(\bkey=)[^\s&#"'<>]+/gi, "$1[redacted]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted]")
+    .replace(/\s+/g, " ").trim();
+  const normalizedValues = sensitiveValues.map(value => value.replace(/\s+/g, " ").trim());
+  for (const value of normalizedValues.filter(Boolean).sort((a, b) => b.length - a.length)) {
+    sanitized = sanitized.split(value).join("[redacted]");
+  }
+  return sanitized.slice(0, 200);
+}
+
+export async function generateWithUpstreamRetry<T>(
+  generate: (signal: AbortSignal, timeoutMs: number, model: string, attempt: number) => Promise<T>,
+  signal: AbortSignal,
+  timeoutMs: number,
+  {
+    sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
+    random = Math.random, now = Date.now, primaryModel = "gemini-flash-latest",
+    fallbackModel, onFailure,
+  }: {
+    sleep?: (ms: number) => Promise<void>; random?: () => number; now?: () => number;
+    primaryModel?: string; fallbackModel?: string;
+    onFailure?: (error: unknown, attempt: number, model: string) => void;
+  } = {},
+): Promise<T> {
+  const deadline = now() + timeoutMs;
+  let model = primaryModel;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await generate(signal, Math.max(0, deadline - now()), model, attempt);
+    } catch (error) {
+      if (signal.aborted) throw error;
+      onFailure?.(error, attempt, model);
+      const status = upstreamStatusOf(error);
+      const unavailable = !(error instanceof HttpsError) && mapAiAssistError(error).code === "unavailable";
+      const retryable = unavailable && (status === 503 || status === "UNAVAILABLE");
+      const limited = unavailable && (status === 429 || status === "RESOURCE_EXHAUSTED");
+      if (model !== primaryModel || (!retryable && !limited)) throw error;
+      // A configured fallback takes the third call, or follows a primary rate limit immediately.
+      if (fallbackModel && (limited || attempt >= 2)) {
+        if (deadline - now() < 10_000) throw error;
+        model = fallbackModel;
+      } else {
+        if (!retryable || attempt >= 3) throw error;
+        const delay = attempt === 1 ? 500 + Math.floor(random() * 501) : 1500 + Math.floor(random() * 1501);
+        if (deadline - now() - delay < 10_000) throw error;
+        await sleep(delay);
+        if (signal.aborted || deadline - now() < 10_000) throw error;
+      }
+    }
+  }
+}
+
 export const runAiAssist = onCall(
-  { ...baseOptions, secrets: [PIXTAFFY_GEMINI_API_KEY] },
+  buildRunAiAssistOptions(baseOptions, process.env, () => PIXTAFFY_GEMINI_API_KEY!),
   async (request) => {
+    const requestedAt = Date.now();
     const { uid, isAdmin } = requireAuth(request);
     const action = requireAssistAction(request.data?.action);
     const idempotencyKey = validateIdempotencyKey(request.data?.idempotencyKey);
     const cachedAssist = await readPaidAssistDelivery(uid, idempotencyKey).catch((error) => {
       logger.error("Paid assist delivery lookup failed", { action, error });
-      throw new HttpsError("unavailable", "PixTaffy could not safely check this AI request. Try again with the same request id.");
+      throw new HttpsError("unavailable", "PixTaffy could not safely check this AI request. Try again in a moment.");
     });
     if (cachedAssist) {
       if (cachedAssist.action !== action) throw new HttpsError("already-exists", "This request id belongs to a different AI action.");
-      await commitReservation({
-        uid,
-        reservationId: cachedAssist.reservationId,
-        provider: "gemini",
-        providerRequestId: null,
-        actualCostUsd: cachedAssist.actualCostUsd,
-        usage: cachedAssist.usage,
-      }).catch((error) => logger.error("Cached AI assist settlement is still pending", { action, error }));
+      await (async () => {
+        const replay = await reserveAssistCredits({
+          uid, milliCredits: AI_ASSIST_MILLICREDITS[action], idempotencyKey,
+          action, modelId: "gemini-flash-latest", isAdmin, cachedDelivery: true,
+        });
+        if (replay.alreadyCommitted) return;
+        await commitReservation({
+          uid,
+          reservationId: replay.reservationId,
+          provider: "gemini",
+          providerRequestId: null,
+          actualCostUsd: cachedAssist.actualCostUsd,
+          usage: cachedAssist.usage,
+        });
+      })().catch((error) => {
+        logger.error("Cached AI assist settlement failed", { action, error });
+        throw new HttpsError("unavailable", "PixTaffy could not settle this AI request. Try again in a moment.");
+      });
       return {
         result: cachedAssist.result,
         milliCreditsCharged: cachedAssist.milliCreditsCharged,
@@ -750,9 +946,9 @@ export const runAiAssist = onCall(
     if (imageBase64 && imageBase64.length > 20_000_000) {
       throw new HttpsError("invalid-argument", "The uploaded file is too large for AI analysis.");
     }
-    await enforceRateLimit(uid, "helpers");
+    await enforceRateLimit(uid, "helpers", { perHour: 60, perDay: 300 });
     await ensureStarterGrant(uid, request.auth?.token?.email_verified === true);
-    const reservation = await reserveCredits({
+    const reservation = await reserveAssistCredits({
       uid,
       milliCredits: AI_ASSIST_MILLICREDITS[action],
       idempotencyKey,
@@ -761,35 +957,87 @@ export const runAiAssist = onCall(
       isAdmin,
     });
 
+    if (reservation.alreadyCommitted) {
+      throw new HttpsError("unavailable", "This AI request was already charged but its result is unavailable. Try again in a moment.");
+    }
+    // The day prefix locates this hold even if settlement happens after midnight UTC.
+    const holdId = `${dateKey()}-${randomUUID()}`;
     const helperSpendReserveUsd = 0.05;
-    let spendCapacityHeld = false;
+    let cacheWriteAttempted = false;
+    let spendSettlementFailed = false;
+    let attempt = 0;
+    let model = "gemini-flash-latest";
+    let loggedUnavailable: unknown;
+    // Collect request strings only for redaction, never for structured log data.
+    const requestStrings = (value: unknown): string[] => typeof value === "string" ? [value]
+      : value && typeof value === "object" ? Object.values(value).flatMap(requestStrings) : [];
+    const sensitiveValues = [...requestStrings(payload), uid, String(request.auth?.token?.email ?? "")];
+    for (const value of [payload.text, payload.context]) {
+      if (typeof value === "string") sensitiveValues.push(value.slice(0, 20_000));
+    }
+    const failureFields = (error: unknown) => {
+      const upstreamMessage = safeUpstreamMessage(error, sensitiveValues);
+      return { action, upstreamStatus: upstreamStatusOf(error), ...(upstreamMessage ? { upstreamMessage } : {}), attempt, model };
+    };
     try {
-      await reserveSpendCapacity("gemini", helperSpendReserveUsd);
-      spendCapacityHeld = true;
-      const ai = new GoogleGenAI({ apiKey: PIXTAFFY_GEMINI_API_KEY.value() });
+      await reserveSpendCapacity("gemini", helperSpendReserveUsd, holdId);
+      const vertexConfig = AI_ASSIST_BACKEND === "vertex" ? resolveAiAssistVertexConfig(process.env) : undefined;
+      const ai = vertexConfig
+        ? new GoogleGenAI({ vertexai: true, project: vertexConfig.project, location: vertexConfig.location })
+        : new GoogleGenAI({ apiKey: PIXTAFFY_GEMINI_API_KEY!.value() });
       const parts: any[] = [{ text: actionPrompt(action, payload) }];
       if (imageBase64) {
         parts.unshift({ inlineData: { data: imageBase64, mimeType: payload.mimeType || "image/png" } });
       }
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: [{ role: "user", parts }],
-        config: {
-          temperature: action === "expand_prompt" ? 0.7 : 0.2,
-          ...(action === "expand_prompt" || action === "image_description"
-            ? {}
-            : { responseMimeType: "application/json" }),
+      const primaryModel = vertexConfig?.model ?? "gemini-flash-latest";
+      const fallbackModel = resolveAiAssistFallbackModel(process.env, primaryModel);
+      if (process.env.AI_ASSIST_FALLBACK_MODEL !== undefined && !fallbackModel) {
+        logger.warn("AI assist fallback model disabled", { action });
+      }
+      const response = await withAiAssistDeadline((signal, deadlineMs) => generateWithUpstreamRetry((abortSignal, timeoutMs, attemptModel, attemptNumber) => {
+        model = attemptModel;
+        attempt = attemptNumber;
+        return ai.models.generateContent({
+          model,
+          contents: [{ role: "user", parts }],
+          config: {
+            abortSignal,
+            httpOptions: { timeout: timeoutMs },
+            temperature: action === "expand_prompt" ? 0.7 : 0.2,
+            ...(action === "expand_prompt" || action === "image_description"
+              ? {}
+              : { responseMimeType: "application/json" }),
+          },
+        });
+      }, signal, deadlineMs, {
+        primaryModel, fallbackModel,
+        onFailure: (error) => {
+          if (mapAiAssistError(error).code === "unavailable") {
+            logger.warn("AI assist upstream unavailable", failureFields(error));
+            loggedUnavailable = error;
+          }
         },
+      }));
+      if (model !== primaryModel) logger.warn("AI assist used fallback model", { action, model });
+      const usage = response.usageMetadata as any;
+      const { actualCostUsd, unknownModel } = geminiAssistCost({
+        backend: AI_ASSIST_BACKEND,
+        location: vertexConfig?.location,
+        model,
+        modelVersion: response.modelVersion,
+        requestedAt,
+        usage,
       });
+      if (unknownModel) logger.warn("Unknown AI assist model; using maximum spend rates.");
+      // Provider usage is billable even when validation or delivery later fails.
+      spendSettlementFailed = !await recordSpendWithRetry("gemini", actualCostUsd, action, helperSpendReserveUsd, holdId);
+      if (isAssistBlocked(response)) throw mapAiAssistError(response);
       const text = response.text?.trim();
       if (!text) throw new Error("Gemini returned an empty response.");
-      const usage = response.usageMetadata as any;
-      const inputTokens = Number(usage?.promptTokenCount ?? 0);
-      const outputTokens = Number(usage?.candidatesTokenCount ?? 0);
-      const actualCostUsd = (inputTokens * 0.30 + outputTokens * 2.50) / 1_000_000;
       const isJson = action !== "expand_prompt" && action !== "image_description";
       const result = isJson ? parseJsonText(text) : text;
-      await writePaidAssistDeliveryWithRetry({
+      cacheWriteAttempted = true;
+      const delivery = await writePaidAssistDeliveryWithRetry({
         version: 1,
         uid,
         idempotencyKey,
@@ -802,22 +1050,22 @@ export const runAiAssist = onCall(
         actualCostUsd,
         usage: usage ?? null,
       });
-      await recordSpend("gemini", actualCostUsd, action, helperSpendReserveUsd)
-        .then(() => { spendCapacityHeld = false; })
-        .catch((error) => {
-          logger.error("Gemini spend settlement deferred", { action, error });
-        });
+      if (delivery.reservationId !== reservation.reservationId) {
+        await releaseReservation({
+          uid, reservationId: reservation.reservationId, reason: "Existing AI delivery won the request race",
+        }).catch(() => logger.error("Unable to release superseded AI assist reservation"));
+      }
       let commitError: unknown = null;
       for (const delay of [0, 200, 600]) {
         if (delay > 0) await new Promise<void>((resolve) => setTimeout(resolve, delay));
         try {
           await commitReservation({
             uid,
-            reservationId: reservation.reservationId,
+            reservationId: delivery.reservationId,
             provider: "gemini",
             providerRequestId: null,
-            actualCostUsd,
-            usage: usage ?? null,
+            actualCostUsd: delivery.actualCostUsd,
+            usage: delivery.usage,
           });
           commitError = null;
           break;
@@ -831,24 +1079,36 @@ export const runAiAssist = onCall(
         logger.error("Gemini credit settlement deferred", { action, commitError });
       }
       return {
-        result,
-        milliCreditsCharged: AI_ASSIST_MILLICREDITS[action],
-        balanceMilliCredits: reservation.balanceMilliCredits,
+        result: delivery.result,
+        milliCreditsCharged: delivery.milliCreditsCharged,
+        balanceMilliCredits: delivery.balanceMilliCredits,
       };
     } catch (error) {
-      if (spendCapacityHeld) {
-        await releaseSpendCapacity("gemini", helperSpendReserveUsd).catch((releaseError) => {
+      const mapped = mapAiAssistError(error);
+      if (mapped.code === "unavailable") {
+        if (loggedUnavailable !== error) logger.warn("AI assist upstream unavailable", failureFields(error));
+      } else {
+        logger.error("AI assist failed", { ...failureFields(error), code: error instanceof SyntaxError ? "Invalid AI response JSON" : mapped.code });
+      }
+      if (!spendSettlementFailed) {
+        await releaseSpendCapacity("gemini", helperSpendReserveUsd, holdId).catch((releaseError) => {
           logger.error("Unable to release Gemini spend capacity", { action, releaseError });
         });
+      }
+      if (cacheWriteAttempted) {
+        if (reservation.reservationId) {
+          await markAssistDeliveryFailed(reservation.reservationId);
+        }
+        // A failed save may be durable. Keep credits reserved so a same-key
+        // replay or the stale job commits the cached delivery instead of refunding it.
+        throw new HttpsError("unavailable", "PixTaffy could not deliver this AI result. Try again in a moment.");
       }
       await releaseReservation({
         uid,
         reservationId: reservation.reservationId,
         reason: error instanceof Error ? error.message : "Gemini request failed",
       });
-      throw error instanceof HttpsError
-        ? error
-        : new HttpsError("internal", error instanceof Error ? error.message : "AI assist failed.");
+      throw mapped;
     }
   },
 );

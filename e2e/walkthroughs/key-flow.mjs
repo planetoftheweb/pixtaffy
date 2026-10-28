@@ -6,6 +6,9 @@ const waitFor = async (description, fn, timeout = 30000) => {
   throw new Error(`Timed out waiting for ${description}`);
 };
 export default async function ({ page, context, baseUrl, env, step, requests, responses, protect }) {
+  if (!env.WALKTHROUGH_EMAIL && !/^(localhost|127\.0\.0\.1)$/.test(new URL(baseUrl).hostname)) throw new Error('Account creation requires local emulators');
+  let securityDb;
+  const flagWaitMs = /^\d+$/.test(env.FEATURE_FLAG_CACHE_MS || '') ? Math.min(30000, Number(env.FEATURE_FLAG_CACHE_MS)) + 150 : 31000;
   const key = env.WALKTHROUGH_GEMINI_KEY || `AIza${randomBytes(18).toString('hex').slice(0,35)}`;
   protect(key);
   let owner, server;
@@ -86,6 +89,27 @@ export default async function ({ page, context, baseUrl, env, step, requests, re
     server = await page.locator('[data-key-storage-mode]').getAttribute('data-key-storage-mode') === 'server';
     if (env.WALKTHROUGH_EXPECT_MODE && env.WALKTHROUGH_EXPECT_MODE !== 'any') assert.ok(server === (env.WALKTHROUGH_EXPECT_MODE === 'server'));
   });
+  if (env.WALKTHROUGH_SECURITY_STAGES === 'true') {
+    await step('Security flags reject unattested calls only for enabled audiences', async () => {
+      const { createRequire } = await import('node:module');
+      const require = createRequire(new URL('../../functions/package.json', import.meta.url));
+      const { getApps } = require('firebase-admin/app');
+      const { getFirestore } = require('firebase-admin/firestore');
+      assert.ok(/^(localhost|127\.0\.0\.1):\d+$/.test(process.env.FIRESTORE_EMULATOR_HOST || ''));
+      securityDb = getFirestore(getApps().find(app => app.options.projectId === 'demo-pixtaffy'));
+      const endpoint = requests.find(r => r.url.includes('getKeyStorageMode')).url.replace('getKeyStorageMode', 'getUserApiKeyStatus');
+      for (const [stage, allowlistUids, rejected] of [[0, [], false], [1, ['other'], false], [1, [owner.localId], true], [2, [], true]]) {
+        await securityDb.doc('config/featureFlags').set({ enforceAppCheckUserKeys: { stage, allowlistUids, allowAdmins: false } }, { merge: true });
+        await new Promise(resolve => setTimeout(resolve, flagWaitMs));
+        const response = await context.request.post(endpoint, { headers: { Authorization: `Bearer ${owner.idToken}` }, data: { data: {} } });
+        const body = await response.json();
+        assert.equal(body.error?.message === 'App Check required.', rejected);
+      }
+      // The local browser has no real attestation. Exercise rate-limited UI with App Check off.
+      await securityDb.doc('config/featureFlags').set({ enforceAppCheckUserKeys: { stage: 0 }, rateLimitUserKeys: { stage: 2 } }, { merge: true });
+      await new Promise(resolve => setTimeout(resolve, flagWaitMs));
+    });
+  }
   await step('Save Gemini key', async () => {
     const input = page.locator('[data-key-slot="gemini"]');
     await input.fill(key);
@@ -135,8 +159,18 @@ export default async function ({ page, context, baseUrl, env, step, requests, re
       assert.ok(read.status() === 403);
       assert.ok(!(await read.text()).includes(key.slice(-4)));
     }
+    for (const path of [`users/${owner.localId}/private/rate-userkey-manage`, 'config/featureFlags']) {
+      const read = await context.request.get(`${origin}/v1/projects/${project}/databases/(default)/documents/${path}`, { headers: { Authorization: `Bearer ${stranger.idToken}` } });
+      assert.equal(read.status(), 403);
+    }
     const callable = requests.find(r => r.url.includes(server ? 'generateWithUserKey' : 'getKeyStorageMode'));
     assert.ok(callable, 'Key callable endpoint was observed');
+    for (const name of ['clearUserApiKeys', 'listUserKeyProfiles']) {
+      const denied = await context.request.post(callable.url.replace(/getKeyStorageMode|generateWithUserKey/, name), {
+        headers: { Authorization: `Bearer ${stranger.idToken}` }, data: { data: { uid: owner.localId } },
+      });
+      assert.equal((await denied.json()).error?.status, 'PERMISSION_DENIED');
+    }
     const attempt = await context.request.post(callable.url.replace('getKeyStorageMode', 'generateWithUserKey'), {
       headers: { Authorization: `Bearer ${stranger.idToken}` },
       data: { data: { uid: owner.localId, model: 'gemini', prompt: 'A blue circle' } },
@@ -163,4 +197,14 @@ export default async function ({ page, context, baseUrl, env, step, requests, re
     await row.getByText('Not set', { exact: true }).waitFor();
     assert.equal(await input.inputValue(), '');
   });
+  if (securityDb) {
+    await step('Verify caller counters and runtime rollback', async () => {
+      if (server) {
+        assert.ok((await securityDb.doc(`users/${owner.localId}/private/rate-userkey-manage`).get()).data()?.minuteCount > 0);
+        assert.ok((await securityDb.doc(`users/${owner.localId}/private/rate-userkey-generate`).get()).data()?.hourCount > 0);
+      }
+      await securityDb.doc('config/featureFlags').set({ enforceAppCheckUserKeys: { stage: 0 }, rateLimitUserKeys: { stage: 0 } }, { merge: true });
+    });
+  }
+
 }

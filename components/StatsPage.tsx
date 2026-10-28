@@ -31,6 +31,7 @@ import {
 import { MODEL_COST_PER_IMAGE_USD, DEFAULT_COST_PER_IMAGE_USD } from '../constants';
 import { buildProfileImageCacheKey } from '../services/imageCache';
 import { CachedImage } from './CachedImage';
+import { Tip } from './settings/Tip';
 
 // -----------------------------------------------------------------------------
 // Tiny local chart primitives (no chart library; keeps the bundle small).
@@ -148,10 +149,10 @@ const HorizontalBarList: React.FC<HorizontalBarListProps> = ({
               <li key={entry.key} className="text-sm">
                 <div className="flex items-baseline justify-between gap-2 mb-1">
                   <span
-                    className="truncate text-slate-700 dark:text-slate-200"
-                    title={entry.label}
+                    className="group/tip relative truncate text-slate-700 dark:text-slate-200"
                   >
                     {entry.label}
+                    <Tip text={entry.label} />
                   </span>
                   <span className="tabular-nums text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
                     {numFmt.format(entry.count)}
@@ -241,14 +242,16 @@ const DailyBarChart: React.FC<DailyBarChartProps> = ({
         {data.map((d) => {
           const imageH = (d.images / max) * 100;
           const refinementH = ((d.refinements ?? 0) / max) * 100;
-          const hoverTitle = `${d.date} — ${d.images} image${d.images === 1 ? '' : 's'}${
+          const hoverTitle = `${d.date}: ${d.images} image${d.images === 1 ? '' : 's'}${
             (d.refinements ?? 0) > 0 ? `, ${d.refinements} refinement${d.refinements === 1 ? '' : 's'}` : ''
           }`;
           return (
             <div
               key={d.date}
-              className="flex-1 h-full flex flex-col justify-end min-w-[4px]"
-              title={hoverTitle}
+              className="group/tip relative flex-1 h-full flex flex-col justify-end min-w-[4px] rounded-sm focus:outline-none focus:ring-2 focus:ring-brand-teal"
+              tabIndex={0}
+              role="img"
+              aria-label={hoverTitle}
             >
               {refinementH > 0 && (
                 <div
@@ -260,6 +263,7 @@ const DailyBarChart: React.FC<DailyBarChartProps> = ({
                 className={`${primaryClass} ${refinementH === 0 ? 'rounded-t-sm' : ''}`}
                 style={{ height: `${imageH}%` }}
               />
+              <Tip text={hoverTitle} side="top" />
             </div>
           );
         })}
@@ -386,9 +390,10 @@ const FocusedUserView: React.FC<FocusedUserViewProps> = ({ userStats }) => {
             {u.email && <span>{u.email}</span>}
           </div>
         </div>
-        <div className="hidden sm:flex items-center text-xs text-slate-400 font-mono truncate max-w-[160px]" title={u.uid}>
+        <div className="group/tip relative hidden sm:flex items-center text-xs text-slate-400 font-mono truncate max-w-[160px]">
           <Hash size={12} className="mr-1" />
           {u.uid}
+          <Tip text={u.uid} align="right" />
         </div>
       </div>
 
@@ -602,11 +607,12 @@ export const StatsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setFocusedUid(null)}
-              className="inline-flex items-center gap-1.5 px-2 py-1 -ml-1 rounded-md text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d]"
-              title="Back to all users"
+              className="group/tip relative inline-flex items-center gap-1.5 px-2 py-1 -ml-1 rounded-md text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d]"
+              aria-label="Back to all users"
             >
               <ArrowLeft size={14} />
               <span className="text-sm font-medium">All users</span>
+              <Tip text="Back to all users" />
             </button>
           )}
           <BarChart3 size={16} className="text-slate-500 shrink-0" />

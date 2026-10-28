@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Tip } from './settings/Tip';
 import { Search, X } from 'lucide-react';
 import { Generation } from '../types';
 import { CachedImage } from './CachedImage';
@@ -238,7 +239,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ history, onSelect, onC
                     {labelRows.map((r) => (
                       <React.Fragment key={r.key}>
                         <dt className="text-slate-500">{r.label}</dt>
-                        <dd className="text-slate-200 truncate" title={r.value}>{r.value}</dd>
+                        <dd className="relative text-slate-200 truncate">{r.value}<Tip title={r.label} text={r.value} side="top" align="right" /></dd>
                       </React.Fragment>
                     ))}
                   </dl>

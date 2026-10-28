@@ -767,7 +767,7 @@ export const LegacySettingsPage: React.FC<SettingsPageProps> = ({
                       onClick={() => revokeConfirm.trigger(t.tokenHash)}
                       className={`shrink-0 px-2 py-1 rounded-md text-[12px] font-semibold transition-colors ${
                         revokeConfirm.isArmed(t.tokenHash)
-                          ? 'bg-amber-500 text-white animate-pulse'
+                          ? 'bg-amber-500 text-[#0d1117] animate-pulse'
                           : 'text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10'
                       }`}
                     >

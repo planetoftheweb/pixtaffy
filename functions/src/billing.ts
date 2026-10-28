@@ -1,6 +1,6 @@
 import { stagingOrigins } from "./corsOrigins";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { getFirestore, DocumentData } from "firebase-admin/firestore";
+import { getFirestore, DocumentData, FieldPath } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest, type CallableRequest } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
@@ -288,6 +288,80 @@ export async function reserveCredits(input: {
       modelId: input.modelId ?? null,
       idempotencyKey: input.idempotencyKey,
       reservedAt: now,
+      committedAt: null,
+      releasedAt: null,
+    });
+    return {
+      reservationId,
+      balanceMilliCredits: reserved.balanceMilliCredits,
+      adminBypass: false,
+    };
+  });
+}
+
+export async function reserveAssistCredits(input: {
+  uid: string;
+  milliCredits: number;
+  idempotencyKey: string;
+  action: string;
+  modelId?: string | null;
+  isAdmin?: boolean;
+  cachedDelivery?: boolean;
+}): Promise<ReservationResult & { alreadyCommitted?: boolean }> {
+  if (input.isAdmin) {
+    return { reservationId: null, balanceMilliCredits: Number.MAX_SAFE_INTEGER, adminBypass: true };
+  }
+  const now = Date.now();
+  const reservationId = safeId(`${input.uid}:${input.idempotencyKey}`);
+  const ref = billingRef(input.uid);
+  const resRef = reservationRef(reservationId);
+  return db().runTransaction(async (tx) => {
+    const [billingSnap, existingReservation] = await Promise.all([tx.get(ref), tx.get(resRef)]);
+    const billing = readBilling(billingSnap.data(), now);
+    const existing = existingReservation.data();
+    if (existing) {
+      if (existing.uid !== input.uid || existing.milliCredits !== input.milliCredits) {
+        throw new HttpsError("already-exists", "This request key was already used.");
+      }
+      if (existing.state === "committed") {
+        return { reservationId, balanceMilliCredits: billing.balanceMilliCredits, adminBypass: false, alreadyCommitted: true };
+      }
+      if (existing.state === "reserved") {
+        // A cached delivery can be settled immediately without invoking the provider.
+        if (!input.cachedDelivery && existing.deliveryFailedAt == null
+          && now - (existing.attemptAt ?? existing.reservedAt) <= 330_000) {
+          throw new HttpsError("already-exists", "This AI request is in progress. Try again in a moment.");
+        }
+        tx.update(resRef, { reservedAt: now, attemptAt: now, deliveryFailedAt: null, attempt: (existing.attempt ?? 1) + 1 });
+        return { reservationId, balanceMilliCredits: billing.balanceMilliCredits, adminBypass: false };
+      }
+      if (existing.state !== "released") throw new HttpsError("already-exists", "This request key was already used.");
+    }
+    if (billing.debtMilliCredits > 0) {
+      throw new HttpsError("failed-precondition", "Your PixTaffy balance is negative after a payment reversal. Resolve it before using site-funded AI.");
+    }
+    const reserved = reserveFromBuckets(billing.buckets, input.milliCredits, now);
+    if (!reserved) {
+      throw new HttpsError("resource-exhausted", "Not enough PixTaffy credits.");
+    }
+    tx.set(ref, {
+      ...billing,
+      buckets: reserved.buckets,
+      balanceMilliCredits: reserved.balanceMilliCredits,
+      updatedAt: now,
+    });
+    tx.set(resRef, {
+      uid: input.uid,
+      state: "reserved",
+      milliCredits: Math.floor(input.milliCredits),
+      allocations: reserved.allocations,
+      action: input.action,
+      modelId: input.modelId ?? null,
+      idempotencyKey: input.idempotencyKey,
+      reservedAt: now,
+      attemptAt: now,
+      attempt: (existing?.attempt ?? 0) + 1,
+      deliveryFailedAt: null,
       committedAt: null,
       releasedAt: null,
     });
@@ -672,18 +746,25 @@ export const releaseImageBatchRemainder = onCall(callableOptions, async (request
   return { balanceMilliCredits };
 });
 
-export const releaseStaleImageBatches = onSchedule(
-  { schedule: "every 15 minutes", region: REGION, timeZone: "UTC" },
-  async () => {
+export async function sweepStaleReservations(): Promise<void> {
     const cutoff = Date.now() - 30 * 60 * 1_000;
-    const [parentSnap, itemSnap] = await Promise.all([
-      db().collection("billingReservations").where("state", "==", "reserved").limit(200).get(),
-      db().collectionGroup("items").where("state", "==", "reserved").limit(200).get(),
-    ]);
+    const sweep = async (
+      query: FirebaseFirestore.Query,
+      reconcile: (doc: FirebaseFirestore.QueryDocumentSnapshot) => Promise<void>,
+    ): Promise<void> => {
+      for (;;) {
+        const page = await query.limit(200).get();
+        await Promise.all(page.docs
+          .filter((doc) => Number(doc.data().reservedAt ?? 0) <= cutoff)
+          .map(reconcile));
+        if (page.size < 200) return;
+        // Snapshots retain the cursor even when reconciliation changes state.
+        query = query.startAfter(page.docs[page.size - 1]);
+      }
+    };
 
-    await Promise.all(itemSnap.docs
-      .filter((doc) => Number(doc.data().reservedAt ?? 0) <= cutoff)
-      .map(async (doc) => {
+    await sweep(db().collectionGroup("items").where("state", "==", "reserved").orderBy(FieldPath.documentId()),
+      async (doc) => {
         const item = doc.data();
         try {
           const cached = await readPaidDelivery(String(item.uid), String(item.idempotencyKey));
@@ -707,11 +788,10 @@ export const releaseStaleImageBatches = onSchedule(
         } catch (error) {
           logger.error("Unable to reconcile stale batch item", { itemReservationId: doc.id, error });
         }
-      }));
+      });
 
-    await Promise.all(parentSnap.docs
-      .filter((doc) => Number(doc.data().reservedAt ?? 0) <= cutoff)
-      .map(async (doc) => {
+    await sweep(db().collection("billingReservations").where("state", "==", "reserved").orderBy(FieldPath.documentId()),
+      async (doc) => {
         const reservation = doc.data();
         try {
           if (reservation.action === "image_batch") {
@@ -756,8 +836,12 @@ export const releaseStaleImageBatches = onSchedule(
         } catch (error) {
           logger.error("Unable to reconcile stale paid reservation", { reservationId: doc.id, error });
         }
-      }));
-  },
+      });
+}
+
+export const releaseStaleImageBatches = onSchedule(
+  { schedule: "every 15 minutes", region: REGION, timeZone: "UTC" },
+  sweepStaleReservations,
 );
 
 async function revokePurchasedCredits(input: {
