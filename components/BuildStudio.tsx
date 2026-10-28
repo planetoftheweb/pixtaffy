@@ -23,6 +23,7 @@ import {
   type FrameState,
 } from '../services/buildAnimator';
 import { loadBuildSync, loadRemoteBuild, saveLocalBuild, saveBuild } from '../services/buildStore';
+import { friendlyAiAssistError } from '../services/aiAssistGuard';
 import { autoDetectBuildRegionsPaid, nameBuildRegionsPaid } from '../services/paidAiService';
 
 type BuildTool = 'freeform' | 'rectangle' | 'brush';
@@ -1863,6 +1864,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
   // result REPLACES the current items but is a single undo away, and every
   // region is a normal rectangle step the existing tools can fine-tune.
   const [autoSelecting, setAutoSelecting] = useState(false);
+  const [aiAssistError, setAiAssistError] = useState<string | null>(null);
 
   // "AI name items" — one cheap Flash call that labels the existing regions.
   // Explicit button only, never automatic.
@@ -1873,6 +1875,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       flashStatus('Sign in and add credits to use AI naming.');
       return;
     }
+    setAiAssistError(null);
     setNaming(true);
     setStatus('AI is naming the frames…');
     const stepsBefore = build.steps;
@@ -1889,7 +1892,8 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       flashStatus(`Named ${names.size} frames — edit any name in the list, or ⌘Z to undo.`, 6000);
     } catch (err) {
       console.error('[BuildStudio] auto-name failed:', err);
-      flashStatus(err instanceof Error ? err.message : 'AI naming failed — try again.', 8000);
+      setStatus(null);
+      setAiAssistError(friendlyAiAssistError(err));
     } finally {
       setNaming(false);
     }
@@ -1900,6 +1904,7 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       flashStatus('Sign in and add credits to use AI auto-select.');
       return;
     }
+    setAiAssistError(null);
     setAutoSelecting(true);
     setStatus('AI is reading the infographic and proposing frames…');
     // Snapshot the steps being replaced NOW, from this render's closure — the
@@ -1930,7 +1935,8 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
       flashStatus(`AI replaced your frames with ${steps.length} proposals — ⌘Z brings yours back.`, 7000);
     } catch (err) {
       console.error('[BuildStudio] auto-select failed:', err);
-      flashStatus(err instanceof Error ? err.message : 'AI auto-select failed — try again.', 8000);
+      setStatus(null);
+      setAiAssistError(friendlyAiAssistError(err));
     } finally {
       setAutoSelecting(false);
     }
@@ -2850,6 +2856,14 @@ export const BuildStudio: React.FC<BuildStudioProps> = ({ generation, version, o
         )}
       </div>
 
+      {aiAssistError && (
+        <div role="alert" className="shrink-0 px-4 py-2 text-sm text-red-200 border-t border-red-800 bg-red-900/30 flex items-center justify-between gap-2">
+          <span>{aiAssistError}</span>
+          <button type="button" aria-label="Dismiss AI assist error" onClick={() => setAiAssistError(null)} className="min-h-11 min-w-11 flex items-center justify-center rounded-lg hover:bg-red-900/50">
+            <X size={18} />
+          </button>
+        </div>
+      )}
       {status && !cleanMode && (
         <div className="shrink-0 px-4 py-2 text-xs text-slate-300 border-t border-[#30363d] bg-black/30">{status}</div>
       )}

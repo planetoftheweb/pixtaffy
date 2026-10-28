@@ -73,3 +73,78 @@ test('restoration discards unexpected entry fields before mirroring storage', as
     [request.fingerprint]: { key: request.key, createdAt: 1000 },
   });
 });
+
+// These pure helpers run without loading Firebase or making network requests.
+const { AI_ASSIST_TIMEOUT_MS, friendlyAiAssistError, withAiAssistGuard } = await import('../services/aiAssistGuard.ts');
+
+for (const [code, message] of [
+  ['deadline-exceeded', 'The AI request took too long. Please try again.'],
+  ['unavailable', 'AI assist is temporarily unavailable. Please try again shortly.'],
+  ['resource-exhausted', 'AI assist is busy or your credits are low. Check your balance and try again shortly.'],
+  ['failed-precondition', 'AI assist could not complete this request. Check your account and try rephrasing it.'],
+  ['unauthenticated', 'Sign in to use AI assist, then try again.'],
+  ['internal', 'AI assist could not finish. Please try again.'],
+  ['unknown', 'AI assist could not finish. Please try again.'],
+]) {
+  test(`assist friendly error hides upstream text for ${code}`, () => {
+    for (const prefix of ['', 'functions/']) {
+      assert.equal(friendlyAiAssistError({ code: prefix + code, message: 'private upstream text' }), message);
+    }
+  });
+}
+test('assist friendly error handles missing and malformed errors', () => {
+  for (const error of [undefined, null, 'private upstream text', new Error('private upstream text'), { code: null }]) {
+    assert.equal(friendlyAiAssistError(error), 'AI assist could not finish. Please try again.');
+  }
+});
+
+function guardClock(t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const clear = t.mock.method(globalThis, 'clearTimeout');
+  return { clear, expire: () => t.mock.timers.tick(AI_ASSIST_TIMEOUT_MS) };
+}
+
+for (const lateOutcome of ['resolve', 'reject']) {
+  test(`assist guard settles a stalled callable with a retryable code and ignores late ${lateOutcome}`, async (t) => {
+    const clock = guardClock(t);
+    const f = fixture(); const key = await f.get();
+    let resolveCall, rejectCall;
+    const call = new Promise((resolve, reject) => { resolveCall = resolve; rejectCall = reject; });
+    const result = withAiAssistGuard(() => call);
+    const rejected = assert.rejects(result, error => {
+      assert.ok(error instanceof Error);
+      assert.equal(error.code, 'functions/deadline-exceeded');
+      assert.match(error.message, /try again/i);
+      f.keys.finish(key, { error });
+      return true;
+    });
+    await Promise.resolve();
+    clock.expire();
+    await rejected;
+    assert.equal((await f.get()).key, key.key);
+    assert.equal(clock.clear.mock.callCount(), 1);
+    if (lateOutcome === 'resolve') resolveCall('late result');
+    else rejectCall(new Error('late failure'));
+    await new Promise(resolve => setImmediate(resolve));
+  });
+}
+
+test('assist guard returns a fast result and clears its timer', async (t) => {
+  const clock = guardClock(t);
+  assert.equal(await withAiAssistGuard(async () => 'result'), 'result');
+  assert.equal(clock.clear.mock.callCount(), 1);
+  clock.expire();
+});
+test('assist guard preserves immediate failures and clears its timer', async (t) => {
+  const clock = guardClock(t);
+  const error = { code: 'functions/unavailable', message: 'private upstream text' };
+  await assert.rejects(withAiAssistGuard(() => Promise.reject(error)), e => e === error);
+  assert.equal(clock.clear.mock.callCount(), 1);
+  clock.expire();
+});
+test('assist guard clears its timer after synchronous callable failure', async (t) => {
+  const clock = guardClock(t);
+  await assert.rejects(withAiAssistGuard(() => { throw new Error('call failed'); }), /call failed/);
+  assert.equal(clock.clear.mock.callCount(), 1);
+  clock.expire();
+});

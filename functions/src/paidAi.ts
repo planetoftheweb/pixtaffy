@@ -762,6 +762,34 @@ function requireAssistAction(value: unknown): AiAssistAction {
 
 const ASSIST_BLOCK_REASONS = new Set(["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION"]);
 
+export function resolveAiAssistTimeoutMs(env: Record<string, string | undefined>): number {
+  const value = Number(env.AI_ASSIST_TIMEOUT_MS);
+  return Number.isFinite(value) && value > 0
+    ? Math.min(240_000, Math.max(5_000, value))
+    : 75_000;
+}
+
+async function withAiAssistDeadline<T>(generate: (signal: AbortSignal, timeoutMs: number) => Promise<T>): Promise<T> {
+  const timeoutMs = resolveAiAssistTimeoutMs(process.env);
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        reject(new HttpsError("deadline-exceeded", "The AI request timed out. Please try again."));
+        controller.abort();
+      }, timeoutMs);
+    });
+    // The race observes late rejections and ignores late results after the deadline.
+    return await Promise.race([
+      Promise.resolve().then(() => generate(controller.signal, timeoutMs)),
+      deadline,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function isAssistBlocked(response: {
   promptFeedback?: { blockReason?: string };
   candidates?: Array<{ finishReason?: string }>;
@@ -862,16 +890,18 @@ export const runAiAssist = onCall(
       if (imageBase64) {
         parts.unshift({ inlineData: { data: imageBase64, mimeType: payload.mimeType || "image/png" } });
       }
-      const response = await ai.models.generateContent({
+      const response = await withAiAssistDeadline((abortSignal, timeoutMs) => ai.models.generateContent({
         model: vertexConfig ? vertexConfig.model : "gemini-flash-latest",
         contents: [{ role: "user", parts }],
         config: {
+          abortSignal,
+          httpOptions: { timeout: timeoutMs },
           temperature: action === "expand_prompt" ? 0.7 : 0.2,
           ...(action === "expand_prompt" || action === "image_description"
             ? {}
             : { responseMimeType: "application/json" }),
         },
-      });
+      }));
       const usage = response.usageMetadata as any;
       const { actualCostUsd, unknownModel } = geminiAssistCost({
         backend: AI_ASSIST_BACKEND,

@@ -73,6 +73,7 @@ import { detectLikelyCanvasPadding } from './services/recomposeQualityService';
 import { toMarkLabel } from './services/versionUtils';
 import { buildProfileImageCacheKey, getCachedImageBlob } from './services/imageCache';
 import { fetchProfileThumbnailDataUrl } from './services/imageService';
+import { friendlyAiAssistError } from './services/aiAssistGuard';
 import { billingService, makeRequestId, SITE_FUNDED_MODEL_MILLICREDITS, type BillingState } from './services/billingService';
 import {
   analyzeBrandGuidelinesPaid,
@@ -1585,6 +1586,7 @@ const App: React.FC = () => {
         }
       } catch (err) {
         console.warn('Image describe fallback (main image):', err);
+        setError(friendlyAiAssistError(err));
       }
 
       const structured = buildStructuredPrompt(currentGeneration.config);
@@ -2685,7 +2687,11 @@ const App: React.FC = () => {
       currentGeneration.config,
       context,
       user.preferences.systemPrompt
-    );
+    ).catch((error: unknown) => {
+      const message = friendlyAiAssistError(error);
+      setError(message);
+      throw new Error(message);
+    });
 
     const issueLines = plan.issues.length > 0
       ? plan.issues.map((issue, idx) => `${idx + 1}. ${issue.trim()}`).join('\n')
@@ -2725,7 +2731,11 @@ const App: React.FC = () => {
       currentGeneration.config,
       context,
       user.preferences.systemPrompt
-    );
+    ).catch((error: unknown) => {
+      const message = friendlyAiAssistError(error);
+      setError(message);
+      throw new Error(message);
+    });
     return expanded.trim();
   };
 
@@ -2856,7 +2866,10 @@ const App: React.FC = () => {
             const sourceForDescription = currentVersion.imageData
               ? { base64: currentVersion.imageData, mime: currentVersion.mimeType }
               : await fetchImageAsBase64(currentVersion.imageUrl);
-            const conceptBrief = await describeImagePaid(sourceForDescription.base64, sourceForDescription.mime);
+            const conceptBrief = await describeImagePaid(sourceForDescription.base64, sourceForDescription.mime).catch((error: unknown) => {
+              setError(friendlyAiAssistError(error));
+              throw error;
+            });
             const styleReferencePrompt = [
               `Rebuild this as a new composition at ${normalizedTarget}.`,
               'Use the original image as style reference only, not as a layout template.',
@@ -3046,14 +3059,14 @@ const App: React.FC = () => {
     try {
       if (!user) {
         openAuthModal('signup');
-        throw new Error('Create an account to analyze brand guidelines.');
+        throw { code: 'unauthenticated' };
       }
 
       const result = await analyzeBrandGuidelinesPaid(file);
       setAnalysisResult(result);
       setIsAnalysisModalOpen(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to analyze brand guidelines.');
+      setError(friendlyAiAssistError(err));
     } finally {
       setIsAnalyzing(false);
     }
@@ -4281,10 +4294,10 @@ const App: React.FC = () => {
             
             {/* Error Toast */}
             {error && (
-              <div className="absolute top-8 left-1/2 -translate-x-1/2 z-50 bg-red-100 dark:bg-red-900/90 text-red-800 dark:text-red-100 px-4 py-3 rounded-lg shadow-lg border border-red-200 dark:border-red-800 flex items-center gap-2 animate-bounce-in backdrop-blur-sm">
+              <div role="alert" className="absolute top-8 left-1/2 -translate-x-1/2 z-50 bg-red-100 dark:bg-red-900/90 text-red-800 dark:text-red-100 px-4 py-3 rounded-lg shadow-lg border border-red-200 dark:border-red-800 flex items-center gap-2 animate-bounce-in backdrop-blur-sm">
                 <AlertCircle size={20} />
                 <span className="text-sm font-medium">{error}</span>
-                <button onClick={() => setError(null)} className="ml-2 hover:bg-red-200 dark:hover:bg-red-800 p-1 rounded">
+                <button type="button" aria-label="Dismiss error" onClick={() => setError(null)} className="ml-2 min-h-11 min-w-11 hover:bg-red-200 dark:hover:bg-red-800 p-1 rounded">
                   ✕
                 </button>
               </div>

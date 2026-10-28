@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { GenerationConfig, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, User, Team, SvgMode, ToolbarPreset, GeneratedImage, PromptImageStyleInfluenceMode, PromptImageStyleReference } from '../types';
 import { analyzeFileOptionPaid, describeImagePaid, expandPromptPaid } from '../services/paidAiService';
+import { friendlyAiAssistError } from '../services/aiAssistGuard';
 import { SITE_FUNDED_MODEL_MILLICREDITS } from '../services/billingService';
 import { resourceService } from '../services/resourceService';
 import { teamService } from '../services/teamService';
@@ -941,12 +942,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const saturationValueRef = useRef<HTMLDivElement>(null);
   const hueSliderRef = useRef<HTMLDivElement>(null);
 
+  const [aiAssistError, setAiAssistError] = useState<string | null>(null);
+
   const handleExpandPrompt = async () => {
     if (!config.prompt || isExpandingPrompt) return;
+    setAiAssistError(null);
     setIsExpandingPrompt(true);
     try {
       if (!user) {
-        console.warn('Expand prompt: sign in and add credits first.');
+        setAiAssistError(friendlyAiAssistError({ code: 'unauthenticated' }));
         return;
       }
       const ctx = { ...options, aspectRatios: options.aspectRatios };
@@ -954,6 +958,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       setConfig((prev) => ({ ...prev, prompt: expanded }));
     } catch (err) {
       console.error('Failed to expand prompt:', err);
+      setAiAssistError(friendlyAiAssistError(err));
     } finally {
       setIsExpandingPrompt(false);
     }
@@ -1304,6 +1309,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       return;
     }
 
+    setAiAssistError(null);
     setIsPromptImageAnalyzing(true);
     setPromptImageError(null);
     try {
@@ -1313,7 +1319,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       closePromptImageDialog();
     } catch (err) {
       console.error('Failed to describe prompt image:', err);
-      setPromptImageError(err instanceof Error ? err.message : 'Could not generate a prompt from this image.');
+      setAiAssistError(friendlyAiAssistError(err));
     } finally {
       setIsPromptImageAnalyzing(false);
     }
@@ -1339,6 +1345,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       return;
     }
 
+    setAiAssistError(null);
     setIsPromptImageAnalyzing(true);
     setPromptImageError(null);
     try {
@@ -1356,7 +1363,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       closePromptImageDialog();
     } catch (err) {
       console.error('Failed to analyze prompt image style:', err);
-      setPromptImageError(err instanceof Error ? err.message : 'Could not use this image as a style reference.');
+      setAiAssistError(friendlyAiAssistError(err));
     } finally {
       setIsPromptImageAnalyzing(false);
     }
@@ -1380,9 +1387,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const processOptionFile = async (file: File) => {
     if (!modalType || (modalType !== 'style' && modalType !== 'color')) return;
 
+    setAiAssistError(null);
     setIsAnalysingOption(true);
     try {
-      if (!user) throw new Error('Sign in and add credits to analyze images.');
+      if (!user) throw { code: 'unauthenticated' };
       const result = await analyzeFileOptionPaid(file, modalType);
       
       setNewItemName(result.name);
@@ -1391,6 +1399,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
     } catch (err) {
       console.error("Failed to analyze option image:", err);
+      setAiAssistError(friendlyAiAssistError(err));
     } finally {
       setIsAnalysingOption(false);
       if (optionFileInputRef.current) optionFileInputRef.current.value = '';
@@ -1923,6 +1932,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <>
+      {aiAssistError && createPortal(
+        <div role="alert" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] max-w-[calc(100vw-2rem)] flex items-center gap-2 rounded-lg border border-red-200 dark:border-red-800 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 px-4 py-2 shadow-lg">
+          <span className="text-sm font-medium">{aiAssistError}</span>
+          <button type="button" aria-label="Dismiss AI assist error" onClick={() => setAiAssistError(null)} className="min-h-11 min-w-11 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 flex items-center justify-center">
+            <X size={18} />
+          </button>
+        </div>, document.body,
+      )}
       <div
         className={`sticky top-[73px] z-40 w-full transition-[padding] duration-300 [overflow-anchor:none] ${
           isOptionsCollapsed
