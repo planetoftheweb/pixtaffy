@@ -4719,7 +4719,7 @@ const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => openAuthModal('signup')}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-red/20 transition-colors hover:bg-red-700"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-teal px-4 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600"
                 >
                   {guestImageSavedInBrowser ? 'Sync it and get 10 credits' : 'Create account for future work'}
                   <ArrowRight size={15} />
@@ -5043,7 +5043,7 @@ const App: React.FC = () => {
                     </button>
                     <button
                       onClick={() => openAuthModal('signup')}
-                      className="inline-flex items-center gap-2 rounded-xl bg-brand-red hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-red/20 transition-colors"
+                      className="inline-flex items-center gap-2 rounded-xl bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"
                     >
                       Create Free Account
                       <ArrowRight size={15} />
@@ -5057,7 +5057,7 @@ const App: React.FC = () => {
                         setSettingsMode(false);
                         setIsSetupModalOpen(false);
                       }}
-                      className="inline-flex items-center gap-2 rounded-xl bg-brand-red hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-red/20 transition-colors"
+                      className="inline-flex items-center gap-2 rounded-xl bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"
                     >
                       <Coins size={15} />
                       View Credits
