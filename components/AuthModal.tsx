@@ -166,7 +166,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         user = await authService.login(email, password);
       } else {
         if (!name) throw new Error("Name is required");
-        if (!username) throw new Error("Username is required");
+        if (!username) throw new Error("Username is required.");
         user = await authService.register(name, email, password, username);
       }
       onLoginSuccess(user);

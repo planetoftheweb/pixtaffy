@@ -1419,4 +1419,5 @@ test('round 3 responsive controls fit narrow screens without shrinking text', ()
   assert.match(source('App.tsx'), /className="text-sm font-semibold text-slate-900 dark:text-white">\s*Active Generations/);
   assert.match(source('components/AuthModal.tsx'), /id=\{errorId\} role="alert" className="[^\n]*break-words/);
   assert.match(source('components/AuthModal.tsx'), /setError\(err.message \|\| "Authentication failed\."\)/);
+  assert.doesNotMatch(source('components/AuthModal.tsx'), /["']Username is required["']/);
 });
