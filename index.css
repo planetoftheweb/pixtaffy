@@ -5,12 +5,12 @@
 
 /* Slot blocks preserve comma-separated media queries in Tailwind 4.1. */
 @custom-variant stack {
-  @media (max-width:767px), (max-width:1023px) and (orientation:portrait) {
+  @media (max-width:767px), (max-width:1024px) and (orientation:portrait) {
     @slot;
   }
 }
 @custom-variant side {
-  @media (min-width:1024px), (min-width:768px) and (orientation:landscape) {
+  @media (min-width:1025px), (min-width:768px) and (orientation:landscape) {
     @slot;
   }
 }
