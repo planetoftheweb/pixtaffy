@@ -135,14 +135,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   return (
     <div onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !busyRef.current) onClose();
-    }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={isLogin ? "Log in" : "Create account"} className="outline-none bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
+      // Presses on the backdrop's own scrollbar must not close the dialog.
+      const onScrollbar = event.clientX >= event.currentTarget.clientWidth || event.clientY >= event.currentTarget.clientHeight;
+      if (event.target === event.currentTarget && !onScrollbar && !busyRef.current) onClose();
+    }} className="fixed inset-0 z-[100] flex justify-center overflow-y-auto p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={isLogin ? "Log in" : "Create account"} className="outline-none bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl w-full max-w-md m-auto shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
         
         <button 
           onClick={onClose}
           aria-label="Close"
-          className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
+          className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal hover:bg-gray-100 dark:hover:bg-[#30363d] transition-colors z-10"
         >
           <X size={20} /><Tip text="Close" />
         </button>
@@ -189,7 +191,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-red/50 transition-all"
+                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                       placeholder="John Doe"
                       required={!isLogin}
                     />
@@ -203,7 +205,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-8 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-red/50 transition-all"
+                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-8 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                       placeholder="johndoe"
                       required={!isLogin}
                     />
@@ -222,7 +224,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type={isLogin ? "text" : "email"}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-red/50 transition-all"
+                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                   placeholder={isLogin ? "john@example.com or johndoe" : "john@example.com"}
                   required
                 />
@@ -233,7 +235,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="button"
                   onClick={handlePasswordReset}
                   disabled={isResetting || isLoading}
-                  className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center ml-auto text-xs font-semibold text-brand-red dark:text-brand-orange hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center ml-auto text-xs font-semibold text-brand-teal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isResetting ? 'Sending reset link…' : 'Forgot password?'}<Tip text="Forgot password?" />
                 </button>
@@ -249,7 +251,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-red/50 transition-all"
+                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                   placeholder="••••••••"
                   required
                 />
@@ -277,7 +279,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {isLogin ? "Don't have an account? " : "Already have an account? "}
               <button 
                 onClick={toggleMode}
-                className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center text-brand-teal font-bold hover:underline"
+                className="min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 inline-flex items-center justify-center text-brand-teal font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
               >
                 {isLogin ? 'Sign up' : 'Log in'}<Tip text={isLogin ? 'Sign up' : 'Log in'} />
               </button>

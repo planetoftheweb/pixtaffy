@@ -249,7 +249,7 @@ test('reviewed controls compact only for fine pointers and values appear at xl',
   assert.match(controlPanelSource, /focus:ring-1 focus:ring-brand-teal/);
   assert.match(auth, /flex justify-end/);
   assert.match(auth, /target\.blur\(\)/);
-  assert.match(auth, /onMouseDown=\{\(event\) => \{\s*if \(event\.target === event\.currentTarget && !busyRef\.current\) onClose\(\);/);
+  assert.match(auth, /onMouseDown=\{\(event\) => \{[\s\S]*?if \(event\.target === event\.currentTarget && !onScrollbar && !busyRef\.current\) onClose\(\);/);
   assert.doesNotMatch(auth, /fixed inset-0 z-\[100\][^\n]*\n?[^\n]*onClick=\{onClose\}/);
   for (const source of [appSource, auth, readFileSync(new URL('../components/FeedbackModal.tsx', import.meta.url), 'utf8')]) {
     assert.match(source, /bg-brand-teal[^\n]*text-\[#0d1117\]/);
@@ -367,7 +367,7 @@ test('auth modal ignores Esc and backdrop presses while a request is busy and us
   const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
   assert.match(auth, /busyRef\.current = isLoading \|\| isResetting;/);
   assert.match(auth, /if \(event\.key !== 'Escape'\) return;[\s\S]*?if \(busyRef\.current\) return;[\s\S]*?target\.blur\(\)/);
-  assert.match(auth, /onMouseDown=\{\(event\) => \{\s*if \(event\.target === event\.currentTarget && !busyRef\.current\) onClose\(\);\s*\}\}/);
+  assert.match(auth, /onMouseDown=\{\(event\) => \{[\s\S]*?if \(event\.target === event\.currentTarget && !onScrollbar && !busyRef\.current\) onClose\(\);\s*\}\}/);
   assert.doesNotMatch(auth, /<div onClick=\{onClose\}/);
 });
 
@@ -378,4 +378,17 @@ test('auth Escape keeps focus in the dialog and dismissal restores a connected o
   assert.match(auth, /openerRef.current = document.activeElement instanceof HTMLElement/);
   assert.match(auth, /if \(openerRef.current\?\.isConnected\) openerRef.current.focus\(\)/);
   assert.match(auth, /useLayoutEffect\([\s\S]*?\}, \[isOpen\]\)/);
+});
+
+test('auth modal scrolls on short screens and uses teal focus styling', () => {
+  const auth = readFileSync(new URL('../components/AuthModal.tsx', import.meta.url), 'utf8');
+  const backdrop = auth.match(/className="(fixed inset-0 z-\[100\][^"]*)"/)?.[1] || '';
+  assert.match(backdrop, /overflow-y-auto/);
+  assert.doesNotMatch(backdrop, /items-center/);
+  assert.match(auth, /role="dialog"[^\n]*rounded-2xl w-full max-w-md m-auto/);
+  assert.equal((auth.match(/focus:ring-brand-teal/g) || []).length, 4);
+  assert.doesNotMatch(auth, /focus:ring-brand-red|text-brand-red|brand-orange/);
+  assert.equal((auth.match(/focus-visible:ring-2 focus-visible:ring-brand-teal/g) || []).length, 3);
+  const forgot = auth.slice(auth.indexOf('onClick={handlePasswordReset}'), auth.indexOf('onClick={handlePasswordReset}') + 700);
+  assert.match(forgot, /text-brand-teal/);
 });
