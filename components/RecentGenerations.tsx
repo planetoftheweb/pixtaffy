@@ -1241,7 +1241,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
           aria-haspopup="listbox"
           aria-expanded={isFolderPickerOpen}
           aria-label={`Folder: ${activeName}, ${activeCount} item${activeCount === 1 ? '' : 's'}. Click to switch folders.`}
-          className="inline-flex items-center gap-2 pl-2.5 pr-2 py-1.5 min-h-9 rounded-full border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal transition"
+          className="inline-flex items-center gap-2 pl-2.5 pr-2 py-1.5 min-h-9 [@media(pointer:coarse)]:min-h-11 rounded-full border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal transition"
         >
           <FolderIcon size={14} aria-hidden />
           <span className="truncate max-w-[14rem] sm:max-w-[18rem]">{activeName}</span>
@@ -1265,7 +1265,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
             role="listbox"
             aria-label="Switch folder"
             data-folder-menu
-            className="fixed max-h-[min(70vh,480px)] overflow-y-auto rounded-xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-xl p-1"
+            className="fixed max-h-[min(70vh,480px)] overflow-y-auto rounded-2xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-xl p-1"
             style={panelAnchorStyle(folderPickerAnchor, 352, 480)}
           >
             <div
@@ -2880,7 +2880,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
               role="dialog"
               aria-modal="true"
               aria-labelledby="folder-instructions-title"
-              className="bg-white dark:bg-[#161b22] rounded-xl border border-gray-200 dark:border-[#30363d] shadow-2xl max-w-lg w-full p-5"
+              className="bg-white dark:bg-[#161b22] rounded-2xl border border-gray-200 dark:border-[#30363d] shadow-2xl max-w-lg w-full p-5"
             >
               <h2 id="folder-instructions-title" className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Instructions — {target.name}
@@ -2959,7 +2959,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
         const directSubfolders = getChildFolders(folders, pendingDeleteFolderId).length;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-            <div role="dialog" aria-modal="true" aria-labelledby="delete-folder-title" className="bg-white dark:bg-[#161b22] rounded-xl border border-gray-200 dark:border-[#30363d] shadow-2xl max-w-sm w-full p-5">
+            <div role="dialog" aria-modal="true" aria-labelledby="delete-folder-title" className="bg-white dark:bg-[#161b22] rounded-2xl border border-gray-200 dark:border-[#30363d] shadow-2xl max-w-sm w-full p-5">
               <h2 id="delete-folder-title" className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Delete "{target.name}"?
               </h2>

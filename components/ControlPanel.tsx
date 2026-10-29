@@ -1336,7 +1336,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               }
                             }}
                             aria-selected={isSelected}
-                            className={`group relative flex [@media(pointer:coarse)]:min-h-11 items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
+                            className={`[@media(pointer:coarse)]:min-h-11 group relative flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
                                 isSelected
                                     ? 'bg-brand-teal/10 ring-1 ring-brand-teal/30 dark:ring-brand-teal/40 hover:bg-brand-teal/15'
                                     : 'hover:bg-gray-100 dark:hover:bg-[#21262d]'
@@ -3000,7 +3000,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                           width: 64,
                           zIndex: 70,
                         }}
-                        className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 py-0.5"
+                        className="bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 py-0.5"
                         role="listbox"
                         aria-label="Variations per prompt"
                       >
@@ -3016,7 +3016,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                 setBatchCount(n);
                                 setActiveDropdown(null);
                               }}
-                              className={`w-full flex [@media(pointer:coarse)]:min-h-11 items-center justify-between px-2.5 py-0.5 text-sm tabular-nums transition-colors ${
+                              className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 w-full flex items-center justify-between px-2.5 py-0.5 text-sm tabular-nums transition-colors ${
                                 isSelected
                                   ? 'bg-brand-teal/10 text-brand-teal font-semibold'
                                   : 'text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d]'

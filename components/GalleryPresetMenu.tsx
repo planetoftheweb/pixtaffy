@@ -233,7 +233,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
       {isOpen && (
         <div
           role="menu"
-          className="absolute top-full right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-[45] overflow-hidden flex flex-col"
+          className="absolute top-full right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-[45] overflow-hidden flex flex-col"
         >
           <div className="px-3 py-2 border-b border-gray-200 dark:border-[#30363d] bg-gray-50 dark:bg-[#0d1117] space-y-2">
             <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">

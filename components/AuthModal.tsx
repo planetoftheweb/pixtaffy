@@ -284,7 +284,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       aria-describedby={error && errorField === 'name' ? errorId : undefined}
                       value={name}
                       onChange={(e) => { setName(e.target.value); if (errorField === 'name') { setError(null); setErrorField(null); } }}
-                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
+                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                       placeholder="John Doe"
                       required={!isLogin}
                     />
@@ -301,7 +301,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       aria-describedby={error && errorField === 'username' ? errorId : undefined}
                       value={username}
                       onChange={(e) => { setUsername(e.target.value); if (errorField === 'username') { setError(null); setErrorField(null); } }}
-                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-8 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
+                      className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg py-3 pl-8 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                       placeholder="johndoe"
                       required={!isLogin}
                     />
@@ -323,7 +323,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   aria-describedby={error && errorField === 'email' ? errorId : undefined}
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); if (errorField === 'email') { setError(null); setErrorField(null); } }}
-                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
+                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                   placeholder={isLogin ? "john@example.com or johndoe" : "john@example.com"}
                   required
                 />
@@ -358,7 +358,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   aria-describedby={error && errorField === 'password' ? errorId : undefined}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (errorField === 'password') { setError(null); setErrorField(null); } }}
-                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
+                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#30363d] rounded-lg py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all"
                   placeholder="••••••••"
                   required
                 />

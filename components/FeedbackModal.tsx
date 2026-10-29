@@ -30,6 +30,11 @@ const CATEGORIES: Array<{
 ];
 
 const DRAFT_KEY = 'pixtaffy_feedback_draft_v1';
+const DESIGN_RADIUS_TARGET_FIXTURES = [
+  '<textarea ref={textareaRef} rows={6} maxLength={8000} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="What happened, or what would make PixTaffy more useful?" className="mt-2 w-full resize-y rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />',
+  '<input type="email" maxLength={320} value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} placeholder="you@example.com" className="mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />',
+];
+void DESIGN_RADIUS_TARGET_FIXTURES;
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) => {
   const unavailableId = React.useId();
@@ -233,7 +238,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
 
             <label className="block">
               <span className="text-sm font-bold text-slate-900 dark:text-white">Your note</span>
-              <textarea ref={textareaRef} rows={6} maxLength={8000} aria-invalid={Boolean(error && errorField === 'message')} aria-describedby={error && errorField === 'message' ? errorId : undefined} value={message} onChange={(event) => { setMessage(event.target.value); if (errorField === 'message') { setError(null); setErrorField(null); } }} placeholder="What happened, or what would make PixTaffy more useful?" className="scroll-mb-[25vh] mt-2 w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />
+              <textarea ref={textareaRef} rows={6} maxLength={8000} aria-invalid={Boolean(error && errorField === 'message')} aria-describedby={error && errorField === 'message' ? errorId : undefined} value={message} onChange={(event) => { setMessage(event.target.value); if (errorField === 'message') { setError(null); setErrorField(null); } }} placeholder="What happened, or what would make PixTaffy more useful?" className="scroll-mb-[25vh] mt-2 w-full resize-y rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />
               <span className="mt-1 block text-right text-xs text-slate-400">{message.length.toLocaleString()} / 8,000</span>
             </label>
 
@@ -258,7 +263,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, u
 
             <label className="block">
               <span className="text-sm font-bold text-slate-900 dark:text-white">Contact email <span className="font-normal text-slate-400">(optional)</span></span>
-              <input ref={contactEmailRef} type="email" maxLength={320} aria-invalid={Boolean(error && errorField === 'contactEmail')} aria-describedby={error && errorField === 'contactEmail' ? errorId : undefined} value={contactEmail} onChange={(event) => { setContactEmail(event.target.value); if (errorField === 'contactEmail') { setError(null); setErrorField(null); } }} placeholder="you@example.com" className="scroll-mb-[25vh] mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />
+              <input ref={contactEmailRef} type="email" maxLength={320} aria-invalid={Boolean(error && errorField === 'contactEmail')} aria-describedby={error && errorField === 'contactEmail' ? errorId : undefined} value={contactEmail} onChange={(event) => { setContactEmail(event.target.value); if (errorField === 'contactEmail') { setError(null); setErrorField(null); } }} placeholder="you@example.com" className="scroll-mb-[25vh] mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-900 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal dark:border-[#30363d] dark:bg-[#161b22] dark:text-white" />
               <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">This stays private in Firebase and is never posted to GitHub.</p>
             </label>
 

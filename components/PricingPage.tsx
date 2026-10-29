@@ -58,7 +58,7 @@ const products = [
     estimates: estimateImages(25),
     image: '/brand/pricing-taffy-illustrator.webp',
     imageAlt: 'An orange taffy illustrator drawing a colorful image on a tablet',
-    accent: 'from-orange-400 via-brand-orange to-brand-red',
+    accent: 'bg-brand-orange',
   },
   {
     id: 'credits_100' as const,
@@ -69,7 +69,7 @@ const products = [
     estimates: estimateImages(100),
     image: '/brand/pricing-taffy-art-director.webp',
     imageAlt: 'A saltwater taffy art director comparing three colorful image concepts',
-    accent: 'from-brand-cyan via-brand-pink to-brand-purple',
+    accent: 'bg-brand-cyan',
     featured: true,
   },
   {
@@ -81,7 +81,7 @@ const products = [
     estimates: estimateImages(300),
     image: '/brand/pricing-taffy-photographer.webp',
     imageAlt: 'A yellow, coral, and purple taffy photographer creating a candy image',
-    accent: 'from-brand-purple via-brand-pink to-brand-orange',
+    accent: 'bg-brand-purple',
   },
 ];
 
@@ -277,8 +277,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
           <div className="mt-6 grid gap-5 lg:grid-cols-3">
             {products.map((product) => (
               <article key={product.id} className={'relative overflow-hidden rounded-3xl border bg-white shadow-lg transition-transform hover:-translate-y-1 dark:bg-[#141a29] ' + (product.featured ? 'border-brand-cyan ring-2 ring-brand-cyan/30' : 'border-slate-200 dark:border-white/10')}>
-                <div className={'h-2 bg-gradient-to-r ' + product.accent} />
-                <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#fff0dd] via-[#ffe5f3] to-[#dffbff] dark:from-white/10 dark:via-brand-pink/10 dark:to-brand-cyan/10 sm:h-52">
+                <div className={'h-2 ' + product.accent} />
+                <div className="relative h-48 overflow-hidden bg-gradient-to-br from-orange-50 to-white dark:from-white/10 dark:to-white/5 sm:h-52">
                   <img src={product.image} alt={product.imageAlt} loading="lazy" className="h-full w-full object-cover object-center" />
                   {product.featured && <span className="absolute right-4 top-4 rounded-full bg-[#11172a] px-3 py-1.5 text-[12px] font-black uppercase tracking-wide text-brand-cyan">Most popular</span>}
                 </div>
@@ -292,7 +292,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
                   <p className="mt-5 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">About this many images</p>
                   <div className="mt-2 grid grid-cols-3 gap-2">
                     <Estimate value={product.estimates.standard} label="Standard" color="text-brand-teal" />
-                    <Estimate value={product.estimates.pro} label="Pro" color="text-brand-purple" />
+                    <Estimate value={product.estimates.pro} label="Pro" color="text-brand-purple dark:text-purple-200" />
                     <Estimate value={product.estimates.premium} label="Premium" color="text-brand-pink" />
                   </div>
                   <ul className="mt-5 space-y-2.5 text-sm text-slate-700 dark:text-slate-200">
@@ -301,8 +301,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
                     <li className="flex gap-2"><WandSparkles size={17} className="mt-0.5 shrink-0 text-brand-pink" /> Images, analysis, naming, and prompt tools</li>
                   </ul>
                   <span className="relative inline-flex w-full">
-                  <button onClick={(event) => { if (busy != null) { event.preventDefault(); event.stopPropagation(); return; }return void checkout(product.id);
-                          }} aria-disabled={busy != null} aria-describedby={(busy != null) ? `${unavailableId}-3-${product.id}` : undefined} className={`mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#11172a] px-4 py-3 text-sm font-black text-white shadow-lg transition-colors hover:bg-brand-pink aria-disabled:opacity-60 dark:bg-white dark:text-[#11172a] dark:hover:bg-brand-cyan ${FOCUS_RING}`}>
+                  <button onClick={(event) => { if (busy != null) { event.preventDefault(); event.stopPropagation(); return; } return void checkout(product.id); }} aria-disabled={busy != null} aria-describedby={(busy != null) ? `${unavailableId}-3-${product.id}` : undefined} className={`mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#11172a] px-4 py-3 text-sm font-black text-white shadow-lg transition-colors hover:bg-brand-pink aria-disabled:opacity-60 dark:bg-white dark:text-[#11172a] dark:hover:bg-brand-cyan ${FOCUS_RING}`}>
                     {busy === product.id ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} {user ? `Get ${product.eyebrow.replace('-credit pack', '')} credits` : 'Create an account to buy'}
                   </button>
                     <Tip text={(busy != null) ? ('Wait for checkout to finish opening') : ('Buy credits')} side="top" />
@@ -334,8 +333,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
               <p className="pixtaffy-counter text-4xl font-black">$15<span className="text-base font-semibold text-slate-400">/month</span></p>
               <p className="mt-2 text-xs leading-5 text-slate-300">All credit-powered image models and AI helpers are included. They spend from your monthly balance at the published rates.</p>
               <span className="relative inline-flex w-full">
-              <button onClick={(event) => { if (busy != null || billing?.plan === 'pro') { event.preventDefault(); event.stopPropagation(); return; }return void checkout('pro_monthly');
-                      }} aria-disabled={busy != null || billing?.plan === 'pro'} aria-describedby={(busy != null || billing?.plan === 'pro') ? `${unavailableId}-4` : undefined} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-purple via-brand-pink to-brand-red px-4 py-3 text-sm font-black text-white shadow-lg aria-disabled:opacity-60 ${FOCUS_RING}`}>
+              <button onClick={(event) => { if (busy != null || billing?.plan === 'pro') { event.preventDefault(); event.stopPropagation(); return; } return void checkout('pro_monthly'); }} aria-disabled={busy != null || billing?.plan === 'pro'} aria-describedby={(busy != null || billing?.plan === 'pro') ? `${unavailableId}-4` : undefined} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-brand-pink px-4 py-3 text-sm font-black text-[#0d1117] shadow-lg aria-disabled:opacity-60 ${FOCUS_RING}`}>
                 {busy === 'pro_monthly' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {billing?.plan === 'pro' ? 'Current plan' : user ? 'Join Taffy Studio' : 'Create an account to join'}
               </button>
                 <Tip text={(busy != null || billing?.plan === 'pro') ? (billing?.plan === 'pro' ? 'You already have this plan' : 'Wait for checkout to finish opening') : ('Get Pro')} side="top" />
