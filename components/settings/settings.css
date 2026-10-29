@@ -21,3 +21,7 @@
 @media (min-width: 640px) {
   .settings-surface summary { min-height: 34px; }
 }
+@media (pointer: coarse) {
+  .settings-surface :where(button, input:not([type='checkbox']):not([type='file'])) { min-height: 44px; }
+  .settings-surface :where(button) { min-width: 44px; }
+}

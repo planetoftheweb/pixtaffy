@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import { Tip } from './settings/Tip';
 import React, { useRef, useState, useEffect } from "react";
 import {
@@ -78,6 +79,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
   align = "right",
   onNotify,
 }) => {
+  const unavailableId = React.useId();
   const [isOpen, setIsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -181,7 +183,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
   const isDisabled = disabled || busy || (!canThis && !canAll);
 
   const defaultTriggerClasses =
-    "inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] text-slate-800 dark:text-slate-100 hover:bg-brand-teal hover:border-brand-teal hover:text-white transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] text-slate-800 dark:text-slate-100 hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] transition text-sm font-medium aria-disabled:opacity-50 aria-disabled:cursor-not-allowed";
 
   const triggerIcon = busy ? (
     <Loader2 size={16} className="animate-spin" />
@@ -194,15 +196,16 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
     triggerLabel ?? (mode === "all-only" ? allLabel || `Download (${allCount})` : undefined);
 
   return (
-    <div ref={wrapperRef} className="relative inline-block">
+    <div ref={wrapperRef} className="relative inline-block" data-tip-expanded={isOpen}>
       <button
         type="button"
-        onClick={() => !isDisabled && setIsOpen((v) => !v)}
-        disabled={isDisabled}
+        onClick={(event) => { if (isDisabled) { event.preventDefault(); event.stopPropagation(); return; }setIsOpen((v) => !v);
+        }}
+        aria-disabled={isDisabled} aria-describedby={(isDisabled) ? `${unavailableId}-1` : undefined}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label={triggerTitle || resolvedLabel || "Download"}
-        className={triggerClassName || defaultTriggerClasses}
+        className={`${triggerClassName || defaultTriggerClasses} ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
       >
         {triggerIcon}
         {showTriggerText && resolvedLabel ? (
@@ -210,7 +213,8 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
         ) : null}
         <ChevronDown size={14} className="opacity-70" aria-hidden="true" />
       </button>
-      <Tip title={showTriggerText ? resolvedLabel : undefined} text={triggerTooltip || triggerTitle || "Download"} side="top" align="right" />
+{(isDisabled) && <span id={`${unavailableId}-1`} className="sr-only">{busy ? 'Preparing download…' : disabled ? 'Downloads are unavailable' : 'No images to download'}</span>}
+      <Tip title={showTriggerText ? resolvedLabel : undefined} text={(isDisabled) ? (busy ? 'Preparing download…' : disabled ? 'Downloads are unavailable' : 'No images to download') : (triggerTooltip || triggerTitle || "Download")} side="top" align="right" />
 
       {isOpen && (
         <div
@@ -230,7 +234,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
                   type="button"
                   role="menuitem"
                   onClick={() => runThis(opt.id)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left"
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left ${FOCUS_RING}`}
                 >
                   <span className="flex items-center gap-2">
                     {opt.id === "svg" || opt.id === "html" ? (
@@ -268,7 +272,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
                   type="button"
                   role="menuitem"
                   onClick={() => runAll(opt.id)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left"
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left ${FOCUS_RING}`}
                 >
                   <span className="flex items-center gap-2">
                     <Archive size={14} aria-hidden="true" />
@@ -292,7 +296,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
                 type="button"
                 role="menuitem"
                 onClick={() => runDocument("pdf")}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left"
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left ${FOCUS_RING}`}
               >
                 <span className="flex items-center gap-2">
                   <FileText size={14} aria-hidden="true" />
@@ -306,7 +310,7 @@ export const DownloadMenu: React.FC<DownloadMenuProps> = ({
                 type="button"
                 role="menuitem"
                 onClick={() => runDocument("pptx")}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left"
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-800 dark:text-slate-100 transition text-left ${FOCUS_RING}`}
               >
                 <span className="flex items-center gap-2">
                   <Presentation size={14} aria-hidden="true" />

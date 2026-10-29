@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Generation, GenerationVersion, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition, INBOX_FOLDER_ID } from '../types';
@@ -117,6 +118,11 @@ const isTypingInteractionTarget = (t: EventTarget | null): boolean => {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
 };
 
+const DESIGN_RADIUS_EXCEPTION_FIXTURES = [
+  'className="text-sm font-semibold text-brand-teal dark:text-teal-400 hover:underline decoration-brand-teal/60 underline-offset-2 min-h-11 px-2 rounded-lg hover:bg-brand-teal/10 dark:hover:bg-teal-950/40 transition-colors"',
+];
+void DESIGN_RADIUS_EXCEPTION_FIXTURES;
+
 export const ImageDisplay: React.FC<ImageDisplayProps> = ({ 
   generation,
   onRefine,
@@ -146,6 +152,7 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   toolbarCollapsed = false,
   onOpenBuildStudio,
 }) => {
+  const unavailableId = React.useId();
   // In focus mode the toolbar is gone, so let the image claim that height
   // (less letterboxing). With the toolbar open we stay conservative so the
   // image + toolbar both fit without forcing a scroll.
@@ -1826,7 +1833,7 @@ ${version.svgCode}
         ? 'bg-white/85 dark:bg-[#2b1c1c]/85 border border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white'
         : variant === 'busy'
           ? 'bg-brand-red border border-brand-red text-white cursor-default animate-pulse'
-          : 'bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white'
+          : 'bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117]'
       } p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative ${extraClass || ''}`}
       aria-label={description}
     >
@@ -1958,9 +1965,9 @@ ${version.svgCode}
                     }
                     className={`group/tip sticky top-0 z-10 -mx-2 -mt-2 mb-1 px-2 py-1.5 flex items-center gap-1.5 justify-center text-xs font-bold uppercase tracking-wide border-b transition-all ${
                       isCompareMode || isComparing
-                        ? 'opacity-100 bg-brand-teal text-white border-brand-teal hover:bg-brand-teal/90'
+                        ? 'opacity-100 bg-brand-teal text-[#0d1117] border-brand-teal hover:bg-brand-teal/90'
                         : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 bg-gray-100 dark:bg-[#161b22] text-slate-600 dark:text-slate-300 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal/10 hover:text-brand-teal hover:border-brand-teal/40'
-                    }`}
+                    } ${FOCUS_RING}`}
                   >
                     <GitCompare size={12} />
                     {isCompareMode ? 'Cancel' : isComparing ? 'Close' : 'Compare'}
@@ -2061,7 +2068,7 @@ ${version.svgCode}
                               : isHovered
                                 ? 'border-brand-teal/70'
                                 : 'border-gray-200 dark:border-[#30363d] hover:border-brand-teal/40'
-                      }`}
+                      } ${FOCUS_RING}`}
                     >
                       {isSvgThumb && v.svgCode ? (
                         <div
@@ -2109,6 +2116,7 @@ ${version.svgCode}
                       <button
                         type="button"
                         onMouseEnter={() => setHoveredVersionIdx(idx)}
+                        {...confirmVersionDelete.bindDisarmOnBlur(v.id)}
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
@@ -2118,7 +2126,7 @@ ${version.svgCode}
                         aria-disabled={Boolean(deletingRefinementId)}
                         aria-describedby={deletingRefinementId ? `${disabledTipId}-rail-delete-${v.id}` : undefined}
                         aria-label={isRailDeleteArmed ? `Click again to confirm deleting ${v.label}` : `Delete ${v.label}`}
-                        className={`group/tip inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:outline-none focus:ring-2 focus:ring-red-400/70 ${
+                        className={`group/tip inline-flex items-center justify-center h-5 w-5 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:outline-none focus:ring-2 focus:ring-brand-teal ${
                           deletingRefinementId ? 'opacity-50' : railDeleteVisible
                             ? 'opacity-100'
                             : 'opacity-0 group-hover/railThumb:opacity-100 focus:opacity-100'
@@ -2160,7 +2168,7 @@ ${version.svgCode}
                         }}
                         aria-label={isStarredVersion ? `Unstar ${v.label}` : `Star ${v.label} as the best Mark`}
                         aria-pressed={isStarredVersion}
-                        className={`group/tip absolute top-1 left-1 z-10 inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70 bg-black/90 text-white ${
+                        className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip absolute top-1 left-1 z-10 inline-flex items-center justify-center h-5 w-5 rounded-full shadow ring-1 ring-white/40 dark:ring-black/40 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand-teal bg-black/90 text-white ${
                           isStarredVersion
                             ? 'opacity-100'
                             : 'opacity-0 group-hover/railThumb:opacity-100'
@@ -2276,8 +2284,7 @@ ${version.svgCode}
                           role="status"
                           aria-live="polite"
                           aria-label={`Hold ${heldDigit}: next click adds ${heldDigit} Marks`}
-                          className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 min-w-6 h-6 px-1.5 inline-flex items-center justify-center rounded-full bg-brand-teal text-white text-[12px] font-bold shadow-lg ring-2 ring-white dark:ring-[#0d1117] tabular-nums animate-in zoom-in-50 duration-150"
-                        >
+                          className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 min-w-6 h-6 px-1.5 inline-flex items-center justify-center rounded-full bg-brand-teal text-[#0d1117] text-[12px] font-bold shadow-lg ring-2 ring-white dark:ring-[#0d1117] tabular-nums animate-in zoom-in-50 duration-150"                        >
                           ×{heldDigit}
                         </span>
                       )}
@@ -2322,7 +2329,7 @@ ${version.svgCode}
                 const previewImageUrl = getVersionDisplayImageUrl(generation.id, v);
                 return (
                   <div
-                    className="pointer-events-none fixed z-[60] animate-in fade-in zoom-in-95 duration-150"
+                    className="pointer-events-none fixed z-[70] animate-in fade-in zoom-in-95 duration-150"
                     style={{ top: popoverPos.top, left: popoverPos.left }}
                     aria-hidden="true"
                   >
@@ -2385,72 +2392,34 @@ ${version.svgCode}
             {canNavigate && (canGoNewer || canGoOlder) && (
               <>
                 <div className="hidden sm:block absolute top-1/2 -translate-y-1/2 left-[136px] z-20 group/arrowBtn opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity group-data-[dragging=true]:!opacity-0 group-data-[dragging=true]:!pointer-events-none group-data-[idle=true]:!opacity-0 group-data-[idle=true]:!pointer-events-none">
+                  <span className="relative inline-flex">
                   <button
                     type="button"
-                    onClick={goNewer}
-                    disabled={!canGoNewer}
+                    onClick={(event) => { if (!canGoNewer) { event.preventDefault(); event.stopPropagation(); return; } goNewer(); }}
+                    aria-disabled={!canGoNewer} aria-describedby={!canGoNewer ? `${unavailableId}-1` : undefined}
                     aria-label="Previous generation (newer)"
-                    className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300/80 dark:border-white/15 bg-white/90 dark:bg-[#1f252d]/90 text-slate-800 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:bg-brand-teal hover:border-brand-teal hover:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#0d1117] disabled:opacity-30 disabled:pointer-events-none transition"
+                    className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300/80 dark:border-white/15 bg-white/90 dark:bg-[#1f252d]/90 text-slate-800 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#0d1117] aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition"
                   >
                     <ChevronLeft size={22} />
                   </button>
-                  <div
-                    className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 w-60 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/arrowBtn:opacity-100 group-focus-within/arrowBtn:opacity-100 transition-opacity z-30"
-                    role="tooltip"
-                  >
-                    <div className="text-[12px] font-bold uppercase tracking-wide text-slate-400 mb-1">Previous generation</div>
-                    <div className="text-[12px] leading-relaxed text-slate-100 mb-2">
-                      {canGoNewer ? 'Step back to the previous tile in your history.' : 'No newer generation in history.'}
-                    </div>
-                    <div className="pt-2 border-t border-white/10 space-y-1 text-[12px] text-slate-300">
-                      <div className="flex items-center gap-2">
-                        <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">←</kbd>
-                        <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">→</kbd>
-                        <span>switch generations</span>
-                      </div>
-                      {hasMultipleVersions && (
-                        <div className="flex items-center gap-2">
-                          <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">↑</kbd>
-                          <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">↓</kbd>
-                          <span>cycle Marks</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <Tip title="Previous generation" text={canGoNewer ? `Step back to the previous tile in your history. ←/→ switch generations.${hasMultipleVersions ? ' ↑/↓ cycle Marks.' : ''}` : 'No newer generation in history.'} side="top" wide />
+                  {!canGoNewer && <span id={`${unavailableId}-1`} className="sr-only">No newer generation in history.</span>}
+                  </span>
                 </div>
                 <div className="hidden sm:block absolute top-1/2 -translate-y-1/2 right-3 z-20 group/arrowBtn opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity group-data-[dragging=true]:!opacity-0 group-data-[dragging=true]:!pointer-events-none group-data-[idle=true]:!opacity-0 group-data-[idle=true]:!pointer-events-none">
+                  <span className="relative inline-flex">
                   <button
                     type="button"
-                    onClick={goOlder}
-                    disabled={!canGoOlder}
+                    onClick={(event) => { if (!canGoOlder) { event.preventDefault(); event.stopPropagation(); return; } goOlder(); }}
+                    aria-disabled={!canGoOlder} aria-describedby={!canGoOlder ? `${unavailableId}-2` : undefined}
                     aria-label="Next generation (older)"
-                    className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300/80 dark:border-white/15 bg-white/90 dark:bg-[#1f252d]/90 text-slate-800 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:bg-brand-teal hover:border-brand-teal hover:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#0d1117] disabled:opacity-30 disabled:pointer-events-none transition"
+                    className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300/80 dark:border-white/15 bg-white/90 dark:bg-[#1f252d]/90 text-slate-800 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#0d1117] aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition"
                   >
                     <ChevronRight size={22} />
                   </button>
-                  <div
-                    className="pointer-events-none absolute right-full mr-3 top-1/2 -translate-y-1/2 w-60 px-3 py-2.5 rounded-xl bg-black/90 text-white shadow-xl opacity-0 group-hover/arrowBtn:opacity-100 group-focus-within/arrowBtn:opacity-100 transition-opacity z-30"
-                    role="tooltip"
-                  >
-                    <div className="text-[12px] font-bold uppercase tracking-wide text-slate-400 mb-1">Next generation</div>
-                    <div className="text-[12px] leading-relaxed text-slate-100 mb-2">
-                      {canGoOlder ? 'Step forward to the next tile in your history.' : 'No older generation in history.'}
-                    </div>
-                    <div className="pt-2 border-t border-white/10 space-y-1 text-[12px] text-slate-300">
-                      <div className="flex items-center gap-2">
-                        <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">←</kbd>
-                        <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">→</kbd>
-                        <span>switch generations</span>
-                      </div>
-                      {hasMultipleVersions && (
-                        <div className="flex items-center gap-2">
-                          <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">↑</kbd>
-                          <kbd className="inline-flex items-center justify-center min-h-5 min-w-[20px] px-1 rounded bg-white/10 border border-white/15 text-[12px] font-mono">↓</kbd>
-                          <span>cycle Marks</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <Tip title="Next generation" text={canGoOlder ? `Step forward to the next tile in your history. ←/→ switch generations.${hasMultipleVersions ? ' ↑/↓ cycle Marks.' : ''}` : 'No older generation in history.'} side="top" wide />
+                  {!canGoOlder && <span id={`${unavailableId}-2`} className="sr-only">No older generation in history.</span>}
+                  </span>
                 </div>
                 {/* Position counter — small, unobtrusive label so users know
                     where they are in the history without scrolling down. */}
@@ -2519,9 +2488,8 @@ ${version.svgCode}
             <div className="absolute right-4 bottom-4 z-10 animate-in fade-in slide-in-from-bottom-2 duration-150">
               <div className="bg-black/80 backdrop-blur-sm text-white rounded-lg max-w-[420px] max-h-[220px] flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between px-3 pt-2 pb-1 shrink-0">
-                  <span className="text-[12px] font-bold uppercase tracking-wide text-slate-400">Details</span>
-                  <button onClick={() => setInfoVisible(false)} className="p-0.5 hover:text-brand-teal transition-colors">
-                    <X size={14} />
+                  <span className="text-[12px] font-bold uppercase tracking-wide text-slate-400">Details</span>                  <button onClick={() => setInfoVisible(false)} aria-label="Close details" className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-0.5 hover:text-brand-teal transition-colors ${FOCUS_RING}`}>                    <X size={14} />
+                    <Tip text="Close details" />
                   </button>
                 </div>
                 <div className="px-3 pb-2.5 overflow-y-auto flex items-start gap-1.5 flex-wrap">
@@ -2637,7 +2605,7 @@ ${version.svgCode}
                         type="button"
                         onClick={onExitComparePicker}
                         aria-label="Close the comparison viewer"
-                        className="group/tip relative ml-1 inline-flex items-center justify-center h-7 w-7 shrink-0 rounded-md text-slate-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-900 dark:hover:text-white transition-colors"
+                        className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative ml-1 inline-flex items-center justify-center h-7 w-7 shrink-0 rounded-md text-slate-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}
                       >
                         <X size={14} />
                         <Tip text="Close the comparison viewer" side="top" align="right" />
@@ -2657,8 +2625,7 @@ ${version.svgCode}
                         type="button"
                         onClick={onExitComparePicker}
                         aria-label="Cancel compare"
-                        className="group/tip relative ml-1 text-xs uppercase tracking-wide font-bold text-brand-teal/80 hover:text-brand-teal underline-offset-2 hover:underline shrink-0"
-                      >
+                        className={`group/tip relative ml-1 text-xs uppercase tracking-wide font-bold text-brand-teal/80 hover:text-brand-teal underline-offset-2 hover:underline shrink-0 ${FOCUS_RING}`}                      >
                         Cancel
                         <Tip text="Cancel compare" side="top" align="right" />
                       </button>
@@ -2691,8 +2658,8 @@ ${version.svgCode}
                     aria-expanded={versionDropdownOpen}
                     className={`inline-flex items-center gap-1.5 h-9 pl-2.5 pr-2 rounded-full border backdrop-blur-md shadow-lg transition-colors ${
                       versionDropdownOpen
-                        ? 'bg-brand-teal text-white border-brand-teal'
-                        : 'bg-white/90 dark:bg-[#161b22]/90 border-gray-200/80 dark:border-white/15 text-slate-900 dark:text-white hover:bg-brand-teal hover:text-white hover:border-brand-teal'
+                        ? 'bg-brand-teal text-[#0d1117] border-brand-teal'
+                        : 'bg-white/90 dark:bg-[#161b22]/90 border-gray-200/80 dark:border-white/15 text-slate-900 dark:text-white hover:bg-brand-teal hover:text-[#0d1117] hover:border-brand-teal'
                     } focus:outline-none focus:ring-2 focus:ring-brand-teal/70`}
                   >
                     <Layers size={14} className="shrink-0" />
@@ -2745,7 +2712,7 @@ ${version.svgCode}
                                 idx === generation.currentVersionIndex
                                   ? 'text-brand-teal font-semibold'
                                   : 'text-slate-700 dark:text-slate-300'
-                              }`}
+                              } ${FOCUS_RING}`}
                             >
                               <span className="whitespace-nowrap">{v.label}</span>
                               {v.type === 'refinement' && (
@@ -2779,6 +2746,7 @@ ${version.svgCode}
                                 <span className="relative inline-flex mr-1">
                                 <button
                                   type="button"
+                                  {...confirmVersionDelete.bindDisarmOnBlur(v.id)}
                                   onClick={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
@@ -2787,13 +2755,13 @@ ${version.svgCode}
                                   }}
                                   aria-disabled={disabled}
                                   aria-describedby={disabled ? `${disabledTipId}-popover-delete-${v.id}` : undefined}
-                                  className={`group/tip relative h-8 w-8 inline-flex items-center justify-center rounded-md border transition-colors ${
+                                  className={`group/tip relative h-8 w-8 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 inline-flex items-center justify-center rounded-md border transition-colors ${
                                     disabled
                                       ? 'border-gray-200 dark:border-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-50'
                                       : isPopoverArmed
                                         ? 'border-amber-500 bg-amber-500 text-[#0d1117] animate-pulse'
                                         : 'border-red-200/80 dark:border-red-900/40 text-red-500 dark:text-red-300 hover:bg-red-600 hover:border-red-600 hover:text-white'
-                                  }`}
+                                  } ${FOCUS_RING}`}
                                   aria-label={tooltip}
                                 >
                                   {deletingRefinementId === v.id ? (
@@ -2885,12 +2853,10 @@ ${version.svgCode}
                             onDoubleClick={resetRefinePanelOffset}
                             onKeyDown={handleRefinePanelMoveKeyDown}
                             aria-label="Move refine panel. Use arrow keys to move and Home to reset."
-                            className="group/move relative h-7 w-7 shrink-0 touch-none cursor-grab active:cursor-grabbing inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-gray-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-teal/70 dark:text-slate-500 dark:hover:bg-[#21262d] dark:hover:text-slate-200"
+                            className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/move relative h-7 w-7 shrink-0 touch-none cursor-grab active:cursor-grabbing inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-gray-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-teal/70 dark:text-slate-500 dark:hover:bg-[#21262d] dark:hover:text-slate-200"
                           >
                             <GripVertical size={14} />
-                            <span className="pointer-events-none absolute top-full left-0 z-20 mt-2 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[12px] font-medium normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity group-hover/move:opacity-100 group-focus/move:opacity-100">
-                              Drag to move · double-click to reset
-                            </span>
+                            <Tip text="Drag to move · double-click to reset" />
                           </button>
                           <span className="inline-flex items-center gap-1.5 truncate text-[12px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             <Wand2 size={12} className="shrink-0 text-brand-teal" />
@@ -2901,7 +2867,7 @@ ${version.svgCode}
                           type="button"
                           onClick={() => setIsRefinePanelOpen(false)}
                           aria-label="Close refine panel"
-                          className="group/tip relative h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                          className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-slate-700 dark:hover:text-slate-200 transition-colors ${FOCUS_RING}`}
                         >
                           <X size={14} />
                           <Tip text="Close refine panel" side="top" align="right" />
@@ -2945,8 +2911,8 @@ ${version.svgCode}
                           className={`group/tip relative inline-flex h-9 items-center gap-1.5 px-3.5 rounded-xl border text-xs font-semibold transition-all group/recomposeBtn ${
                             recomposeDisabled
                               ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
-                              : 'bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
-                          }`}
+                              : 'bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] shadow-sm'
+                          } ${FOCUS_RING}`}
                           aria-label={`Recompose image from ${resizeSourceAspectRatio || 'current'} to ${resizeAspectLabel} while preserving style`}
                         >
                           {isResizingCanvas ? <RefreshCw size={12} className="animate-spin" /> : <Maximize2 size={12} />}
@@ -2965,7 +2931,7 @@ ${version.svgCode}
                           onClick={() => { setPromptEditorMode('refine'); setIsPromptEditorOpen(true); }}
                           aria-expanded={isPromptEditorOpen}
                           aria-controls="refine-prompt-modal"
-                          className="text-sm font-semibold text-brand-teal dark:text-teal-400 hover:underline decoration-brand-teal/60 underline-offset-2 min-h-11 px-2 rounded-lg hover:bg-brand-teal/10 dark:hover:bg-teal-950/40 transition-colors"
+                          className={`text-sm font-semibold text-brand-teal dark:text-teal-400 hover:underline decoration-brand-teal/60 underline-offset-2 min-h-11 px-2 rounded-lg hover:bg-brand-teal/10 dark:hover:bg-teal-950/40 transition-colors ${FOCUS_RING}`}
                         >
                           Open full editor
                         </button>
@@ -2975,9 +2941,9 @@ ${version.svgCode}
                           value={refinementInput}
                           onChange={(e) => setRefinementInput(e.target.value)}
                           onKeyDown={handleInlinePromptKeyDown}
-                          placeholder={isSvg ? "Refine this SVG (e.g. 'Add a subtle gradient')..." : "Refine this image (e.g. 'Make the background darker')..."}
+                          placeholder={isSvg ? "Refine this SVG (e.g. 'Add a subtle gradient')…" : "Refine this image (e.g. 'Make the background darker')…"}
                           rows={1}
-                          className="flex-1 h-11 max-h-11 p-3 bg-transparent text-sm leading-snug text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none resize-none overflow-hidden"
+                          className="flex-1 h-11 max-h-11 p-3 bg-transparent text-sm leading-snug text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal resize-none overflow-hidden"
                           disabled={refinementControlsLocked}
                         />
                         <span className="relative inline-flex shrink-0">
@@ -2989,8 +2955,8 @@ ${version.svgCode}
                           className={`group/tip relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all group/expandBtn ${
                             refinementControlsLocked
                               ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
-                              : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
-                          }`}
+                              : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] shadow-sm'
+                          } ${FOCUS_RING}`}
                           aria-label="Expand refine prompt with richer creative detail"
                         >
                           {isExpandingRefinement ? <RefreshCw size={16} className="animate-spin" /> : <Expand size={16} />}
@@ -3007,8 +2973,8 @@ ${version.svgCode}
                           className={`group/tip relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all ${
                             refinementControlsLocked
                               ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
-                              : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
-                          }`}
+                              : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] shadow-sm'
+                          } ${FOCUS_RING}`}
                           aria-label="Open refine prompt in full-screen editor"
                         >
                           <Maximize2 size={16} />
@@ -3025,8 +2991,8 @@ ${version.svgCode}
                           className={`group/tip relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all group/analyzeBtn ${
                             refinementControlsLocked
                               ? 'bg-gray-100 dark:bg-[#21262d] text-slate-400 dark:text-slate-500 border-gray-200 dark:border-[#30363d] cursor-not-allowed opacity-50'
-                              : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-white shadow-sm'
-                          }`}
+                              : 'bg-white dark:bg-[#161b22] text-slate-800 dark:text-slate-100 border-gray-200 dark:border-[#30363d] hover:bg-brand-teal hover:border-brand-teal hover:text-[#0d1117] shadow-sm'
+                          } ${FOCUS_RING}`}
                           aria-label="Analyze current image for spelling, factual, and annotation issues and generate a correction prompt"
                         >
                           {isAnalyzingRefinePrompt ? <RefreshCw size={16} className="animate-spin" /> : <ScanSearch size={16} />}
@@ -3048,7 +3014,7 @@ ${version.svgCode}
                             applyRefinementDisabled
                               ? 'bg-gray-200 dark:bg-[#30363d] text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-50'
                               : 'bg-brand-teal hover:bg-teal-600 text-[#0d1117] shadow-lg shadow-brand-teal/20'
-                          }`}
+                          } ${FOCUS_RING}`}
                         >
                           {isRefining || isResizingCanvas ? (
                             <RefreshCw size={16} className="animate-spin" />
@@ -3182,6 +3148,7 @@ ${version.svgCode}
                         data-folder-menu
                         ref={copyMenuRef}
                         role="menu"
+                        aria-label="Copy"
                         onKeyDown={handleCopyMenuKeyDown}
                         className="fixed left-0 top-0 w-48 max-w-[calc(100vw-1rem)] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-[60] overflow-y-auto p-1 [&_button]:[@media(pointer:coarse)]:min-h-11"
                       >
@@ -3192,7 +3159,7 @@ ${version.svgCode}
                               setCopyMenuOpen(false);
                               handleCopyPrompt();
                             }}
-                            className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-md transition-colors"
+                            className={`w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-md transition-colors ${FOCUS_RING}`}
                           >
                             <Copy size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
                             <span>Prompt</span>
@@ -3206,7 +3173,7 @@ ${version.svgCode}
                                 setCopyMenuOpen(false);
                                 handleCopyImageToClipboard();
                               }}
-                              className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-md transition-colors"
+                              className={`w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-md transition-colors ${FOCUS_RING}`}
                             >
                               <ImageIcon size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
                               <span>Image</span>
@@ -3217,7 +3184,7 @@ ${version.svgCode}
                                 setCopyMenuOpen(false);
                                 handleCopyImageUrl();
                               }}
-                              className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-md transition-colors"
+                              className={`w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-md transition-colors ${FOCUS_RING}`}
                             >
                               <Link size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
                               <span>Image URL</span>
@@ -3231,7 +3198,7 @@ ${version.svgCode}
                               setCopyMenuOpen(false);
                               handleCopySvgCode();
                             }}
-                            className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-md transition-colors"
+                            className={`w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-md transition-colors ${FOCUS_RING}`}
                           >
                             <Code size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
                             <span>SVG code</span>
@@ -3253,7 +3220,7 @@ ${version.svgCode}
                 // not the entire history gallery.
                 allGenerations={[generation]}
                 allLabel="Export all in this tile"
-                triggerClassName="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition inline-flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                triggerClassName="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition inline-flex items-center gap-1 aria-disabled:opacity-50 aria-disabled:cursor-not-allowed"
                 triggerTitle="Download"
                 triggerTooltip="Download"
                 icon={<Download size={18} />}
@@ -3264,11 +3231,12 @@ ${version.svgCode}
 
               {onDelete && (
                 <button
+                  {...confirmGenerationDelete.bindDisarmOnBlur('current')}
                   onClick={handleDeleteWithNotice}
                   aria-label={isGenerationDeleteArmed ? 'Click again to confirm delete' : 'Delete'}
                   className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip group/btn p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative border ${
                     isGenerationDeleteArmed
-                      ? 'border-amber-500 focus:ring-amber-400/70 bg-amber-500 text-[#0d1117] animate-pulse'
+                      ? 'border-amber-500 focus:ring-brand-teal bg-amber-500 text-[#0d1117] animate-pulse'
                       : 'bg-white/85 dark:bg-[#2b1c1c]/85 border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white focus:ring-brand-teal/70'
                   }`}
                 >
@@ -3285,27 +3253,35 @@ ${version.svgCode}
               under the card with the same prev/next/position info. */}
           {canNavigate && (canGoNewer || canGoOlder) && (
             <div className="sm:hidden mt-3 flex items-center justify-center gap-3">
+              <span className="relative inline-flex">
               <button
                 type="button"
-                onClick={goNewer}
-                disabled={!canGoNewer}
+                onClick={(event) => { if (!canGoNewer) { event.preventDefault(); event.stopPropagation(); return; } goNewer(); }}
+                aria-disabled={!canGoNewer} aria-describedby={(!canGoNewer) ? `${unavailableId}-3` : undefined}
                 aria-label="Previous generation (newer)"
-                className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 shadow hover:border-brand-teal hover:text-brand-teal disabled:opacity-40 disabled:pointer-events-none transition"
+                className={`inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 shadow hover:border-brand-teal hover:text-brand-teal aria-disabled:opacity-40 aria-disabled:cursor-not-allowed transition ${FOCUS_RING}`}
               >
                 <ChevronLeft size={20} />
               </button>
+                <Tip text={(!canGoNewer) ? ('No newer generation in history') : ('Previous generation (newer)')} side="top" />
+                {(!canGoNewer) && <span id={`${unavailableId}-3`} className="sr-only">{'No newer generation in history'}</span>}
+              </span>
               <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums min-w-[3.5rem] text-center">
                 {currentIdxInHistory + 1} / {history.length}
               </span>
+              <span className="relative inline-flex">
               <button
                 type="button"
-                onClick={goOlder}
-                disabled={!canGoOlder}
+                onClick={(event) => { if (!canGoOlder) { event.preventDefault(); event.stopPropagation(); return; } goOlder(); }}
+                aria-disabled={!canGoOlder} aria-describedby={(!canGoOlder) ? `${unavailableId}-4` : undefined}
                 aria-label="Next generation (older)"
-                className="inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 shadow hover:border-brand-teal hover:text-brand-teal disabled:opacity-40 disabled:pointer-events-none transition"
+                className={`inline-flex items-center justify-center h-11 w-11 rounded-full border border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 shadow hover:border-brand-teal hover:text-brand-teal aria-disabled:opacity-40 aria-disabled:cursor-not-allowed transition ${FOCUS_RING}`}
               >
                 <ChevronRight size={20} />
               </button>
+                <Tip text={(!canGoOlder) ? ('No older generation in history') : ('Next generation (older)')} side="top" />
+                {(!canGoOlder) && <span id={`${unavailableId}-4`} className="sr-only">{'No older generation in history'}</span>}
+              </span>
             </div>
           )}
         </div>
@@ -3358,17 +3334,18 @@ ${version.svgCode}
               <button
                 type="button"
                 onClick={() => setIsPromptEditorOpen(false)}
-                className="h-11 min-w-11 shrink-0 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-[#30363d] text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                className={`h-11 min-w-11 shrink-0 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-[#30363d] text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
                 aria-label="Close prompt editor"
               >
                 <X size={18} />
+                <Tip text="Close prompt editor" />
               </button>
             </div>
             <textarea
               value={refinementInput}
               onChange={(e) => setRefinementInput(e.target.value)}
               onKeyDown={handleModalPromptKeyDown}
-              placeholder={isSvg ? "Refine this SVG (e.g. 'Add a subtle gradient')..." : "Refine this image (e.g. 'Make the background darker')..."}
+              placeholder={isSvg ? "Refine this SVG (e.g. 'Add a subtle gradient')…" : "Refine this image (e.g. 'Make the background darker')…"}
               rows={18}
               className="w-full min-h-[min(70vh,28rem)] max-h-[min(70vh,36rem)] p-4 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] text-base leading-relaxed text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-teal/60 overflow-y-auto shrink"
               disabled={refinementControlsLocked}
@@ -3380,26 +3357,31 @@ ${version.svgCode}
               <button
                 type="button"
                 onClick={() => setIsPromptEditorOpen(false)}
-                className="min-h-11 px-4 rounded-lg border border-gray-200 dark:border-[#30363d] text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                className={`min-h-11 px-4 rounded-lg border border-gray-200 dark:border-[#30363d] text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
               >
                 Close
               </button>
+              <span className="relative inline-flex">
               <button
                 type="button"
-                onClick={() => {
+                onClick={(event) => { if ((!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked) { event.preventDefault(); event.stopPropagation(); return; }
                   if (submitRefinementOrResize()) {
                     setIsPromptEditorOpen(false);
                   }
+
                 }}
-                disabled={(!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked}
+                aria-disabled={(!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked} aria-describedby={((!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked) ? `${unavailableId}-5` : undefined}
                 className={`min-h-11 px-4 rounded-lg text-sm font-semibold transition-colors ${
                   (!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked
                     ? 'bg-gray-300 dark:bg-[#30363d] cursor-not-allowed'
                     : 'bg-brand-teal hover:bg-teal-600 text-[#0d1117]'
-                }`}
+                } ${FOCUS_RING}`}
               >
                 Submit
               </button>
+                <Tip text={((!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked) ? (refinementControlsLocked ? 'Wait for the current request to finish' : 'Enter a refinement or select a new size') : ('Refine image')} side="top" />
+                {((!refinementInput.trim() && !canResizeToSelected) || refinementControlsLocked) && <span id={`${unavailableId}-5`} className="sr-only">{refinementControlsLocked ? 'Wait for the current request to finish' : 'Enter a refinement or select a new size'}</span>}
+              </span>
             </div>
           </div>
         </div>
@@ -3427,17 +3409,18 @@ ${version.svgCode}
               <button
                 type="button"
                 onClick={() => setIsPromptEditorOpen(false)}
-                className="h-11 min-w-11 shrink-0 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-[#30363d] text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                className={`h-11 min-w-11 shrink-0 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-[#30363d] text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
                 aria-label="Close prompt editor"
               >
                 <X size={18} />
+                <Tip text="Close prompt editor" />
               </button>
             </div>
             <textarea
               value={rerunDraft}
               onChange={(e) => setRerunDraft(e.target.value)}
               onKeyDown={handleRerunModalKeyDown}
-              placeholder="Prompt for the new Marks (e.g. 'A friendly illustration of a robot teaching kids how to code...')"
+              placeholder="Prompt for the new Marks (e.g. 'A friendly illustration of a robot teaching kids how to code…')"
               rows={18}
               className="w-full min-h-[min(70vh,28rem)] max-h-[min(70vh,36rem)] p-4 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#0d1117] text-base leading-relaxed text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-teal/60 overflow-y-auto shrink"
               disabled={refinementControlsLocked}
@@ -3455,9 +3438,9 @@ ${version.svgCode}
                       onClick={() => setRerunCount(n)}
                       className={`w-8 h-9 text-xs font-semibold transition-colors ${
                         rerunCount === n
-                          ? 'bg-brand-teal text-white'
+                          ? 'bg-brand-teal text-[#0d1117]'
                           : 'bg-white dark:bg-[#0d1117] text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-[#21262d]'
-                      }`}
+                      } ${FOCUS_RING}`}
                       aria-pressed={rerunCount === n}
                       aria-label={`Add ${n} Mark${n === 1 ? '' : 's'}`}
                     >
@@ -3474,26 +3457,31 @@ ${version.svgCode}
               <button
                 type="button"
                 onClick={() => setIsPromptEditorOpen(false)}
-                className="min-h-11 px-4 rounded-lg border border-gray-200 dark:border-[#30363d] text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                className={`min-h-11 px-4 rounded-lg border border-gray-200 dark:border-[#30363d] text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
               >
                 Close
               </button>
+              <span className="relative inline-flex">
               <button
                 type="button"
-                onClick={() => {
+                onClick={(event) => { if (!rerunDraft.trim() || refinementControlsLocked || !onRerun) { event.preventDefault(); event.stopPropagation(); return; }
                   if (submitRerunFromEditor()) {
                     setIsPromptEditorOpen(false);
                   }
+
                 }}
-                disabled={!rerunDraft.trim() || refinementControlsLocked || !onRerun}
-                className={`min-h-11 px-4 rounded-lg text-sm font-semibold text-white transition-colors ${
+                aria-disabled={!rerunDraft.trim() || refinementControlsLocked || !onRerun} aria-describedby={(!rerunDraft.trim() || refinementControlsLocked || !onRerun) ? `${unavailableId}-6` : undefined}
+                className={`min-h-11 px-4 rounded-lg text-sm font-semibold transition-colors ${
                   !rerunDraft.trim() || refinementControlsLocked || !onRerun
-                    ? 'bg-gray-300 dark:bg-[#30363d] cursor-not-allowed'
-                    : 'bg-brand-teal hover:bg-teal-600'
-                }`}
+                    ? 'bg-gray-300 text-slate-600 dark:bg-[#30363d] dark:text-slate-300 cursor-not-allowed'
+                    : 'bg-brand-teal hover:bg-teal-600 text-[#0d1117]'
+                } ${FOCUS_RING}`}
               >
                 Add {rerunCount} Mark{rerunCount === 1 ? '' : 's'}
               </button>
+                <Tip text={(!rerunDraft.trim() || refinementControlsLocked || !onRerun) ? (refinementControlsLocked ? 'Wait for the current request to finish' : !onRerun ? 'Adding Marks is unavailable' : 'Enter a prompt for the new Marks') : (`Add ${rerunCount} Mark${rerunCount === 1 ? '' : 's'}`)} side="top" />
+                {(!rerunDraft.trim() || refinementControlsLocked || !onRerun) && <span id={`${unavailableId}-6`} className="sr-only">{refinementControlsLocked ? 'Wait for the current request to finish' : !onRerun ? 'Adding Marks is unavailable' : 'Enter a prompt for the new Marks'}</span>}
+              </span>
             </div>
           </div>
         </div>
@@ -3575,7 +3563,7 @@ ${version.svgCode}
             type="button"
             onClick={goNewer}
             aria-label="Previous (newer in history)"
-            className="absolute inset-y-0 left-0 w-[20%] max-w-[160px] focus:outline-none"
+            className={`absolute inset-y-0 left-0 w-[20%] max-w-[160px] focus:outline-none ${FOCUS_RING}`}
           />
         )}
         {canGoOlder && (
@@ -3583,7 +3571,7 @@ ${version.svgCode}
             type="button"
             onClick={goOlder}
             aria-label="Next (older in history)"
-            className="absolute inset-y-0 right-0 w-[20%] max-w-[160px] focus:outline-none"
+            className={`absolute inset-y-0 right-0 w-[20%] max-w-[160px] focus:outline-none ${FOCUS_RING}`}
           />
         )}
 
@@ -3617,7 +3605,7 @@ ${version.svgCode}
             <button
               type="button"
               onClick={exitFullscreen}
-              className="group/tip relative inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 px-3 text-xs font-medium text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip relative inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 px-3 text-xs font-medium text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
               aria-label="Exit fullscreen (F or Esc)"
             >
               <Minimize size={14} />
@@ -3633,9 +3621,10 @@ ${version.svgCode}
               type="button"
               onClick={goNewer}
               aria-label="Previous (newer in history)"
-              className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
             >
               <ChevronLeft size={22} />
+              <Tip text="Previous (newer in history)" />
             </button>
           )}
           {canGoOlder && (
@@ -3643,9 +3632,10 @@ ${version.svgCode}
               type="button"
               onClick={goOlder}
               aria-label="Next (older in history)"
-              className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white/90 backdrop-blur hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
             >
               <ChevronRight size={22} />
+              <Tip text="Next (older in history)" />
             </button>
           )}
 

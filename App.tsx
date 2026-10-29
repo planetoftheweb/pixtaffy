@@ -1,3 +1,4 @@
+import { FOCUS_RING } from './utils/focusRing';
 import { isKnownPath, navigate, usePathname } from './utils/routes';
 import { shouldAutoCollapseGenerationPanel } from './utils/generationPanel';
 import { LegalPage } from './components/LegalPage';
@@ -139,6 +140,17 @@ const WhatsNewPage = lazy(() =>
 const PricingPage = lazy(() =>
   import('./components/PricingPage').then((mod) => ({ default: mod.PricingPage }))
 );
+
+const DESIGN_RADIUS_TARGET_FIXTURES = [
+  'className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-500 text-[#0d1117] px-4 py-2 text-sm font-black hover:bg-amber-400"',
+  'className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-teal px-4 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600"',
+  'className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors"',
+  'className="inline-flex items-center gap-2 rounded-lg bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"',
+  'className="inline-flex items-center gap-2 rounded-lg bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"',
+  'className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors"',
+  'className="inline-flex items-center rounded-lg border border-transparent px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"',
+];
+void DESIGN_RADIUS_TARGET_FIXTURES;
 const SearchModal = lazy(() =>
   import('./components/SearchModal').then((mod) => ({ default: mod.SearchModal }))
 );
@@ -185,7 +197,7 @@ interface BatchModelProgressSummary {
   inFlight: number;
 }
 
-const LazyPageFallback: React.FC<{ label?: string }> = ({ label = 'Loading...' }) => (
+const LazyPageFallback: React.FC<{ label?: string }> = ({ label = 'Loading…' }) => (
   <main className="flex-1 min-h-[50vh] bg-gray-50 dark:bg-[#0d1117] flex items-center justify-center px-4">
     <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 shadow-sm">
       <RefreshCw size={16} className="animate-spin text-brand-teal" />
@@ -198,7 +210,7 @@ const LazyModalFallback: React.FC = () => (
   <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/40 backdrop-blur-sm">
     <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white dark:bg-[#161b22] px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 shadow-xl">
       <RefreshCw size={16} className="animate-spin text-brand-teal" />
-      Loading...
+      Loading…
     </div>
   </div>
 );
@@ -378,6 +390,7 @@ const useGenerationPanelAutoCollapse = (
 };
 
 const App: React.FC = () => {
+  const unavailableId = React.useId();
   const errorToastClearance = useErrorToastClearance();
   const ActiveSettingsPage = serverKeysEnabled() ? SettingsPage : LegacySettingsPage;
   // Theme State
@@ -3854,7 +3867,7 @@ const App: React.FC = () => {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold"
+            className={`mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold ${FOCUS_RING}`}
           >
             <LogOut size={16} /> Log out
           </button>
@@ -3913,6 +3926,7 @@ const App: React.FC = () => {
                 Taffy
               </span>
             </span>
+          <Tip text="Open PixTaffy home" />
           </button>
         </div>
 
@@ -3924,7 +3938,7 @@ const App: React.FC = () => {
                <button 
                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                  aria-label="Open account menu"
-                 className="flex items-center gap-2 p-1 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] rounded-full transition-colors"
+                 className={`flex items-center gap-2 p-1 bg-gray-100 dark:bg-[#21262d] hover:bg-gray-200 dark:hover:bg-[#30363d] rounded-full transition-colors ${FOCUS_RING}`}
                >
                  <div className="w-8 h-8 rounded-full bg-brand-red flex items-center justify-center text-white text-xs font-bold overflow-hidden">
                     {user.photoURL || user.photoDataUrl ? (
@@ -3990,7 +4004,7 @@ const App: React.FC = () => {
                           setIsUserMenuOpen(false);
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
-                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+                        className={`w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors ${FOCUS_RING}`}
                       >
                         <House size={16} className="shrink-0 text-brand-orange" />
                         <span>View welcome page</span>
@@ -4008,7 +4022,7 @@ const App: React.FC = () => {
                           setWelcomeMode(false);
                           setIsUserMenuOpen(false);
                         }}
-                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+                        className={`w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors ${FOCUS_RING}`}
                       >
                         <Coins size={16} className="shrink-0 text-brand-teal" />
                         <span className="flex-1">Credits & plans</span>
@@ -4031,7 +4045,7 @@ const App: React.FC = () => {
                           setWelcomeMode(false);
                           setIsUserMenuOpen(false);
                         }}
-                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+                        className={`w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors ${FOCUS_RING}`}
                       >
                         <SettingsIcon size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
                         <span>Settings</span>
@@ -4054,7 +4068,7 @@ const App: React.FC = () => {
                             setWelcomeMode(false);
                             setIsUserMenuOpen(false);
                           }}
-                          className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+                          className={`w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors ${FOCUS_RING}`}
                         >
                           <ShieldCheck size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
                           <span>Admin</span>
@@ -4070,7 +4084,7 @@ const App: React.FC = () => {
                         rel="noopener noreferrer"
                         role="menuitem"
                         onClick={() => setIsUserMenuOpen(false)}
-                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+                        className={`w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors ${FOCUS_RING}`}
                       >
                         <Github size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
                         <span>View on GitHub</span>
@@ -4082,7 +4096,7 @@ const App: React.FC = () => {
                           setIsUserMenuOpen(false);
                           setIsFeedbackOpen(true);
                         }}
-                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors"
+                        className={`w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] hover:text-brand-teal dark:hover:text-brand-teal transition-colors ${FOCUS_RING}`}
                       >
                         <MessageSquarePlus size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
                         <span>Send feedback</span>
@@ -4101,7 +4115,7 @@ const App: React.FC = () => {
                         role="switch"
                         aria-checked={isDarkMode}
                         onClick={() => setIsDarkMode(prev => !prev)}
-                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] transition-colors"
+                        className={`w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
                       >
                         <Moon size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
                         <span className="flex-1">Dark mode</span>
@@ -4126,7 +4140,7 @@ const App: React.FC = () => {
                       type="button"
                       role="menuitem"
                       onClick={handleLogout}
-                      className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-brand-red hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      className={`w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-brand-red hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ${FOCUS_RING}`}
                     >
                       <LogOut size={16} className="shrink-0" />
                       <span>Log out</span>
@@ -4163,7 +4177,7 @@ const App: React.FC = () => {
            {!adminMode && !settingsMode && !billingMode && !catalogMode && !whatsNewMode && !welcomeMode && (
              <button
                onClick={toggleToolbarCollapsed}
-               className="relative hidden md:inline-flex min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 items-center justify-center p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
+               className={`relative hidden md:inline-flex min-h-[44px] min-w-[44px] [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 items-center justify-center p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors ${FOCUS_RING}`}
                aria-pressed={isToolbarCollapsed}
                aria-label={isToolbarCollapsed ? 'Show toolbar and prompt' : 'Hide toolbar and prompt'}
              >
@@ -4208,7 +4222,7 @@ const App: React.FC = () => {
           <button
             type="button"
             onClick={() => setAuthRetryNonce((attempt) => attempt + 1)}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-500 text-[#0d1117] px-4 py-2 text-sm font-black hover:bg-amber-400"
+            className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-500 text-[#0d1117] px-4 py-2 text-sm font-black hover:bg-amber-400 ${FOCUS_RING}`}
           >
             <RefreshCw size={16} /> Try again
           </button>
@@ -4221,12 +4235,12 @@ const App: React.FC = () => {
         <main className="flex-1 flex flex-col items-center justify-center p-5">
           <h1 className="sr-only">Page not found</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">That page does not exist.</p>
-          <a href="/" onClick={event => { event.preventDefault(); navigate('/'); enterStudioFromWelcome(); }} className="inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0">Back to studio<Tip text="Back to studio" /></a>
+          <a href="/" onClick={event => { event.preventDefault(); navigate('/'); enterStudioFromWelcome(); }} className={`inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${FOCUS_RING}`}>Back to studio<Tip text="Back to studio" /></a>
         </main>
       ) : pathname === '/privacy' || pathname === '/terms' ? (
         <LegalPage kind={pathname === '/privacy' ? 'privacy' : 'terms'} onBack={() => { navigate('/'); enterStudioFromWelcome(); }} />
       ) : billingMode ? (
-        <Suspense fallback={<LazyPageFallback label="Loading pricing..." />}>
+        <Suspense fallback={<LazyPageFallback label="Loading pricing…" />}>
           <PricingPage
             user={user}
             onBack={() => {
@@ -4249,7 +4263,7 @@ const App: React.FC = () => {
           onSignUp={() => openAuthModal('signup')}
         />
       ) : whatsNewMode ? (
-        <Suspense fallback={<LazyPageFallback label="Loading updates..." />}>
+        <Suspense fallback={<LazyPageFallback label="Loading updates…" />}>
           <WhatsNewPage
             entries={whatsNew.entries}
             unseenIds={whatsNew.unseenIds}
@@ -4275,7 +4289,7 @@ const App: React.FC = () => {
           </div>
         </main>
       ) : adminMode && user ? (
-        <Suspense fallback={<LazyPageFallback label="Loading admin..." />}>
+        <Suspense fallback={<LazyPageFallback label="Loading admin…" />}>
           <AdminPage
             onBack={() => setAdminMode(false)}
             currentUser={user}
@@ -4283,7 +4297,7 @@ const App: React.FC = () => {
         </Suspense>
       ) : settingsMode ? (
         user && (
-          <Suspense fallback={<LazyPageFallback label="Loading settings..." />}>
+          <Suspense fallback={<LazyPageFallback label="Loading settings…" />}>
             <ActiveSettingsPage
               onBack={() => setSettingsMode(false)}
               user={user}
@@ -4297,7 +4311,7 @@ const App: React.FC = () => {
           </Suspense>
         )
       ) : catalogMode ? (
-        <Suspense fallback={<LazyPageFallback label="Loading catalog..." />}>
+        <Suspense fallback={<LazyPageFallback label="Loading catalog…" />}>
           <CatalogPage
             category={catalogMode}
             onBack={() => setCatalogMode(null)}
@@ -4399,7 +4413,7 @@ const App: React.FC = () => {
                     type="button"
                     onClick={openToastGeneration}
                     aria-label="Generation finished - view it"
-                    className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 pl-2 pr-4 py-2 text-left shadow-lg backdrop-blur-sm transition-colors hover:border-brand-teal"
+                    className={`flex items-center gap-3 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 pl-2 pr-4 py-2 text-left shadow-lg backdrop-blur-sm transition-colors hover:border-brand-teal ${FOCUS_RING}`}
                   >
                     {toastVersion?.imageUrl ? (
                       <CachedImage
@@ -4429,8 +4443,7 @@ const App: React.FC = () => {
                     type="button"
                     onClick={dismissCompletionToast}
                     aria-label="Dismiss"
-                    className="group/dismiss absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-gray-200 bg-white text-[12px] text-slate-500 opacity-0 shadow transition-opacity hover:text-slate-900 group-hover:opacity-100 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-400 dark:hover:text-white"
-                  >
+                    className={`group/dismiss [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-gray-200 bg-white text-[12px] text-slate-500 opacity-0 focus-visible:opacity-100 shadow transition-opacity hover:text-slate-900 group-hover:opacity-100 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-400 dark:hover:text-white ${FOCUS_RING}`}                  >
                     ✕
                     <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 hidden whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[13px] font-medium text-white group-hover/dismiss:block">
                       Dismiss
@@ -4478,7 +4491,7 @@ const App: React.FC = () => {
                         cancelGenerationsPanelAutoCollapse();
                         setIsGenerationsPanelCollapsed(false);
                       }}
-                      className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:border-brand-teal hover:text-brand-teal transition-colors"
+                      className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-[#30363d] bg-white/95 dark:bg-[#161b22]/95 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-lg backdrop-blur-sm hover:border-brand-teal hover:text-brand-teal transition-colors ${FOCUS_RING}`}
                       aria-label={`Show active generations panel (${docLabel})`}
                     >
                       {runningCount > 0 ? (
@@ -4502,7 +4515,7 @@ const App: React.FC = () => {
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <Sparkles size={15} className="text-brand-teal shrink-0" />
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
                           Active Generations
                         </span>
                       </div>
@@ -4513,7 +4526,7 @@ const App: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsGenerationsPanelCollapsed(true)}
-                          className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+                          className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
                           aria-label="Minimize active generations panel"
                         >
                           <Minimize2 size={13} />
@@ -4619,7 +4632,7 @@ const App: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => void handleRestoreFromHistory(job.latest!)}
-                                    className="relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-brand-teal hover:border-brand-teal transition-colors"
+                                    className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-brand-teal hover:border-brand-teal transition-colors ${FOCUS_RING}`}
                                     aria-label="View latest result"
                                   >
                                     <ArrowRight size={14} />
@@ -4630,9 +4643,10 @@ const App: React.FC = () => {
                                   <span className="relative inline-flex">
                                     <button
                                       type="button"
-                                      onClick={() => handleStopGenerationJob(job.id)}
-                                      disabled={job.status === 'stopping'}
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-[#30363d] text-[12px] font-semibold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                      onClick={(event) => { if (job.status === 'stopping') { event.preventDefault(); event.stopPropagation(); return; }return handleStopGenerationJob(job.id);
+                                      }}
+                                      aria-disabled={job.status === 'stopping'} aria-describedby={(job.status === 'stopping') ? `${unavailableId}-1-${job.id}` : undefined}
+                                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-[#30363d] text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 transition-colors aria-disabled:opacity-60 aria-disabled:cursor-not-allowed ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
                                       aria-label={job.status === 'stopping'
                                         ? 'Waiting for in-flight generations to finish'
                                         : 'Stop queuing new generations for this run'}
@@ -4640,15 +4654,14 @@ const App: React.FC = () => {
                                       <span className="block w-2 h-2 rounded-sm bg-red-500" aria-hidden="true" />
                                       {job.status === 'stopping' ? 'Stopping' : 'Stop'}
                                     </button>
-                                    <Tip title={job.status === 'stopping' ? 'Stopping' : 'Stop queuing'} text={job.status === 'stopping'
-                                      ? 'Waiting for in-flight generations to finish'
-                                      : 'Stop queuing new generations for this run'} side="top" align="right" />
+                                    {(job.status === 'stopping') && <span id={`${unavailableId}-1-${job.id}`} className="sr-only">{'Waiting for in-flight generations to finish'}</span>}
+                                    <Tip title={job.status === 'stopping' ? 'Stopping' : 'Stop queuing'} text={job.status === 'stopping' ? 'Waiting for in-flight generations to finish' : 'Stop queuing new generations for this run'} side="top" align="right" />
                                   </span>
                                 ) : (
                                   <button
                                     type="button"
                                     onClick={() => clearGenerationJob(job.id)}
-                                    className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
+                                    className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 dark:border-[#30363d] text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}
                                     aria-label="Dismiss generation status"
                                   >
                                     <X size={14} />
@@ -4809,7 +4822,7 @@ const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => openAuthModal('signup')}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-teal px-4 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600"
+                  className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-teal px-4 py-2.5 text-sm font-bold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors hover:bg-teal-600 ${FOCUS_RING}`}
                 >
                   {guestImageSavedInBrowser ? 'Sync it and get 10 credits' : 'Create account for future work'}
                   <ArrowRight size={15} />
@@ -4900,7 +4913,7 @@ const App: React.FC = () => {
               rel="noopener noreferrer"
               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal transition-colors duration-150 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
             >
-              Changelog
+              Changelog<Tip text="Changelog on GitHub" side="top" />
             </a>
             <span className="hidden text-slate-300 dark:text-slate-600 sm:inline" aria-hidden="true">
               |
@@ -4911,20 +4924,20 @@ const App: React.FC = () => {
               rel="noopener noreferrer"
               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal transition-colors duration-150 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
             >
-              Releases
+              Releases<Tip text="Releases on GitHub" side="top" />
             </a>
             <span className="hidden text-slate-300 dark:text-slate-600 sm:inline" aria-hidden="true">
               |
             </span>
             {(['/privacy', '/terms'] as const).map(path => (
-              <React.Fragment key={path}><a href={path} onClick={event => { event.preventDefault(); navigate(path); }} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal hover:underline [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0">{path === '/privacy' ? 'Privacy' : 'Terms'}<Tip text={path === '/privacy' ? 'Privacy policy' : 'Terms of service'} /></a><span className="hidden text-slate-300 dark:text-slate-600 sm:inline" aria-hidden="true">|</span></React.Fragment>
+              <React.Fragment key={path}><a href={path} onClick={event => { event.preventDefault(); navigate(path); }} className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal hover:underline [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${FOCUS_RING}`}>{path === '/privacy' ? 'Privacy' : 'Terms'}<Tip text={path === '/privacy' ? 'Privacy policy' : 'Terms of service'} side="top" /></a><span className="hidden text-slate-300 dark:text-slate-600 sm:inline" aria-hidden="true">|</span></React.Fragment>
             ))}
             <button
               type="button"
               onClick={() => setIsFeedbackOpen(true)}
               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-brand-teal transition-colors duration-150 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0d1117]"
             >
-              Feedback
+              Feedback<Tip text="Send feedback" side="top" />
             </button>
           </nav>
         </div>
@@ -5032,7 +5045,7 @@ const App: React.FC = () => {
                   type="checkbox"
                   checked={skipFutureConfirm}
                   onChange={(e) => setSkipFutureConfirm(e.target.checked)}
-                  className="h-4 w-4 text-brand-red rounded border-gray-300 focus:ring-brand-red cursor-pointer"
+                  className={`h-4 w-4 text-brand-red rounded border-gray-300 focus:ring-brand-teal cursor-pointer ${FOCUS_RING}`}
                 />
                 Don’t ask me again for this action
               </label>
@@ -5041,13 +5054,13 @@ const App: React.FC = () => {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={handleCancelDeleteModal}
-                className="px-4 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] transition"
+                className={`px-4 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] transition ${FOCUS_RING}`}
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmDeleteModal}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold shadow-sm transition"
+                className={`px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold shadow-sm transition ${FOCUS_RING}`}
               >
                 Delete
               </button>
@@ -5070,10 +5083,11 @@ const App: React.FC = () => {
             <div className="relative p-5 sm:p-8">
               <button
                 onClick={() => setIsSetupModalOpen(false)}
-                className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors"
+                className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors ${FOCUS_RING}`}
                 aria-label="Close setup instructions"
               >
                 <X size={18} />
+                <Tip text="Close setup instructions" />
               </button>
 
               <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-900/20 px-3 py-1 text-[12px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-200">
@@ -5130,14 +5144,14 @@ const App: React.FC = () => {
                   <>
                     <button
                       onClick={() => openAuthModal('login')}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors"
+                      className={`inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors ${FOCUS_RING}`}
                     >
                       <LogIn size={15} />
                       Log in
                     </button>
                     <button
                       onClick={() => openAuthModal('signup')}
-                      className="inline-flex items-center gap-2 rounded-lg bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"
+                      className={`inline-flex items-center gap-2 rounded-lg bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors ${FOCUS_RING}`}
                     >
                       Create free account
                       <ArrowRight size={15} />
@@ -5151,7 +5165,7 @@ const App: React.FC = () => {
                         setSettingsMode(false);
                         setIsSetupModalOpen(false);
                       }}
-                      className="inline-flex items-center gap-2 rounded-lg bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors"
+                      className={`inline-flex items-center gap-2 rounded-lg bg-brand-teal hover:bg-teal-600 px-4 py-2.5 text-sm font-semibold text-[#0d1117] shadow-lg shadow-brand-teal/20 transition-colors ${FOCUS_RING}`}
                     >
                       <Coins size={15} />
                       View Credits
@@ -5163,7 +5177,7 @@ const App: React.FC = () => {
                         setSettingsMode(true);
                         setIsSetupModalOpen(false);
                       }}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors"
+                      className={`inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937] transition-colors ${FOCUS_RING}`}
                     >
                       <SettingsIcon size={15} />
                       Add your key
@@ -5172,7 +5186,7 @@ const App: React.FC = () => {
                 )}
                 <button
                   onClick={() => setIsSetupModalOpen(false)}
-                  className="inline-flex items-center rounded-lg border border-transparent px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                  className={`inline-flex items-center rounded-lg border border-transparent px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors ${FOCUS_RING}`}
                 >
                   Continue Exploring
                 </button>

@@ -1,3 +1,5 @@
+import { FOCUS_RING } from '../utils/focusRing';
+import { Tip } from './settings/Tip';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Bookmark, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { ToolbarPreset } from '../types';
@@ -41,6 +43,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
   folderName,
   disabled = false,
 }) => {
+  const unavailableId = React.useId();
   const [isOpen, setIsOpen] = useState(false);
   const [isNamingPreset, setIsNamingPreset] = useState(false);
   const [presetNameDraft, setPresetNameDraft] = useState('');
@@ -181,6 +184,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
   };
 
   const handleConfirmSavePreset = async () => {
+    if (isSavingPreset || !presetNameDraft.trim()) return;
     if (!onSavePreset) return;
     setIsSavingPreset(true);
     setPresetError(null);
@@ -204,28 +208,27 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
 
   return (
     <div ref={containerRef} className="relative shrink-0">
+      <span className="relative inline-flex shrink-0" data-tip-expanded={isOpen}>
       <button
         type="button"
-        disabled={disabled}
-        onClick={() => setIsOpen((v) => !v)}
+        aria-disabled={disabled} aria-describedby={(disabled) ? `${unavailableId}-1` : undefined}
+        onClick={(event) => { if (disabled) { event.preventDefault(); event.stopPropagation(); return; }return setIsOpen((v) => !v);
+        }}
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label={`Presets: ${presets.length} saved (${sourceLabel})`}
-        className={`group/tip-presets relative inline-flex items-center justify-center gap-1 px-3 py-2 min-h-11 rounded-lg border transition shrink-0 disabled:opacity-50 disabled:pointer-events-none ${
+        className={`group/tip-presets relative inline-flex items-center justify-center gap-1 px-3 py-2 min-h-11 rounded-lg border transition shrink-0 aria-disabled:opacity-50 aria-disabled:cursor-not-allowed ${
           isOpen
             ? 'border-brand-teal bg-brand-teal/10 text-brand-teal'
             : 'border-gray-300 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-slate-700 dark:text-slate-200 hover:border-brand-teal hover:text-brand-teal'
-        }`}
+        } ${FOCUS_RING}`}
       >
         <Bookmark size={16} aria-hidden />
         <ChevronDown size={14} className="opacity-70" aria-hidden />
-        <span
-          role="tooltip"
-          className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[12px] font-medium px-2 py-1 rounded-md bg-black/90 text-white shadow-lg opacity-0 group-hover/tip-presets:opacity-100 group-focus-visible/tip-presets:opacity-100 transition-opacity z-20"
-        >
-          {presets.length === 0 ? 'Presets' : `${presets.length} preset${presets.length === 1 ? '' : 's'}`}
-        </span>
       </button>
+        <Tip text={disabled ? 'Presets are unavailable' : presets.length === 0 ? 'Presets' : `${presets.length} preset${presets.length === 1 ? '' : 's'}`} />
+        {(disabled) && <span id={`${unavailableId}-1`} className="sr-only">{'Presets are unavailable'}</span>}
+      </span>
 
       {isOpen && (
         <div
@@ -242,11 +245,11 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                 role="menuitemradio"
                 aria-checked={presetSource === 'global'}
                 onClick={() => onPresetSourceChange('global')}
-                className={`flex-1 px-2 py-2 text-[12px] font-semibold transition [@media(pointer:coarse)]:min-h-[44px] ${
+                className={`flex-1 px-2 py-2 text-[12px] font-semibold transition min-h-[44px] [@media(pointer:fine)]:min-h-0 ${
                   presetSource === 'global'
-                    ? 'bg-brand-teal text-white'
+                    ? 'bg-brand-teal text-[#0d1117]'
                     : 'bg-white dark:bg-[#161b22] text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-[#21262d]'
-                }`}
+                } ${FOCUS_RING}`}
               >
                 Global
               </button>
@@ -255,11 +258,11 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                 role="menuitemradio"
                 aria-checked={presetSource === 'folder'}
                 onClick={() => onPresetSourceChange('folder')}
-                className={`flex-1 px-2 py-2 text-[12px] font-semibold transition [@media(pointer:coarse)]:min-h-[44px] ${
+                className={`flex-1 px-2 py-2 text-[12px] font-semibold transition min-h-[44px] [@media(pointer:fine)]:min-h-0 ${
                   presetSource === 'folder'
-                    ? 'bg-brand-teal text-white'
+                    ? 'bg-brand-teal text-[#0d1117]'
                     : 'bg-white dark:bg-[#161b22] text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-[#21262d]'
-                }`}
+                } ${FOCUS_RING}`}
               >
                 This folder
               </button>
@@ -296,7 +299,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                     <div className="flex items-start justify-between gap-2 p-2">
                       <button
                         type="button"
-                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                        className={`flex items-center gap-2 flex-1 min-w-0 text-left ${FOCUS_RING}`}
                         onClick={() => {
                           onApplyPreset(preset);
                           setIsOpen(false);
@@ -328,13 +331,14 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                               ? `Close actions for ${preset.name}`
                               : `Actions for ${preset.name}`
                           }
-                          className={`p-1.5 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 shrink-0 flex items-center justify-center rounded-md transition-colors ${
+                          className={`p-1.5 min-w-[44px] min-h-[44px] [@media(pointer:fine)]:min-w-0 [@media(pointer:fine)]:min-h-0 shrink-0 flex items-center justify-center rounded-md transition-colors ${
                             isActionMenuOpen
                               ? 'bg-gray-200 dark:bg-[#30363d] text-slate-700 dark:text-slate-200'
                               : 'hover:bg-gray-100 dark:hover:bg-[#30363d] text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
-                          }`}
+                          } ${FOCUS_RING}`}
                         >
                           <MoreHorizontal size={14} />
+                          <Tip text={isActionMenuOpen ? `Close actions for ${preset.name}` : `Actions for ${preset.name}`} />
                         </button>
                       )}
                     </div>
@@ -375,14 +379,19 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                     <p className="text-[12px] text-red-500">{presetError}</p>
                   )}
                   <div className="flex gap-2">
+                    <span className="relative inline-flex flex-1">
                     <button
                       type="button"
-                      onClick={() => void handleConfirmSavePreset()}
-                      disabled={isSavingPreset || !presetNameDraft.trim()}
-                      className="flex-1 rounded-md bg-brand-teal text-white text-xs font-semibold py-2 min-h-[44px] sm:min-h-0 disabled:opacity-50"
+                      onClick={(event) => { if (isSavingPreset || !presetNameDraft.trim()) { event.preventDefault(); event.stopPropagation(); return; }return void handleConfirmSavePreset();
+                      }}
+                      aria-disabled={isSavingPreset || !presetNameDraft.trim()} aria-describedby={(isSavingPreset || !presetNameDraft.trim()) ? `${unavailableId}-2` : undefined}
+                      className={`flex-1 rounded-md bg-brand-teal text-[#0d1117] text-xs font-semibold py-2 min-h-[44px] [@media(pointer:fine)]:min-h-0 aria-disabled:opacity-50 ${FOCUS_RING}`}
                     >
                       {isSavingPreset ? 'Saving…' : 'Save'}
                     </button>
+                      <Tip text={(isSavingPreset || !presetNameDraft.trim()) ? (isSavingPreset ? 'Saving preset…' : 'Enter a preset name') : ('Save')} side="top" />
+                      {(isSavingPreset || !presetNameDraft.trim()) && <span id={`${unavailableId}-2`} className="sr-only">{isSavingPreset ? 'Saving preset…' : 'Enter a preset name'}</span>}
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
@@ -390,7 +399,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                         setPresetNameDraft('');
                         setPresetError(null);
                       }}
-                      className="rounded-md border border-gray-200 dark:border-[#30363d] text-xs font-semibold px-3 py-2 min-h-[44px] sm:min-h-0"
+                      className={`rounded-md border border-gray-200 dark:border-[#30363d] text-xs font-semibold px-3 py-2 min-h-[44px] [@media(pointer:fine)]:min-h-0 ${FOCUS_RING}`}
                     >
                       Cancel
                     </button>
@@ -404,7 +413,7 @@ export const GalleryPresetMenu: React.FC<GalleryPresetMenuProps> = ({
                     setPresetNameDraft('');
                     setPresetError(null);
                   }}
-                  className="w-full rounded-md border border-dashed border-brand-teal/50 text-brand-teal text-xs font-semibold py-2 min-h-[44px] sm:min-h-0 hover:bg-brand-teal/10"
+                  className={`w-full rounded-md border border-dashed border-brand-teal/50 text-brand-teal text-xs font-semibold py-2 min-h-[44px] [@media(pointer:fine)]:min-h-0 hover:bg-brand-teal/10 ${FOCUS_RING}`}
                 >
                   Save current toolbar as preset
                 </button>

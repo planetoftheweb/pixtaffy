@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../../utils/focusRing';
 import React from 'react';
 import { Key, Trash2, CheckCircle } from 'lucide-react';
 import { Tip } from './Tip';
@@ -13,8 +14,16 @@ function controlText(node: React.ReactNode): string {
   return '';
 }
 
-export function SettingsButton({ tip, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { tip?: string }) {
-  return <button type="button" {...props}>{children}<Tip text={tip || props['aria-label'] || controlText(children)} /></button>;
+export function SettingsButton({ tip, children, disabled, disabledReason, onClick, className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { tip?: string; disabledReason?: string }) {
+  const reasonId = React.useId();
+  const hint = disabled ? disabledReason || 'This action is unavailable' : tip || props['aria-label'] || controlText(children);
+  return <span className="relative inline-flex" data-tip-expanded={props['aria-expanded']}>
+    <button type="button" {...props} className={`${className || ''} ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed`}
+      aria-disabled={disabled} aria-describedby={disabled ? reasonId : undefined}
+      onClick={event => { if (disabled) { event.preventDefault(); event.stopPropagation(); return; } onClick?.(event); }}>{children}</button>
+    <Tip text={hint} />
+    {disabled && <span id={reasonId} className="sr-only">{hint}</span>}
+  </span>;
 }
 
 export function SettingsSurface({ children }: { children: React.ReactNode }) {
@@ -65,7 +74,7 @@ export function KeyRow({ slot, label, description, value, placeholder, status, f
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedback, feedbackId, slot]);
   const providerName = slot === 'gemini' ? 'Gemini' : label.replace(' API Key', '');
-  return <div className="border-b border-gray-200 dark:border-dark-border py-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2" data-key-row={slot}>
+  return <div className="border-b border-gray-200 dark:border-dark-border py-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2" data-key-row={slot} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) confirm.reset(); }}>
     <div className="col-span-2 flex flex-wrap items-center justify-between gap-2">
       <label htmlFor={`key-${slot}`} className="flex items-center gap-2 text-[13px] font-semibold"><Key size={14} className="text-brand-teal" />{label.replace(' API Key', '')}</label>
       <div className="flex items-center gap-2">
@@ -78,10 +87,10 @@ export function KeyRow({ slot, label, description, value, placeholder, status, f
       className="w-full min-w-0 rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-bg px-2.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-brand-teal" />
       <Tip text={description} wide />
     </div>
-    <SettingsButton aria-label="Delete key" aria-expanded={confirm.isArmed(slot)} disabled={!status?.hasKey || busy}
+    <SettingsButton aria-label="Delete key" aria-expanded={confirm.isArmed(slot)} disabled={!status?.hasKey || busy} disabledReason={busy ? 'Deleting key…' : 'No saved key to delete'}
       onClick={() => { if (!confirm.isArmed(slot)) confirm.trigger(slot); }}
       tip={`Delete the saved ${providerName} key.`} className={destructiveClass}>
-      <Trash2 size={14} /><span>{busy ? 'Deleting...' : 'Delete'}</span>
+      <Trash2 size={14} /><span>{busy ? 'Deleting…' : 'Delete'}</span>
     </SettingsButton>
     {confirm.isArmed(slot) && <div className="col-span-2 flex flex-wrap items-center gap-2 rounded-md bg-amber-500/10 p-2 text-[13px]" role="group" aria-label={`Delete ${providerName} key confirmation`}>
       <span className="w-full sm:w-auto sm:flex-1">Delete your {providerName} key?</span>
@@ -93,11 +102,11 @@ export function KeyRow({ slot, label, description, value, placeholder, status, f
 
 export function DeleteAllKeys({ disabled, onDelete }: { disabled: boolean; onDelete: () => Promise<void> }) {
   const { busy, confirm } = useKeyConfirmation(onDelete);
-  return <div>
-    <SettingsButton aria-label="Delete all keys" aria-expanded={confirm.isArmed('all')} disabled={disabled || busy}
+  return <div onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) confirm.reset(); }}>
+    <SettingsButton aria-label="Delete all keys" aria-expanded={confirm.isArmed('all')} disabled={disabled || busy} disabledReason={busy ? 'Deleting keys…' : 'No saved keys to delete'}
       onClick={() => { if (!confirm.isArmed('all')) confirm.trigger('all'); }}
       tip="Remove all provider keys and per-model overrides." className={destructiveClass}>
-      <Trash2 size={14} />{busy ? 'Deleting...' : 'Delete all keys'}
+      <Trash2 size={14} />{busy ? 'Deleting…' : 'Delete all keys'}
     </SettingsButton>
     {confirm.isArmed('all') && <div className="mt-2 space-y-2 rounded-md bg-amber-500/10 p-3 text-[13px]" role="group" aria-label="Delete all keys confirmation">
       <p>Delete all saved keys? This removes:</p>
@@ -112,7 +121,7 @@ export function DeleteAllKeys({ disabled, onDelete }: { disabled: boolean; onDel
 
 export function SettingsInput(props: React.ComponentPropsWithRef<'input'>) {
   const hint = props['aria-label'] || props.placeholder || 'Toggle this preference.';
-  return <><input {...props} aria-label={props['aria-label'] || (props.type !== 'checkbox' ? props.placeholder : undefined)} />{props.type !== 'file' && <Tip text={hint} wide />}</>;
+  return <><input {...props} className={`${props.className || ''} ${FOCUS_RING}`} aria-label={props['aria-label'] || (props.type !== 'checkbox' ? props.placeholder : undefined)} />{props.type !== 'file' && <Tip text={hint} wide />}</>;
 }
 
 export function SettingsSelect(props: React.ComponentProps<typeof BaseRichSelect>) {

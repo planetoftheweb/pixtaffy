@@ -197,7 +197,7 @@ test('copy and gallery error notices use red-900 and alert without changing neut
 });
 
 test('Edit prompt Done keeps its action and sizing with the requested teal contrast', () => {
-  const done = panel.match(/<button\s+type="button"\s+onClick=\{\(\) => setIsPromptModalOpen\(false\)\}\s+className="([^"]+)"\s*>\s*Done\s*<Tip\b[^>]*\/>\s*<\/button>/);
+  const done = panel.match(/<button\s+type="button"\s+onClick=\{\(\) => setIsPromptModalOpen\(false\)\}\s+className=\{`([^`]+)`\}\s*>\s*Done\s*<Tip\b[^>]*\/>\s*<\/button>/);
   assert.ok(done, 'Edit prompt Done button not found');
   for (const token of ['px-4', 'py-2', 'rounded-lg', 'bg-brand-teal', 'hover:bg-teal-600', 'text-[#0d1117]', 'font-semibold', 'text-sm', 'shadow-md', 'shadow-brand-teal/20']) {
     assert.ok(done[1].includes(token), `missing ${token}`);
@@ -372,7 +372,7 @@ test('header signup, auth submit and feedback primary actions use teal with a da
     app.match(/className="([^"]+)"\s*>\s*Sign [Uu]p(?:<Tip[^>]*\/>)?\s*<\/button>/)?.[1],
     source('components/AuthModal.tsx').match(/type="submit"[\s\S]*?className=\{`([\s\S]*?)`\}/)?.[1],
     source('components/FeedbackModal.tsx').match(/<button type="submit"[^>]+className=\{`([\s\S]*?)`\}/)?.[1],
-    source('components/FeedbackModal.tsx').match(/<a href=\{issue.url\}[^>]+className="([^"]+)"/)?.[1],
+    source('components/FeedbackModal.tsx').match(/<a href=\{issue.url\}[^>]+className=\{`([^`]+)`\}/)?.[1],
   ];
   for (const value of classes) {
     assert.ok(value, 'primary CTA not found');
@@ -396,7 +396,7 @@ test('guest and credits primary CTAs in App use teal with a dark label, not bran
   for (const label of ['Create account for future work', 'Create free account', 'View Credits']) {
     const idx = app.indexOf(label.includes('future') ? "'Create account for future work'" : label);
     const before = app.slice(Math.max(0, idx - 900), idx);
-    const className = [...before.matchAll(/className="([^"]+)"/g)].pop()?.[1];
+    const className = [...before.matchAll(/className=(?:"([^"]+)"|\{`([^`]+)`\})/g)].map(match => match[1] || match[2]).pop();
     assert.ok(className, `${label} button class found`);
     for (const token of ['bg-brand-teal', 'hover:bg-teal-600', 'text-[#0d1117]', 'shadow-brand-teal/20']) assert.ok(className.includes(token), `${label}: missing ${token}`);
     assert.doesNotMatch(className, /brand-red|text-white/);

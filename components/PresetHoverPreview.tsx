@@ -55,7 +55,7 @@ function computePreviewStyle(
     position: 'fixed',
     top,
     width,
-    zIndex: 65,
+    zIndex: 70,
     pointerEvents: 'none',
   };
   if (openLeft) {

@@ -1,3 +1,5 @@
+import { FOCUS_RING } from '../utils/focusRing';
+import { Tip } from './settings/Tip';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -70,6 +72,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
   onRename,
   onEditInstructions,
 }) => {
+  const unavailableId = React.useId();
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameDraft, setRenameDraft] = useState(preset.name);
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -115,7 +118,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
   };
 
   const handleConfirmRename = async () => {
-    if (!onRename) return;
+    if (!onRename || isSubmittingRename) return;
     const trimmed = renameDraft.trim();
     if (!trimmed) {
       setRenameError('Name is required.');
@@ -152,7 +155,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
   }, [isEditingInstructions]);
 
   const handleConfirmInstructions = async () => {
-    if (!onEditInstructions) return;
+    if (!onEditInstructions || isSubmittingInstructions) return;
     setIsSubmittingInstructions(true);
     setInstructionsError(null);
     try {
@@ -208,14 +211,19 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
             <p className="text-[12px] text-red-500">{instructionsError}</p>
           )}
           <div className="flex gap-2">
+            <span className="relative inline-flex flex-1">
             <button
               type="button"
-              onClick={() => void handleConfirmInstructions()}
-              disabled={isSubmittingInstructions}
-              className="flex-1 rounded-md bg-brand-teal text-white text-[13px] font-semibold py-1.5 min-h-[44px] sm:min-h-0 disabled:opacity-50"
+              onClick={(event) => { if (isSubmittingInstructions) { event.preventDefault(); event.stopPropagation(); return; }return void handleConfirmInstructions();
+              }}
+              aria-disabled={isSubmittingInstructions} aria-describedby={(isSubmittingInstructions) ? `${unavailableId}-1` : undefined}
+              className={`flex-1 rounded-md bg-brand-teal text-[#0d1117] text-[13px] font-semibold py-1.5 min-h-[44px] [@media(pointer:fine)]:min-h-0 aria-disabled:opacity-50 ${FOCUS_RING}`}
             >
               {isSubmittingInstructions ? 'Saving…' : instructionsDraft.trim() ? 'Save' : 'Remove'}
             </button>
+              <Tip text={(isSubmittingInstructions) ? ('Saving instructions…') : ('Save instructions')} side="top" />
+              {(isSubmittingInstructions) && <span id={`${unavailableId}-1`} className="sr-only">{'Saving instructions…'}</span>}
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -223,7 +231,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
                 setInstructionsDraft(preset.customInstructions || '');
                 setInstructionsError(null);
               }}
-              className="rounded-md border border-gray-200 dark:border-[#30363d] text-[13px] font-semibold px-3 py-1.5 min-h-[44px] sm:min-h-0"
+              className={`rounded-md border border-gray-200 dark:border-[#30363d] text-[13px] font-semibold px-3 py-1.5 min-h-[44px] [@media(pointer:fine)]:min-h-0 ${FOCUS_RING}`}
             >
               Cancel
             </button>
@@ -256,18 +264,23 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
             <p className="text-[12px] text-red-500">{renameError}</p>
           )}
           <div className="flex gap-2">
+            <span className="relative inline-flex flex-1">
             <button
               type="button"
-              onClick={() => void handleConfirmRename()}
-              disabled={isSubmittingRename || !renameDraft.trim()}
-              className="flex-1 rounded-md bg-brand-teal text-white text-[13px] font-semibold py-1.5 min-h-[44px] sm:min-h-0 disabled:opacity-50"
+              onClick={(event) => { if (isSubmittingRename || !renameDraft.trim()) { event.preventDefault(); event.stopPropagation(); return; }return void handleConfirmRename();
+              }}
+              aria-disabled={isSubmittingRename || !renameDraft.trim()} aria-describedby={(isSubmittingRename || !renameDraft.trim()) ? `${unavailableId}-2` : undefined}
+              className={`flex-1 rounded-md bg-brand-teal text-[#0d1117] text-[13px] font-semibold py-1.5 min-h-[44px] [@media(pointer:fine)]:min-h-0 aria-disabled:opacity-50 ${FOCUS_RING}`}
             >
               {isSubmittingRename ? 'Saving…' : 'Save'}
             </button>
+              <Tip text={(isSubmittingRename || !renameDraft.trim()) ? (isSubmittingRename ? 'Saving preset name…' : 'Enter a preset name') : ('Save name')} side="top" />
+              {(isSubmittingRename || !renameDraft.trim()) && <span id={`${unavailableId}-2`} className="sr-only">{isSubmittingRename ? 'Saving preset name…' : 'Enter a preset name'}</span>}
+            </span>
             <button
               type="button"
               onClick={handleCancelRename}
-              className="rounded-md border border-gray-200 dark:border-[#30363d] text-[13px] font-semibold px-3 py-1.5 min-h-[44px] sm:min-h-0"
+              className={`rounded-md border border-gray-200 dark:border-[#30363d] text-[13px] font-semibold px-3 py-1.5 min-h-[44px] [@media(pointer:fine)]:min-h-0 ${FOCUS_RING}`}
             >
               Cancel
             </button>
@@ -282,7 +295,7 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
                 e.stopPropagation();
                 handleStartRename();
               }}
-              className="w-full text-left rounded-md px-2 py-1.5 text-[13px] font-medium text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] min-h-[44px] sm:min-h-0 inline-flex items-center gap-2"
+              className={`w-full text-left rounded-md px-2 py-1.5 text-[13px] font-medium text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] min-h-[44px] [@media(pointer:fine)]:min-h-0 inline-flex items-center gap-2 ${FOCUS_RING}`}
             >
               <Pencil size={14} className="text-slate-500" />
               Rename
@@ -297,21 +310,23 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
                 setInstructionsError(null);
                 setIsEditingInstructions(true);
               }}
-              className="w-full text-left rounded-md px-2 py-1.5 text-[13px] font-medium text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] min-h-[44px] sm:min-h-0 inline-flex items-center gap-2"
+              className={`w-full text-left rounded-md px-2 py-1.5 text-[13px] font-medium text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#21262d] min-h-[44px] [@media(pointer:fine)]:min-h-0 inline-flex items-center gap-2 ${FOCUS_RING}`}
             >
               <Quote size={14} className="text-slate-500" />
               {preset.customInstructions ? 'Edit art direction' : 'Add art direction'}
             </button>
           )}
           {onUpdate && (
+            <span className="relative inline-flex w-full">
             <button
               type="button"
-              onClick={(e) => {
+              onClick={(e) => { if (isUpdating || isApplied) { e.preventDefault(); e.stopPropagation(); return; }
                 e.stopPropagation();
                 void handleUpdate();
+
               }}
-              disabled={isUpdating || isApplied}
-              className="w-full text-left rounded-md px-2 py-1.5 text-[13px] font-medium text-brand-teal hover:bg-brand-teal/10 disabled:opacity-50 disabled:hover:bg-transparent min-h-[44px] sm:min-h-0 inline-flex items-center gap-2"
+              aria-disabled={isUpdating || isApplied} aria-describedby={(isUpdating || isApplied) ? `${unavailableId}-3` : undefined}
+              className={`w-full text-left rounded-md px-2 py-1.5 text-[13px] font-medium text-brand-teal hover:bg-brand-teal/10 aria-disabled:opacity-50 aria-disabled:hover:bg-transparent min-h-[44px] [@media(pointer:fine)]:min-h-0 inline-flex items-center gap-2 ${FOCUS_RING}`}
             >
               {isUpdating ? (
                 <>
@@ -332,19 +347,23 @@ export const PresetActionPopover: React.FC<PresetActionPopoverProps> = ({
                 </>
               )}
             </button>
+              <Tip text={(isUpdating || isApplied) ? (isUpdating ? 'Saving preset…' : 'Preset already matches the toolbar') : ('Update preset')} side="top" />
+              {(isUpdating || isApplied) && <span id={`${unavailableId}-3`} className="sr-only">{isUpdating ? 'Saving preset…' : 'Preset already matches the toolbar'}</span>}
+            </span>
           )}
           {onDelete && (
             <button
               type="button"
+              {...confirmDelete.bindDisarmOnBlur(preset.id)}
               onClick={(e) => {
                 e.stopPropagation();
                 confirmDelete.trigger(preset.id);
               }}
-              className={`w-full text-left rounded-md px-2 py-1.5 text-[13px] font-medium min-h-[44px] sm:min-h-0 inline-flex items-center gap-2 transition-colors ${
+              className={`w-full text-left rounded-md px-2 py-1.5 text-[13px] font-medium min-h-[44px] [@media(pointer:fine)]:min-h-0 inline-flex items-center gap-2 transition-colors ${
                 confirmDelete.isArmed(preset.id)
                   ? 'bg-amber-500 text-[#0d1117] animate-pulse hover:bg-amber-500'
                   : 'text-red-500 hover:bg-red-500/10'
-              }`}
+              } ${FOCUS_RING}`}
             >
               {confirmDelete.isArmed(preset.id) ? (
                 <>

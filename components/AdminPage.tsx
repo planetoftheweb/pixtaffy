@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -168,6 +169,7 @@ const StatusIcon: React.FC<{
 };
 
 export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => {
+  const unavailableId = React.useId();
   const [rows, setRows] = useState<AdminUserRow[]>([]);
   const [cursor, setCursor] = useState<ListUsersPage['cursor']>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
@@ -367,41 +369,46 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
         className="absolute right-2 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-lg py-1 text-sm"
         role="menu"
       >
+        <span className="relative inline-flex w-full">
         <button
           type="button"
-          disabled={isBusy}
-          onClick={() =>
-            handleMenuPick({ type: 'clear-keys', uid: row.id, name: row.email || row.username || row.id })
-          }
-          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 disabled:opacity-50"
+          aria-disabled={isBusy} aria-describedby={(isBusy) ? `${unavailableId}-1-${row.id}` : undefined}
+          onClick={(event) => { if (isBusy) { event.preventDefault(); event.stopPropagation(); return; }return handleMenuPick({ type: 'clear-keys', uid: row.id, name: row.email || row.username || row.id });
+          }}
+          className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 aria-disabled:opacity-50 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
           role="menuitem"
         >
           <Key size={14} /> Clear API keys
         </button>
+          <Tip text={(isBusy) ? ('Wait for the current action to finish') : ('Clear API keys')} side="top" />
+          {(isBusy) && <span id={`${unavailableId}-1-${row.id}`} className="sr-only">{'Wait for the current action to finish'}</span>}
+        </span>
+        <span className="relative inline-flex w-full">
         <button
           type="button"
-          disabled={isBusy}
-          onClick={() =>
-            handleMenuPick({ type: 'wipe-prompt', uid: row.id, name: row.email || row.username || row.id })
-          }
-          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 disabled:opacity-50"
+          aria-disabled={isBusy} aria-describedby={(isBusy) ? `${unavailableId}-2-${row.id}` : undefined}
+          onClick={(event) => { if (isBusy) { event.preventDefault(); event.stopPropagation(); return; }return handleMenuPick({ type: 'wipe-prompt', uid: row.id, name: row.email || row.username || row.id });
+          }}
+          className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 aria-disabled:opacity-50 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
           role="menuitem"
         >
           <Sparkles size={14} /> Wipe system prompt
         </button>
-        <div className="group/tip relative">
+          <Tip text={(isBusy) ? ('Wait for the current action to finish') : ('Wipe system prompt')} side="top" />
+          {(isBusy) && <span id={`${unavailableId}-2-${row.id}`} className="sr-only">{'Wait for the current action to finish'}</span>}
+        </span>
+        <div className="group/tip relative inline-flex w-full">
           <button
             type="button"
-            disabled={isBusy || isSelf}
-            onClick={() =>
-              handleMenuPick({
+            aria-disabled={isBusy || isSelf} aria-describedby={(isBusy || isSelf) ? `${unavailableId}-3-${row.id}` : undefined}
+            onClick={(event) => { if (isBusy || isSelf) { event.preventDefault(); event.stopPropagation(); return; }return handleMenuPick({
                 type: 'disable',
                 uid: row.id,
                 name: row.email || row.username || row.id,
                 nextDisabled: !row.isDisabled,
-              })
-            }
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 disabled:opacity-50 disabled:pointer-events-none"
+              });
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 aria-disabled:opacity-50 aria-disabled:cursor-not-allowed ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
             role="menuitem"
           >
             {row.isDisabled ? (
@@ -414,20 +421,22 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
               </>
             )}
           </button>
-          {isSelf && <Tip text="You cannot disable your own account." align="right" />}
+            <Tip text={(isBusy || isSelf) ? (isSelf ? 'You cannot suspend your own account' : 'Wait for the current action to finish') : (row.isDisabled ? 'Enable account' : 'Suspend account')} side="top" />
+            {(isBusy || isSelf) && <span id={`${unavailableId}-3-${row.id}`} className="sr-only">{isSelf ? 'You cannot suspend your own account' : 'Wait for the current action to finish'}</span>}
+
         </div>
         <div className="my-1 h-px bg-gray-200 dark:bg-[#30363d]" />
+        <span className="relative inline-flex w-full">
         <button
           type="button"
-          disabled={isBusy}
-          onClick={() =>
-            handleMenuPick(
+          aria-disabled={isBusy} aria-describedby={(isBusy) ? `${unavailableId}-4-${row.id}` : undefined}
+          onClick={(event) => { if (isBusy) { event.preventDefault(); event.stopPropagation(); return; }return handleMenuPick(
               row.isAdmin
                 ? { type: 'demote', uid: row.id, name: row.email || row.username || row.id }
                 : { type: 'promote', uid: row.id, name: row.email || row.username || row.id }
-            )
-          }
-          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 disabled:opacity-50"
+            );
+          }}
+          className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-700 dark:text-slate-200 aria-disabled:opacity-50 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
           role="menuitem"
         >
           {row.isAdmin ? (
@@ -440,20 +449,24 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
             </>
           )}
         </button>
+          <Tip text={(isBusy) ? ('Wait for the current action to finish') : (row.isAdmin ? 'Demote from admin' : 'Promote to admin')} side="top" />
+          {(isBusy) && <span id={`${unavailableId}-4-${row.id}`} className="sr-only">{'Wait for the current action to finish'}</span>}
+        </span>
         <div className="my-1 h-px bg-gray-200 dark:bg-[#30363d]" />
-        <div className="group/tip relative">
+        <div className="group/tip relative inline-flex w-full">
           <button
             type="button"
-            disabled={isBusy || isSelf}
-            onClick={() =>
-              handleMenuPick({ type: 'delete', uid: row.id, name: row.email || row.username || row.id })
-            }
-            className="w-full flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:pointer-events-none"
+            aria-disabled={isBusy || isSelf} aria-describedby={(isBusy || isSelf) ? `${unavailableId}-5-${row.id}` : undefined}
+            onClick={(event) => { if (isBusy || isSelf) { event.preventDefault(); event.stopPropagation(); return; }return handleMenuPick({ type: 'delete', uid: row.id, name: row.email || row.username || row.id });
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 aria-disabled:opacity-50 aria-disabled:cursor-not-allowed ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
             role="menuitem"
           >
             <Trash2 size={14} /> Delete account
           </button>
-          {isSelf && <Tip text="You cannot delete your own account here." align="right" />}
+            <Tip text={(isBusy || isSelf) ? (isSelf ? 'You cannot delete your own account' : 'Wait for the current action to finish') : ('Delete account')} side="top" />
+            {(isBusy || isSelf) && <span id={`${unavailableId}-5-${row.id}`} className="sr-only">{isSelf ? 'You cannot delete your own account' : 'Wait for the current action to finish'}</span>}
+
         </div>
       </div>
     );
@@ -526,10 +539,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
         <div className="mb-8 flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
+            className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-2 hover:bg-gray-100 dark:hover:bg-[#21262d] rounded-lg transition-colors ${FOCUS_RING}`}
             aria-label="Back"
           >
             <ArrowLeft size={20} className="text-slate-600 dark:text-slate-300" />
+            <Tip text="Back" />
           </button>
           <div className="flex items-center gap-2">
             <ShieldCheck size={24} className="text-brand-teal" />
@@ -544,9 +558,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
             onClick={() => setActiveTab('users')}
             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'users'
-                ? 'bg-brand-teal text-white shadow-sm'
+                ? 'bg-brand-teal text-[#0d1117] shadow-sm'
                 : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
+            } ${FOCUS_RING}`}
             aria-pressed={activeTab === 'users'}
           >
             <Users size={14} />
@@ -557,9 +571,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
             onClick={() => setActiveTab('stats')}
             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'stats'
-                ? 'bg-brand-teal text-white shadow-sm'
+                ? 'bg-brand-teal text-[#0d1117] shadow-sm'
                 : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
+            } ${FOCUS_RING}`}
             aria-pressed={activeTab === 'stats'}
           >
             <BarChart3 size={14} />
@@ -579,15 +593,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                 Your account (<code className="px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40">planetoftheweb</code>) is recognised as the
                 bootstrap admin but hasn't minted the custom claim yet. Click below to grant yourself the <code className="px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40">admin</code> claim.
               </p>
+              <span className="relative inline-flex">
               <button
                 type="button"
-                onClick={handleBootstrapSelfPromote}
-                disabled={bootstrapClaiming}
-                className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500 text-[#0d1117] hover:bg-amber-400 text-sm font-medium disabled:opacity-50"
+                onClick={(event) => { if (bootstrapClaiming) { event.preventDefault(); event.stopPropagation(); return; } handleBootstrapSelfPromote(); }}
+                aria-disabled={bootstrapClaiming} aria-describedby={(bootstrapClaiming) ? `${unavailableId}-6` : undefined}
+                className={`mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500 text-[#0d1117] hover:bg-amber-400 text-sm font-medium aria-disabled:opacity-50 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
               >
                 {bootstrapClaiming ? <Loader2 size={14} className="animate-spin" /> : <Crown size={14} />}
                 Claim admin role
               </button>
+                <Tip text={(bootstrapClaiming) ? ('Claiming the admin role…') : ('Claim admin role')} side="top" />
+                {(bootstrapClaiming) && <span id={`${unavailableId}-6`} className="sr-only">{'Claiming the admin role…'}</span>}
+              </span>
             </div>
           </div>
         )}
@@ -667,7 +685,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                           <button
                             type="button"
                             onClick={() => toggleRowExpanded(row.id)}
-                            className="inline-flex items-center gap-2 text-left"
+                            className={`inline-flex items-center gap-2 text-left ${FOCUS_RING}`}
                             aria-expanded={isExpanded}
                             aria-label={`Toggle details for ${displayName}`}
                           >
@@ -740,7 +758,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                             onClick={() =>
                               setOpenRowMenu((prev) => (prev === row.id ? null : row.id))
                             }
-                            className="group/tip relative inline-flex items-center justify-center w-11 h-11 rounded-lg border border-gray-200 dark:border-[#30363d] hover:border-brand-teal bg-white dark:bg-[#0d1117] hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-600 dark:text-slate-300 hover:text-brand-teal transition-colors"
+                            className={`group/tip relative inline-flex items-center justify-center w-11 h-11 rounded-lg border border-gray-200 dark:border-[#30363d] hover:border-brand-teal bg-white dark:bg-[#0d1117] hover:bg-gray-100 dark:hover:bg-[#21262d] text-slate-600 dark:text-slate-300 hover:text-brand-teal transition-colors ${FOCUS_RING}`}
                             aria-label={`Actions for ${row.email || row.username || row.id}`}
                             aria-haspopup="menu"
                             aria-expanded={openRowMenu === row.id}
@@ -803,15 +821,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
           {/* Load more */}
           {cursor && (
             <div className="p-4 border-t border-gray-200 dark:border-[#30363d] text-center">
+              <span className="relative inline-flex">
               <button
                 type="button"
-                onClick={loadNextPage}
-                disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] hover:bg-gray-50 dark:hover:bg-[#21262d] text-sm font-medium text-slate-700 dark:text-slate-200 disabled:opacity-50"
+                onClick={(event) => { if (isLoadingMore) { event.preventDefault(); event.stopPropagation(); return; } loadNextPage(); }}
+                aria-disabled={isLoadingMore} aria-describedby={(isLoadingMore) ? `${unavailableId}-7` : undefined}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] hover:bg-gray-50 dark:hover:bg-[#21262d] text-sm font-medium text-slate-700 dark:text-slate-200 aria-disabled:opacity-50 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
               >
                 {isLoadingMore ? <Loader2 size={14} className="animate-spin" /> : <ChevronRight size={14} />}
                 Load more
               </button>
+                <Tip text={(isLoadingMore) ? ('Loading more accounts…') : ('Load more accounts')} side="top" />
+                {(isLoadingMore) && <span id={`${unavailableId}-7`} className="sr-only">{'Loading more accounts…'}</span>}
+              </span>
             </div>
           )}
         </div>
@@ -821,7 +843,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
       {/* Confirm modal */}
       {confirm && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
         >
@@ -835,27 +857,37 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack, currentUser }) => 
                   <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{text.title}</h2>
                   <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">{text.body}</p>
                   <div className="flex justify-end gap-2">
+                    <span className="relative inline-flex">
                     <button
                       type="button"
-                      onClick={() => (busy ? null : setConfirm(null))}
-                      disabled={busy}
-                      className="px-4 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-[#21262d] disabled:opacity-50"
+                      onClick={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); return; }return (busy ? null : setConfirm(null));
+                      }}
+                      aria-disabled={busy} aria-describedby={(busy) ? `${unavailableId}-8` : undefined}
+                      className={`px-4 py-2 rounded-lg border border-gray-200 dark:border-[#30363d] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-[#21262d] aria-disabled:opacity-50 ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
                     >
                       Cancel
                     </button>
+                      <Tip text={(busy) ? ('Wait for the current action to finish') : ('Cancel')} side="top" />
+                      {(busy) && <span id={`${unavailableId}-8`} className="sr-only">{'Wait for the current action to finish'}</span>}
+                    </span>
+                    <span className="relative inline-flex">
                     <button
                       type="button"
-                      onClick={() => runAction(confirm)}
-                      disabled={busy}
-                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 ${
+                      onClick={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); return; }return runAction(confirm);
+                      }}
+                      aria-disabled={busy} aria-describedby={(busy) ? `${unavailableId}-9` : undefined}
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold aria-disabled:opacity-50 ${
                         isDestructive
-                          ? 'bg-red-600 hover:bg-red-700'
-                          : 'bg-brand-teal hover:bg-brand-teal/90'
-                      }`}
+                          ? 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-brand-teal text-[#0d1117] hover:bg-brand-teal/90'
+                      } ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
                     >
                       {busy && <Loader2 size={14} className="animate-spin" />}
                       {text.button}
                     </button>
+                      <Tip text={(busy) ? ('Wait for the current action to finish') : (text.button)} side="top" />
+                      {(busy) && <span id={`${unavailableId}-9`} className="sr-only">{'Wait for the current action to finish'}</span>}
+                    </span>
                   </div>
                 </>
               );

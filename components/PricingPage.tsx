@@ -1,3 +1,5 @@
+import { FOCUS_RING } from '../utils/focusRing';
+import { Tip } from './settings/Tip';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ArrowLeft,
@@ -127,6 +129,7 @@ const Estimate: React.FC<{ value: number; label: string; color: string }> = ({ v
 );
 
 export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin, onSignUp }) => {
+  const unavailableId = React.useId();
   const [billing, setBilling] = useState<BillingState | null>(null);
   const [activity, setActivity] = useState<CreditActivityEntry[]>([]);
   const [loading, setLoading] = useState(Boolean(user));
@@ -197,13 +200,18 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
     <main className="flex-1 overflow-hidden bg-[#fff8ef] px-4 py-6 dark:bg-[#090d18] sm:px-6 sm:py-8">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 flex items-center justify-between gap-4">
-          <button onClick={onBack} className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-slate-700 hover:text-brand-pink dark:text-slate-200">
+          <button onClick={onBack} className={`inline-flex min-h-11 items-center gap-2 text-sm font-bold text-slate-700 hover:text-brand-pink dark:text-slate-200 ${FOCUS_RING}`}>
             <ArrowLeft size={17} /> Back to studio
           </button>
           {user && (
-            <button onClick={() => void load()} disabled={loading} className="rounded-xl p-3 text-slate-500 dark:text-slate-400 hover:bg-white hover:text-brand-pink dark:hover:bg-[#161b22]" aria-label="Refresh billing">
+            <span className="relative inline-flex">
+            <button onClick={(event) => { if (loading) { event.preventDefault(); event.stopPropagation(); return; }return void load();
+                    }} aria-disabled={loading} aria-describedby={(loading) ? `${unavailableId}-1` : undefined} className={`rounded-xl p-3 text-slate-500 dark:text-slate-400 hover:bg-white hover:text-brand-pink dark:hover:bg-[#161b22] ${FOCUS_RING} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`} aria-label="Refresh billing">
               <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
             </button>
+              <Tip text={(loading) ? ('Refreshing billing…') : ('Refresh billing')} side="top" />
+              {(loading) && <span id={`${unavailableId}-1`} className="sr-only">{'Refreshing billing…'}</span>}
+            </span>
           )}
         </div>
 
@@ -225,9 +233,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
               {user && (
                 <div className="mt-6 inline-flex items-center gap-4 rounded-2xl border border-white/10 bg-white/10 px-5 py-3 backdrop-blur">
                   <div>
-                    <p className="text-[12px] font-black uppercase tracking-wide text-slate-400">Your balance</p>
-                    <p className="pixtaffy-counter mt-0.5 text-3xl font-extrabold">{billing?.isAdmin ? 'Unlimited' : billing ? formatCredits(billing.balanceMilliCredits) : '...'}</p>
-                  </div>
+                    <p className="text-[12px] font-black uppercase tracking-wide text-slate-400">Your balance</p>                    <p className="pixtaffy-counter mt-0.5 text-3xl font-extrabold">{billing?.isAdmin ? 'Unlimited' : billing ? formatCredits(billing.balanceMilliCredits) : '…'}</p>                  </div>
                   {!billing?.isAdmin && <span className="rounded-full bg-brand-orange px-2.5 py-1 text-xs font-black text-[#261307]">credits</span>}
                 </div>
               )}
@@ -248,9 +254,14 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
               <h2 className="font-bold text-slate-950 dark:text-white">Your 10 starter credits are waiting</h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Verify {user.email} to get about 10 Standard, 5 Pro, or 3 Premium images. Starter credits last 30 days.</p>
             </div>
-            <button onClick={() => void verify()} disabled={busy === 'verify'} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-pink px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-brand-pink/20 disabled:opacity-60">
+            <span className="relative inline-flex">
+            <button onClick={(event) => { if (busy === 'verify') { event.preventDefault(); event.stopPropagation(); return; }return void verify();
+                    }} aria-disabled={busy === 'verify'} aria-describedby={(busy === 'verify') ? `${unavailableId}-2` : undefined} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-pink px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-brand-pink/20 aria-disabled:opacity-60 ${FOCUS_RING}`}>
               {busy === 'verify' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Check verification
             </button>
+              <Tip text={(busy === 'verify') ? ('Checking verification…') : ('Check verification')} side="top" />
+              {(busy === 'verify') && <span id={`${unavailableId}-2`} className="sr-only">{'Checking verification…'}</span>}
+            </span>
           </section>
         )}
 
@@ -289,9 +300,13 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
                     <li className="flex gap-2"><Archive size={17} className="mt-0.5 shrink-0 text-brand-orange" /> 500 cloud-saved generation entries</li>
                     <li className="flex gap-2"><WandSparkles size={17} className="mt-0.5 shrink-0 text-brand-pink" /> Images, analysis, naming, and prompt tools</li>
                   </ul>
-                  <button onClick={() => void checkout(product.id)} disabled={busy != null} className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#11172a] px-4 py-3 text-sm font-black text-white shadow-lg transition-colors hover:bg-brand-pink disabled:opacity-60 dark:bg-white dark:text-[#11172a] dark:hover:bg-brand-cyan">
+                  <span className="relative inline-flex w-full">
+                  <button onClick={(event) => { if (busy != null) { event.preventDefault(); event.stopPropagation(); return; } return void checkout(product.id); }} aria-disabled={busy != null} aria-describedby={(busy != null) ? `${unavailableId}-3-${product.id}` : undefined} className={`mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#11172a] px-4 py-3 text-sm font-black text-white shadow-lg transition-colors hover:bg-brand-pink aria-disabled:opacity-60 dark:bg-white dark:text-[#11172a] dark:hover:bg-brand-cyan ${FOCUS_RING}`}>
                     {busy === product.id ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} {user ? `Get ${product.eyebrow.replace('-credit pack', '')} credits` : 'Create an account to buy'}
                   </button>
+                    <Tip text={(busy != null) ? ('Wait for checkout to finish opening') : ('Buy credits')} side="top" />
+                    {(busy != null) && <span id={`${unavailableId}-3-${product.id}`} className="sr-only">{'Wait for checkout to finish opening'}</span>}
+                  </span>
                 </div>
               </article>
             ))}
@@ -317,9 +332,13 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
             <div className="rounded-2xl border border-white/10 bg-black/20 p-5 backdrop-blur">
               <p className="pixtaffy-counter text-4xl font-black">$15<span className="text-base font-semibold text-slate-400">/month</span></p>
               <p className="mt-2 text-xs leading-5 text-slate-300">All credit-powered image models and AI helpers are included. They spend from your monthly balance at the published rates.</p>
-              <button onClick={() => void checkout('pro_monthly')} disabled={busy != null || billing?.plan === 'pro'} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-brand-pink px-4 py-3 text-sm font-black text-[#0d1117] shadow-lg disabled:opacity-60">
+              <span className="relative inline-flex w-full">
+              <button onClick={(event) => { if (busy != null || billing?.plan === 'pro') { event.preventDefault(); event.stopPropagation(); return; } return void checkout('pro_monthly'); }} aria-disabled={busy != null || billing?.plan === 'pro'} aria-describedby={(busy != null || billing?.plan === 'pro') ? `${unavailableId}-4` : undefined} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-brand-pink px-4 py-3 text-sm font-black text-[#0d1117] shadow-lg aria-disabled:opacity-60 ${FOCUS_RING}`}>
                 {busy === 'pro_monthly' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {billing?.plan === 'pro' ? 'Current plan' : user ? 'Join Taffy Studio' : 'Create an account to join'}
               </button>
+                <Tip text={(busy != null || billing?.plan === 'pro') ? (billing?.plan === 'pro' ? 'You already have this plan' : 'Wait for checkout to finish opening') : ('Get Pro')} side="top" />
+                {(busy != null || billing?.plan === 'pro') && <span id={`${unavailableId}-4`} className="sr-only">{billing?.plan === 'pro' ? 'You already have this plan' : 'Wait for checkout to finish opening'}</span>}
+              </span>
             </div>
           </div>
         </section>
@@ -397,7 +416,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ user, onBack, onLogin,
         {user && <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-[#141a29]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-bold text-slate-950 dark:text-white">Recent credit activity</h2>
-            {billing?.stripeCustomerId && <button onClick={() => void billingService.openCustomerPortal()} className="text-sm font-bold text-brand-pink hover:underline">Manage billing</button>}
+            {billing?.stripeCustomerId && <button onClick={() => void billingService.openCustomerPortal()} className={`text-sm font-bold text-brand-pink hover:underline ${FOCUS_RING}`}>Manage billing</button>}
           </div>
           {loading ? <Loader2 className="mx-auto my-8 animate-spin text-brand-pink" /> : activity.length === 0 ? <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">No credit activity yet.</p> : (
             <div className="mt-4 divide-y divide-slate-100 dark:divide-white/10">

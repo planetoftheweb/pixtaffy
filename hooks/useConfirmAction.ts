@@ -26,6 +26,8 @@ export interface UseConfirmActionResult<K extends string> {
   reset: () => void;
   /** Convenience: is this specific key currently armed? */
   isArmed: (key: K) => boolean;
+  /** Disarm this button when focus leaves it. */
+  bindDisarmOnBlur: (key: K) => { onBlur: () => void };
 }
 
 export const useConfirmAction = <K extends string = string>({
@@ -71,6 +73,9 @@ export const useConfirmAction = <K extends string = string>({
   );
 
   const isArmed = useCallback((key: K) => armedKey === key, [armedKey]);
+  const bindDisarmOnBlur = useCallback((key: K) => ({
+    onBlur: () => { if (armedKey === key) reset(); },
+  }), [armedKey, reset]);
 
-  return { armedKey, trigger, reset, isArmed };
+  return { armedKey, trigger, reset, isArmed, bindDisarmOnBlur };
 };

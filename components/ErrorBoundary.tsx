@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
@@ -33,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </pre>
           <button 
             onClick={() => window.location.reload()}
-            className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className={`mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 ${FOCUS_RING}`}
           >
             Reload PixTaffy
           </button>

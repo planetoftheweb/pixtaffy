@@ -251,7 +251,7 @@ auto-disarm. Everything destructive must also be undoable (⌘Z).
   brand-red).
 - The same double-tap discipline applies across surfaces (tile delete, main
   preview delete, bulk delete, context menus) **so muscle memory transfers**.
-- Settings deletes may use an inline pale-amber confirm panel instead of double-tap arming
+- Settings deletes may use an inline pale-amber confirm panel instead of double-tap arming.
 - No "don't ask me again" bypasses for destructive taps.
 - **No button inside a button** — a delete badge over a thumbnail is a sibling
   `<div>`, never nested in the thumb's `<button>`.
@@ -283,7 +283,7 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
 - Primary hover is always `hover:bg-teal-600`; secondary/neutral controls
   **fill teal on hover** rather than darkening.
 - Segmented groups: container `inline-flex rounded-md border`, items
-  `first:rounded-l-md last:rounded-r-md`, selected `bg-brand-teal text-white`.
+  `first:rounded-l-md last:rounded-r-md`, selected `bg-brand-teal text-[#0d1117]`.
   Round the child buttons — never `overflow-hidden` on the group (tooltip
   killer).
 - Toggle (`Switch`): `w-8 h-[18px] rounded-full`, on `bg-brand-teal`, off
@@ -291,8 +291,7 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
 - Focus convention everywhere: `focus:outline-none focus:ring-1` (or `ring-2`)
   `focus:ring-brand-teal`.
 - Count badge: `absolute -top-1.5 -right-1.5 min-w-6 h-6 px-1.5 rounded-full
-  bg-brand-teal text-white text-[12px] font-bold shadow-lg ring-2 ring-white
-  dark:ring-[#0d1117] tabular-nums pointer-events-none`.
+  bg-brand-teal text-[#0d1117] text-[12px] font-bold shadow-lg ring-2 ring-white  dark:ring-[#0d1117] tabular-nums pointer-events-none`.
 - Settings rows: label left (`text-xs text-slate-400`), control right, one
   line, `min-h-[26px]`.
 
@@ -311,7 +310,8 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
   Portaled satellites need outside-click awareness (`closest('[data-…]')`) so
   they don't self-close their parent.
 - Z-scale: `z-10` click-catchers → `z-20` inline tooltips → `z-30` rich
-  tooltips/dropdowns → `z-40` toasts → `z-50` busy banners → `z-[100]` modals
+  tooltips/dropdowns → `z-40` toasts → `z-[40]` gallery thumbnail-size menu → `z-[45]` toolbar-hidden hint and gallery preset panel → `z-50` busy banners → `z-[59]` floating-menu click catchers → `z-[60]` floating menus above banners → `z-[70]` context menus and hover previews → `z-[100]` modals
+  → `z-[120]` menus inside modals
   → `z-[140-300]` nested/fullscreen layers → `z-[400]` error toasts → `500` portal tips.
 
 ## 11. Esc: one obvious escape hatch

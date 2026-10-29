@@ -1,3 +1,5 @@
+import { Tip } from './settings/Tip';
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { useEffect, useRef } from 'react';
 import {
   Archive,
@@ -185,10 +187,11 @@ export const WhatsNewPage: React.FC<WhatsNewPageProps> = ({
           <button
             type="button"
             onClick={onBack}
-            className="p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors"
+            className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-[#21262d] transition-colors ${FOCUS_RING}`}
             aria-label="Back"
           >
             <ArrowLeft size={24} />
+            <Tip text="Back" />
           </button>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gray-100 dark:bg-[#21262d] rounded-lg text-brand-teal">
@@ -252,7 +255,7 @@ const ListView: React.FC<{
         <button
           type="button"
           onClick={() => onSelectEntry(hero.id)}
-          className="group block w-full text-left relative overflow-hidden rounded-2xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-sm hover:shadow-md transition-all"
+          className={`group block w-full text-left relative overflow-hidden rounded-2xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-sm hover:shadow-md transition-all ${FOCUS_RING}`}
         >
           <div className="md:grid md:grid-cols-5 md:items-stretch">
             {/* Image — top on mobile, right column on desktop. */}
@@ -326,7 +329,7 @@ const ListView: React.FC<{
                   key={entry.id}
                   type="button"
                   onClick={() => onSelectEntry(entry.id)}
-                  className="group text-left flex flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+                  className={`group text-left flex flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all ${FOCUS_RING}`}
                 >
                   <div className="aspect-[16/9] bg-gradient-to-br from-brand-teal/15 via-brand-orange/10 to-brand-red/10 dark:from-brand-teal/10 dark:via-brand-orange/10 dark:to-brand-red/10 border-b border-gray-200 dark:border-[#30363d] overflow-hidden">
                     {entry.image ? (
@@ -405,7 +408,7 @@ const DetailView: React.FC<{
       <button
         type="button"
         onClick={onBackToList}
-        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-teal dark:hover:text-brand-teal transition-colors mb-4"
+        className={`inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-teal dark:hover:text-brand-teal transition-colors mb-4 ${FOCUS_RING}`}
       >
         <ChevronLeft size={14} />
         All launches
@@ -466,7 +469,7 @@ const DetailView: React.FC<{
                       key={`${entry.id}-section-${idx}-step-${stepIdx}`}
                       className="flex items-start gap-3 p-3 rounded-lg bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d]"
                     >
-                      <span className="inline-flex w-6 h-6 items-center justify-center rounded-full bg-brand-teal text-white text-xs font-bold shrink-0 mt-px">
+                      <span className="inline-flex w-6 h-6 items-center justify-center rounded-full bg-brand-teal text-[#0d1117] text-xs font-bold shrink-0 mt-px">
                         {stepIdx + 1}
                       </span>
                       <div className="flex-1 flex items-center gap-3 flex-wrap text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
@@ -491,7 +494,7 @@ const DetailView: React.FC<{
         <button
           type="button"
           onClick={onBackToList}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-teal/90 text-white text-sm font-semibold shadow-sm shadow-brand-teal/30 transition-colors"
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-teal/90 text-[#0d1117] text-sm font-semibold shadow-sm shadow-brand-teal/30 transition-colors ${FOCUS_RING}`}
         >
           <ChevronLeft size={14} />
           Back to all launches
@@ -501,7 +504,7 @@ const DetailView: React.FC<{
             href={entry.learnMoreHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm font-semibold text-brand-teal hover:underline"
+            className={`inline-flex items-center gap-1 text-sm font-semibold text-brand-teal hover:underline ${FOCUS_RING}`}
           >
             Learn more <ExternalLink size={12} />
           </a>

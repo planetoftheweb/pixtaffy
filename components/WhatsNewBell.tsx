@@ -1,3 +1,4 @@
+import { FOCUS_RING } from '../utils/focusRing';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Tip } from './settings/Tip';
 import { ArrowRight, Bell, Sparkles } from 'lucide-react';
@@ -136,7 +137,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
         aria-label={hasUnread ? `What's new (${unreadCount} unread)` : "What's new"}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        className="relative p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors"
+        className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 relative p-2 text-slate-500 hover:text-brand-teal dark:hover:text-brand-teal hover:bg-slate-100 dark:hover:bg-[#21262d] rounded-lg transition-colors ${FOCUS_RING}`}
       >
         <Bell size={20} />
         {hasUnread && (
@@ -227,7 +228,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
                           isFocused
                             ? 'bg-brand-teal/10 dark:bg-brand-teal/15'
                             : 'hover:bg-brand-teal/5 dark:hover:bg-brand-teal/10'
-                        }`}
+                        } ${FOCUS_RING}`}
                       >
                         <div className="flex items-start gap-3">
                           {entry.image ? (
@@ -288,7 +289,7 @@ export const WhatsNewBell: React.FC<WhatsNewBellProps> = ({
               <button
                 type="button"
                 onClick={onOpenPage}
-                className="shrink-0 w-full flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-semibold text-brand-teal hover:bg-brand-teal/5 dark:hover:bg-brand-teal/10 border-t border-gray-200 dark:border-[#30363d] transition-colors"
+                className={`shrink-0 w-full flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-semibold text-brand-teal hover:bg-brand-teal/5 dark:hover:bg-brand-teal/10 border-t border-gray-200 dark:border-[#30363d] transition-colors ${FOCUS_RING}`}
               >
                 View all launches
                 <ArrowRight size={12} />
