@@ -1822,7 +1822,7 @@ ${version.svgCode}
   }) => (
     <button
       onClick={onClick}
-      className={`group/tip ${variant === 'danger'
+      className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip ${variant === 'danger'
         ? 'bg-white/85 dark:bg-[#2b1c1c]/85 border border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white'
         : variant === 'busy'
           ? 'bg-brand-red border border-brand-red text-white cursor-default animate-pulse'
@@ -2725,7 +2725,7 @@ ${version.svgCode}
                   {versionDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setVersionDropdownOpen(false)} />
-                      <div className="absolute top-full left-0 mt-2 w-auto min-w-[10rem] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-20 overflow-hidden p-1">
+                      <div className="absolute top-full left-0 mt-2 w-auto min-w-[10rem] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-20 overflow-hidden p-1">
                         {generation.versions.map((v, idx) => (
                           <div
                             key={v.id}
@@ -2827,7 +2827,7 @@ ${version.svgCode}
               className={`absolute top-4 right-4 flex flex-wrap justify-end items-center gap-2 lg:gap-3 max-w-[calc(100%-2rem)] transition-opacity group-data-[dragging=true]:!opacity-0 group-data-[dragging=true]:!pointer-events-none ${
                 isComparing
                   ? 'opacity-0 pointer-events-none'
-                  : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 group-data-[idle=true]:!opacity-0 group-data-[idle=true]:!pointer-events-none'
+                  : 'opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:hover)]:group-data-[idle=true]:!opacity-0 [@media(hover:hover)]:group-data-[idle=true]:!pointer-events-none'
               }`}
             >
               {/* Refine / Recompose toggle. Used to be a permanent docked
@@ -3164,7 +3164,7 @@ ${version.svgCode}
                     aria-haspopup="menu"
                     aria-expanded={copyMenuOpen}
                     aria-label="Copy…"
-                    className="group/tip group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative inline-flex items-center gap-1"
+                    className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative inline-flex items-center gap-1"
                   >
                     <Copy size={18} />
                     <ChevronDown
@@ -3183,7 +3183,7 @@ ${version.svgCode}
                         ref={copyMenuRef}
                         role="menu"
                         onKeyDown={handleCopyMenuKeyDown}
-                        className="fixed left-0 top-0 w-48 max-w-[calc(100vw-1rem)] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-xl shadow-xl z-[60] overflow-y-auto p-1 [&_button]:[@media(pointer:coarse)]:min-h-11"
+                        className="fixed left-0 top-0 w-48 max-w-[calc(100vw-1rem)] bg-white dark:bg-[#161b22] border border-gray-200 dark:border-[#30363d] rounded-2xl shadow-xl z-[60] overflow-y-auto p-1 [&_button]:[@media(pointer:coarse)]:min-h-11"
                       >
                         {onCopy && (
                           <button
@@ -3253,7 +3253,7 @@ ${version.svgCode}
                 // not the entire history gallery.
                 allGenerations={[generation]}
                 allLabel="Export all in this tile"
-                triggerClassName="group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition inline-flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                triggerClassName="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/btn bg-white/90 dark:bg-[#1f252d]/90 border border-gray-300/80 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:bg-brand-teal hover:border-brand-teal hover:text-white p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-teal/70 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition inline-flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                 triggerTitle="Download"
                 triggerTooltip="Download"
                 icon={<Download size={18} />}
@@ -3266,7 +3266,7 @@ ${version.svgCode}
                 <button
                   onClick={handleDeleteWithNotice}
                   aria-label={isGenerationDeleteArmed ? 'Click again to confirm delete' : 'Delete'}
-                  className={`group/tip group/btn p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative border ${
+                  className={`[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 group/tip group/btn p-2.5 lg:p-3 rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-[#161b22] transition relative border ${
                     isGenerationDeleteArmed
                       ? 'border-amber-500 focus:ring-amber-400/70 bg-amber-500 text-[#0d1117] animate-pulse'
                       : 'bg-white/85 dark:bg-[#2b1c1c]/85 border-red-200/80 dark:border-red-900/40 text-red-600 dark:text-red-200 hover:bg-red-600 hover:border-red-600 hover:text-white focus:ring-brand-teal/70'

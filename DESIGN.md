@@ -38,8 +38,8 @@ document is the superset that adds tokens, recipes, and motion.
 
 ## 2. Color
 
-Tokens are defined in `index.css` (Tailwind v4 `@theme`). Dark mode is the
-class strategy (`<html class="dark">` is currently hard-set).
+Tokens are defined in `index.css` (Tailwind v4 `@theme`).
+Dark mode is the class strategy. The app boots dark (`<html class="dark">`, OS preference ignored) and the account menu has a session-only light toggle (App.tsx:4103); it does not persist.
 
 | Token | Hex | Meaning |
 |---|---|---|
@@ -153,13 +153,14 @@ resolve dynamic names (What's New `ICON_MAP`) fall back to `HelpCircle`.
 
 Radius map — smaller radius for smaller things:
 
-| Radius | Use |
+| Class | Usage |
 |---|---|
-| `rounded-md` | Compact controls: segments, chips, small tooltips |
-| `rounded-lg` | **Default**: buttons, inputs, standard cards, toasts |
-| `rounded-xl` | Elevated cards, rich tooltips |
-| `rounded-2xl` | Large dropdown panels, modal panels |
+| `rounded` / `rounded-md` | Compact controls: segments, chips, kbd, small tooltips, inline rename inputs |
+| `rounded-lg` | Default: buttons (incl. text CTAs), inputs/textareas, standard cards, toasts, simple tooltips, right-click context menus |
+| `rounded-xl` | Elevated cards, rich tooltips, grouped canvas toolbars (refine bar) |
+| `rounded-2xl` | Every dropdown/popover/listbox panel (any size), modal panels |
 | `rounded-full` | Pills, circular icon buttons, toggles, badges |
+| `rounded-3xl` / `rounded-[2rem]` | Marketing pages only (landing, pricing): hero panels, pack cards; marketing CTAs rounded-2xl |
 
 - Borders are 1px hairlines in the standard pair. Dashed borders
   (`border-dashed border-brand-teal/50`) mark add/empty affordances.
@@ -300,7 +301,7 @@ On-image chip: px-2.5 py-1.5 rounded-md text-xs font-semibold text-white
 - Modal: backdrop `fixed inset-0 z-[100] flex items-center justify-center p-4
   bg-black/60 backdrop-blur-sm`, panel `bg-white dark:bg-[#161b22] rounded-2xl
   shadow-2xl`. Esc and backdrop-click close; ⌘/Ctrl+Enter submits editors.
-- Dropdown/popover: `absolute top-full mt-2` + `rounded-2xl shadow-xl` panel;
+- Dropdown/popover (any size): `absolute top-full mt-2` + `rounded-2xl shadow-xl` panel;
   dismissed via a sibling full-screen click-catcher
   (`<div className="fixed inset-0 z-10" onClick={close} />`).
 - **Anything inside a scroll container gets portaled** to `document.body` with

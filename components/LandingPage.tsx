@@ -48,8 +48,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     <main className="min-w-0 overflow-hidden bg-brand-cream/45 text-slate-950 dark:bg-[#080d18] dark:text-white">
       <section className="relative isolate border-b border-orange-100 dark:border-white/10">
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
-          <div className="absolute -left-36 top-24 h-96 w-96 rounded-full bg-brand-orange/25 blur-3xl" />
-          <div className="absolute -right-24 -top-20 h-[30rem] w-[30rem] rounded-full bg-brand-pink/25 blur-3xl" />
+          <div className="absolute -left-36 top-24 h-96 w-96 rounded-full bg-brand-orange/10 sm:bg-brand-orange/25 blur-3xl" />
+          <div className="absolute -right-24 -top-20 h-[30rem] w-[30rem] rounded-full bg-brand-pink/10 sm:bg-brand-pink/25 blur-3xl" />
           <div className="absolute bottom-0 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-brand-cyan/20 blur-3xl" />
           <div className="pixtaffy-grid pixtaffy-grid-fade absolute inset-0" />
         </div>
@@ -74,7 +74,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 type="button"
                 onClick={onEnterStudio}
-                className="group inline-flex whitespace-nowrap min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-red via-brand-pink to-brand-purple px-6 py-3.5 text-base font-black leading-tight text-white shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#080d18]"
+                className="group inline-flex whitespace-nowrap min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand-pink px-6 py-3.5 text-base font-black leading-tight text-[#0d1117] shadow-[0_20px_25px_-5px_rgba(0,158,170,0.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_25px_30px_-5px_rgba(0,158,170,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#080d18]"
               >
                 <Play size={18} fill="currentColor" />
                 {primaryLabel}
