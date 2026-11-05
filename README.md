@@ -170,3 +170,9 @@ See [`CHANGELOG.md`](./CHANGELOG.md) for a full, versioned history of changes.
 ### Current image models
 
 GPT Image 2.6, GPT Image 2.6 Flare, GPT Image 2.5, GPT Image 2.5 Flare, GPT Image 2, GPT Image Mini, GPT Image 1.5, Nano Banana 2.1, Nano Banana 2, Nano Banana Pro, and Nano Banana 2 Lite. Gemini SVG remains available for vectors.
+
+### Image model smoke script
+
+Run `node scripts/smoke-image-models.mjs --dry-run` to inspect the plan without credentials or network calls. Supply picker IDs as positional arguments and `--out ./model-smoke` to choose the output directory.
+
+Use `--vertex --project pixtaffy-staging --location global` for Vertex with Application Default Credentials. Vertex is also selected automatically when no Gemini API key exists and an ADC file exists. The default project is `pixtaffy-staging`; `brandoit` requires `--allow-prod`. Gemini API and OpenAI modes read their respective API keys from the environment or the root `.env`. Actual runs generate billable images; dry runs do not.

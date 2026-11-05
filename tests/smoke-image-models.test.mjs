@@ -1,43 +1,84 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import vm from 'node:vm';
+import { parseArgs, resolveModel, hasAdc, selectBackend, safeError, run } from '../scripts/smoke-image-models.mjs';
 
-const source = (await readFile(new URL('../scripts/smoke-image-models.mjs', import.meta.url), 'utf8'))
-  .replace(/^#!.*\n/, '')
-  .replace(/^import .*;\n/gm, '')
-  .replace('import.meta.url', "'file:///project/scripts/smoke-image-models.mjs'");
-
-test('provider smoke generates three Gemini images and skips OpenAI without exposing keys', async () => {
-  const requests = [];
-  const files = [];
+const image = { candidates: [{ content: { parts: [{ inlineData: { data: 'aW1hZ2U=', mimeType: 'image/png' } }] } }], usageMetadata: { promptTokenCount: 10 } };
+function fixture(extra = {}) {
   const logs = [];
-  const fakeKey = 'fake-unit-test-key';
-  const models = ['gemini-nano-banana-2.1', 'gemini-3.1-flash-image', 'gemini-3-pro-image'];
-  const context = {
-    process: { argv: ['node', 'smoke', '--out', '/output', ...models, 'openai-2.6', 'openai-2.6-flare'], env: { GEMINI_API_KEY: fakeKey } },
-    resolve: (...parts) => parts.join('/'), homedir: () => '/fake-home', URL, Buffer,
-    performance: { now: () => 1 }, AbortSignal,
-    readFile: async () => { const error = new Error('No fixture file'); error.code = 'ENOENT'; throw error; },
-    mkdir: async () => {}, writeFile: async (path, bytes) => files.push({ path, bytes }),
-    console: { log: line => logs.push(JSON.parse(line)) },
-    fetch: async (url, options) => {
-      requests.push({ url, body: JSON.parse(options.body) });
-      return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: Buffer.from('fixture-image').toString('base64') } }] } }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 20 } }) };
-    },
-  };
-  await vm.runInNewContext(`(async () => {${source}\n})()`, context);
-  assert.equal(requests.length, 3);
-  for (const [index, model] of models.entries()) {
-    assert.ok(requests[index].url.endsWith(`/models/${model}:generateContent`));
-    assert.deepEqual(requests[index].body.generationConfig, { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: '1:1' } });
-    assert.ok(files[index].path.endsWith(`${model}.png`));
-    assert.ok(files[index].bytes.length > 0);
-    assert.equal(logs[index].status, 'ok');
-    assert.equal(logs[index].usageTokens.promptTokenCount, 10);
-    assert.equal(typeof logs[index].estCostUsd, 'number');
+  return { logs, deps: { env: {}, home: '/empty', readFile: async () => { throw new Error('absent'); }, access: async () => { throw new Error('absent'); }, log: value => logs.push(value), mkdir: async () => {}, writeFile: async () => {}, fetch: async () => { throw new Error('Unexpected network call'); }, ...extra } };
+}
+test('flags, defaults, production guard and model normalization', () => {
+  const options = parseArgs(['--vertex', '--project', 'brandoit', '--allow-prod', '--location', 'global', '--dry-run', '--out', '/output', 'gemini']);
+  assert.equal(options.vertex, true);
+  assert.equal(options.project, 'brandoit');
+  assert.equal(options.location, 'global');
+  assert.equal(options.dryRun, true);
+  assert.equal(options.out, '/output');
+  assert.throws(() => parseArgs(['--project', 'brandoit']), /allow-prod/);
+  assert.throws(() => parseArgs(['--out']), /Missing/);
+  assert.throws(() => parseArgs(['--unknown']), /Unknown/);
+  assert.equal(resolveModel('gemini'), 'gemini-3-pro-image');
+  assert.equal(resolveModel('gemini-3.1-flash-image-preview'), 'gemini-3.1-flash-image');
+  assert.throws(() => resolveModel('gemini-3-pro-image-preview'));
+});
+test('ADC checks existence only and backend selection prefers API keys unless forced', async () => {
+  const paths = [];
+  assert.equal(await hasAdc({ GOOGLE_APPLICATION_CREDENTIALS: '/adc' }, '/home', async path => { paths.push(path); }), true);
+  assert.deepEqual(paths, ['/adc']);
+  assert.equal(await hasAdc({}, '/home', async path => { assert.equal(path, '/home/.config/gcloud/application_default_credentials.json'); }), true);
+  assert.equal(await hasAdc({}, '/home', async () => { throw new Error(); }), false);
+  assert.equal(selectBackend('gemini', {}, 'key', true), 'gemini-api');
+  assert.equal(selectBackend('gemini', {}, undefined, true), 'vertex');
+  assert.equal(selectBackend('gemini', {}, undefined, false), 'gemini-api');
+  assert.equal(selectBackend('gemini', { vertex: true }, 'key', true), 'vertex');
+  assert.equal(selectBackend('openai-2.6', { vertex: true }), 'openai');
+});
+test('dry-run reads no credentials and performs no network calls', async () => {
+  const { deps, logs } = fixture({ readFile: async () => { assert.fail('credential read'); }, access: async () => { assert.fail('ADC check'); } });
+  assert.equal(await run(['--vertex', '--dry-run'], deps), 0);
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].dryRun, true);
+  for (const key of ['models', 'backend', 'project', 'location', 'out']) assert.ok(key in logs[0]);
+});
+test('missing credentials fail Gemini and skip OpenAI cleanly', async () => {
+  const { deps, logs } = fixture();
+  assert.equal(await run(['gemini', 'openai-2.6'], deps), 1);
+  assert.deepEqual(logs.map(({ status, reason }) => [status, reason]), [['fail', 'GEMINI_API_KEY unavailable'], ['skip', 'OPENAI_API_KEY unavailable']]);
+  assert.equal(await run(['--vertex', 'gemini'], deps), 1);
+  assert.equal(logs.at(-1).reason, 'ADC unavailable');
+});
+test('Vertex SDK receives GA models, project and 1K config with official costs', async () => {
+  const requests = [];
+  class GoogleGenAI {
+    constructor(options) {
+      assert.deepEqual(options, { vertexai: true, project: 'pixtaffy-staging', location: 'global' });
+      this.models = { generateContent: async request => { requests.push(request); return image; } };
+    }
   }
-  assert.deepEqual(logs.slice(3).map(log => log.status), ['skip', 'skip']);
-  assert.ok(!JSON.stringify(logs).includes(fakeKey));
-  assert.equal(context.process.exitCode, undefined);
+  const { deps, logs } = fixture({ GoogleGenAI, access: async () => {} });
+  assert.equal(await run(['gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini'], deps), 0);
+  assert.deepEqual(logs.map(value => value.estCostUsd), [0.0336, 0.067, 0.134]);
+  for (const request of requests) {
+    assert.ok(!request.model.endsWith('-preview'));
+    assert.deepEqual(request.config.imageConfig, { aspectRatio: '1:1', imageSize: '1K' });
+  }
+  for (const result of logs) { assert.equal(result.backend, 'vertex'); assert.equal(result.project, 'pixtaffy-staging'); }
+});
+test('REST normalizes aliases and never logs keys or raw provider errors', async () => {
+  const requests = [];
+  const { deps, logs } = fixture({ env: { GEMINI_API_KEY: 'secret-unit-key' }, fetch: async (url, options) => { requests.push({ url, body: JSON.parse(options.body) }); return { ok: true, json: async () => image }; } });
+  assert.equal(await run(['gemini', 'gemini-3.1-flash-image-preview'], deps), 0);
+  assert.ok(requests[0].url.includes('gemini-3-pro-image:'));
+  assert.ok(requests[1].url.includes('gemini-3.1-flash-image:'));
+  deps.fetch = async () => { throw new Error('secret-unit-key raw body'); };
+  assert.equal(await run(['gemini'], deps), 1);
+  assert.equal(logs.at(-1).reason, 'Provider request failed');
+  assert.ok(!JSON.stringify(logs).includes('secret-unit-key'));
+  assert.equal(safeError({ status: 'PERMISSION_DENIED', message: 'token' }, 'vertex'), 'Vertex request failed: PERMISSION_DENIED');
+  assert.equal(safeError({ status: 'secret-token', message: 'token' }, 'vertex'), 'Vertex request failed');
+  assert.equal(safeError(new Error('HTTP 403'), 'gemini-api'), 'HTTP 403');
+  assert.equal(safeError(new Error('Missing image data'), 'vertex'), 'Missing image data');
+  const failing = fixture({ access: async () => {}, GoogleGenAI: class { constructor() { throw { status: 'UNAUTHENTICATED', message: 'secret-token' }; } } });
+  assert.equal(await run(['--vertex'], failing.deps), 1);
+  assert.ok(!JSON.stringify(failing.logs).includes('secret-token'));
 });

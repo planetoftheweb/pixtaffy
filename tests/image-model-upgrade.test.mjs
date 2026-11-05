@@ -79,3 +79,34 @@ test('generation and edits send 2.6 controls and normalize older model quality',
     assert.equal(requests.pop().body.complexity, undefined);
   }
 });
+
+test('every Gemini picker resolves only GA API and OpenRouter model strings', async () => {
+  const { resolveModel } = await import('../scripts/smoke-image-models.mjs');
+  const pickers = ['gemini', 'gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image'];
+  const prices = {};
+  vm.runInNewContext(ts.transpileModule(read('functions/src/pricing.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: prices });
+  const keySource = read('functions/src/userApiKeys.ts');
+  const expression = keySource.match(/generateContent\(\{ model: (isSvg[^,]+), contents:/)[1];
+  const keyModel = new Function('model', 'isSvg', `return ${expression}`);
+  for (const picker of pickers) {
+    const resolved = [resolveModel(picker), keyModel(picker, false)];
+    for (const path of ['services/geminiService.ts', 'functions/src/agentGenerateImage.ts']) resolved.push(...geminiHelpers(path).getGeminiImageModelCandidates(picker));
+    // GA Flash is not a stored paid picker; the saved alias owns its price slot.
+    const price = prices.getPaidModelPrice(picker === 'gemini-3.1-flash-image' ? 'gemini-3.1-flash-image-preview' : picker);
+    assert.ok(price);
+    resolved.push(price.openRouterModelId);
+    for (const model of resolved) assert.ok(!model.endsWith('-preview'), `${picker} resolved to ${model}`);
+  }
+  const constants = read('constants.ts');
+  assert.match(constants, /id: 'gemini-3\.1-flash-image-preview'/);
+  assert.ok(!/model:\s*['"]gemini-[^'"]*-preview['"]/.test(constants));
+  // Each runtime occurrence has a reviewed alias role. New occurrences require review.
+  const { execFileSync } = await import('node:child_process');
+  const audit = execFileSync('git', ['grep', '-n', 'image-preview', '--', '*.ts', '*.tsx', '*.js', '*.mjs', ':!tests/*', ':!.harness-runs/*'], { cwd: new URL('..', import.meta.url), env: { ...process.env, GIT_CONFIG_COUNT: '0' }, encoding: 'utf8' });
+  const allowed = new Set(['App.tsx', 'constants.ts', 'components/AdminPage.tsx', 'components/ControlPanel.tsx', 'components/ImageDisplay.tsx', 'components/RecentGenerations.tsx', 'functions/src/agentGenerateImage.ts', 'functions/src/pricing.ts', 'functions/src/pricing.test.ts', 'functions/src/userApiKeys.ts', 'mcp/index.js', 'services/aspectRatioService.ts', 'services/billingService.ts', 'services/correctionAnalysisRouter.ts', 'services/geminiService.ts', 'services/svgService.ts', 'services/timeEstimationService.ts', 'scripts/smoke-image-models.mjs']);
+  for (const line of audit.trim().split('\n')) {
+    assert.ok(allowed.has(line.split(':')[0]), line);
+    assert.ok(!/model:\s*['"]gemini-[^'"]*-preview['"]/.test(line), line);
+    assert.ok(!line.includes('gemini-3-pro-image-preview'), line);
+  }
+});
