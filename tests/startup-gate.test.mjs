@@ -151,29 +151,20 @@ test('member hydration returns migrated key status and setup waits for it', asyn
 });
 
 
-test('legacy key migration completes before the first profile read', async () => {
+test('profile reads complete without waiting for deferred key hydration', async () => {
   const service = readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8');
-  const body = service.slice(service.indexOf('  const userRef =', service.indexOf('const ensureUserDocument =')), service.indexOf('\n  const fbUser =', service.indexOf('const ensureUserDocument =')));
+  const ensure = service.slice(service.indexOf('const ensureUserDocument ='), service.indexOf('  const fbUser =', service.indexOf('const ensureUserDocument =')));
+  assert.doesNotMatch(ensure, /loadKeyStorageMode|getUserApiKeyStatus|readAdminClaim/);
+  const body = ensure.slice(ensure.indexOf('  const userRef ='));
   const run = new (Object.getPrototypeOf(async function () {}).constructor)('uid', 'doc', 'db', 'loadKeyStorageMode', 'getUserApiKeyStatus', 'getDoc', body.replace(' as Record<string, unknown>', ''));
-  for (const serverKeys of [true, false]) {
-    let migrated = false;
-    let finishMigration;
-    let reads = 0;
-    const pending = run('member', () => ({}), {}, async () => serverKeys,
-      () => new Promise(resolve => { finishMigration = () => { migrated = true; resolve({}); }; }),
-      async () => {
-        reads++;
-        assert.equal(migrated, serverKeys);
-        return { exists: () => true, data: () => ({ name: 'Restored member' }) };
-      });
-    await Promise.resolve();
-    if (serverKeys) {
-      assert.equal(reads, 0);
-      finishMigration();
-    }
-    assert.deepEqual(await pending, { name: 'Restored member' });
-    assert.equal(reads, 1);
-  }
+  let reads = 0;
+  const deferredHydration = () => new Promise(() => {});
+  const profile = await run('member', () => ({}), {}, deferredHydration, deferredHydration, async () => {
+    reads++;
+    return { exists: () => true, data: () => ({ name: 'Restored member' }) };
+  });
+  assert.deepEqual(profile, { name: 'Restored member' });
+  assert.equal(reads, 1);
 });
 
 test('every auth retry refreshes the member hint before resolving the session', () => {
