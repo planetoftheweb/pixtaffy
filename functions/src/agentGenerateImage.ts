@@ -1165,7 +1165,7 @@ export const agentGenerateImage = onRequest(
         ov.selectedModel ||
         presetMatch?.selectedModel ||
         prefs?.selectedModel ||
-        NANO_BANANA_2_MODEL
+        NANO_BANANA_2_UI_MODEL
       ).trim();
 
       if (selectedModel === "gemini-svg") {

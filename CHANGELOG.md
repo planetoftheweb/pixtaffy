@@ -1,9 +1,3 @@
-## 0.33.0
-
-- Added GPT Image 2.6, GPT Image 2.6 Flare, and Nano Banana 2.1.
-- Migrated Gemini image calls to GA IDs while preserving saved picker preferences.
-- Restricted extra high and maximum quality to GPT Image 2.6, with optional API complexity.
-
 # Changelog
 
 All notable changes to PixTaffy are documented here.
@@ -12,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## 0.33.0
+
+- Added GPT Image 2.6, GPT Image 2.6 Flare, and Nano Banana 2.1.
+- Migrated Gemini image calls to GA IDs while preserving saved picker preferences.
+- Restricted extra high and maximum quality to GPT Image 2.6, with optional API complexity.
 
 ## [0.32.0] - 2026-09-08
 
