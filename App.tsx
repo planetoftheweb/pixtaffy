@@ -494,7 +494,7 @@ const App: React.FC = () => {
   // modal in particular) must wait for this before assuming "no user means
   // new visitor", otherwise returning users see a flash of the onboarding
   // screen on every page load.
-  const [hasMemberHint] = useState(() => hasSavedMemberHint(window.localStorage));
+  const [hasMemberHint] = useState(() => hasSavedMemberHint());
   const [isAuthResolved, setIsAuthResolved] = useState(false);
   const [startupIssue, setStartupIssue] = useState<string | null>(null);
   const [authRetryNonce, setAuthRetryNonce] = useState(0);

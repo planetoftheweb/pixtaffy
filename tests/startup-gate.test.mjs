@@ -45,6 +45,21 @@ test('unavailable storage does not block guests', () => {
   assert.doesNotThrow(() => writeMemberHint(storage, false));
 });
 
+test('a blocked browser localStorage getter does not prevent launch', () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { get localStorage() { throw new Error('Storage access denied'); } },
+  });
+  try {
+    assert.equal(hasSavedMemberHint(), false);
+    assert.equal(shouldShowStartupGate(hasSavedMemberHint(), false), false);
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+  }
+});
+
 test('startup opens before member enrichment and public Back navigation does not persist preference', () => {
   const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
   const service = readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8');
