@@ -133,11 +133,17 @@ test('member hydration returns migrated key status and setup waits for it', asyn
   const body = service.slice(service.indexOf('    const member = auth.currentUser;', service.indexOf('  hydrateMemberSession:')), service.indexOf('\n  },', service.indexOf('  hydrateMemberSession:')));
   const run = new (Object.getPrototypeOf(async function () {}).constructor)('uid', 'auth', 'readAdminClaim', 'loadKeyStorageMode', 'getUserApiKeyStatus', 'recordSignIn', body);
   let completeMigration;
+  let completeAdminClaim;
+  let hydrationFinished = false;
   const status = { gemini: { configured: true } };
-  const pending = run('member', { currentUser: { uid: 'member', isAnonymous: false } }, async () => true, async () => true, () => new Promise(resolve => { completeMigration = resolve; }), () => {});
+  const pending = run('member', { currentUser: { uid: 'member', isAnonymous: false } }, () => new Promise(resolve => { completeAdminClaim = resolve; }), async () => true, () => new Promise(resolve => { completeMigration = resolve; }), () => {});
+  void pending.then(() => { hydrationFinished = true; });
   await Promise.resolve();
   await Promise.resolve();
   completeMigration(status);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(hydrationFinished, false, 'history setup must wait for the real admin claim even when key migration is ready');
+  completeAdminClaim(true);
   assert.deepEqual(await pending, { isAdmin: true, preferences: { apiKeyStatus: status, apiKeys: {}, geminiApiKey: undefined } });
   const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
   assert.match(app, /preferences: \{ \.\.\.current.preferences, \.\.\.enrichment.preferences \}/);
