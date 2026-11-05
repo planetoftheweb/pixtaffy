@@ -71,6 +71,12 @@ test('startup opens before member enrichment and public Back navigation does not
   assert.match(observer, /resetKeyStorageMode\(\);\s*callback\(null\)/);
   assert.match(service, /localStorage.removeItem\(PREFER_STUDIO_STORAGE_KEY\)/);
   assert.ok(app.indexOf("releaseGate('authenticated session')") < app.indexOf('authService.hydrateMemberSession'));
+  const memberStartup = app.slice(app.indexOf("releaseGate('authenticated session')"), app.indexOf("releaseGate('guest session')"));
+  assert.match(memberStartup, /window\.setTimeout\([\s\S]*const isAdmin = await authService\.hydrateMemberSession\(hydratedUser\.id\);\s*if \(!active\) return;\s*const sessionUser = \{ \.\.\.hydratedUser, isAdmin \}/);
+  assert.ok(memberStartup.indexOf('await authService.hydrateMemberSession') < memberStartup.indexOf('historyService.mergeLocalToRemote'));
+  assert.match(memberStartup, /mergeLocalToRemote\(sessionUser\.id, sessionUser\.isAdmin === true\)/);
+  assert.match(memberStartup, /getHistory\(sessionUser\)/);
+  assert.doesNotMatch(memberStartup, /getHistory\(hydratedUser\)|mergeLocalToRemote\(hydratedUser/);
   const start = app.indexOf('!isKnownPath(pathname) ?');
   assert.ok(start >= 0);
   const publicRoutes = app.slice(start, app.indexOf(') : welcomeMode ?', start));

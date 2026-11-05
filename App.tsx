@@ -955,31 +955,32 @@ const App: React.FC = () => {
 
         window.setTimeout(() => {
           if (!active) return;
-          void authService.hydrateMemberSession(hydratedUser.id).then(isAdmin => {
-            if (active) setUser(current => current?.id === hydratedUser.id ? { ...current, isAdmin } : current);
-          }).catch(error => console.warn('Member session hydration failed:', error));
-        }, 0);
-
-        void (async () => {
-          const syncStartedAt = performance.now();
-          try {
-            const mergeResult = await historyService.mergeLocalToRemote(hydratedUser.id, hydratedUser.isAdmin === true);
-            console.info(`[Startup] Local history merge: settled in ${Math.round(performance.now() - syncStartedAt)}ms`);
-            if (mergeResult.failed > 0 && active) {
-              setError(`Synced ${mergeResult.synced} item(s), but ${mergeResult.failed} local item(s) are still pending sync.`);
+          void (async () => {
+            // Resolve the claim before history reads or writes can cap the admin cache.
+            const isAdmin = await authService.hydrateMemberSession(hydratedUser.id);
+            if (!active) return;
+            const sessionUser = { ...hydratedUser, isAdmin };
+            setUser(current => current?.id === sessionUser.id ? { ...current, isAdmin } : current);
+            const syncStartedAt = performance.now();
+            try {
+              const mergeResult = await historyService.mergeLocalToRemote(sessionUser.id, sessionUser.isAdmin === true);
+              console.info(`[Startup] Local history merge: settled in ${Math.round(performance.now() - syncStartedAt)}ms`);
+              if (mergeResult.failed > 0 && active) {
+                setError(`Synced ${mergeResult.synced} item(s), but ${mergeResult.failed} local item(s) are still pending sync.`);
+              }
+            } catch (mergeErr) {
+              console.error('[Startup] Local history merge failed:', mergeErr);
             }
-          } catch (mergeErr) {
-            console.error('[Startup] Local history merge failed:', mergeErr);
-          }
 
-          const historyStartedAt = performance.now();
-          const updatedHistory = await historyService.getHistory(hydratedUser);
-          console.info(`[Startup] Cloud history: settled in ${Math.round(performance.now() - historyStartedAt)}ms`);
-          if (active) setHistory(updatedHistory);
-        })().catch((historyError) => {
-          console.error('[Startup] Cloud history hydration failed:', historyError);
-          if (active) setError('Your studio is ready, but cloud history could not be loaded yet.');
-        });
+            const historyStartedAt = performance.now();
+            const updatedHistory = await historyService.getHistory(sessionUser);
+            console.info(`[Startup] Cloud history: settled in ${Math.round(performance.now() - historyStartedAt)}ms`);
+            if (active) setHistory(updatedHistory);
+          })().catch((historyError) => {
+            console.error('[Startup] Cloud history hydration failed:', historyError);
+            if (active) setError('Your studio is ready, but cloud history could not be loaded yet.');
+          });
+        }, 0);
       } else {
         setUser(null);
         setHistory(historyService.getFromLocal());
