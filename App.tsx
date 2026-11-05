@@ -1006,6 +1006,10 @@ const App: React.FC = () => {
       setHistory(historyService.getFromLocal());
       setStartupIssue("PixTaffy couldn't check for a saved session. You can still browse, but using guest credits needs a temporary secure session. Try again.");
       releaseGate('error fallback');
+    }, () => {
+      if (!active) return;
+      setIsMemberResolving(true);
+      releaseGate('member identified');
     });
 
     return () => {

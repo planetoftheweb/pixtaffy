@@ -376,6 +376,8 @@ const ensureUserDocument = async (
   seed: UserProfileSeed = {}
 ): Promise<Record<string, unknown>> => {
   const userRef = doc(db, "users", uid);
+  // Server-key rules reject legacy plaintext profiles until migration completes.
+  if (await loadKeyStorageMode()) await getUserApiKeyStatus();
   const snap = await getDoc(userRef);
   if (snap.exists()) {
     return snap.data() as Record<string, unknown>;
@@ -758,6 +760,7 @@ export const authService = {
   onAuthStateChange: (
     callback: (user: User | null) => void,
     onError?: (error: unknown) => void,
+    onMemberIdentified?: () => void,
   ) => {
     console.info('[Startup] Firebase Auth observer: subscribed');
     return onAuthStateChanged(auth, async (user) => {
@@ -765,6 +768,9 @@ export const authService = {
       try {
         writeMemberHint(undefined, !!user && !user.isAnonymous);
         if (user && !user.isAnonymous) {
+          onMemberIdentified?.();
+          // Let the released startup gate render before migration and profile loading.
+          await new Promise<void>(resolve => window.setTimeout(resolve, 0));
           const profileStartedAt = performance.now();
           const userData = await ensureUserDocument(user.uid);
           console.info(`[Startup] User profile: settled in ${Math.round(performance.now() - profileStartedAt)}ms`);

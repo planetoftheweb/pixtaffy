@@ -151,20 +151,32 @@ test('member hydration returns migrated key status and setup waits for it', asyn
 });
 
 
-test('profile reads complete without waiting for deferred key hydration', async () => {
+test('legacy profile migration completes before the read, after the splash release', async () => {
   const service = readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8');
   const ensure = service.slice(service.indexOf('const ensureUserDocument ='), service.indexOf('  const fbUser =', service.indexOf('const ensureUserDocument =')));
-  assert.doesNotMatch(ensure, /loadKeyStorageMode|getUserApiKeyStatus|readAdminClaim/);
+  assert.doesNotMatch(ensure, /readAdminClaim/);
   const body = ensure.slice(ensure.indexOf('  const userRef ='));
   const run = new (Object.getPrototypeOf(async function () {}).constructor)('uid', 'doc', 'db', 'loadKeyStorageMode', 'getUserApiKeyStatus', 'getDoc', body.replace(' as Record<string, unknown>', ''));
+  let finishMigration;
+  let migrated = false;
   let reads = 0;
-  const deferredHydration = () => new Promise(() => {});
-  const profile = await run('member', () => ({}), {}, deferredHydration, deferredHydration, async () => {
+  const pending = run('member', () => ({}), {}, async () => true, () => new Promise(resolve => {
+    finishMigration = () => { migrated = true; resolve({}); };
+  }), async () => {
+    assert.equal(migrated, true, 'rules deny legacy plaintext profiles before migration');
     reads++;
     return { exists: () => true, data: () => ({ name: 'Restored member' }) };
   });
-  assert.deepEqual(profile, { name: 'Restored member' });
+  await Promise.resolve();
+  assert.equal(reads, 0);
+  finishMigration();
+  assert.deepEqual(await pending, { name: 'Restored member' });
   assert.equal(reads, 1);
+  const observer = service.slice(service.indexOf('  onAuthStateChange:'));
+  assert.ok(observer.indexOf('onMemberIdentified?.()') < observer.indexOf('await ensureUserDocument'));
+  assert.match(observer, /onMemberIdentified\?\.\(\);[\s\S]*await new Promise<void>\(resolve => window.setTimeout\(resolve, 0\)\);/);
+  const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /setIsMemberResolving\(true\);\s*releaseGate\('member identified'\)/);
 });
 
 test('every auth retry refreshes the member hint before resolving the session', () => {
