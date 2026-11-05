@@ -73,7 +73,7 @@ test('startup opens before member enrichment and public Back navigation does not
   assert.match(service, /localStorage.removeItem\(PREFER_STUDIO_STORAGE_KEY\)/);
   assert.ok(app.indexOf("releaseGate('authenticated session')") < app.indexOf('authService.hydrateMemberSession'));
   const memberStartup = app.slice(app.indexOf("releaseGate('authenticated session')"), app.indexOf("releaseGate('guest session')"));
-  assert.match(memberStartup, /window\.setTimeout\([\s\S]*const isAdmin = await authService\.hydrateMemberSession\(hydratedUser\.id\);\s*if \(!active\) return;\s*const sessionUser = \{ \.\.\.hydratedUser, isAdmin \}/);
+  assert.match(memberStartup, /window\.setTimeout\([\s\S]*const enrichment = await authService\.hydrateMemberSession\(hydratedUser\.id\);\s*if \(!active\) return;\s*const sessionUser = \{ \.\.\.hydratedUser, \.\.\.enrichment, preferences: \{ \.\.\.hydratedUser.preferences, \.\.\.enrichment.preferences \} \}/);
   assert.ok(memberStartup.indexOf('await authService.hydrateMemberSession') < memberStartup.indexOf('historyService.mergeLocalToRemote'));
   assert.match(memberStartup, /mergeLocalToRemote\(sessionUser\.id, sessionUser\.isAdmin === true\)/);
   assert.match(memberStartup, /getHistory\(sessionUser\)/);
@@ -126,4 +126,20 @@ test('anonymous session waits for slow auth restoration and preserves the restor
   auth.authStateReady = async () => {};
   assert.equal(await run(auth, startAnonymousSession), 'guest');
   assert.equal(anonymousCalls, 1);
+});
+
+test('member hydration returns migrated key status and setup waits for it', async () => {
+  const service = readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8');
+  const body = service.slice(service.indexOf('    const member = auth.currentUser;', service.indexOf('  hydrateMemberSession:')), service.indexOf('\n  },', service.indexOf('  hydrateMemberSession:')));
+  const run = new (Object.getPrototypeOf(async function () {}).constructor)('uid', 'auth', 'readAdminClaim', 'loadKeyStorageMode', 'getUserApiKeyStatus', 'recordSignIn', body);
+  let completeMigration;
+  const status = { gemini: { configured: true } };
+  const pending = run('member', { currentUser: { uid: 'member', isAnonymous: false } }, async () => true, async () => true, () => new Promise(resolve => { completeMigration = resolve; }), () => {});
+  await Promise.resolve();
+  await Promise.resolve();
+  completeMigration(status);
+  assert.deepEqual(await pending, { isAdmin: true, preferences: { apiKeyStatus: status, apiKeys: {}, geminiApiKey: undefined } });
+  const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /preferences: \{ \.\.\.current.preferences, \.\.\.enrichment.preferences \}/);
+  assert.match(app, /const needsSetup = !isMemberHydrating && \(user/);
 });

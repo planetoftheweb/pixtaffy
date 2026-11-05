@@ -497,6 +497,7 @@ const App: React.FC = () => {
   const [hasMemberHint] = useState(() => hasSavedMemberHint());
   const [isMemberResolving, setIsMemberResolving] = useState(() => shouldResolveMemberSession(hasMemberHint, false));
   const [isAuthResolved, setIsAuthResolved] = useState(false);
+  const [isMemberHydrating, setIsMemberHydrating] = useState(false);
   const [startupIssue, setStartupIssue] = useState<string | null>(null);
   const [authRetryNonce, setAuthRetryNonce] = useState(0);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -952,6 +953,7 @@ const App: React.FC = () => {
                 }
               }
             : restoredUser;
+        setIsMemberHydrating(true);
         setUser(hydratedUser);
         setStartupIssue(null);
         releaseGate('authenticated session');
@@ -960,10 +962,11 @@ const App: React.FC = () => {
           if (!active) return;
           void (async () => {
             // Resolve the claim before history reads or writes can cap the admin cache.
-            const isAdmin = await authService.hydrateMemberSession(hydratedUser.id);
+            const enrichment = await authService.hydrateMemberSession(hydratedUser.id);
             if (!active) return;
-            const sessionUser = { ...hydratedUser, isAdmin };
-            setUser(current => current?.id === sessionUser.id ? { ...current, isAdmin } : current);
+            const sessionUser = { ...hydratedUser, ...enrichment, preferences: { ...hydratedUser.preferences, ...enrichment.preferences } };
+            setUser(current => current?.id === sessionUser.id ? { ...current, isAdmin: enrichment.isAdmin, preferences: { ...current.preferences, ...enrichment.preferences } } : current);
+            setIsMemberHydrating(false);
             const syncStartedAt = performance.now();
             try {
               const mergeResult = await historyService.mergeLocalToRemote(sessionUser.id, sessionUser.isAdmin === true);
@@ -981,10 +984,14 @@ const App: React.FC = () => {
             if (active) setHistory(updatedHistory);
           })().catch((historyError) => {
             console.error('[Startup] Cloud history hydration failed:', historyError);
-            if (active) setError('Your studio is ready, but cloud history could not be loaded yet.');
+            if (active) {
+              setIsMemberHydrating(false);
+              setError('Your studio is ready, but cloud history could not be loaded yet.');
+            }
           });
         }, 0);
       } else {
+        setIsMemberHydrating(false);
         setUser(null);
         setHistory(historyService.getFromLocal());
         setStartupIssue(null);
@@ -1546,9 +1553,9 @@ const App: React.FC = () => {
   const activeApiKey = getActiveApiKey();
   const activeModelSupportsCredits = Boolean(SITE_FUNDED_MODEL_MILLICREDITS[selectedModel]);
   const hasUsableCredits = Boolean(billingState?.isAdmin || (billingState?.balanceMilliCredits ?? 0) > 0);
-  const needsSetup = user
+  const needsSetup = !isMemberHydrating && (user
     ? !activeApiKey && (!activeModelSupportsCredits || !hasUsableCredits)
-    : true;
+    : true);
 
   // Quick Start is now setup help for signed-in members only. Guests get the
   // full welcome page on their first visit, then enter the one-free-image

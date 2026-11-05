@@ -739,17 +739,20 @@ export const authService = {
     }
   },
   
-  hydrateMemberSession: async (uid: string): Promise<boolean> => {
+  hydrateMemberSession: async (uid: string): Promise<{ isAdmin: boolean; preferences?: Partial<UserPreferences> }> => {
     const member = auth.currentUser;
-    if (!member || member.isAnonymous || member.uid !== uid) return false;
-    const [isAdmin] = await Promise.all([
+    if (!member || member.isAnonymous || member.uid !== uid) return { isAdmin: false };
+    const [isAdmin, preferences] = await Promise.all([
       readAdminClaim(member),
       (async () => {
-        if (await loadKeyStorageMode()) await getUserApiKeyStatus();
+        if (await loadKeyStorageMode()) {
+          const apiKeyStatus = await getUserApiKeyStatus();
+          return { apiKeyStatus, apiKeys: {}, geminiApiKey: undefined };
+        }
       })().catch(error => console.warn('Key storage hydration failed:', error)),
     ]);
     void recordSignIn(uid);
-    return isAdmin;
+    return { isAdmin, preferences: preferences || undefined };
   },
 
   onAuthStateChange: (
