@@ -6,6 +6,8 @@ type HintStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export function hasSavedMemberHint(storage?: (Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'key' | 'length'>>) | null): boolean {
   try {
     const hintStorage = storage === undefined ? window.localStorage : storage;
+    // Our flag is the primary hint because production Firebase Auth uses IndexedDB.
+    // The localStorage scan below only supports legacy persistence.
     if (hintStorage?.getItem(LAST_MEMBER_STORAGE_KEY) === 'true') return true;
     for (let index = 0; index < (hintStorage?.length ?? 0); index++) {
       const key = hintStorage?.key?.(index);

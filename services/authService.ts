@@ -376,6 +376,8 @@ const ensureUserDocument = async (
   seed: UserProfileSeed = {}
 ): Promise<Record<string, unknown>> => {
   const userRef = doc(db, "users", uid);
+  // Server-key rules block profiles with legacy plaintext keys until migration.
+  if (await loadKeyStorageMode()) await getUserApiKeyStatus();
   const snap = await getDoc(userRef);
   if (snap.exists()) {
     return snap.data() as Record<string, unknown>;

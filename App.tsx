@@ -494,7 +494,7 @@ const App: React.FC = () => {
   // modal in particular) must wait for this before assuming "no user means
   // new visitor", otherwise returning users see a flash of the onboarding
   // screen on every page load.
-  const [hasMemberHint] = useState(() => hasSavedMemberHint());
+  const [hasMemberHint, setHasMemberHint] = useState(() => hasSavedMemberHint());
   const [isMemberResolving, setIsMemberResolving] = useState(() => shouldResolveMemberSession(hasMemberHint, false));
   const [isAuthResolved, setIsAuthResolved] = useState(false);
   const [isMemberHydrating, setIsMemberHydrating] = useState(false);
@@ -910,6 +910,8 @@ const App: React.FC = () => {
     let active = true;
     let gateReleased = false;
     const gateStartedAt = performance.now();
+    const hasMemberHint = hasSavedMemberHint();
+    setHasMemberHint(hasMemberHint);
 
     setIsAuthResolved(false);
     setIsMemberResolving(shouldResolveMemberSession(hasMemberHint, false));

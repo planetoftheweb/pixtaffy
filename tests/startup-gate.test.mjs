@@ -149,3 +149,36 @@ test('member hydration returns migrated key status and setup waits for it', asyn
   assert.match(app, /preferences: \{ \.\.\.current.preferences, \.\.\.enrichment.preferences \}/);
   assert.match(app, /const needsSetup = !isMemberHydrating && \(user/);
 });
+
+
+test('legacy key migration completes before the first profile read', async () => {
+  const service = readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8');
+  const body = service.slice(service.indexOf('  const userRef =', service.indexOf('const ensureUserDocument =')), service.indexOf('\n  const fbUser =', service.indexOf('const ensureUserDocument =')));
+  const run = new (Object.getPrototypeOf(async function () {}).constructor)('uid', 'doc', 'db', 'loadKeyStorageMode', 'getUserApiKeyStatus', 'getDoc', body.replace(' as Record<string, unknown>', ''));
+  for (const serverKeys of [true, false]) {
+    let migrated = false;
+    let finishMigration;
+    let reads = 0;
+    const pending = run('member', () => ({}), {}, async () => serverKeys,
+      () => new Promise(resolve => { finishMigration = () => { migrated = true; resolve({}); }; }),
+      async () => {
+        reads++;
+        assert.equal(migrated, serverKeys);
+        return { exists: () => true, data: () => ({ name: 'Restored member' }) };
+      });
+    await Promise.resolve();
+    if (serverKeys) {
+      assert.equal(reads, 0);
+      finishMigration();
+    }
+    assert.deepEqual(await pending, { name: 'Restored member' });
+    assert.equal(reads, 1);
+  }
+});
+
+test('every auth retry refreshes the member hint before resolving the session', () => {
+  const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+  const attempt = app.slice(app.indexOf('    const gateStartedAt ='), app.indexOf('    const releaseGate ='));
+  assert.match(attempt, /const hasMemberHint = hasSavedMemberHint\(\);\s*setHasMemberHint\(hasMemberHint\);/);
+  assert.ok(attempt.indexOf('hasSavedMemberHint()') < attempt.indexOf('shouldResolveMemberSession(hasMemberHint, false)'));
+});
