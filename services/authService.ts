@@ -621,7 +621,7 @@ export const authService = {
     try {
       resetKeyStorageMode();
       await signOut(auth);
-      writeMemberHint(localStorage, false);
+      writeMemberHint(undefined, false);
       localStorage.removeItem(PREFER_STUDIO_STORAGE_KEY);
       localStorage.removeItem('banana_brand_session');
     } catch (error) {
@@ -759,7 +759,7 @@ export const authService = {
     return onAuthStateChanged(auth, async (user) => {
       console.info(`[Startup] Firebase Auth observer: settled (${user && !user.isAnonymous ? 'member' : 'guest'})`);
       try {
-        writeMemberHint(localStorage, !!user && !user.isAnonymous);
+        writeMemberHint(undefined, !!user && !user.isAnonymous);
         if (user && !user.isAnonymous) {
           const profileStartedAt = performance.now();
           const userData = await ensureUserDocument(user.uid);

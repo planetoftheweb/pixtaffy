@@ -54,6 +54,8 @@ test('a blocked browser localStorage getter does not prevent launch', () => {
   try {
     assert.equal(hasSavedMemberHint(), false);
     assert.equal(shouldShowStartupGate(hasSavedMemberHint(), false), false);
+    assert.doesNotThrow(() => writeMemberHint(undefined, true));
+    assert.doesNotThrow(() => writeMemberHint(undefined, false));
   } finally {
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
     else delete globalThis.window;
@@ -65,7 +67,7 @@ test('startup opens before member enrichment and public Back navigation does not
   const service = readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8');
   const observer = service.slice(service.indexOf('  onAuthStateChange:'));
   assert.doesNotMatch(observer, /await (?:readAdminClaim|loadKeyStorageMode|getUserApiKeyStatus)/);
-  assert.match(observer, /writeMemberHint\(localStorage, !!user && !user.isAnonymous\)/);
+  assert.match(observer, /writeMemberHint\(undefined, !!user && !user.isAnonymous\)/);
   assert.match(observer, /resetKeyStorageMode\(\);\s*callback\(null\)/);
   assert.match(service, /localStorage.removeItem\(PREFER_STUDIO_STORAGE_KEY\)/);
   assert.ok(app.indexOf("releaseGate('authenticated session')") < app.indexOf('authService.hydrateMemberSession'));

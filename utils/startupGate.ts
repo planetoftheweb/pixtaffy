@@ -12,10 +12,11 @@ export function hasSavedMemberHint(storage?: Pick<Storage, 'getItem'> | null): b
   }
 }
 
-export function writeMemberHint(storage: HintStorage | null, member: boolean): void {
+export function writeMemberHint(storage: HintStorage | null | undefined, member: boolean): void {
   try {
-    if (member) storage?.setItem(LAST_MEMBER_STORAGE_KEY, 'true');
-    else storage?.removeItem(LAST_MEMBER_STORAGE_KEY);
+    const hintStorage = storage === undefined ? window.localStorage : storage;
+    if (member) hintStorage?.setItem(LAST_MEMBER_STORAGE_KEY, 'true');
+    else hintStorage?.removeItem(LAST_MEMBER_STORAGE_KEY);
   } catch {
     // Storage can be unavailable in private browsing.
   }
