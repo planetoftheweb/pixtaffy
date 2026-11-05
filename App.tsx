@@ -1,3 +1,4 @@
+import { STARTUP_GATE_TIMEOUT_MS, hasSavedMemberHint, shouldShowStartupGate } from './utils/startupGate';
 import { FOCUS_RING } from './utils/focusRing';
 import { isKnownPath, navigate, usePathname } from './utils/routes';
 import { shouldAutoCollapseGenerationPanel } from './utils/generationPanel';
@@ -265,7 +266,6 @@ const DEFAULT_MODEL_ID = 'openai-2.5';
 const GUEST_GRANT_MILLICREDITS = 3_000;
 const GUEST_MODEL_DEFAULT_MIGRATION_KEY = 'pixtaffy_guest_model_default_gpt25_v1';
 const GUEST_FIRST_IMAGE_USED_KEY = 'pixtaffy_guest_first_image_used_v1';
-const STARTUP_GATE_TIMEOUT_MS = 9_000;
 
 const getToolbarSelectionKey = (userId?: string | null) =>
   `${TOOLBAR_SELECTION_KEY_PREFIX}:${userId || 'guest'}`;
@@ -494,6 +494,7 @@ const App: React.FC = () => {
   // modal in particular) must wait for this before assuming "no user means
   // new visitor", otherwise returning users see a flash of the onboarding
   // screen on every page load.
+  const [hasMemberHint] = useState(() => hasSavedMemberHint(window.localStorage));
   const [isAuthResolved, setIsAuthResolved] = useState(false);
   const [startupIssue, setStartupIssue] = useState<string | null>(null);
   const [authRetryNonce, setAuthRetryNonce] = useState(0);
@@ -951,6 +952,13 @@ const App: React.FC = () => {
         setUser(hydratedUser);
         setStartupIssue(null);
         releaseGate('authenticated session');
+
+        window.setTimeout(() => {
+          if (!active) return;
+          void authService.hydrateMemberSession(hydratedUser.id).then(isAdmin => {
+            if (active) setUser(current => current?.id === hydratedUser.id ? { ...current, isAdmin } : current);
+          }).catch(error => console.warn('Member session hydration failed:', error));
+        }, 0);
 
         void (async () => {
           const syncStartedAt = performance.now();
@@ -1757,8 +1765,7 @@ const App: React.FC = () => {
     setIsSetupModalOpen(false);
   };
 
-  const enterStudioFromWelcome = useCallback(() => {
-    writePreferStudioFlag();
+  const returnToStudio = useCallback(() => {
     setBillingMode(false);
     setWelcomeMode(false);
     setSettingsMode(false);
@@ -1769,6 +1776,11 @@ const App: React.FC = () => {
     setIsSetupModalOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  const enterStudioFromWelcome = useCallback(() => {
+    writePreferStudioFlag();
+    returnToStudio();
+  }, [returnToStudio]);
 
   const updateGenerationJob = (
     jobId: string,
@@ -4235,17 +4247,17 @@ const App: React.FC = () => {
         <main className="flex-1 flex flex-col items-center justify-center p-5">
           <h1 className="sr-only">Page not found</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">That page does not exist.</p>
-          <a href="/" onClick={event => { event.preventDefault(); navigate('/'); enterStudioFromWelcome(); }} className={`inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${FOCUS_RING}`}>Back to studio<Tip text="Back to studio" /></a>
+          <a href="/" onClick={event => { event.preventDefault(); navigate('/'); returnToStudio(); }} className={`inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${FOCUS_RING}`}>Back to studio<Tip text="Back to studio" /></a>
         </main>
       ) : pathname === '/privacy' || pathname === '/terms' ? (
-        <LegalPage kind={pathname === '/privacy' ? 'privacy' : 'terms'} onBack={() => { navigate('/'); enterStudioFromWelcome(); }} />
+        <LegalPage kind={pathname === '/privacy' ? 'privacy' : 'terms'} onBack={() => { navigate('/'); returnToStudio(); }} />
       ) : billingMode ? (
         <Suspense fallback={<LazyPageFallback label="Loading pricing…" />}>
           <PricingPage
             user={user}
             onBack={() => {
               setBillingMode(false);
-              enterStudioFromWelcome();
+              returnToStudio();
             }}
             onLogin={() => openAuthModal('login')}
             onSignUp={() => openAuthModal('signup')}
@@ -4275,7 +4287,7 @@ const App: React.FC = () => {
             }}
           />
         </Suspense>
-      ) : !isAuthResolved ? (
+      ) : shouldShowStartupGate(hasMemberHint, isAuthResolved) ? (
         <main className="flex-1 bg-brand-cream/45 px-5 py-16 dark:bg-[#080d18] sm:px-8">
           <div className="mx-auto max-w-3xl rounded-[2rem] border border-brand-cyan/25 bg-white/85 p-8 text-center shadow-xl backdrop-blur dark:border-white/10 dark:bg-[#111827]/90 sm:p-12">
             <img src="/pixtaffy.png" alt="" className="mx-auto h-20 w-20 object-contain" />

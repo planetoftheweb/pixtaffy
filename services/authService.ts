@@ -1,3 +1,5 @@
+import { writeMemberHint } from '../utils/startupGate';
+import { PREFER_STUDIO_STORAGE_KEY } from '../utils/welcomeMode';
 import { loadKeyStorageMode, serverKeysEnabled, resetKeyStorageMode } from './keyStorageMode';
 import { getUserApiKeyStatus } from './userApiKeyService';
 import { 
@@ -374,7 +376,6 @@ const ensureUserDocument = async (
   seed: UserProfileSeed = {}
 ): Promise<Record<string, unknown>> => {
   const userRef = doc(db, "users", uid);
-  if (await loadKeyStorageMode()) await getUserApiKeyStatus();
   const snap = await getDoc(userRef);
   if (snap.exists()) {
     return snap.data() as Record<string, unknown>;
@@ -620,6 +621,8 @@ export const authService = {
     try {
       resetKeyStorageMode();
       await signOut(auth);
+      writeMemberHint(localStorage, false);
+      localStorage.removeItem(PREFER_STUDIO_STORAGE_KEY);
       localStorage.removeItem('banana_brand_session');
     } catch (error) {
       console.error("Logout Error:", error);
@@ -735,6 +738,19 @@ export const authService = {
     }
   },
   
+  hydrateMemberSession: async (uid: string): Promise<boolean> => {
+    const member = auth.currentUser;
+    if (!member || member.isAnonymous || member.uid !== uid) return false;
+    const [isAdmin] = await Promise.all([
+      readAdminClaim(member),
+      (async () => {
+        if (await loadKeyStorageMode()) await getUserApiKeyStatus();
+      })().catch(error => console.warn('Key storage hydration failed:', error)),
+    ]);
+    void recordSignIn(uid);
+    return isAdmin;
+  },
+
   onAuthStateChange: (
     callback: (user: User | null) => void,
     onError?: (error: unknown) => void,
@@ -743,15 +759,12 @@ export const authService = {
     return onAuthStateChanged(auth, async (user) => {
       console.info(`[Startup] Firebase Auth observer: settled (${user && !user.isAnonymous ? 'member' : 'guest'})`);
       try {
+        writeMemberHint(localStorage, !!user && !user.isAnonymous);
         if (user && !user.isAnonymous) {
           const profileStartedAt = performance.now();
           const userData = await ensureUserDocument(user.uid);
           console.info(`[Startup] User profile: settled in ${Math.round(performance.now() - profileStartedAt)}ms`);
-          const claimStartedAt = performance.now();
-          const isAdmin = await readAdminClaim(user);
-          console.info(`[Startup] Auth claims: settled in ${Math.round(performance.now() - claimStartedAt)}ms`);
-          void recordSignIn(user.uid);
-          callback(transformUser(user, userData, isAdmin));
+          callback(transformUser(user, userData, false));
         } else {
           resetKeyStorageMode();
           callback(null);

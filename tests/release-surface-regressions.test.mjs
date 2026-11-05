@@ -85,8 +85,8 @@ test('guest messaging distinguishes browser-local work from free cloud sync', ()
 });
 
 test('cold visitors see public content before Firebase auth settles', () => {
-  assert.match(appSource, /const STARTUP_GATE_TIMEOUT_MS = 9_000/);
-  assert.match(appSource, /billingMode \? \([\s\S]*?\) : welcomeMode \? \([\s\S]*?\) : whatsNewMode \? \([\s\S]*?\) : !isAuthResolved \? \(/);
+  assert.match(readFileSync(new URL('../utils/startupGate.ts', import.meta.url), 'utf8'), /STARTUP_GATE_TIMEOUT_MS = 1_500/);
+  assert.match(appSource, /billingMode \? \([\s\S]*?\) : welcomeMode \? \([\s\S]*?\) : whatsNewMode \? \([\s\S]*?\) : shouldShowStartupGate\(hasMemberHint, isAuthResolved\) \? \(/);
   assert.match(appSource, /Guest credits are temporarily unavailable/);
   assert.match(appSource, /> Try again/);
   assert.match(appSource, /releaseGate\('guest session'\)/);
