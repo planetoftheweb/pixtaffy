@@ -1,3 +1,5 @@
+import { writeMemberHint } from '../utils/startupGate';
+import { PREFER_STUDIO_STORAGE_KEY } from '../utils/welcomeMode';
 import { loadKeyStorageMode, serverKeysEnabled, resetKeyStorageMode } from './keyStorageMode';
 import { getUserApiKeyStatus } from './userApiKeyService';
 import { 
@@ -374,6 +376,7 @@ const ensureUserDocument = async (
   seed: UserProfileSeed = {}
 ): Promise<Record<string, unknown>> => {
   const userRef = doc(db, "users", uid);
+  // Server-key rules reject legacy plaintext profiles until migration completes.
   if (await loadKeyStorageMode()) await getUserApiKeyStatus();
   const snap = await getDoc(userRef);
   if (snap.exists()) {
@@ -498,6 +501,7 @@ const ensureUsernameReservation = async (
 
 export const authService = {
   ensureAnonymousSession: async (): Promise<string> => {
+    await auth.authStateReady();
     if (auth.currentUser) return auth.currentUser.uid;
     return startAnonymousSession();
   },
@@ -620,6 +624,8 @@ export const authService = {
     try {
       resetKeyStorageMode();
       await signOut(auth);
+      writeMemberHint(undefined, false);
+      localStorage.removeItem(PREFER_STUDIO_STORAGE_KEY);
       localStorage.removeItem('banana_brand_session');
     } catch (error) {
       console.error("Logout Error:", error);
@@ -735,23 +741,40 @@ export const authService = {
     }
   },
   
+  hydrateMemberSession: async (uid: string): Promise<{ isAdmin: boolean; preferences?: Partial<UserPreferences> }> => {
+    const member = auth.currentUser;
+    if (!member || member.isAnonymous || member.uid !== uid) return { isAdmin: false };
+    const [isAdmin, preferences] = await Promise.all([
+      readAdminClaim(member),
+      (async () => {
+        if (await loadKeyStorageMode()) {
+          const apiKeyStatus = await getUserApiKeyStatus();
+          return { apiKeyStatus, apiKeys: {}, geminiApiKey: undefined };
+        }
+      })().catch(error => console.warn('Key storage hydration failed:', error)),
+    ]);
+    void recordSignIn(uid);
+    return { isAdmin, preferences: preferences || undefined };
+  },
+
   onAuthStateChange: (
     callback: (user: User | null) => void,
     onError?: (error: unknown) => void,
+    onMemberIdentified?: () => void,
   ) => {
     console.info('[Startup] Firebase Auth observer: subscribed');
     return onAuthStateChanged(auth, async (user) => {
       console.info(`[Startup] Firebase Auth observer: settled (${user && !user.isAnonymous ? 'member' : 'guest'})`);
       try {
+        writeMemberHint(undefined, !!user && !user.isAnonymous);
         if (user && !user.isAnonymous) {
+          onMemberIdentified?.();
+          // Let the released startup gate render before migration and profile loading.
+          await new Promise<void>(resolve => window.setTimeout(resolve, 0));
           const profileStartedAt = performance.now();
           const userData = await ensureUserDocument(user.uid);
           console.info(`[Startup] User profile: settled in ${Math.round(performance.now() - profileStartedAt)}ms`);
-          const claimStartedAt = performance.now();
-          const isAdmin = await readAdminClaim(user);
-          console.info(`[Startup] Auth claims: settled in ${Math.round(performance.now() - claimStartedAt)}ms`);
-          void recordSignIn(user.uid);
-          callback(transformUser(user, userData, isAdmin));
+          callback(transformUser(user, userData, false));
         } else {
           resetKeyStorageMode();
           callback(null);

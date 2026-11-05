@@ -1,3 +1,4 @@
+import { STARTUP_GATE_TIMEOUT_MS, hasSavedMemberHint, shouldResolveMemberSession, shouldShowStartupGate } from './utils/startupGate';
 import { FOCUS_RING } from './utils/focusRing';
 import { isKnownPath, navigate, usePathname } from './utils/routes';
 import { shouldAutoCollapseGenerationPanel } from './utils/generationPanel';
@@ -265,7 +266,6 @@ const DEFAULT_MODEL_ID = 'openai-2.5';
 const GUEST_GRANT_MILLICREDITS = 3_000;
 const GUEST_MODEL_DEFAULT_MIGRATION_KEY = 'pixtaffy_guest_model_default_gpt25_v1';
 const GUEST_FIRST_IMAGE_USED_KEY = 'pixtaffy_guest_first_image_used_v1';
-const STARTUP_GATE_TIMEOUT_MS = 9_000;
 
 const getToolbarSelectionKey = (userId?: string | null) =>
   `${TOOLBAR_SELECTION_KEY_PREFIX}:${userId || 'guest'}`;
@@ -494,7 +494,10 @@ const App: React.FC = () => {
   // modal in particular) must wait for this before assuming "no user means
   // new visitor", otherwise returning users see a flash of the onboarding
   // screen on every page load.
+  const [hasMemberHint, setHasMemberHint] = useState(() => hasSavedMemberHint());
+  const [isMemberResolving, setIsMemberResolving] = useState(() => shouldResolveMemberSession(hasMemberHint, false));
   const [isAuthResolved, setIsAuthResolved] = useState(false);
+  const [isMemberHydrating, setIsMemberHydrating] = useState(false);
   const [startupIssue, setStartupIssue] = useState<string | null>(null);
   const [authRetryNonce, setAuthRetryNonce] = useState(0);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -571,7 +574,7 @@ const App: React.FC = () => {
   const [hasHydratedToolbarState, setHasHydratedToolbarState] = useState(false);
 
   useEffect(() => {
-    if (!isAuthResolved || user || welcomeMode) return;
+    if (!isAuthResolved || isMemberResolving || user || welcomeMode) return;
     let cancelled = false;
     void authService.ensureAnonymousSession()
       .then(() => billingService.getGuestCreditState())
@@ -584,7 +587,7 @@ const App: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthResolved, user?.id, welcomeMode]);
+  }, [isAuthResolved, isMemberResolving, user?.id, welcomeMode]);
 
   const [currentGeneration, setCurrentGeneration] = useState<Generation | null>(null);
   const [history, setHistory] = useState<Generation[]>([]);
@@ -907,8 +910,11 @@ const App: React.FC = () => {
     let active = true;
     let gateReleased = false;
     const gateStartedAt = performance.now();
+    const hasMemberHint = hasSavedMemberHint();
+    setHasMemberHint(hasMemberHint);
 
     setIsAuthResolved(false);
+    setIsMemberResolving(shouldResolveMemberSession(hasMemberHint, false));
     setStartupIssue(null);
     console.info(`[Startup] Auth gate attempt ${authRetryNonce + 1}: started`);
 
@@ -922,7 +928,7 @@ const App: React.FC = () => {
 
     const timeoutId = window.setTimeout(() => {
       if (!active || gateReleased) return;
-      setUser(null);
+      setIsMemberResolving(shouldResolveMemberSession(hasMemberHint, false));
       setHistory(historyService.getFromLocal());
       setStartupIssue("PixTaffy couldn't check for a saved session. You can still browse, but using guest credits needs a temporary secure session. Try again.");
       releaseGate('timeout');
@@ -930,6 +936,7 @@ const App: React.FC = () => {
 
     const unsubscribe = authService.onAuthStateChange((restoredUser) => {
       if (!active) return;
+      setIsMemberResolving(false);
       if (restoredUser) {
         // The account preference is the source of truth for the model. The
         // local toolbar cache only fills in when the account has none -
@@ -948,31 +955,45 @@ const App: React.FC = () => {
                 }
               }
             : restoredUser;
+        setIsMemberHydrating(true);
         setUser(hydratedUser);
         setStartupIssue(null);
         releaseGate('authenticated session');
 
-        void (async () => {
-          const syncStartedAt = performance.now();
-          try {
-            const mergeResult = await historyService.mergeLocalToRemote(hydratedUser.id, hydratedUser.isAdmin === true);
-            console.info(`[Startup] Local history merge: settled in ${Math.round(performance.now() - syncStartedAt)}ms`);
-            if (mergeResult.failed > 0 && active) {
-              setError(`Synced ${mergeResult.synced} item(s), but ${mergeResult.failed} local item(s) are still pending sync.`);
+        window.setTimeout(() => {
+          if (!active) return;
+          void (async () => {
+            // Resolve the claim before history reads or writes can cap the admin cache.
+            const enrichment = await authService.hydrateMemberSession(hydratedUser.id);
+            if (!active) return;
+            const sessionUser = { ...hydratedUser, ...enrichment, preferences: { ...hydratedUser.preferences, ...enrichment.preferences } };
+            setUser(current => current?.id === sessionUser.id ? { ...current, isAdmin: enrichment.isAdmin, preferences: { ...current.preferences, ...enrichment.preferences } } : current);
+            setIsMemberHydrating(false);
+            const syncStartedAt = performance.now();
+            try {
+              const mergeResult = await historyService.mergeLocalToRemote(sessionUser.id, sessionUser.isAdmin === true);
+              console.info(`[Startup] Local history merge: settled in ${Math.round(performance.now() - syncStartedAt)}ms`);
+              if (mergeResult.failed > 0 && active) {
+                setError(`Synced ${mergeResult.synced} item(s), but ${mergeResult.failed} local item(s) are still pending sync.`);
+              }
+            } catch (mergeErr) {
+              console.error('[Startup] Local history merge failed:', mergeErr);
             }
-          } catch (mergeErr) {
-            console.error('[Startup] Local history merge failed:', mergeErr);
-          }
 
-          const historyStartedAt = performance.now();
-          const updatedHistory = await historyService.getHistory(hydratedUser);
-          console.info(`[Startup] Cloud history: settled in ${Math.round(performance.now() - historyStartedAt)}ms`);
-          if (active) setHistory(updatedHistory);
-        })().catch((historyError) => {
-          console.error('[Startup] Cloud history hydration failed:', historyError);
-          if (active) setError('Your studio is ready, but cloud history could not be loaded yet.');
-        });
+            const historyStartedAt = performance.now();
+            const updatedHistory = await historyService.getHistory(sessionUser);
+            console.info(`[Startup] Cloud history: settled in ${Math.round(performance.now() - historyStartedAt)}ms`);
+            if (active) setHistory(updatedHistory);
+          })().catch((historyError) => {
+            console.error('[Startup] Cloud history hydration failed:', historyError);
+            if (active) {
+              setIsMemberHydrating(false);
+              setError('Your studio is ready, but cloud history could not be loaded yet.');
+            }
+          });
+        }, 0);
       } else {
+        setIsMemberHydrating(false);
         setUser(null);
         setHistory(historyService.getFromLocal());
         setStartupIssue(null);
@@ -981,10 +1002,14 @@ const App: React.FC = () => {
     }, (authError) => {
       if (!active) return;
       console.error('[Startup] Auth gate failed:', authError);
-      setUser(null);
+      setIsMemberResolving(shouldResolveMemberSession(hasMemberHint, false));
       setHistory(historyService.getFromLocal());
       setStartupIssue("PixTaffy couldn't check for a saved session. You can still browse, but using guest credits needs a temporary secure session. Try again.");
       releaseGate('error fallback');
+    }, () => {
+      if (!active) return;
+      setIsMemberResolving(true);
+      releaseGate('member identified');
     });
 
     return () => {
@@ -1534,9 +1559,9 @@ const App: React.FC = () => {
   const activeApiKey = getActiveApiKey();
   const activeModelSupportsCredits = Boolean(SITE_FUNDED_MODEL_MILLICREDITS[selectedModel]);
   const hasUsableCredits = Boolean(billingState?.isAdmin || (billingState?.balanceMilliCredits ?? 0) > 0);
-  const needsSetup = user
+  const needsSetup = !isMemberHydrating && (user
     ? !activeApiKey && (!activeModelSupportsCredits || !hasUsableCredits)
-    : true;
+    : true);
 
   // Quick Start is now setup help for signed-in members only. Guests get the
   // full welcome page on their first visit, then enter the one-free-image
@@ -1757,8 +1782,7 @@ const App: React.FC = () => {
     setIsSetupModalOpen(false);
   };
 
-  const enterStudioFromWelcome = useCallback(() => {
-    writePreferStudioFlag();
+  const returnToStudio = useCallback(() => {
     setBillingMode(false);
     setWelcomeMode(false);
     setSettingsMode(false);
@@ -1769,6 +1793,11 @@ const App: React.FC = () => {
     setIsSetupModalOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  const enterStudioFromWelcome = useCallback(() => {
+    writePreferStudioFlag();
+    returnToStudio();
+  }, [returnToStudio]);
 
   const updateGenerationJob = (
     jobId: string,
@@ -4235,17 +4264,17 @@ const App: React.FC = () => {
         <main className="flex-1 flex flex-col items-center justify-center p-5">
           <h1 className="sr-only">Page not found</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">That page does not exist.</p>
-          <a href="/" onClick={event => { event.preventDefault(); navigate('/'); enterStudioFromWelcome(); }} className={`inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${FOCUS_RING}`}>Back to studio<Tip text="Back to studio" /></a>
+          <a href="/" onClick={event => { event.preventDefault(); navigate('/'); returnToStudio(); }} className={`inline-flex min-h-[44px] min-w-[44px] items-center text-brand-teal [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${FOCUS_RING}`}>Back to studio<Tip text="Back to studio" /></a>
         </main>
       ) : pathname === '/privacy' || pathname === '/terms' ? (
-        <LegalPage kind={pathname === '/privacy' ? 'privacy' : 'terms'} onBack={() => { navigate('/'); enterStudioFromWelcome(); }} />
+        <LegalPage kind={pathname === '/privacy' ? 'privacy' : 'terms'} onBack={() => { navigate('/'); returnToStudio(); }} />
       ) : billingMode ? (
         <Suspense fallback={<LazyPageFallback label="Loading pricing…" />}>
           <PricingPage
             user={user}
             onBack={() => {
               setBillingMode(false);
-              enterStudioFromWelcome();
+              returnToStudio();
             }}
             onLogin={() => openAuthModal('login')}
             onSignUp={() => openAuthModal('signup')}
@@ -4275,7 +4304,7 @@ const App: React.FC = () => {
             }}
           />
         </Suspense>
-      ) : !isAuthResolved ? (
+      ) : shouldShowStartupGate(hasMemberHint, isAuthResolved) ? (
         <main className="flex-1 bg-brand-cream/45 px-5 py-16 dark:bg-[#080d18] sm:px-8">
           <div className="mx-auto max-w-3xl rounded-[2rem] border border-brand-cyan/25 bg-white/85 p-8 text-center shadow-xl backdrop-blur dark:border-white/10 dark:bg-[#111827]/90 sm:p-12">
             <img src="/pixtaffy.png" alt="" className="mx-auto h-20 w-20 object-contain" />
