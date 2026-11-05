@@ -31,6 +31,16 @@ import type { WhatsNewEntry } from '../types';
  */
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: 'v0.33.0-image-models',
+    title: 'Meet GPT Image 2.6 and Nano Banana 2.1',
+    summary: 'Create with GPT Image 2.6, its fast Flare variant, and Nano Banana 2.1.',
+    blurb: 'Choose GPT Image 2.6 for precise detail, Flare for speed, or Nano Banana 2.1 for wide creative canvases. Extra high and maximum quality are available on the 2.6 models. Existing models and saved preferences remain available.',
+    publishedAt: Date.parse('2026-11-04T17:00:00Z'),
+    version: '0.33.0',
+    image: '/whats-new/whatsnew-v0.33.0.webp',
+    featured: true,
+  },
+  {
     id: 'v0.31.0-gpt-image-2.5',
     title: 'Create with GPT Image 2.5',
     summary:

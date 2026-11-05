@@ -36,7 +36,7 @@ export function legacyKeys(data: Record<string, any>): Record<string, string> {
   return keys;
 }
 export function keyStatus(keys: Record<string, EncryptedKey>) {
-  const slots = ['gemini', 'openai', 'openrouter', 'gemini-3.1-flash-image-preview', 'gemini-3.1-flash-lite-image', 'gemini-svg', ...Object.keys(keys)];
+  const slots = ['gemini', 'openai', 'openrouter', 'gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-3.1-flash-lite-image', 'gemini-svg', ...Object.keys(keys)];
   return Object.fromEntries(slots.map(slot => [slot, { hasKey: !!keys[slot], last4: keys[slot]?.last4 || null }]));
 }
 export async function ensureUserApiKeysMigrated(uid: string): Promise<Record<string, EncryptedKey>> {
@@ -60,10 +60,10 @@ export async function ensureUserApiKeysMigrated(uid: string): Promise<Record<str
 export async function resolveUserApiKey(uid: string, model: string): Promise<string | undefined> {
   const keys: Record<string, EncryptedKey> = (await getFirestore().doc(`userApiKeys/${uid}`).get()).data()?.keys || {};
   const provider = model.startsWith('openrouter') ? 'openrouter' : model.startsWith('openai') ? 'openai' : 'gemini';
-  const slot = [model, provider, ...(model === 'gemini' ? ['gemini-3.1-flash-image-preview', 'gemini-svg'] : [])].find(k => keys[k]);
+  const slot = [model, provider, ...(provider === 'gemini' ? ['gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-svg'] : [])].find(k => keys[k]);
   if (slot) return decryptKey(keys[slot], USER_API_KEYS_ENCRYPTION_KEY.value(), `${uid}:${slot}`);
   const legacy = legacyKeys((await getFirestore().doc(`users/${uid}`).get()).data() || {});
-  return [model, provider, ...(model === 'gemini' ? ['gemini-3.1-flash-image-preview', 'gemini-svg'] : [])].map(k => legacy[k]).find(Boolean);
+  return [model, provider, ...(provider === 'gemini' ? ['gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-svg'] : [])].map(k => legacy[k]).find(Boolean);
 }
 const options = { secrets: [USER_API_KEYS_ENCRYPTION_KEY], timeoutSeconds: 540, memory: '1GiB' as const };
 function authenticated(request: CallableRequest): string {
@@ -128,8 +128,8 @@ export const clearUserApiKeys = onCall(options, async request => {
 
 export const generateWithUserKey = onCall(options, async request => {
   const uid = await enabled(request, 'userkey-generate');
-  const { model = 'gemini', action = 'generate', prompt = '', config = {}, context = {}, image, svg, systemPrompt = '', quality = 'auto', background = 'auto' } = request.data || {};
-  if (typeof model !== 'string' || !(['gemini', 'gemini-svg', 'gemini-3.1-flash-image-preview', 'gemini-3.1-flash-lite-image', 'openai', 'openai-2', 'openai-2.5', 'openai-flare', 'openai-mini', 'openrouter'].includes(model) || /^openrouter:[a-z0-9._/-]+$/i.test(model))) {
+  const { model = 'gemini', action = 'generate', prompt = '', config = {}, context = {}, image, svg, systemPrompt = '', quality = 'auto', background = 'auto', complexity } = request.data || {};
+  if (typeof model !== 'string' || !(['gemini', 'gemini-svg', 'gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-3.1-flash-lite-image', 'openai', 'openai-2', 'openai-2.6', 'openai-2.6-flare', 'openai-2.5', 'openai-flare', 'openai-mini', 'openrouter'].includes(model) || /^openrouter:[a-z0-9._/-]+$/i.test(model))) {
     throw new HttpsError('invalid-argument', 'Unsupported model.');
   }
   if (!['generate', 'refine', 'style', 'models'].includes(action)) throw new HttpsError('invalid-argument', 'Unsupported operation.');
@@ -148,19 +148,22 @@ export const generateWithUserKey = onCall(options, async request => {
       const result = await generateOpenRouterImageCore({ apiKey: key, modelSlug: model.replace(/^openrouter:/, ''), prompt: fullPrompt, aspectRatio: config.aspectRatio, title: 'PixTaffy' });
       base64Data = result.base64Data; mimeType = result.mimeType;
     } else if (model.startsWith('openai')) {
-      const apiModel = ({ 'openai-2.5': 'gpt-image-2.5-sunburst', 'openai-flare': 'gpt-image-2.5-flare', 'openai-2': 'gpt-image-2', 'openai-mini': 'gpt-image-1-mini' } as Record<string, string>)[model] || 'gpt-image-1.5';
+      const apiModel = ({ 'openai-2.6': 'gpt-image-2.6-sunburst', 'openai-2.6-flare': 'gpt-image-2.6-flare', 'openai-2.5': 'gpt-image-2.5-sunburst', 'openai-flare': 'gpt-image-2.5-flare', 'openai-2': 'gpt-image-2', 'openai-mini': 'gpt-image-1-mini' } as Record<string, string>)[model] || 'gpt-image-1.5';
       const ratio = String(config.aspectRatio || '1:1').split(':').map(Number);
       const wideSizes: Record<string, string> = { '1:1': '2048x2048', '16:9': '2048x1152', '9:16': '1152x2048', '3:1': '2304x768', '1:3': '768x2304' };
+      const safeQuality = !apiModel.startsWith('gpt-image-2.6-') && ['xhigh', 'max'].includes(quality) ? 'high' : quality;
+      const validComplexity = apiModel.startsWith('gpt-image-2.6-') && ['low', 'medium', 'high'].includes(complexity);
       const size = (apiModel.startsWith('gpt-image-2') && wideSizes[config.aspectRatio]) || (ratio[0] > ratio[1] ? '1536x1024' : ratio[0] < ratio[1] ? '1024x1536' : '1024x1024');
       let body: BodyInit, headers: Record<string, string> = { Authorization: `Bearer ${key}` };
       if (image) {
         const form = new FormData();
-        form.set('model', apiModel); form.set('prompt', fullPrompt); form.set('size', size); form.set('quality', quality); form.set('background', background);
+        form.set('model', apiModel); form.set('prompt', fullPrompt); form.set('size', size); form.set('quality', safeQuality); form.set('background', background);
+        if (validComplexity) form.set('complexity', complexity);
         form.set('image', new Blob([new Uint8Array(Buffer.from(image.base64Data, 'base64'))], { type: image.mimeType }), 'source.png');
         body = form;
       } else {
         headers['Content-Type'] = 'application/json';
-        body = JSON.stringify({ model: apiModel, prompt: fullPrompt, size, quality, background });
+        body = JSON.stringify({ model: apiModel, prompt: fullPrompt, size, quality: safeQuality, background, ...(validComplexity ? { complexity } : {}) });
       }
       const response = await fetch(`https://api.openai.com/v1/images/${image ? 'edits' : 'generations'}`, { method: 'POST', headers, body });
       if (!response.ok) throw new Error('Provider failure');
@@ -170,7 +173,7 @@ export const generateWithUserKey = onCall(options, async request => {
       const parts: any[] = [{ text: isSvg ? `${fullPrompt}\n${svg || ''}\nReturn only a complete SVG document, without scripts or external resources.` : fullPrompt }];
       if (image?.base64Data) parts.push({ inlineData: { data: image.base64Data, mimeType: image.mimeType } });
       const ai = new GoogleGenAI({ apiKey: key });
-      const response = await ai.models.generateContent({ model: isSvg ? 'gemini-flash-latest' : model === 'gemini' ? 'gemini-3-pro-image-preview' : model, contents: [{ role: 'user', parts }], config: isSvg ? {} : { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: config.aspectRatio || '1:1' } } });
+      const response = await ai.models.generateContent({ model: isSvg ? 'gemini-flash-latest' : model === 'gemini' ? 'gemini-3-pro-image' : model === 'gemini-3.1-flash-image-preview' ? 'gemini-3.1-flash-image' : model, contents: [{ role: 'user', parts }], config: isSvg ? {} : { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: config.aspectRatio || '1:1' } } });
       if (isSvg) {
         const svgCode = response.text?.match(/<svg[\s\S]*<\/svg>/)?.[0];
         if (!svgCode) throw new Error('Missing SVG');

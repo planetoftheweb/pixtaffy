@@ -43,31 +43,61 @@ const PRICES: Record<string, Omit<PaidModelPrice, "requestedModelId">> = {
     costCeilingUsd: 0.14,
     label: "GPT Image 2",
   },
+  "openrouter:google/gemini-nano-banana-2.1": {
+    openRouterModelId: "google/gemini-nano-banana-2.1",
+    milliCredits: 2_000,
+    costCeilingUsd: 0.14,
+    label: "Nano Banana 2.1",
+  },
+  "openrouter:google/gemini-3.1-flash-image": {
+    openRouterModelId: "google/gemini-3.1-flash-image",
+    milliCredits: 2_000,
+    costCeilingUsd: 0.14,
+    label: "Nano Banana 2",
+  },
   "gemini": {
     openRouterModelId: "google/gemini-3-pro-image",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
     label: "Nano Banana Pro",
   },
+  "gemini-nano-banana-2.1": {
+    openRouterModelId: "google/gemini-nano-banana-2.1",
+    milliCredits: 2_000,
+    costCeilingUsd: 0.14,
+    label: "Nano Banana 2.1",
+  },
   "gemini-3.1-flash-image-preview": {
-    openRouterModelId: "google/gemini-3.1-flash-image-preview",
+    openRouterModelId: "google/gemini-3.1-flash-image",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
     label: "Nano Banana 2",
   },
   "gemini-3.1-flash-lite-image": {
-    openRouterModelId: "google/gemini-3.1-flash-image-preview",
+    openRouterModelId: "google/gemini-3.1-flash-image",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
     label: "Nano Banana 2 Lite",
   },
   // Credit-funded fulfillment still uses OpenRouter gpt-image-2 until OR publishes
   // gpt-image-2.5-sunburst / gpt-image-2.5-flare. BYOK uses the native API ids.
+  "openai-2.6": {
+    openRouterModelId: "openai/gpt-image-2",
+    milliCredits: 2_000,
+    costCeilingUsd: 0.14,
+    label: "GPT Image 2.6",
+  },
   "openai-2.5": {
     openRouterModelId: "openai/gpt-image-2",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
     label: "GPT Image 2.5",
+  },
+  "openai-2.6-flare": {
+    openRouterModelId: "openai/gpt-image-2",
+    milliCredits: 2_000,
+    costCeilingUsd: 0.14,
+    label: "GPT Image 2.6 Flare",
   },
   "openai-flare": {
     openRouterModelId: "openai/gpt-image-2",

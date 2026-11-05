@@ -435,6 +435,7 @@ export interface ToolbarPreset {
   aspectRatio?: string;
   svgMode?: SvgMode;
   selectedModel?: string;
+  /** xhigh and max apply only to GPT Image 2.6 models. */
   openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
   /**
    * OpenAI GPT Image background: 'auto' | 'opaque' | 'transparent'.
@@ -457,7 +458,7 @@ export interface UserSettings {
   confirmDeleteCurrent?: boolean;
   /**
    * OpenAI GPT Image quality setting: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto'.
-   * Consumed by GPT Image 2 / 2.5 and gpt-image-1-mini; gpt-image-1.5 ignores it.
+   * Extra high and max quality apply only to GPT Image 2.6. Consumed by GPT Image 2 / 2.5 / 2.6 and gpt-image-1-mini; gpt-image-1.5 ignores it.
    */
   openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
   /**

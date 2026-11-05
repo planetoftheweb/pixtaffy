@@ -10,7 +10,7 @@ type ApiKeyProvider = 'gemini' | 'openai' | 'openrouter';
 const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
   if (
     modelId === 'gemini' ||
-    modelId === 'gemini-3.1-flash-image-preview' ||
+    modelId === 'gemini-nano-banana-2.1' || modelId === 'gemini-3.1-flash-image-preview' ||
     modelId === 'gemini-3.1-flash-lite-image' ||
     modelId === 'gemini-svg'
   ) {
@@ -19,7 +19,7 @@ const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
   if (
     modelId === 'openai' ||
     modelId === 'openai-2' ||
-    modelId === 'openai-2.5' ||
+    modelId === 'openai-2.6' || modelId === 'openai-2.6-flare' || modelId === 'openai-2.5' ||
     modelId === 'openai-flare' ||
     modelId === 'openai-mini'
   ) {
@@ -71,7 +71,7 @@ export function getApiKeyForModelFromUser(
 ): string | undefined {
   if (!user) return undefined;
   if (serverKeysEnabled()) {
-    const slots = [modelId, getProviderForModel(modelId) || '', ...(modelId === 'gemini' ? ['gemini-3.1-flash-image-preview', 'gemini-svg'] : [])];
+    const slots = [modelId, getProviderForModel(modelId) || '', ...(getProviderForModel(modelId) === 'gemini' ? ['gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-svg'] : [])];
     return slots.some(slot => user.preferences.apiKeyStatus?.[slot]?.hasKey) ? 'server-managed' : undefined;
   }
   const provider = getProviderForModel(modelId);
@@ -86,11 +86,11 @@ export function getApiKeyForModelFromUser(
     if (shared) return shared;
     const legacy = normalizeProviderKey(user.preferences.geminiApiKey, 'gemini');
     if (legacy) return legacy;
-    // Nano Banana Pro - if only NB2 per-model override exists, use it (same Google project/key).
-    if (modelId === 'gemini') {
-      const nb2 = normalizeProviderKey(user.preferences.apiKeys?.['gemini-3.1-flash-image-preview'], 'gemini');
-      if (nb2) return nb2;
-    }
+    // Gemini image models can share the existing per-model Google key slots.
+    const newest = normalizeProviderKey(user.preferences.apiKeys?.['gemini-nano-banana-2.1'], 'gemini');
+    if (newest) return newest;
+    const nb2 = normalizeProviderKey(user.preferences.apiKeys?.['gemini-3.1-flash-image-preview'], 'gemini');
+    if (nb2) return nb2;
   }
   if (provider === 'openai') {
     const k = normalizeProviderKey(user.preferences.apiKeys?.openai, 'openai');
@@ -134,12 +134,12 @@ export function resolveAuxiliaryByokProvider(
   const openaiToolbar =
     selectedModel === 'openai' ||
     selectedModel === 'openai-2' ||
-    selectedModel === 'openai-2.5' ||
+    selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' ||
     selectedModel === 'openai-flare' ||
     selectedModel === 'openai-mini';
   const geminiToolbar =
     selectedModel === 'gemini' ||
-    selectedModel === 'gemini-3.1-flash-image-preview' ||
+    selectedModel === 'gemini-nano-banana-2.1' || selectedModel === 'gemini-3.1-flash-image-preview' ||
     selectedModel === 'gemini-3.1-flash-lite-image' ||
     selectedModel === 'gemini-svg';
 

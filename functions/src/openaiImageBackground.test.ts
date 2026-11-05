@@ -9,6 +9,8 @@ import {
 
 describe("supportsOpenAIBackground", () => {
   it("includes GPT Image 2 and 2.5 family UI ids", () => {
+    assert.equal(supportsOpenAIBackground("openai-2.6"), true);
+    assert.equal(supportsOpenAIBackground("openai-2.6-flare"), true);
     assert.equal(supportsOpenAIBackground("openai-2"), true);
     assert.equal(supportsOpenAIBackground("openai-2.5"), true);
     assert.equal(supportsOpenAIBackground("openai-flare"), true);
@@ -22,6 +24,8 @@ describe("supportsOpenAIBackground", () => {
 
 describe("supportsOpenAIBackgroundApiModel", () => {
   it("accepts gpt-image-2 and 2.5 API ids", () => {
+    assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2.6-sunburst"), true);
+    assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2.6-flare"), true);
     assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2"), true);
     assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2.5-sunburst"), true);
     assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2.5-flare"), true);

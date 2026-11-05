@@ -219,7 +219,7 @@ test('verified accounts receive ten starter credits', () => {
 test('client and server model credit catalogs stay in sync', () => {
   const clientPairs = [...billingServiceSource.matchAll(/['"]?([^'"\n:]+(?::[^'"\n]+)?)['"]?:\s*([123]_000)/g)]
     .map(([, model, cost]) => `${model.trim()}=${cost}`)
-    .filter((pair) => pair.startsWith('openrouter:') || pair.startsWith('gemini=') || pair.startsWith('gemini-') || pair.startsWith('openai-2=') || pair.startsWith('openai-2.5=') || pair.startsWith('openai-flare='));
+    .filter((pair) => pair.startsWith('openrouter:') || pair.startsWith('gemini=') || pair.startsWith('gemini-') || pair.startsWith('openai-2=') || pair.startsWith('openai-2.6=') || pair.startsWith('openai-2.6-flare=') || pair.startsWith('openai-2.5=') || pair.startsWith('openai-flare='));
   const serverPairs = [...serverPricingSource.matchAll(/['"]([^'"]+)['"]:\s*\{[\s\S]*?milliCredits:\s*([123]_000)/g)]
     .map(([, model, cost]) => `${model}=${cost}`);
   assert.deepEqual(new Set(clientPairs), new Set(serverPairs));
@@ -259,6 +259,7 @@ test('creative actions and gallery tools keep neutral controls with candy accent
 test('What’s New keeps only substantial public launches with modern distinct artwork', () => {
   const versions = extractPaths(whatsNewData, /version:\s*'([^']+)'/g);
   assert.deepEqual(versions, [
+    '0.33.0',
     '0.31.0',
     '0.30.0',
     '0.29.0',
@@ -492,4 +493,32 @@ test('dist scanner rejects token and other secret values without disclosing them
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
+});
+
+ test('latest image model release keeps picker IDs, quality gates, and provider controls', () => {
+  for (const id of ['openai-2.6', 'openai-2.6-flare', 'gemini-nano-banana-2.1']) {
+    assert.ok(constantsSource.includes(`id: '${id}'`));
+    assert.ok(controlPanelSource.includes(`'${id}'`));
+    assert.ok(imageDisplaySource.includes(`'${id}'`));
+  }
+  assert.match(controlPanelSource, /filter\(q => \(q.id !== 'xhigh' && q.id !== 'max'\) \|\| selectedModel === 'openai-2.6' \|\| selectedModel === 'openai-2.6-flare'\)/);
+  const gemini = read('services/geminiService.ts');
+  assert.match(gemini, /NANO_BANANA_PRO_MODEL = 'gemini-3-pro-image'/);
+  assert.match(gemini, /NANO_BANANA_2_MODEL = 'gemini-3.1-flash-image'/);
+  assert.match(gemini, /NANO_BANANA_2_UI_MODEL = 'gemini-3.1-flash-image-preview'/);
+  for (const file of ['services/openaiService.ts', 'functions/src/agentGenerateImage.ts', 'functions/src/userApiKeys.ts']) {
+    assert.match(read(file), /complexity/);
+    assert.match(read(file), /gpt-image-2\.6-sunburst/);
+    assert.match(read(file), /gpt-image-2\.6-flare/);
+  }
+});
+
+ test('agent omitted model preserves the Nano Banana 2 picker ID in history', () => {
+  const agent = read('functions/src/agentGenerateImage.ts');
+  const selection = agent.slice(agent.indexOf('const selectedModel = ('), agent.indexOf('if (selectedModel === "gemini-svg")'));
+  assert.match(selection, /NANO_BANANA_2_UI_MODEL/);
+  assert.doesNotMatch(selection, /\bNANO_BANANA_2_MODEL\b/);
+  assert.match(agent, /NANO_BANANA_2_UI_MODEL = "gemini-3.1-flash-image-preview"/);
+  assert.match(agent, /selectedModel === NANO_BANANA_2_MODEL \|\| selectedModel === NANO_BANANA_2_UI_MODEL/);
+  assert.match(agent, /return \[NANO_BANANA_2_MODEL, NANO_BANANA_PRO_MODEL\]/);
 });

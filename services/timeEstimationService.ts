@@ -20,6 +20,12 @@ const DEFAULT_SECONDS_PER_GEN: Record<string, number> = {
   gemini: 18,
   "gemini-3.1-flash-image-preview": 12,
   "gemini-3.1-flash-lite-image": 8,
+  "gemini-nano-banana-2.1": 12,
+  "openai-2.6": 35,
+  "openai-2.6-flare": 20,
+  "openai-2.5": 35,
+  "openai-flare": 20,
+  "openai-2": 35,
   openai: 35,
 };
 

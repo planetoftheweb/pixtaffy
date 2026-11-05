@@ -2152,7 +2152,7 @@ const App: React.FC = () => {
               modelSlug: modelId.slice(OPENROUTER_MODEL_PREFIX.length),
               systemPrompt: runSystemPrompt
             });
-          } else if (modelId === 'openai' || modelId === 'openai-2' || modelId === 'openai-2.5' || modelId === 'openai-flare' || modelId === 'openai-mini') {
+          } else if (modelId === 'openai' || modelId === 'openai-2' || modelId === 'openai-2.6' || modelId === 'openai-2.6-flare' || modelId === 'openai-2.5' || modelId === 'openai-flare' || modelId === 'openai-mini') {
             result = await generateOpenAIImage(structuredPrompt, requestConfig, modelKey, {
               modelId,
               quality: runOpenAIQuality,
@@ -2463,7 +2463,7 @@ const App: React.FC = () => {
       } else if (
         selectedModel === 'openai' ||
         selectedModel === 'openai-2' ||
-        selectedModel === 'openai-2.5' ||
+        selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' ||
         selectedModel === 'openai-flare' ||
         selectedModel === 'openai-mini'
       ) {
@@ -2648,7 +2648,7 @@ const App: React.FC = () => {
         } else if (
           selectedModel === 'openai' ||
           selectedModel === 'openai-2' ||
-          selectedModel === 'openai-2.5' ||
+          selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' ||
           selectedModel === 'openai-flare' ||
           selectedModel === 'openai-mini'
         ) {
@@ -2851,7 +2851,7 @@ const App: React.FC = () => {
       }
 
       const targetModel =
-        selectedModel === 'gemini' || selectedModel === 'gemini-3.1-flash-image-preview'
+        selectedModel === 'gemini' || selectedModel === 'gemini-nano-banana-2.1' || selectedModel === 'gemini-3.1-flash-image-preview'
           ? selectedModel
           : 'gemini';
       const customKey = getApiKeyForModel(targetModel);

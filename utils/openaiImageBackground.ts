@@ -17,14 +17,14 @@ export const OPENAI_BACKGROUND_SET = new Set<OpenAIImageBackground>(OPENAI_BACKG
 /** UI model ids that expose Background and may send `background` to the API. */
 export const supportsOpenAIBackground = (modelId: string): boolean =>
   modelId === 'openai-2' ||
-  modelId === 'openai-2.5' ||
+  modelId === 'openai-2.6' || modelId === 'openai-2.6-flare' || modelId === 'openai-2.5' ||
   modelId === 'openai-flare' ||
   modelId === 'openrouter:openai/gpt-image-2' ||
-  /(?:^|\/)gpt-image-2(?:$|[.-])/.test(modelId);
+  /(?:^|\/)gpt-image-2(?:\.[56])?(?:$|[.-])/.test(modelId);
 
 /** Native OpenAI API model ids that accept `background`. */
 export const supportsOpenAIBackgroundApiModel = (apiModel: string): boolean =>
-  apiModel === 'gpt-image-2' || apiModel.startsWith('gpt-image-2.5-');
+  apiModel === 'gpt-image-2' || (apiModel.startsWith('gpt-image-2.5-') || apiModel.startsWith('gpt-image-2.6-'));
 
 export const normalizeOpenAIImageBackground = (
   value: string | null | undefined

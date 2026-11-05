@@ -1142,8 +1142,11 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
 
   const modelLabelMap: Record<string, string> = {
     gemini: 'Nano Banana Pro',
+    'gemini-nano-banana-2.1': 'Nano Banana 2.1',
     'gemini-3.1-flash-image-preview': 'Nano Banana 2',
+    'openai-2.6': 'GPT Image 2.6',
     'openai-2.5': 'GPT Image 2.5',
+    'openai-2.6-flare': 'GPT Image 2.6 Flare',
     'openai-flare': 'GPT Image 2.5 Flare',
     'openai-2': 'GPT Image 2',
     'openai-mini': 'GPT Image Mini',
@@ -1154,8 +1157,11 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   // where the full marketing name would wrap or get clipped.
   const modelShortLabelMap: Record<string, string> = {
     gemini: 'Nano Pro',
+    'gemini-nano-banana-2.1': 'Nano 2.1',
     'gemini-3.1-flash-image-preview': 'Nano 2',
+    'openai-2.6': 'GPT 2.6',
     'openai-2.5': 'GPT 2.5',
+    'openai-2.6-flare': 'GPT 2.6 Flare',
     'openai-flare': 'GPT Flare',
     'openai-2': 'GPT 2',
     'openai-mini': 'GPT Mini',

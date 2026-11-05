@@ -29,8 +29,10 @@ const REGION = "us-central1";
 const MAX_BATCH_PROMPTS = 15;
 const INBOX_FOLDER_ID = "folder-inbox";
 
-const NANO_BANANA_PRO_MODEL = "gemini-3-pro-image-preview";
-const NANO_BANANA_2_MODEL = "gemini-3.1-flash-image-preview";
+const NANO_BANANA_PRO_MODEL = "gemini-3-pro-image";
+const NANO_BANANA_2_UI_MODEL = "gemini-3.1-flash-image-preview";
+const NANO_BANANA_2_1_MODEL = "gemini-nano-banana-2.1";
+const NANO_BANANA_2_MODEL = "gemini-3.1-flash-image";
 const NANO_BANANA_2_LITE_MODEL = "gemini-3.1-flash-lite-image";
 
 const GEMINI_ALLOWED_ASPECT_RATIOS = [
@@ -58,7 +60,9 @@ const OPENAI_2_ALLOWED_ASPECT_RATIOS = [
 ] as const;
 
 const API_MODEL_BY_UI_ID: Record<string, string> = {
+  "openai-2.6": "gpt-image-2.6-sunburst",
   "openai-2.5": "gpt-image-2.5-sunburst",
+  "openai-2.6-flare": "gpt-image-2.6-flare",
   "openai-flare": "gpt-image-2.5-flare",
   "openai-2": "gpt-image-2",
   "openai-mini": "gpt-image-1-mini",
@@ -143,11 +147,11 @@ const getAspectRatiosForModel = (modelId: string, source: AspectRatioRow[]): Asp
   let allowed: readonly string[];
   if (
     modelId === "gemini" ||
-    modelId === NANO_BANANA_2_MODEL ||
+    modelId === NANO_BANANA_2_1_MODEL || modelId === NANO_BANANA_2_UI_MODEL || modelId === NANO_BANANA_2_MODEL ||
     modelId === NANO_BANANA_2_LITE_MODEL
   ) {
     allowed = GEMINI_ALLOWED_ASPECT_RATIOS;
-  } else if (modelId === "openai-2" || modelId === "openai-2.5" || modelId === "openai-flare") {
+  } else if (modelId === "openai-2" || modelId === "openai-2.6" || modelId === "openai-2.6-flare" || modelId === "openai-2.5" || modelId === "openai-flare") {
     allowed = OPENAI_2_ALLOWED_ASPECT_RATIOS;
   } else if (modelId === "openai" || modelId === "openai-mini") {
     allowed = OPENAI_ALLOWED_ASPECT_RATIOS;
@@ -374,7 +378,7 @@ function usesWideOpenAISizes(apiModel: string): boolean {
     apiModel === "gpt-image-2" ||
     apiModel === "gpt-image-2.5-sunburst" ||
     apiModel === "gpt-image-2.5-flare" ||
-    apiModel.startsWith("gpt-image-2.5-")
+    (apiModel.startsWith("gpt-image-2.5-") || apiModel.startsWith("gpt-image-2.6-"))
   );
 }
 
@@ -391,6 +395,7 @@ async function generateOpenAIImage(
   apiKey: string,
   opts: {
     modelId?: string;
+    complexity?: "low" | "medium" | "high";
     quality?: "low" | "medium" | "high" | "xhigh" | "max" | "auto";
     background?: OpenAIImageBackground;
     systemPrompt?: string;
@@ -399,7 +404,7 @@ async function generateOpenAIImage(
   const apiModel = resolveOpenAiApiModel(opts.modelId);
   const size = aspectToOpenAISize(apiModel, normalizeAspectRatio(cfg.aspectRatio));
 
-  const quality = opts.quality || "auto";
+  const quality = !apiModel.startsWith("gpt-image-2.6-") && (opts.quality === "xhigh" || opts.quality === "max") ? "high" : opts.quality || "auto";
   const background = normalizeOpenAIImageBackground(opts.background);
   const systemPrompt = opts.systemPrompt?.trim();
 
@@ -420,6 +425,9 @@ async function generateOpenAIImage(
   };
   if (apiModel !== "gpt-image-1.5" && quality !== "auto") {
     body.quality = quality;
+  }
+  if (apiModel.startsWith("gpt-image-2.6-") && ["low", "medium", "high"].includes(opts.complexity || "")) {
+    body.complexity = opts.complexity;
   }
   if (supportsOpenAIBackgroundApiModel(apiModel) && background !== "auto") {
     body.background = background;
@@ -504,9 +512,17 @@ const extractImageFromGeminiResponse = (
 const getGeminiImageModelCandidates = (selectedModel?: string): readonly string[] => {
   if (selectedModel === NANO_BANANA_2_LITE_MODEL)
     return [NANO_BANANA_2_LITE_MODEL, NANO_BANANA_PRO_MODEL];
-  if (selectedModel === NANO_BANANA_2_MODEL)
+  if (selectedModel === NANO_BANANA_2_1_MODEL) return [NANO_BANANA_2_1_MODEL, NANO_BANANA_PRO_MODEL];
+  if (selectedModel === NANO_BANANA_2_MODEL || selectedModel === NANO_BANANA_2_UI_MODEL)
     return [NANO_BANANA_2_MODEL, NANO_BANANA_PRO_MODEL];
   return [NANO_BANANA_PRO_MODEL];
+};
+
+const getUiModelIdForGeminiImageModel = (generationModel: string): string => {
+  if (generationModel === NANO_BANANA_2_LITE_MODEL) return NANO_BANANA_2_LITE_MODEL;
+  if (generationModel === NANO_BANANA_2_1_MODEL) return NANO_BANANA_2_1_MODEL;
+  if (generationModel === NANO_BANANA_2_MODEL || generationModel === NANO_BANANA_2_UI_MODEL) return NANO_BANANA_2_UI_MODEL;
+  return 'gemini';
 };
 
 async function generateGeminiImage(
@@ -518,7 +534,7 @@ async function generateGeminiImage(
   allAspectRatios: AspectRatioRow[],
 ): Promise<{ base64Data: string; mimeType: string }> {
   const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
-  const safeAspectRatio = getSafeAspectRatioForModel(selectedModel, cfg.aspectRatio, allAspectRatios);
+  const safeAspectRatio = getSafeAspectRatioForModel(getUiModelIdForGeminiImageModel(selectedModel), cfg.aspectRatio, allAspectRatios);
   const generationModels = getGeminiImageModelCandidates(selectedModel);
   let lastError: unknown;
 
@@ -1149,7 +1165,7 @@ export const agentGenerateImage = onRequest(
         ov.selectedModel ||
         presetMatch?.selectedModel ||
         prefs?.selectedModel ||
-        NANO_BANANA_2_MODEL
+        NANO_BANANA_2_UI_MODEL
       ).trim();
 
       if (selectedModel === "gemini-svg") {
@@ -1232,7 +1248,7 @@ export const agentGenerateImage = onRequest(
           if (
             selectedModel === "openai" ||
             selectedModel === "openai-2" ||
-            selectedModel === "openai-2.5" ||
+            selectedModel === "openai-2.6" || selectedModel === "openai-2.6-flare" || selectedModel === "openai-2.5" ||
             selectedModel === "openai-flare" ||
             selectedModel === "openai-mini"
           ) {
@@ -1245,7 +1261,7 @@ export const agentGenerateImage = onRequest(
             });
           } else if (
             selectedModel === "gemini" ||
-            selectedModel === NANO_BANANA_2_MODEL ||
+            selectedModel === NANO_BANANA_2_1_MODEL || selectedModel === NANO_BANANA_2_UI_MODEL || selectedModel === NANO_BANANA_2_MODEL ||
             selectedModel === NANO_BANANA_2_LITE_MODEL
           ) {
             const geminiPrompt = constructGeminiPrompt(config, ctx);

@@ -32,3 +32,17 @@ test("AI assist pricing uses fractional millicredits", () => {
   assert.equal(AI_ASSIST_MILLICREDITS.image_analysis, 200);
   assert.equal(AI_ASSIST_MILLICREDITS.brand_guidelines_pdf, 500);
 });
+
+ test("latest image models use GA routing and Pro credit prices", () => {
+  for (const model of ["openai-2.6", "openai-2.6-flare", "gemini-nano-banana-2.1"]) {
+    assert.equal(getPaidModelPrice(model)?.milliCredits, 2_000);
+    assert.equal(getPaidModelPrice(model)?.costCeilingUsd, 0.14);
+  }
+  assert.equal(getPaidModelPrice("openai-2.6")?.openRouterModelId, "openai/gpt-image-2");
+  assert.equal(getPaidModelPrice("openai-2.6-flare")?.openRouterModelId, "openai/gpt-image-2");
+  for (const slug of ["gemini-nano-banana-2.1", "gemini-3.1-flash-image", "gemini-3-pro-image"]) {
+    assert.equal(getPaidModelPrice(`openrouter:google/${slug}`)?.openRouterModelId, `google/${slug}`);
+  }
+  assert.equal(getPaidModelPrice("gemini")?.openRouterModelId, "google/gemini-3-pro-image");
+  assert.equal(getPaidModelPrice("gemini-3.1-flash-image-preview")?.openRouterModelId, "google/gemini-3.1-flash-image");
+});

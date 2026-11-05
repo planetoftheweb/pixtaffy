@@ -74,7 +74,7 @@ export const generateOpenRouterImage = async (
     : prompt;
 
   const base: Record<string, unknown> = {
-    model: options.modelSlug,
+    model: options.modelSlug.replace(/^(google\/gemini-[a-z0-9.-]*-image)-preview$/i, '$1'),
     prompt: fullPrompt,
     output_format: 'png'
   };

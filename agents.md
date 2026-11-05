@@ -26,7 +26,7 @@ This project is designed to be worked on by specialized AI agents.
 **Focus:** Business Logic, API Integrations, Data Management.
 - **Authentication:** `authService.ts` (Firebase Auth & User Profile management).
 - **AI Integration:** `geminiService.ts`.
-    - **Image Generation:** MUST use `gemini-3-pro-image-preview` for Gemini and `gpt-5` for OpenAI.
+    - **Image Generation:** Nano Banana image generation MUST use GA IDs `gemini-nano-banana-2.1`, `gemini-3.1-flash-image`, and `gemini-3-pro-image` for Gemini and `gpt-5` for OpenAI.
     - **Text/Analysis:** Use `gemini-flash-latest` (Google's always-current Flash alias) for brand analysis, correction analysis, prompt expansion, and image-description calls. Pinning to a specific version like `gemini-2.5-flash` caused `400 / API_KEY_INVALID` rejections for users whose key/project didn't have that exact version enabled, even when image-gen against the same key worked fine.
     - **Multi-Model Support:** Architecture supports different API keys for different models via User Preferences.
 - **Data Persistence:** 
@@ -50,7 +50,7 @@ This project is designed to be worked on by specialized AI agents.
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS v4 + PostCSS
 - **Backend / BaaS:** Firebase (Auth, Firestore, Storage)
-- **AI Model:** Google Gemini 3 Pro Image Preview - STRICTLY ENFORCED
+- **AI Model:** Google Gemini Nano Banana GA image models - STRICTLY ENFORCED
 - **Billing:** BYOK (Bring Your Own Key) only. System keys are disabled to prevent cost overruns.
 - **Icons:** Lucide React
 - **Fonts:** Mona Sans & Inter (Locally hosted)
