@@ -110,3 +110,18 @@ test('every Gemini picker resolves only GA API and OpenRouter model strings', as
     assert.ok(!line.includes('gemini-3-pro-image-preview'), line);
   }
 });
+
+test('OpenRouter request models normalize legacy Gemini image slugs', () => {
+  for (const path of ['services/openRouterService.ts', 'functions/src/openRouterProvider.ts']) {
+    const expression = read(path).match(/model: ((?:options|input)\.modelSlug\.replace\([^\n]+\)),/)[1];
+    const resolveRequestModel = new Function('options', 'input', `return ${expression}`);
+    for (const slug of ['google/gemini-3-pro-image', 'google/gemini-3.1-flash-image']) {
+      for (const modelSlug of [slug, `${slug}-preview`]) {
+        assert.equal(resolveRequestModel({ modelSlug }, { modelSlug }), slug);
+      }
+    }
+    for (const modelSlug of ['openai/gpt-image-2', 'other/model-preview', 'google/gemini-text-preview']) {
+      assert.equal(resolveRequestModel({ modelSlug }, { modelSlug }), modelSlug);
+    }
+  }
+});

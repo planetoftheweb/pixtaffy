@@ -48,7 +48,7 @@ export async function generateOpenRouterImageCore(input: {
     prompt = `${TRANSPARENCY_PROMPT_HINT}\n\n${prompt}`;
   }
   const baseBody: Record<string, unknown> = {
-    model: input.modelSlug,
+    model: input.modelSlug.replace(/^(google\/gemini-[a-z0-9.-]*-image)-preview$/i, '$1'),
     prompt,
     output_format: "png",
     ...(input.user ? { user: input.user } : {}),

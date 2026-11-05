@@ -43,7 +43,7 @@ export function selectBackend(model, options, key, adc) {
   return /^(openai|gpt-image)/.test(model) ? 'openai' : options.vertex || (!key && adc) ? 'vertex' : 'gemini-api';
 }
 async function loadGoogleGenAI() {
-  for (const base of [new URL('../package.json', import.meta.url), new URL('../functions/package.json', import.meta.url)]) {
+  for (const base of [new URL('../package.json', import.meta.url), new URL('../functions/package.json', import.meta.url), resolve(process.cwd(), 'package.json'), resolve(process.cwd(), 'functions/package.json')]) {
     try { return createRequire(base)('@google/genai').GoogleGenAI; } catch { /* Try the next installation. */ }
   }
   throw new Error('Vertex request failed');
@@ -60,14 +60,10 @@ export function safeError(error, backend) {
 export async function run(args, deps = {}) {
   const options = parseArgs(args);
   const log = deps.log || (value => console.log(JSON.stringify(value)));
-  if (options.dryRun) {
-    log({ dryRun: true, models: options.models.map(resolveModel), backend: options.models.map(model => selectBackend(model, options, true, false)), project: options.project, location: options.location, out: options.out });
-    return 0;
-  }
   const env = deps.env || process.env;
   let fileKeys;
   async function keyFor(name) {
-    if (env[name]) return env[name];
+    if (name in env) return env[name] || undefined;
     if (!fileKeys) {
       fileKeys = {};
       try {
@@ -79,6 +75,12 @@ export async function run(args, deps = {}) {
       } catch { /* Missing key files leave credentials unavailable. */ }
     }
     return fileKeys[name];
+  }
+  if (options.dryRun) {
+    const key = options.vertex ? undefined : await keyFor('GEMINI_API_KEY');
+    const adc = !options.vertex && !key ? await hasAdc(env, deps.home || homedir(), deps.access || access) : false;
+    log({ dryRun: true, models: options.models.map(resolveModel), backend: options.models.map(model => selectBackend(model, options, key, adc)), project: options.project, location: options.location, out: options.out });
+    return 0;
   }
   let exitCode = 0;
   for (const model of options.models) {

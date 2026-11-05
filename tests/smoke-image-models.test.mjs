@@ -82,3 +82,27 @@ test('REST normalizes aliases and never logs keys or raw provider errors', async
   assert.equal(await run(['--vertex'], failing.deps), 1);
   assert.ok(!JSON.stringify(failing.logs).includes('secret-token'));
 });
+
+test('dry-run auto-selects Vertex from ADC without provider calls', async () => {
+  for (const [env, file, adc, expected] of [
+    [{}, '', true, 'vertex'],
+    [{ GOOGLE_APPLICATION_CREDENTIALS: '/adc' }, '', true, 'vertex'],
+    [{ GEMINI_API_KEY: 'unit-key' }, '', true, 'gemini-api'],
+    [{}, 'GEMINI_API_KEY=unit-key', true, 'gemini-api'],
+    [{ GEMINI_API_KEY: '' }, 'GEMINI_API_KEY=unit-key', true, 'vertex'],
+    [{ GEMINI_API_KEY: '' }, '', false, 'gemini-api'],
+  ]) {
+    const { deps, logs } = fixture({ env, readFile: async () => {
+      assert.ok(!('GEMINI_API_KEY' in env), 'explicit environment value must bypass file');
+      return file;
+    }, access: async () => { if (!adc) throw new Error('absent'); } });
+    assert.equal(await run(['--dry-run', 'gemini', 'openai-2.6'], deps), 0);
+    assert.deepEqual(logs[0].backend, [expected, 'openai']);
+  }
+});
+
+test('explicit empty keys disable file fallback during credential-free execution', async () => {
+  const { deps, logs } = fixture({ env: { GEMINI_API_KEY: '', OPENAI_API_KEY: '' }, readFile: async () => assert.fail('credential file read') });
+  assert.equal(await run(['gemini', 'openai-2.6'], deps), 1);
+  assert.deepEqual(logs.map(value => value.reason), ['GEMINI_API_KEY unavailable', 'OPENAI_API_KEY unavailable']);
+});
