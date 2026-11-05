@@ -499,6 +499,7 @@ const ensureUsernameReservation = async (
 
 export const authService = {
   ensureAnonymousSession: async (): Promise<string> => {
+    await auth.authStateReady();
     if (auth.currentUser) return auth.currentUser.uid;
     return startAnonymousSession();
   },

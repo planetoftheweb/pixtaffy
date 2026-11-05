@@ -7,6 +7,7 @@ import {
   hasSavedMemberHint,
   writeMemberHint,
   shouldShowStartupGate,
+  shouldResolveMemberSession,
 } from '../utils/startupGate.ts';
 
 test('guests open immediately, including returning guests who prefer studio', () => {
@@ -83,4 +84,46 @@ test('startup opens before member enrichment and public Back navigation does not
   assert.match(publicRoutes, /returnToStudio/);
   assert.doesNotMatch(publicRoutes, /enterStudioFromWelcome/);
   assert.doesNotMatch(app.slice(app.indexOf('const returnToStudio ='), app.indexOf('const enterStudioFromWelcome =')), /writePreferStudioFlag/);
+});
+
+
+test('stored Firebase members keep resolving after the splash timeout without starting guest auth', () => {
+  const storedHint = (savedUser) => {
+    const key = 'firebase:authUser:public-key:[DEFAULT]';
+    return hasSavedMemberHint({ length: 1, key: () => key, getItem: name => name === key ? savedUser : null });
+  };
+  assert.equal(storedHint(JSON.stringify({ uid: 'member', isAnonymous: false })), true);
+  assert.equal(storedHint(JSON.stringify({ uid: 'guest', isAnonymous: true })), false);
+  assert.equal(storedHint('{malformed'), false);
+  assert.equal(shouldResolveMemberSession(true, false), true);
+  assert.equal(shouldShowStartupGate(true, true), false);
+  assert.equal(shouldResolveMemberSession(true, true), false);
+  assert.equal(shouldResolveMemberSession(false, false), false);
+  const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /if \(!isAuthResolved \|\| isMemberResolving \|\| user \|\| welcomeMode\) return;/);
+  const timeout = app.slice(app.indexOf('const timeoutId = window.setTimeout'), app.indexOf('const unsubscribe = authService.onAuthStateChange'));
+  assert.match(timeout, /setIsMemberResolving\(shouldResolveMemberSession\(hasMemberHint, false\)\)/);
+  assert.doesNotMatch(timeout, /setUser\(null\)/);
+  assert.match(app, /setIsMemberResolving\(false\);\s*if \(restoredUser\)/);
+});
+
+test('anonymous session waits for slow auth restoration and preserves the restored member', async () => {
+  const service = readFileSync(new URL('../services/authService.ts', import.meta.url), 'utf8');
+  const body = service.match(/ensureAnonymousSession: async \(\): Promise<string> => \{([\s\S]*?)\n  \},/)[1];
+  const run = new (Object.getPrototypeOf(async function () {}).constructor)('auth', 'startAnonymousSession', body);
+  let finishRestoring;
+  let anonymousCalls = 0;
+  const auth = { currentUser: null, authStateReady: () => new Promise(resolve => { finishRestoring = resolve; }) };
+  const startAnonymousSession = async () => { anonymousCalls++; return 'guest'; };
+  const pending = run(auth, startAnonymousSession);
+  await Promise.resolve();
+  assert.equal(anonymousCalls, 0);
+  auth.currentUser = { uid: 'returning-member', isAnonymous: false };
+  finishRestoring();
+  assert.equal(await pending, 'returning-member');
+  assert.equal(anonymousCalls, 0);
+  auth.currentUser = null;
+  auth.authStateReady = async () => {};
+  assert.equal(await run(auth, startAnonymousSession), 'guest');
+  assert.equal(anonymousCalls, 1);
 });
