@@ -1128,6 +1128,10 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
   };
 
   const getModelLabel = (modelId?: string) => {
+    if (modelId === 'openai-2.6') return 'GPT Image 2.6';
+    if (modelId === 'openai-2.6-flare') return 'GPT Image 2.6 Flare';
+    if (modelId === 'gemini-nano-banana-2.1') return 'Nano Banana 2.1';
+    if (modelId === 'gemini-3.1-flash-lite-image') return 'Nano Banana 2 Lite';
     if (modelId === 'openai-2.5') return 'GPT Image 2.5';
     if (modelId === 'openai-flare') return 'GPT Image 2.5 Flare';
     if (modelId === 'openai-2') return 'GPT Image 2';

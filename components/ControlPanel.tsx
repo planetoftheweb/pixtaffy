@@ -1948,10 +1948,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     options.aspectRatios.find(r => r.value === config.aspectRatio);
   const modelLabelMap: Record<string, string> = {
     gemini: 'Nano Banana Pro',
+    'gemini-nano-banana-2.1': 'Nano Banana 2.1',
     'gemini-3.1-flash-image-preview': 'Nano Banana 2',
     'gemini-3.1-flash-lite-image': 'Nano Banana 2 Lite',
     'openrouter:bytedance-seed/seedream-4.5': 'Seedream 4.5',
+    'openai-2.6': 'GPT Image 2.6',
     'openai-2.5': 'GPT Image 2.5',
+    'openai-2.6-flare': 'GPT Image 2.6 Flare',
     'openai-flare': 'GPT Image 2.5 Flare',
     'openai-2': 'GPT Image 2',
     'openai-mini': 'GPT Image Mini',
@@ -2265,8 +2268,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <div className="w-full text-left p-3 text-[12px] text-slate-500 border-t border-gray-200 dark:border-[#30363d] bg-gray-50 dark:bg-[#0d1117]">
                     {isSvgModel
                       ? 'SVG: all ratios available (mapped to viewBox).'
-                      : selectedModel === 'openai-2' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare'
-                        ? 'Showing ratios GPT Image 2 / 2.5 support (incl. 2K/4K and 3:1).'
+                      : selectedModel === 'openai-2' || selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare'
+                        ? 'GPT Image 2 / 2.5 / 2.6: 2K/4K on the 16px grid (1:3 to 3:1).'
                         : selectedModel === 'openai' || selectedModel === 'openai-mini'
                           ? 'Showing only ratios GPT Image outputs natively.'
                           : 'Showing only ratios Nano Banana models support natively.'}
@@ -2488,7 +2491,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </div>
 
             {/* Quality (OpenAI models only — gpt-image-1.5 ignores this but is harmless) */}
-            {(selectedModel === 'openai-2' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare' || selectedModel === 'openai-mini') && onOpenAIQualityChange && (
+            {(selectedModel === 'openai-2' || selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare' || selectedModel === 'openai-mini') && onOpenAIQualityChange && (
               <div className="relative min-w-0 lg:shrink">
                 <DropdownButton
                   icon={Gauge}
@@ -2514,9 +2517,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       { id: 'low' as const, label: 'Low', desc: 'Fastest, cheapest' },
                       { id: 'medium' as const, label: 'Medium', desc: 'Balanced' },
                       { id: 'high' as const, label: 'High', desc: 'High detail' },
-                      { id: 'xhigh' as const, label: 'XHigh', desc: 'Extra high detail (2.5)' },
-                      { id: 'max' as const, label: 'Max', desc: 'Maximum detail (2.5)' }
-                    ]).map((q) => {
+                      { id: 'xhigh' as const, label: 'XHigh', desc: 'Extra high detail (2.6)' },
+                      { id: 'max' as const, label: 'Max', desc: 'Maximum detail (2.6)' }
+                    ]).filter(q => (q.id !== 'xhigh' && q.id !== 'max') || selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare').map((q) => {
                       const isSel = openaiQuality === q.id;
                       return (
                       <button

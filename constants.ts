@@ -154,14 +154,21 @@ export const SUPPORTED_MODELS = [
   {
     id: 'gemini',
     name: 'Nano Banana Pro',
-    description: 'Gemini 3 Pro Image Preview',
+    description: 'Gemini 3 Pro Image',
+    format: 'raster' as const,
+    group: 'Gemini' as const
+  },
+  {
+    id: 'gemini-nano-banana-2.1',
+    name: 'Nano Banana 2.1',
+    description: 'Gemini Nano Banana 2.1',
     format: 'raster' as const,
     group: 'Gemini' as const
   },
   {
     id: 'gemini-3.1-flash-image-preview',
     name: 'Nano Banana 2',
-    description: 'Gemini 3.1 Flash Image Preview',
+    description: 'Gemini 3.1 Flash Image',
     format: 'raster' as const,
     group: 'Gemini' as const
   },
@@ -180,9 +187,23 @@ export const SUPPORTED_MODELS = [
     group: 'Gemini' as const
   },
   {
+    id: 'openai-2.6',
+    name: 'GPT Image 2.6',
+    description: 'OpenAI gpt-image-2.6-sunburst - flagship editing and generation (2.6)',
+    format: 'raster' as const,
+    group: 'OpenAI' as const
+  },
+  {
     id: 'openai-2.5',
     name: 'GPT Image 2.5',
     description: 'OpenAI gpt-image-2.5-sunburst \u2014 flagship editing and generation (2.5)',
+    format: 'raster' as const,
+    group: 'OpenAI' as const
+  },
+  {
+    id: 'openai-2.6-flare',
+    name: 'GPT Image 2.6 Flare',
+    description: 'OpenAI gpt-image-2.6-flare - fast high-quality everyday 2.6',
     format: 'raster' as const,
     group: 'OpenAI' as const
   },
@@ -243,6 +264,8 @@ export interface OpenRouterCuratedModel {
  * or add their own slugs in Settings (`preferences.openRouterModels`).
  */
 export const OPENROUTER_CURATED_MODELS: OpenRouterCuratedModel[] = [
+  { slug: 'google/gemini-nano-banana-2.1', name: 'Nano Banana 2.1 (OR)', goodAt: 'Fast image generation with wide aspect ratios.', costPerImageUsd: 0.0336 },
+  { slug: 'google/gemini-3.1-flash-image', name: 'Nano Banana 2 (OR)', goodAt: 'Image generation through OpenRouter.', costPerImageUsd: 0.067 },
   {
     slug: 'bytedance-seed/seedream-4.5',
     name: 'Seedream 4.5',
@@ -303,10 +326,13 @@ export const ASPECT_RATIOS: AspectRatioDefinition[] = [
  */
 export const MODEL_COST_PER_IMAGE_USD: Record<string, number> = {
   'gemini': 0.134,                          // Nano Banana Pro (Gemini 3 Pro Image, 1K/2K)
+  'gemini-nano-banana-2.1': 0.0336,  // Nano Banana 2.1 (1K)
   'gemini-3.1-flash-image-preview': 0.067,  // Nano Banana 2 (1K)
   'gemini-3.1-flash-lite-image': 0.03,      // Nano Banana 2 Lite (est.)
   'gemini-svg': 0.01,                       // Gemini SVG — token-based text output (est.)
+  'openai-2.6': 0.053,                      // GPT Image 2.6 Sunburst (same rates as Image 2)
   'openai-2.5': 0.053,                      // GPT Image 2.5 Sunburst (same rates as Image 2)
+  'openai-2.6-flare': 0.053,                    // GPT Image 2.6 Flare (same rates as Image 2)
   'openai-flare': 0.053,                    // GPT Image 2.5 Flare (same rates as Image 2)
   'openai-2': 0.053,                        // GPT Image 2 (1024², medium)
   'openai-mini': 0.01,                      // GPT Image Mini (est.)

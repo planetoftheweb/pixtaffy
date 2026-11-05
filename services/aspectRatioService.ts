@@ -193,13 +193,13 @@ export const getAspectRatiosForModel = (
 
   if (
     modelId === 'gemini' ||
-    modelId === 'gemini-3.1-flash-image-preview' ||
+    modelId === 'gemini-nano-banana-2.1' || modelId === 'gemini-3.1-flash-image-preview' ||
     modelId === 'gemini-3.1-flash-lite-image'
   ) {
     return buildFilteredRatios(GEMINI_ALLOWED_ASPECT_RATIOS, GEMINI_LABELS, source);
   }
 
-  if (modelId === 'openai-2' || modelId === 'openai-2.5' || modelId === 'openai-flare') {
+  if (modelId === 'openai-2' || modelId === 'openai-2.6' || modelId === 'openai-2.6-flare' || modelId === 'openai-2.5' || modelId === 'openai-flare') {
     return buildFilteredRatios(OPENAI_2_ALLOWED_ASPECT_RATIOS, OPENAI_2_LABELS, source);
   }
 

@@ -34,7 +34,7 @@ const defaultPreferences: UserPreferences = {
   aspectRatios: ASPECT_RATIOS,
   apiKeys: {},
   apiKeyStatus: {},
-  // Default model for brand-new accounts: Nano Banana 2 (Gemini 3.1 Flash).
+  // Default model for brand-new accounts: GPT Image 2.5.
   // App.loadResources / guestSelectedModel use the same id as their
   // code-level fallback so the UI matches across guest + first-login.
   selectedModel: 'openai-2.5',

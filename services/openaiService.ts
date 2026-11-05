@@ -43,6 +43,7 @@ ${colors ? `- Brand palette (hex — colors to paint WITH, never to be drawn as 
 `.trim();
 };
 
+export type OpenAIImageComplexity = 'low' | 'medium' | 'high';
 export type OpenAIImageQuality = 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
 export type OpenAIImageBackground = SharedOpenAIImageBackground;
 
@@ -156,7 +157,9 @@ const describeOpenAIError = (
 // Map our UI model IDs to OpenAI API model identifiers.
 // Everything under this OpenAI family shares one API key slot (`apiKeys.openai`).
 const API_MODEL_BY_UI_ID: Record<string, string> = {
+  'openai-2.6': 'gpt-image-2.6-sunburst',
   'openai-2.5': 'gpt-image-2.5-sunburst',
+  'openai-2.6-flare': 'gpt-image-2.6-flare',
   'openai-flare': 'gpt-image-2.5-flare',
   'openai-2': 'gpt-image-2',
   'openai-mini': 'gpt-image-1-mini',
@@ -192,7 +195,7 @@ const usesWideOpenAISizes = (apiModel: string): boolean =>
   apiModel === 'gpt-image-2' ||
   apiModel === 'gpt-image-2.5-sunburst' ||
   apiModel === 'gpt-image-2.5-flare' ||
-  apiModel.startsWith('gpt-image-2.5-');
+  (apiModel.startsWith('gpt-image-2.5-') || apiModel.startsWith('gpt-image-2.6-'));
 
 const aspectToSize = (apiModel: string, aspect: string): string => {
   if (usesWideOpenAISizes(apiModel)) {
@@ -211,13 +214,15 @@ const fetchToBase64 = async (url: string): Promise<{ base64: string; mime: strin
 };
 
 export interface OpenAIGenerateOptions {
-  /** UI model id: 'openai-2.5' | 'openai-flare' | 'openai-2' | 'openai-mini' | 'openai'. Defaults to 'openai'. */
+  /** UI model id: 'openai-2.6' | 'openai-2.6-flare' | 'openai-2.5' | 'openai-flare' | 'openai-2' | 'openai-mini' | 'openai'. Defaults to 'openai'. */
   modelId?: string;
-  /** low | medium | high | xhigh | max | auto. Defaults to 'auto'. */
+  /** Defaults to auto. xhigh and max apply only to GPT Image 2.6. */
   quality?: OpenAIImageQuality;
+  /** Optional GPT Image 2.6 complexity. Omitted uses the provider default, high. */
+  complexity?: OpenAIImageComplexity;
   /**
    * auto | opaque | transparent. Defaults to 'auto'.
-   * Only sent for gpt-image-2 / gpt-image-2.5-*; transparent forces output_format png.
+   * Only sent for gpt-image-2 / gpt-image-2.5-* / gpt-image-2.6-*; transparent forces output_format png.
    */
   background?: OpenAIImageBackground;
   systemPrompt?: string;
@@ -240,7 +245,7 @@ export const generateOpenAIImage = async (
   }
 
   const size = aspectToSize(apiModel, config.aspectRatio);
-  const quality: OpenAIImageQuality = options.quality || 'auto';
+  const quality: OpenAIImageQuality = !apiModel.startsWith('gpt-image-2.6-') && (options.quality === 'xhigh' || options.quality === 'max') ? 'high' : options.quality || 'auto';
   const background: OpenAIImageBackground = options.background || 'auto';
   const systemPrompt = options.systemPrompt;
 
@@ -263,6 +268,9 @@ export const generateOpenAIImage = async (
   // non-auto on a supported model.
   if (apiModel !== 'gpt-image-1.5' && quality !== 'auto') {
     body.quality = quality;
+  }
+  if (apiModel.startsWith('gpt-image-2.6-') && ['low', 'medium', 'high'].includes(options.complexity || '')) {
+    body.complexity = options.complexity;
   }
   applyOpenAIBackgroundParams(body, apiModel, background);
 
@@ -348,7 +356,7 @@ export const refineOpenAIImage = async (
 
   const sourceImage = await resolveImageInputForRefinement(currentImage);
   const size = aspectToSize(apiModel, config.aspectRatio);
-  const quality: OpenAIImageQuality = options.quality || 'auto';
+  const quality: OpenAIImageQuality = !apiModel.startsWith('gpt-image-2.6-') && (options.quality === 'xhigh' || options.quality === 'max') ? 'high' : options.quality || 'auto';
   const background: OpenAIImageBackground = options.background || 'auto';
   const systemPrompt = options.systemPrompt?.trim();
 
@@ -369,6 +377,9 @@ export const refineOpenAIImage = async (
 
   if (apiModel !== 'gpt-image-1.5' && quality !== 'auto') {
     formData.append('quality', quality);
+  }
+  if (apiModel.startsWith('gpt-image-2.6-') && ['low', 'medium', 'high'].includes(options.complexity || '')) {
+    formData.append('complexity', options.complexity!);
   }
 
   if (supportsOpenAIBackgroundApiModel(apiModel) && background && background !== 'auto') {

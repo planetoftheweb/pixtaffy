@@ -116,9 +116,13 @@ const formatRelative = (value: any): string => {
 
 const MODEL_LABELS: Record<string, string> = {
   gemini: 'Nano Banana Pro',
+  'gemini-nano-banana-2.1': 'Nano Banana 2.1',
+  'gemini-3.1-flash-lite-image': 'Nano Banana 2 Lite',
   'gemini-3.1-flash-image-preview': 'Nano Banana 2',
   'gemini-svg': 'Gemini SVG',
+  'openai-2.6': 'GPT Image 2.6',
   'openai-2.5': 'GPT Image 2.5',
+  'openai-2.6-flare': 'GPT Image 2.6 Flare',
   'openai-flare': 'GPT Image 2.5 Flare',
   'openai-2': 'GPT Image 2',
   'openai-mini': 'GPT Image Mini',

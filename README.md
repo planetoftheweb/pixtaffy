@@ -166,3 +166,7 @@ MIT
 ## Changelog
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for a full, versioned history of changes.
+
+### Current image models
+
+GPT Image 2.6, GPT Image 2.6 Flare, GPT Image 2.5, GPT Image 2.5 Flare, GPT Image 2, GPT Image Mini, GPT Image 1.5, Nano Banana 2.1, Nano Banana 2, Nano Banana Pro, and Nano Banana 2 Lite. Gemini SVG remains available for vectors.
