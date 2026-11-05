@@ -16,7 +16,7 @@ export default defineConfig(({ mode, command }) => {
         'VITE_FIREBASE_APP_ID',
       ];
       const missing = requiredFirebaseKeys.filter((key) => !env[key]?.trim());
-      if (missing.length && process.env.PIXTAFFY_ALLOW_PLACEHOLDER_BUILD !== '1') {
+      if (missing.length) {
         throw new Error(`Production build blocked: missing Firebase configuration: ${missing.join(', ')}. Supply the deployment environment before building. No configuration values are logged.`);
       }
     }

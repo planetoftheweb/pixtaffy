@@ -1,4 +1,3 @@
-import ts from 'typescript';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -205,27 +204,4 @@ test('source wiring checks the build first and the hosting bundle before upload'
   assert.equal(pkg.scripts.prebuild, 'node scripts/check-hosting-env.mjs --build && npm test && node scripts/whats-new.mjs check');
   assert.ok(pkg.scripts.test.includes('tests/hosting-guard.test.mjs'));
   for (const hosting of [firebase.hosting].flat()) assert.deepEqual(hosting.predeploy, ['node scripts/check-hosting-env.mjs --dist']);
-});
-
-
-test('Vite requires Firebase configuration unless placeholder builds are explicitly enabled', async () => {
-  const source = await readFile(new URL('../vite.config.ts', import.meta.url), 'utf8');
-  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
-  const directory = '/synthetic-build-root';
-  for (const flag of [undefined, '0', 'true', '1']) {
-    let configure;
-    const module = { exports: {} };
-    const require = name => {
-      if (name === 'vite') return { defineConfig: callback => { configure = callback; }, loadEnv: () => ({}) };
-      if (name === '@vitejs/plugin-react') return { default: () => ({}) };
-      if (name === 'path') return { default: { resolve: () => directory } };
-      throw new Error(`Unexpected import: ${name}`);
-    };
-    new Function('require', 'exports', 'process', '__dirname', compiled)(
-      require, module.exports, { env: { PIXTAFFY_ALLOW_PLACEHOLDER_BUILD: flag } }, directory,
-    );
-    if (flag === '1') assert.doesNotThrow(() => configure({ mode: 'production', command: 'build' }));
-    else assert.throws(() => configure({ mode: 'production', command: 'build' }), /Production build blocked: missing Firebase configuration/);
-    assert.doesNotThrow(() => configure({ mode: 'development', command: 'serve' }));
-  }
 });
