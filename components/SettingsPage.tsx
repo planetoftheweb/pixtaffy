@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId, normalizeLegacyOpenRouterModels } from '../utils/legacyModelNormalizer';
 import { SettingsToast, useSettingsFeedback } from './settings/SettingsFeedback';
 import { SettingsSurface, SettingsButton, SettingsInput, SettingsSelect, KeyRow, DeleteAllKeys } from './settings/SettingsPrimitives';
 import { SHOW_TEAMS_SETTINGS, keyFeedback } from './settings/keyPresentation';
@@ -50,11 +51,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [photoDataUrl, setPhotoDataUrl] = useState<string | undefined>(user.photoDataUrl);
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [keyStatus, setKeyStatus] = useState(user.preferences.apiKeyStatus || {});
-  const [selectedModel, setSelectedModel] = useState<string>(user.preferences.selectedModel || 'gemini');
+  const [selectedModel, setSelectedModel] = useState<string>(normalizeLegacyModelId(user.preferences.selectedModel || 'gemini'));
   const [systemPrompt, setSystemPrompt] = useState<string>(user.preferences.systemPrompt || '');
   // Enabled OpenRouter model slugs (undefined pref = curated defaults).
   const [orModels, setOrModels] = useState<string[]>(
-    () => user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug)
+    () => normalizeLegacyOpenRouterModels(user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug))
   );
   const [orCustomSlug, setOrCustomSlug] = useState('');
   const [orSlugWarning, setOrSlugWarning] = useState<string | null>(null);
@@ -104,7 +105,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       key !== 'gemini' &&
       key !== 'openai' &&
       key !== 'openrouter' &&
-      key !== 'openai-2' &&
       key !== 'openai-2.6' && key !== 'openai-2.6-flare' && key !== 'openai-2.5' &&
       key !== 'openai-flare' &&
       key !== 'openai-mini' &&
@@ -128,7 +128,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     const keys = user.preferences.apiKeyStatus || {};
     setKeyStatus(keys);
     void getUserApiKeyStatus().then(setKeyStatus).catch(() => setUploadError('Could not load key status.'));
-    setSelectedModel(user.preferences.selectedModel || 'gemini');
+    setSelectedModel(normalizeLegacyModelId(user.preferences.selectedModel || 'gemini'));
     setSystemPrompt(user.preferences.systemPrompt || '');
     setShowOverrides(
       Object.entries(keys).some(
@@ -136,14 +136,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           modelId !== 'gemini' &&
           modelId !== 'openai' &&
           modelId !== 'openrouter' &&
-          modelId !== 'openai-2' &&
           modelId !== 'openai-2.6' && modelId !== 'openai-2.6-flare' && modelId !== 'openai-2.5' &&
           modelId !== 'openai-flare' &&
           modelId !== 'openai-mini' &&
           !!value.hasKey
       )
     );
-    setOrModels(user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug));
+    setOrModels(normalizeLegacyOpenRouterModels(user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug)));
     if (SHOW_TEAMS_SETTINGS) loadTeams();
   }, [user]);
 
@@ -246,7 +245,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     {
       keyId: 'openai',
       label: 'OpenAI API Key',
-      description: 'Used by GPT Image 2.6, GPT Image 2.6 Flare, GPT Image 2.5, GPT Image 2.5 Flare, GPT Image 2, GPT Image Mini, and GPT Image 1.5.',
+      description: 'Used by GPT Image 2.6, GPT Image 2.6 Flare, GPT Image 2.5, GPT Image 2.5 Flare, GPT Image Mini, and GPT Image 1.5.',
       placeholder: 'sk-…',
       helpText: 'Create one at platform.openai.com/api-keys.'
     },
@@ -263,7 +262,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     (model) =>
       model.id !== 'gemini' &&
       model.id !== 'openai' &&
-      model.id !== 'openai-2' &&
       model.id !== 'openai-2.6' && model.id !== 'openai-2.6-flare' && model.id !== 'openai-2.5' &&
       model.id !== 'openai-flare' &&
       model.id !== 'openai-mini'
@@ -995,8 +993,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       groupOrder={[...MODEL_GROUP_ORDER]}
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      {selectedModel === 'openai-2' || selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare'
-                        ? 'GPT Image 2 / 2.5 / 2.6: supports 2K/4K and ratios from 3:1 to 1:3.'
+                      { selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare'
+                        ? 'GPT Image 2.5 / 2.6: supports 2K/4K and ratios from 3:1 to 1:3.'
                         : selectedModel === 'openai' || selectedModel === 'openai-mini'
                           ? 'Showing only ratios GPT Image outputs natively.'
                           : selectedModel === 'gemini-svg'

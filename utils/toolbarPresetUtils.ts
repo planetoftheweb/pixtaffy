@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from '../utils/legacyModelNormalizer';
 import { ToolbarPreset } from '../types';
 
 /** Fields persisted when saving/updating a toolbar preset. */
@@ -25,7 +26,7 @@ export const presetToolbarDiffersFromSnapshot = (
     (preset.colorSchemeId || undefined) !== (current.colorSchemeId || undefined) ||
     (preset.aspectRatio || undefined) !== (current.aspectRatio || undefined) ||
     preset.svgMode !== current.svgMode ||
-    (preset.selectedModel || undefined) !== (current.selectedModel || undefined) ||
+    (preset.selectedModel ? normalizeLegacyModelId(preset.selectedModel) : undefined) !== (current.selectedModel ? normalizeLegacyModelId(current.selectedModel) : undefined) ||
     normalizeOpenAIImageQuality(preset.openaiImageQuality) !==
       normalizeOpenAIImageQuality(current.openaiImageQuality) ||
     normalizeOpenAIImageBackground(preset.openaiImageBackground) !==
@@ -51,7 +52,7 @@ export const sanitizeToolbarPreset = (raw: unknown): ToolbarPreset | null => {
   if (p.colorSchemeId) preset.colorSchemeId = p.colorSchemeId;
   if (p.aspectRatio) preset.aspectRatio = p.aspectRatio;
   if (p.svgMode) preset.svgMode = p.svgMode;
-  if (p.selectedModel) preset.selectedModel = p.selectedModel;
+  if (p.selectedModel) preset.selectedModel = normalizeLegacyModelId(p.selectedModel);
   if (p.openaiImageQuality) preset.openaiImageQuality = p.openaiImageQuality;
   if (p.openaiImageBackground) preset.openaiImageBackground = p.openaiImageBackground;
   if (typeof p.customInstructions === 'string' && p.customInstructions.trim()) {

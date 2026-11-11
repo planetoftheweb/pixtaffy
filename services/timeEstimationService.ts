@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from '../utils/legacyModelNormalizer';
 // Rolling per-model duration estimates used for batch previews and live
 // elapsed/remaining displays.
 //
@@ -25,7 +26,6 @@ const DEFAULT_SECONDS_PER_GEN: Record<string, number> = {
   "openai-2.6-flare": 20,
   "openai-2.5": 35,
   "openai-flare": 20,
-  "openai-2": 35,
   openai: 35,
 };
 
@@ -81,6 +81,7 @@ const clampSeconds = (seconds: number): number =>
  * single outlier can't skew early estimates too far.
  */
 export const getModelSecondsPerGen = (modelId: string): number => {
+  modelId = normalizeLegacyModelId(modelId);
   const baseline =
     DEFAULT_SECONDS_PER_GEN[modelId] ?? FALLBACK_SECONDS_PER_GEN;
   const store = readStore();
@@ -98,6 +99,7 @@ export const getModelSecondsPerGen = (modelId: string): number => {
 
 /** Record how long a single generation took, so future estimates are smarter. */
 export const recordModelDuration = (modelId: string, ms: number): void => {
+  modelId = normalizeLegacyModelId(modelId);
   if (!modelId || !Number.isFinite(ms) || ms <= 0) return;
   const store = readStore();
   const next = [...(store[modelId] ?? []), ms].slice(-SAMPLE_WINDOW);

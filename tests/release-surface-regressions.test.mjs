@@ -36,6 +36,15 @@ const whatsNewScriptPath = fileURLToPath(new URL('../scripts/whats-new.mjs', imp
 
 const extractPaths = (source, pattern) => [...source.matchAll(pattern)].map((match) => match[1]);
 
+test('pricing Pro image band names current GPT Image models at two credits', () => {
+  const proBand = pricingSource.split('>Pro image</p>')[1]?.split('</span>')[0];
+  assert.ok(proBand, 'Pro image band exists');
+  assert.match(proBand, /GPT Image 2\.6/);
+  assert.match(proBand, /GPT Image 2\.5/);
+  assert.doesNotMatch(proBand, /GPT Image 2(?!\.)/);
+  assert.match(proBand, />2 credits$/);
+});
+
 test('production builds reject missing Firebase configuration before bundling', () => {
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'pixtaffy-build-config-'));
   const required = ['API_KEY', 'AUTH_DOMAIN', 'PROJECT_ID', 'STORAGE_BUCKET', 'MESSAGING_SENDER_ID', 'APP_ID'];
@@ -515,7 +524,7 @@ test('dist scanner rejects token and other secret values without disclosing them
 
  test('agent omitted model preserves the Nano Banana 2 picker ID in history', () => {
   const agent = read('functions/src/agentGenerateImage.ts');
-  const selection = agent.slice(agent.indexOf('const selectedModel = ('), agent.indexOf('if (selectedModel === "gemini-svg")'));
+  const selection = agent.slice(agent.indexOf('const selectedModel = normalizeLegacyModelId(('), agent.indexOf('if (selectedModel === "gemini-svg")'));
   assert.match(selection, /NANO_BANANA_2_UI_MODEL/);
   assert.doesNotMatch(selection, /\bNANO_BANANA_2_MODEL\b/);
   assert.match(agent, /NANO_BANANA_2_UI_MODEL = "gemini-3.1-flash-image-preview"/);

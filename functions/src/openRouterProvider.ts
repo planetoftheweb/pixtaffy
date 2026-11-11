@@ -1,3 +1,4 @@
+import { normalizeLegacyOpenRouterSlug } from './legacyModelNormalizer';
 import {
   supportsOpenAIBackgroundOpenRouterSlug,
   TRANSPARENCY_PROMPT_HINT,
@@ -37,12 +38,13 @@ export async function generateOpenRouterImageCore(input: {
   aspectRatio?: string;
   user?: string;
   title?: string;
-  /** GPT Image 2 / 2.5 via OpenRouter — maps to images API `background`. */
+  /** GPT Image 2.5 / 2.6 via OpenRouter - maps to images API `background`. */
   background?: OpenAIImageBackground;
 }): Promise<OpenRouterImageResult> {
   const aspect = (input.aspectRatio || "").trim().replace(/_/g, ":").replace(/\s+/g, "");
   let prompt = input.prompt;
   const background = normalizeOpenAIImageBackground(input.background);
+  input = { ...input, modelSlug: normalizeLegacyOpenRouterSlug(input.modelSlug) };
   const supportsTransparency = supportsOpenAIBackgroundOpenRouterSlug(input.modelSlug);
   if (supportsTransparency && background === "transparent") {
     prompt = `${TRANSPARENCY_PROMPT_HINT}\n\n${prompt}`;

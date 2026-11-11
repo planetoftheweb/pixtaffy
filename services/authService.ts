@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId, normalizeLegacyOpenRouterModels } from '../utils/legacyModelNormalizer';
 import { writeMemberHint } from '../utils/startupGate';
 import { PREFER_STUDIO_STORAGE_KEY } from '../utils/welcomeMode';
 import { loadKeyStorageMode, serverKeysEnabled, resetKeyStorageMode } from './keyStorageMode';
@@ -110,13 +111,13 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
     }
   }
   if (serverKeysEnabled() && prefs.apiKeyStatus) clean.apiKeyStatus = prefs.apiKeyStatus;
-  if (prefs.selectedModel) clean.selectedModel = prefs.selectedModel;
+  if (prefs.selectedModel) clean.selectedModel = normalizeLegacyModelId(prefs.selectedModel);
   if (prefs.systemPrompt) clean.systemPrompt = prefs.systemPrompt;
   // Enabled OpenRouter model slugs. An empty array is meaningful ("none
   // enabled") and distinct from undefined ("use curated defaults"), so
   // persist it whenever the field is an array at all.
   if (Array.isArray(prefs.openRouterModels)) {
-    clean.openRouterModels = prefs.openRouterModels.filter(
+    clean.openRouterModels = normalizeLegacyOpenRouterModels(prefs.openRouterModels).filter(
       (slug): slug is string => typeof slug === 'string' && slug.length > 0
     );
   }
@@ -149,7 +150,7 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
       if (preset.colorSchemeId) p.colorSchemeId = preset.colorSchemeId;
       if (preset.aspectRatio) p.aspectRatio = preset.aspectRatio;
       if (preset.svgMode) p.svgMode = preset.svgMode;
-      if (preset.selectedModel) p.selectedModel = preset.selectedModel;
+      if (preset.selectedModel) p.selectedModel = normalizeLegacyModelId(preset.selectedModel);
       if (preset.openaiImageQuality) p.openaiImageQuality = preset.openaiImageQuality;
       if (preset.openaiImageBackground) p.openaiImageBackground = preset.openaiImageBackground;
       if (preset.customInstructions?.trim()) p.customInstructions = preset.customInstructions.trim().slice(0, 2000);
@@ -201,7 +202,7 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
             if (preset.colorSchemeId) p.colorSchemeId = preset.colorSchemeId;
             if (preset.aspectRatio) p.aspectRatio = preset.aspectRatio;
             if (preset.svgMode) p.svgMode = preset.svgMode;
-            if (preset.selectedModel) p.selectedModel = preset.selectedModel;
+            if (preset.selectedModel) p.selectedModel = normalizeLegacyModelId(preset.selectedModel);
             if (preset.openaiImageQuality) p.openaiImageQuality = preset.openaiImageQuality;
       if (preset.openaiImageBackground) p.openaiImageBackground = preset.openaiImageBackground;
             if (preset.customInstructions?.trim()) p.customInstructions = preset.customInstructions.trim().slice(0, 2000);
@@ -237,6 +238,8 @@ const sanitizePreferences = (prefs: UserPreferences): any => {
 // Helper to merge saved preferences with default icons (re-hydration)
 const hydratePreferences = (savedPrefs: any): UserPreferences => {
   if (!savedPrefs) return defaultPreferences;
+  const normalizePreset = (p: ToolbarPreset): ToolbarPreset => ({ ...p, selectedModel: p.selectedModel ? normalizeLegacyModelId(p.selectedModel) : undefined });
+  savedPrefs = { ...savedPrefs, presets: Array.isArray(savedPrefs.presets) ? savedPrefs.presets.filter((p: ToolbarPreset) => p && typeof p.id === 'string' && typeof p.name === 'string').map(normalizePreset) : [] };
   const rawApiKeys =
     savedPrefs.apiKeys && typeof savedPrefs.apiKeys === 'object' ? savedPrefs.apiKeys : {};
   const cleanedApiKeys: { [k: string]: string } = {};
@@ -264,9 +267,9 @@ const hydratePreferences = (savedPrefs: any): UserPreferences => {
     ...(serverKeysEnabled() ? {} : { apiKeys: cleanedApiKeys, geminiApiKey: legacyGeminiTrimmed || undefined }),
     apiKeyStatus: savedPrefs.apiKeyStatus || {},
     openRouterModels: Array.isArray(savedPrefs.openRouterModels)
-      ? savedPrefs.openRouterModels.filter((s: unknown): s is string => typeof s === 'string')
+      ? normalizeLegacyOpenRouterModels(savedPrefs.openRouterModels.filter((s: unknown): s is string => typeof s === 'string'))
       : undefined,
-    selectedModel: savedPrefs.selectedModel || 'openai-2.5',
+    selectedModel: normalizeLegacyModelId(savedPrefs.selectedModel || 'openai-2.5'),
     systemPrompt: savedPrefs.systemPrompt,
     settings: {
       contributeByDefault: savedPrefs.settings?.contributeByDefault ?? defaultPreferences.settings?.contributeByDefault ?? false,
@@ -302,6 +305,7 @@ const hydratePreferences = (savedPrefs: any): UserPreferences => {
             ) {
               entry.parentId = f.parentId;
             }
+            if (Array.isArray(f.presets)) entry.presets = f.presets.filter((p: ToolbarPreset) => p && typeof p.id === 'string' && typeof p.name === 'string').map(normalizePreset);
             if (typeof f.customInstructions === 'string') {
               const trimmed = f.customInstructions.trim();
               if (trimmed.length > 0) entry.customInstructions = trimmed.slice(0, 4000);

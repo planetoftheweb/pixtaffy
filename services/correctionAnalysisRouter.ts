@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from '../utils/legacyModelNormalizer';
 import { serverKeysEnabled } from './keyStorageMode';
 import type { User } from '../types';
 import { OPENROUTER_MODEL_PREFIX } from '../constants';
@@ -8,6 +9,7 @@ const normalizeStoredApiKey = (value: string): string =>
 type ApiKeyProvider = 'gemini' | 'openai' | 'openrouter';
 
 const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
+  modelId = normalizeLegacyModelId(modelId);
   if (
     modelId === 'gemini' ||
     modelId === 'gemini-nano-banana-2.1' || modelId === 'gemini-3.1-flash-image-preview' ||
@@ -18,7 +20,6 @@ const getProviderForModel = (modelId: string): ApiKeyProvider | undefined => {
   }
   if (
     modelId === 'openai' ||
-    modelId === 'openai-2' ||
     modelId === 'openai-2.6' || modelId === 'openai-2.6-flare' || modelId === 'openai-2.5' ||
     modelId === 'openai-flare' ||
     modelId === 'openai-mini'
@@ -69,6 +70,7 @@ export function getApiKeyForModelFromUser(
   user: User | null | undefined,
   modelId: string
 ): string | undefined {
+  modelId = normalizeLegacyModelId(modelId);
   if (!user) return undefined;
   if (serverKeysEnabled()) {
     const slots = [modelId, getProviderForModel(modelId) || '', ...(getProviderForModel(modelId) === 'gemini' ? ['gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-svg'] : [])];
@@ -128,12 +130,12 @@ export function resolveAuxiliaryByokProvider(
   selectedModel: string,
   getApiKeyForModel: (modelId: string) => string | undefined
 ): { provider: 'gemini' | 'openai'; apiKey: string } | null {
+  selectedModel = normalizeLegacyModelId(selectedModel);
   const openaiKey = getApiKeyForModel('openai');
   const geminiKey = getApiKeyForModel('gemini');
 
   const openaiToolbar =
     selectedModel === 'openai' ||
-    selectedModel === 'openai-2' ||
     selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' ||
     selectedModel === 'openai-flare' ||
     selectedModel === 'openai-mini';

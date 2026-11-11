@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- GPT Image 2 (`openai-2`, `gpt-image-2`, `openai/gpt-image-2`) retired; saved selections now use GPT Image 2.6 (`openai-2.6`, `gpt-image-2.6-sunburst`). Legacy model IDs migrate in memory to Sunburst.
+
 ## 0.33.0
 
 - Added GPT Image 2.6, GPT Image 2.6 Flare, and Nano Banana 2.1.

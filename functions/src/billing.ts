@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from './legacyModelNormalizer';
 import { stagingOrigins } from "./corsOrigins";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getFirestore, DocumentData, FieldPath } from "firebase-admin/firestore";
@@ -495,7 +496,7 @@ export const reserveImageBatch = onCall(callableOptions, async (request) => {
   const rawModels = Array.isArray(request.data?.models) ? request.data.models : [];
   const models: BatchModelRequest[] = rawModels.map((raw: unknown) => {
     const value = (raw ?? {}) as Record<string, unknown>;
-    return { modelId: String(value.modelId ?? ""), count: Math.floor(Number(value.count ?? 0)) };
+    return { modelId: normalizeLegacyModelId(String(value.modelId ?? "")), count: Math.floor(Number(value.count ?? 0)) };
   });
   const totalImages = models.reduce((sum, item) => sum + item.count, 0);
   if (models.length === 0 || models.some((item) => item.count <= 0) || totalImages > 15) {

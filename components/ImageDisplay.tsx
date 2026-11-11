@@ -1148,7 +1148,7 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
     'openai-2.5': 'GPT Image 2.5',
     'openai-2.6-flare': 'GPT Image 2.6 Flare',
     'openai-flare': 'GPT Image 2.5 Flare',
-    'openai-2': 'GPT Image 2',
+    'openai-2': 'GPT Image 2.6',
     'openai-mini': 'GPT Image Mini',
     openai: 'GPT Image 1.5',
     'gemini-svg': 'Gemini SVG'
@@ -1163,7 +1163,7 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
     'openai-2.5': 'GPT 2.5',
     'openai-2.6-flare': 'GPT 2.6 Flare',
     'openai-flare': 'GPT Flare',
-    'openai-2': 'GPT 2',
+    'openai-2': 'GPT 2.6',
     'openai-mini': 'GPT Mini',
     openai: 'GPT 1.5',
     'gemini-svg': 'SVG'

@@ -1134,7 +1134,7 @@ export const RecentGenerations: React.FC<RecentGenerationsProps> = ({
     if (modelId === 'gemini-3.1-flash-lite-image') return 'Nano Banana 2 Lite';
     if (modelId === 'openai-2.5') return 'GPT Image 2.5';
     if (modelId === 'openai-flare') return 'GPT Image 2.5 Flare';
-    if (modelId === 'openai-2') return 'GPT Image 2';
+    if (modelId === 'openai-2') return 'GPT Image 2.6';
     if (modelId === 'openai-mini') return 'GPT Image Mini';
     if (modelId === 'openai') return 'GPT Image 1.5';
     if (modelId === 'gemini-svg') return 'Gemini SVG';

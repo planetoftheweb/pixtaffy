@@ -1,3 +1,4 @@
+import { normalizeLegacyOpenRouterSlug } from '../utils/legacyModelNormalizer';
 import { GenerationConfig, GeneratedImage } from '../types';
 import { OPENROUTER_MODEL_PREFIX } from '../constants';
 
@@ -15,7 +16,7 @@ const OPENROUTER_API_BASE = 'https://openrouter.ai/api/v1';
 
 export const openRouterSlugFromModelId = (modelId: string): string | undefined =>
   modelId.startsWith(OPENROUTER_MODEL_PREFIX)
-    ? modelId.slice(OPENROUTER_MODEL_PREFIX.length)
+    ? normalizeLegacyOpenRouterSlug(modelId.slice(OPENROUTER_MODEL_PREFIX.length))
     : undefined;
 
 export interface OpenRouterImageModel {
@@ -65,6 +66,7 @@ export const generateOpenRouterImage = async (
   apiKey: string,
   options: OpenRouterGenerateOptions
 ): Promise<GeneratedImage> => {
+  options = { ...options, modelSlug: normalizeLegacyOpenRouterSlug(options.modelSlug) };
   if (!apiKey?.trim()) {
     throw new Error(`OpenRouter API key is required for ${options.modelSlug}`);
   }
@@ -74,7 +76,7 @@ export const generateOpenRouterImage = async (
     : prompt;
 
   const base: Record<string, unknown> = {
-    model: options.modelSlug.replace(/^(google\/gemini-[a-z0-9.-]*-image)-preview$/i, '$1'),
+    model: normalizeLegacyOpenRouterSlug(options.modelSlug).replace(/^(google\/gemini-[a-z0-9.-]*-image)-preview$/i, '$1'),
     prompt: fullPrompt,
     output_format: 'png'
   };

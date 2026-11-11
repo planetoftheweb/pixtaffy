@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from './legacyModelNormalizer';
 import { geminiAssistCost } from "./geminiRates";
 import { enforceRateLimit } from './rateLimit';
 import { stagingOrigins } from "./corsOrigins";
@@ -469,7 +470,7 @@ export const generateGuestImage = onCall(
     const background = normalizeOpenAIImageBackground(
       String(request.data?.background ?? "auto").toLowerCase(),
     );
-    const modelId = String(request.data?.modelId ?? DEFAULT_GUEST_MODEL_ID);
+    const modelId = normalizeLegacyModelId(String(request.data?.modelId ?? DEFAULT_GUEST_MODEL_ID));
     const cached = await readPaidDelivery(uid, idempotencyKey).catch((error) => {
       logger.error("Guest delivery lookup failed", { error });
       throw new HttpsError("unavailable", "PixTaffy could not safely check your guest image. Try again.");
@@ -568,7 +569,7 @@ export const generateWithCredits = onCall(
   { ...baseOptions, secrets: [OPENROUTER_API_KEY] },
   async (request) => {
     const { uid, isAdmin } = requireAuth(request);
-    const modelId = String(request.data?.modelId ?? "");
+    const modelId = normalizeLegacyModelId(String(request.data?.modelId ?? ""));
     const pricing = getPaidModelPrice(modelId);
     if (!pricing) {
       throw new HttpsError("failed-precondition", "This model is available with BYOK only.");

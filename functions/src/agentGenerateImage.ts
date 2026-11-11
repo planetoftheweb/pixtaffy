@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from './legacyModelNormalizer';
 import { resolveUserApiKey, USER_API_KEYS_ENCRYPTION_KEY } from './userApiKeys';
 /**
  * Admin-only HTTPS API: generate image(s) using the signed-in user's BYOK keys
@@ -64,7 +65,6 @@ const API_MODEL_BY_UI_ID: Record<string, string> = {
   "openai-2.5": "gpt-image-2.5-sunburst",
   "openai-2.6-flare": "gpt-image-2.6-flare",
   "openai-flare": "gpt-image-2.5-flare",
-  "openai-2": "gpt-image-2",
   "openai-mini": "gpt-image-1-mini",
   openai: "gpt-image-1.5",
 };
@@ -144,6 +144,7 @@ interface AspectRatioRow {
 }
 
 const getAspectRatiosForModel = (modelId: string, source: AspectRatioRow[]): AspectRatioRow[] => {
+  modelId = normalizeLegacyModelId(modelId);
   let allowed: readonly string[];
   if (
     modelId === "gemini" ||
@@ -151,7 +152,7 @@ const getAspectRatiosForModel = (modelId: string, source: AspectRatioRow[]): Asp
     modelId === NANO_BANANA_2_LITE_MODEL
   ) {
     allowed = GEMINI_ALLOWED_ASPECT_RATIOS;
-  } else if (modelId === "openai-2" || modelId === "openai-2.6" || modelId === "openai-2.6-flare" || modelId === "openai-2.5" || modelId === "openai-flare") {
+  } else if (modelId === "openai-2.6" || modelId === "openai-2.6-flare" || modelId === "openai-2.5" || modelId === "openai-flare") {
     allowed = OPENAI_2_ALLOWED_ASPECT_RATIOS;
   } else if (modelId === "openai" || modelId === "openai-mini") {
     allowed = OPENAI_ALLOWED_ASPECT_RATIOS;
@@ -369,13 +370,13 @@ function buildStructuredOpenAIPrompt(
 }
 
 const resolveOpenAiApiModel = (uiModelId?: string): string => {
+  uiModelId = uiModelId ? normalizeLegacyModelId(uiModelId) : uiModelId;
   if (uiModelId && API_MODEL_BY_UI_ID[uiModelId]) return API_MODEL_BY_UI_ID[uiModelId];
   return API_MODEL_BY_UI_ID.openai;
 };
 
 function usesWideOpenAISizes(apiModel: string): boolean {
   return (
-    apiModel === "gpt-image-2" ||
     apiModel === "gpt-image-2.5-sunburst" ||
     apiModel === "gpt-image-2.5-flare" ||
     (apiModel.startsWith("gpt-image-2.5-") || apiModel.startsWith("gpt-image-2.6-"))
@@ -1161,12 +1162,12 @@ export const agentGenerateImage = onRequest(
         "16:9"
       ).trim();
 
-      const selectedModel = (
+      const selectedModel = normalizeLegacyModelId((
         ov.selectedModel ||
         presetMatch?.selectedModel ||
         prefs?.selectedModel ||
         NANO_BANANA_2_UI_MODEL
-      ).trim();
+      ).trim());
 
       if (selectedModel === "gemini-svg") {
         sendJson(out, 400, { error: "gemini-svg is not supported via this endpoint." });
@@ -1247,7 +1248,6 @@ export const agentGenerateImage = onRequest(
         try {
           if (
             selectedModel === "openai" ||
-            selectedModel === "openai-2" ||
             selectedModel === "openai-2.6" || selectedModel === "openai-2.6-flare" || selectedModel === "openai-2.5" ||
             selectedModel === "openai-flare" ||
             selectedModel === "openai-mini"

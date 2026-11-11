@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from './utils/legacyModelNormalizer';
 import { BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, AspectRatioDefinition } from './types';
 import { 
   FileChartColumn, 
@@ -215,13 +216,6 @@ export const SUPPORTED_MODELS = [
     group: 'OpenAI' as const
   },
   {
-    id: 'openai-2',
-    name: 'GPT Image 2',
-    description: 'OpenAI gpt-image-2 \u2014 previous flagship image model (2K/4K, wide ratios)',
-    format: 'raster' as const,
-    group: 'OpenAI' as const
-  },
-  {
     id: 'openai-mini',
     name: 'GPT Image Mini',
     description: 'OpenAI gpt-image-1-mini \u2014 budget-tier image model',
@@ -297,9 +291,9 @@ export const OPENROUTER_CURATED_MODELS: OpenRouterCuratedModel[] = [
     costPerImageUsd: 0.134
   },
   {
-    slug: 'openai/gpt-image-2',
-    name: 'GPT Image 2 (OR)',
-    goodAt: 'OpenAI’s flagship routed through OpenRouter. Hidden automatically when you have a direct OpenAI key — the direct API is used instead.',
+    slug: 'openai/gpt-image-2.6-sunburst',
+    name: 'GPT Image 2.6 (OR)',
+    goodAt: 'OpenAI\'s flagship routed through OpenRouter. Hidden automatically when you have a direct OpenAI key - the direct API is used instead.',
     costPerImageUsd: 0.053
   }
 ];
@@ -378,6 +372,7 @@ character of every element.
  */
 export const getModelDisplayName = (modelId?: string): string => {
   if (!modelId) return 'Model';
+  modelId = normalizeLegacyModelId(modelId);
   const native = SUPPORTED_MODELS.find((m) => m.id === modelId);
   if (native) return native.name;
   if (modelId.startsWith(OPENROUTER_MODEL_PREFIX)) {

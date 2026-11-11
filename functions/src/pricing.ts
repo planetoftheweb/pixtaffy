@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from './legacyModelNormalizer';
 export interface PaidModelPrice {
   requestedModelId: string;
   openRouterModelId: string;
@@ -7,6 +8,9 @@ export interface PaidModelPrice {
 }
 
 const PRICES: Record<string, Omit<PaidModelPrice, "requestedModelId">> = {
+  "openrouter:openai/gpt-image-2.5-flare": { openRouterModelId: "openai/gpt-image-2.5-flare", milliCredits: 2_000, costCeilingUsd: 0.14, label: "GPT Image 2.5-flare" },
+  "openrouter:openai/gpt-image-2.5-sunburst": { openRouterModelId: "openai/gpt-image-2.5-sunburst", milliCredits: 2_000, costCeilingUsd: 0.14, label: "GPT Image 2.5-sunburst" },
+  "openrouter:openai/gpt-image-2.6-flare": { openRouterModelId: "openai/gpt-image-2.6-flare", milliCredits: 2_000, costCeilingUsd: 0.14, label: "GPT Image 2.6-flare" },
   "openrouter:bytedance-seed/seedream-4.5": {
     openRouterModelId: "bytedance-seed/seedream-4.5",
     milliCredits: 1_000,
@@ -37,11 +41,11 @@ const PRICES: Record<string, Omit<PaidModelPrice, "requestedModelId">> = {
     costCeilingUsd: 0.14,
     label: "Nano Banana Pro",
   },
-  "openrouter:openai/gpt-image-2": {
-    openRouterModelId: "openai/gpt-image-2",
+  "openrouter:openai/gpt-image-2.6-sunburst": {
+    openRouterModelId: "openai/gpt-image-2.6-sunburst",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
-    label: "GPT Image 2",
+    label: "GPT Image 2.6",
   },
   "openrouter:google/gemini-nano-banana-2.1": {
     openRouterModelId: "google/gemini-nano-banana-2.1",
@@ -79,37 +83,35 @@ const PRICES: Record<string, Omit<PaidModelPrice, "requestedModelId">> = {
     costCeilingUsd: 0.14,
     label: "Nano Banana 2 Lite",
   },
-  // Credit-funded fulfillment still uses OpenRouter gpt-image-2 until OR publishes
-  // gpt-image-2.5-sunburst / gpt-image-2.5-flare. BYOK uses the native API ids.
   "openai-2.6": {
-    openRouterModelId: "openai/gpt-image-2",
+    openRouterModelId: "openai/gpt-image-2.6-sunburst",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
     label: "GPT Image 2.6",
   },
   "openai-2.5": {
-    openRouterModelId: "openai/gpt-image-2",
+    openRouterModelId: "openai/gpt-image-2.5-sunburst",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
     label: "GPT Image 2.5",
   },
   "openai-2.6-flare": {
-    openRouterModelId: "openai/gpt-image-2",
+    openRouterModelId: "openai/gpt-image-2.6-flare",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
     label: "GPT Image 2.6 Flare",
   },
   "openai-flare": {
-    openRouterModelId: "openai/gpt-image-2",
+    openRouterModelId: "openai/gpt-image-2.5-flare",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
     label: "GPT Image 2.5 Flare",
   },
   "openai-2": {
-    openRouterModelId: "openai/gpt-image-2",
+    openRouterModelId: "openai/gpt-image-2.6-sunburst",
     milliCredits: 2_000,
     costCeilingUsd: 0.14,
-    label: "GPT Image 2",
+    label: "GPT Image 2.6",
   },
 };
 
@@ -117,6 +119,7 @@ export const paidModelPrices = (): PaidModelPrice[] =>
   Object.entries(PRICES).map(([requestedModelId, price]) => ({ requestedModelId, ...price }));
 
 export const getPaidModelPrice = (modelId: string): PaidModelPrice | null => {
+  modelId = normalizeLegacyModelId(modelId);
   const price = PRICES[modelId];
   return price ? { requestedModelId: modelId, ...price } : null;
 };

@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from '../utils/legacyModelNormalizer';
 import { GenerationConfig, GeneratedImage } from '../types';
 import { resolveImageInputForRefinement } from './geminiService';
 import type { CorrectionAnalysisContext } from './correctionAnalysisShared';
@@ -161,18 +162,18 @@ const API_MODEL_BY_UI_ID: Record<string, string> = {
   'openai-2.5': 'gpt-image-2.5-sunburst',
   'openai-2.6-flare': 'gpt-image-2.6-flare',
   'openai-flare': 'gpt-image-2.5-flare',
-  'openai-2': 'gpt-image-2',
   'openai-mini': 'gpt-image-1-mini',
   openai: 'gpt-image-1.5'
 };
 
 const resolveApiModel = (uiModelId?: string): string => {
+  uiModelId = uiModelId ? normalizeLegacyModelId(uiModelId) : uiModelId;
   if (uiModelId && API_MODEL_BY_UI_ID[uiModelId]) return API_MODEL_BY_UI_ID[uiModelId];
   return API_MODEL_BY_UI_ID.openai;
 };
 
 // gpt-image-1.5 and gpt-image-1-mini only produce the three sizes below.
-// gpt-image-2 accepts a much wider set; we pick sensible defaults per aspect
+// gpt-image-2.5 and 2.6 accept a much wider set; we pick sensible defaults per aspect
 // ratio that satisfy OpenAI's constraints (edges are multiples of 16 and the
 // long:short ratio is <= 3:1).
 const LEGACY_SIZE_BY_RATIO: Record<string, string> = {
@@ -192,7 +193,6 @@ const GPT_IMAGE_2_SIZE_BY_RATIO: Record<string, string> = {
 };
 
 const usesWideOpenAISizes = (apiModel: string): boolean =>
-  apiModel === 'gpt-image-2' ||
   apiModel === 'gpt-image-2.5-sunburst' ||
   apiModel === 'gpt-image-2.5-flare' ||
   (apiModel.startsWith('gpt-image-2.5-') || apiModel.startsWith('gpt-image-2.6-'));
@@ -214,7 +214,7 @@ const fetchToBase64 = async (url: string): Promise<{ base64: string; mime: strin
 };
 
 export interface OpenAIGenerateOptions {
-  /** UI model id: 'openai-2.6' | 'openai-2.6-flare' | 'openai-2.5' | 'openai-flare' | 'openai-2' | 'openai-mini' | 'openai'. Defaults to 'openai'. */
+  /** UI model id: 'openai-2.6' | 'openai-2.6-flare' | 'openai-2.5' | 'openai-flare' | 'openai-mini' | 'openai'. Defaults to 'openai'. */
   modelId?: string;
   /** Defaults to auto. xhigh and max apply only to GPT Image 2.6. */
   quality?: OpenAIImageQuality;
@@ -222,14 +222,14 @@ export interface OpenAIGenerateOptions {
   complexity?: OpenAIImageComplexity;
   /**
    * auto | opaque | transparent. Defaults to 'auto'.
-   * Only sent for gpt-image-2 / gpt-image-2.5-* / gpt-image-2.6-*; transparent forces output_format png.
+   * Only sent for gpt-image-2.5 / gpt-image-2.5-* / gpt-image-2.6-*; transparent forces output_format png.
    */
   background?: OpenAIImageBackground;
   systemPrompt?: string;
 }
 
 /**
- * Generate an image via OpenAI's GPT Image family (gpt-image-2,
+ * Generate an image via OpenAI's GPT Image family (gpt-image-2.5,
  * gpt-image-1-mini, or gpt-image-1.5). Callers bring their own API key.
  */
 export const generateOpenAIImage = async (
@@ -263,7 +263,7 @@ export const generateOpenAIImage = async (
     prompt: fullPrompt,
     size
   };
-  // Only gpt-image-2 and gpt-image-1-mini accept a `quality` parameter.
+  // GPT Image 2.5, 2.6, and gpt-image-1-mini accept a `quality` parameter.
   // gpt-image-1.5 rejects it, so we only send it when explicitly set to
   // non-auto on a supported model.
   if (apiModel !== 'gpt-image-1.5' && quality !== 'auto') {
