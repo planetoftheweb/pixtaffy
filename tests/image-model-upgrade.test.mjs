@@ -164,3 +164,35 @@ test('Functions API maps route normalized legacy IDs to Sunburst', () => {
     assert.ok(!Object.values(map).includes('gpt-image-2'), file);
   }
 });
+
+test('OpenRouter legacy selections use Sunburst for slug extraction and every retry', async () => {
+  const client = {};
+  vm.runInNewContext(ts.transpileModule(read('services/openRouterService.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+    exports: client,
+    require: name => name.includes('legacyModelNormalizer') ? normalizer : { OPENROUTER_MODEL_PREFIX: 'openrouter:' },
+  });
+  assert.equal(client.openRouterSlugFromModelId('openrouter:openai/gpt-image-2'), 'openai/gpt-image-2.6-sunburst');
+  assert.equal(client.openRouterSlugFromModelId('openrouter:other/image'), 'other/image');
+  assert.equal(client.openRouterSlugFromModelId('openai-2.6'), undefined);
+
+  const requests = [];
+  const provider = {};
+  const background = {};
+  vm.runInNewContext(ts.transpileModule(read('functions/src/openaiImageBackground.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: background, require: () => normalizer });
+  vm.runInNewContext(ts.transpileModule(read('functions/src/openRouterProvider.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+    exports: provider,
+    require: name => name.includes('legacyModelNormalizer') ? normalizer : background,
+    fetch: async (_url, request) => {
+      requests.push(JSON.parse(request.body));
+      return requests.length < 3
+        ? { ok: false, status: 400, json: async () => ({ error: 'Unsupported size' }) }
+        : { ok: true, json: async () => ({ data: [{ b64_json: 'a'.repeat(100) }] }) };
+    },
+  });
+  await provider.generateOpenRouterImageCore({ apiKey: 'mock-key', modelSlug: 'openai/gpt-image-2', prompt: 'test', aspectRatio: '16:9', background: 'transparent' });
+  assert.equal(requests.length, 3);
+  for (const body of requests) {
+    assert.equal(body.model, 'openai/gpt-image-2.6-sunburst');
+    assert.equal(body.background, 'transparent');
+  }
+});

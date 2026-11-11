@@ -16,7 +16,7 @@ const OPENROUTER_API_BASE = 'https://openrouter.ai/api/v1';
 
 export const openRouterSlugFromModelId = (modelId: string): string | undefined =>
   modelId.startsWith(OPENROUTER_MODEL_PREFIX)
-    ? modelId.slice(OPENROUTER_MODEL_PREFIX.length)
+    ? normalizeLegacyOpenRouterSlug(modelId.slice(OPENROUTER_MODEL_PREFIX.length))
     : undefined;
 
 export interface OpenRouterImageModel {
