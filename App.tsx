@@ -3264,7 +3264,7 @@ const App: React.FC = () => {
     openRouterModelSlugs?: string[]
   ) => {
     if (!user) return;
-    const nextSelectedModel = preferredModel || user.preferences.selectedModel || DEFAULT_MODEL_ID;
+    const nextSelectedModel = normalizeLegacyModelId(preferredModel || user.preferences.selectedModel || DEFAULT_MODEL_ID);
 
     const apiKeyStatus = serverKeysEnabled() ? await getUserApiKeyStatus() : undefined;
 
@@ -3443,6 +3443,7 @@ const App: React.FC = () => {
   };
 
   const handleApplyPreset = (preset: ToolbarPreset) => {
+    preset = { ...preset, selectedModel: preset.selectedModel ? normalizeLegacyModelId(preset.selectedModel) : undefined };
     // Apply only the fields the preset actually carries - leave the rest
     // untouched so partial presets compose with the user's current setup.
     setConfig(prev => {

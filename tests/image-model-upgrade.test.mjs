@@ -131,6 +131,8 @@ test('OpenRouter request models normalize legacy Gemini image slugs', () => {
 
 test('retired selections normalize without changing current models', () => {
   assert.equal(normalizer.normalizeLegacyModelId('openai-2'), 'openai-2.6');
+  assert.equal(normalizer.normalizeLegacyModelId('openai/gpt-image-2'), 'openrouter:openai/gpt-image-2.6-sunburst');
+  assert.equal(normalizer.normalizeLegacyOpenRouterSlug('openai/gpt-image-2'), 'openai/gpt-image-2.6-sunburst');
   assert.equal(normalizer.normalizeLegacyModelId('openrouter:openai/gpt-image-2'), 'openrouter:openai/gpt-image-2.6-sunburst');
   for (const id of ['openai-2.6', 'openai-2.6-flare', 'openai-2.5', 'openai-flare', 'openai-mini', 'openai', 'gemini', 'openrouter:other/image']) assert.equal(normalizer.normalizeLegacyModelId(id), id);
   assert.deepEqual(Array.from(normalizer.normalizeLegacyOpenRouterModels(['openai/gpt-image-2', 'other/image', 'openai/gpt-image-2.6-sunburst'])), ['openai/gpt-image-2.6-sunburst', 'other/image']);
@@ -139,6 +141,17 @@ test('retired selections normalize without changing current models', () => {
   assert.doesNotMatch(constants, /id: 'openai-2'|slug: 'openai\/gpt-image-2'/);
   assert.match(constants, /slug: 'openai\/gpt-image-2\.6-sunburst'/);
   assert.match(constants, /name: 'GPT Image 2\.6 \(OR\)'/);
+});
+
+test('legacy preset reads and comparisons migrate in memory without changing saved input', () => {
+  const helpers = {};
+  vm.runInNewContext(ts.transpileModule(read('utils/toolbarPresetUtils.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: helpers, require: () => normalizer });
+  for (const [legacy, current] of [['openai-2', 'openai-2.6'], ['openrouter:openai/gpt-image-2', 'openrouter:openai/gpt-image-2.6-sunburst']]) {
+    const saved = { id: 'saved', name: 'Saved preset', createdAt: 1, selectedModel: legacy };
+    assert.equal(helpers.sanitizeToolbarPreset(saved).selectedModel, current);
+    assert.equal(helpers.presetToolbarDiffersFromSnapshot(saved, { selectedModel: current }), false);
+    assert.equal(saved.selectedModel, legacy);
+  }
 });
 
 test('source contains no retired API model literals or new em dashes', async () => {
