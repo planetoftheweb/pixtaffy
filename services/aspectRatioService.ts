@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from '../utils/legacyModelNormalizer';
 import { ASPECT_RATIOS } from '../constants';
 import { AspectRatioDefinition } from '../types';
 
@@ -24,7 +25,7 @@ export const OPENAI_ALLOWED_ASPECT_RATIOS = [
   '3:2'
 ] as const;
 
-// gpt-image-2 supports a much wider set. We enumerate the headline ratios we
+// gpt-image-2.5 and 2.6 support a much wider set. We enumerate the headline ratios we
 // offer in the UI; openaiService picks concrete pixel sizes that satisfy
 // OpenAI's constraints (edges multiples of 16, long:short <= 3:1).
 export const OPENAI_2_ALLOWED_ASPECT_RATIOS = [
@@ -189,6 +190,7 @@ export const getAspectRatiosForModel = (
   modelId: string,
   allRatios: AspectRatioDefinition[]
 ): AspectRatioDefinition[] => {
+  modelId = normalizeLegacyModelId(modelId);
   const source = dedupeByValue(allRatios?.length ? allRatios : ASPECT_RATIOS);
 
   if (
@@ -199,7 +201,7 @@ export const getAspectRatiosForModel = (
     return buildFilteredRatios(GEMINI_ALLOWED_ASPECT_RATIOS, GEMINI_LABELS, source);
   }
 
-  if (modelId === 'openai-2' || modelId === 'openai-2.6' || modelId === 'openai-2.6-flare' || modelId === 'openai-2.5' || modelId === 'openai-flare') {
+  if ( modelId === 'openai-2.6' || modelId === 'openai-2.6-flare' || modelId === 'openai-2.5' || modelId === 'openai-flare') {
     return buildFilteredRatios(OPENAI_2_ALLOWED_ASPECT_RATIOS, OPENAI_2_LABELS, source);
   }
 
@@ -220,6 +222,7 @@ export const getSafeAspectRatioForModel = (
   requestedAspectRatio: string,
   allRatios: AspectRatioDefinition[]
 ): string => {
+  modelId = normalizeLegacyModelId(modelId);
   const normalizedRequested = normalizeAspectRatio(requestedAspectRatio);
   const modelRatios = getAspectRatiosForModel(modelId, allRatios);
   const modelValues = modelRatios.map(r => normalizeAspectRatio(r.value)).filter(Boolean);

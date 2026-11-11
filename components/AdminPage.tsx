@@ -124,7 +124,7 @@ const MODEL_LABELS: Record<string, string> = {
   'openai-2.5': 'GPT Image 2.5',
   'openai-2.6-flare': 'GPT Image 2.6 Flare',
   'openai-flare': 'GPT Image 2.5 Flare',
-  'openai-2': 'GPT Image 2',
+  'openai-2': 'GPT Image 2.6',
   'openai-mini': 'GPT Image Mini',
   openai: 'GPT Image 1.5'
 };

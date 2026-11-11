@@ -257,7 +257,7 @@ interface ControlPanelProps {
   }>;
   openaiQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
   onOpenAIQualityChange?: (quality: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto') => void;
-  /** GPT Image 2 / 2.5 family (not mini / 1.5). */
+  /** GPT Image 2.5 / 2.6 family (not mini / 1.5). */
   openaiBackground?: 'auto' | 'opaque' | 'transparent';
   onOpenAIBackgroundChange?: (background: 'auto' | 'opaque' | 'transparent') => void;
   /**
@@ -1956,7 +1956,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     'openai-2.5': 'GPT Image 2.5',
     'openai-2.6-flare': 'GPT Image 2.6 Flare',
     'openai-flare': 'GPT Image 2.5 Flare',
-    'openai-2': 'GPT Image 2',
+    'openai-2': 'GPT Image 2.6',
     'openai-mini': 'GPT Image Mini',
     openai: 'GPT Image 1.5',
     'gemini-svg': 'Gemini SVG'
@@ -2268,8 +2268,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <div className="w-full text-left p-3 text-[12px] text-slate-500 border-t border-gray-200 dark:border-[#30363d] bg-gray-50 dark:bg-[#0d1117]">
                     {isSvgModel
                       ? 'SVG: all ratios available (mapped to viewBox).'
-                      : selectedModel === 'openai-2' || selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare'
-                        ? 'GPT Image 2 / 2.5 / 2.6: 2K/4K on the 16px grid (1:3 to 3:1).'
+                      : selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare'
+                        ? 'GPT Image 2.5 / 2.6: 2K/4K on the 16px grid (1:3 to 3:1).'
                         : selectedModel === 'openai' || selectedModel === 'openai-mini'
                           ? 'Showing only ratios GPT Image outputs natively.'
                           : 'Showing only ratios Nano Banana models support natively.'}
@@ -2491,7 +2491,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </div>
 
             {/* Quality (OpenAI models only — gpt-image-1.5 ignores this but is harmless) */}
-            {(selectedModel === 'openai-2' || selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare' || selectedModel === 'openai-mini') && onOpenAIQualityChange && (
+            {( selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' || selectedModel === 'openai-flare' || selectedModel === 'openai-mini') && onOpenAIQualityChange && (
               <div className="relative min-w-0 lg:shrink">
                 <DropdownButton
                   icon={Gauge}
@@ -2549,7 +2549,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               </div>
             )}
 
-            {/* Background (GPT Image 2 / 2.5 family — transparent PNG/WebP alpha) */}
+            {/* Background (GPT Image 2.5 / 2.6 family - transparent PNG/WebP alpha) */}
             {supportsOpenAIBackground(selectedModel) && onOpenAIBackgroundChange && (
               <div className="relative min-w-0 lg:shrink">
                 <DropdownButton

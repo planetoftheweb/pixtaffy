@@ -26,7 +26,7 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
 *   **🍬 Guest credits:** New visitors receive 3 credits before registering. GPT Image 2.5 is selected by default, leaving one credit for a second Standard image. Firebase Anonymous Auth, App Check, idempotency, browser and network limits, and the daily provider circuit breaker protect the guest path.
 *   **👤 User Profiles:** Sign up with Email or Username. Sync preferences across devices.
 *   **⚙️ Full Settings Management:** dedicated page for managing API keys, profile settings, and application preferences.
-*   **🔑 BYOK (Bring Your Own Key):** Multi-model keys for Google Gemini and OpenAI. A single OpenAI key drives GPT Image 2.6, GPT Image 2.6 Flare, GPT Image 2.5, GPT Image 2.5 Flare, GPT Image 2, GPT Image Mini, and GPT Image 1.5, with a per-model **Quality** control (Auto / Low / Medium / High). XHigh and Max apply only to GPT Image 2.6 and GPT Image 2.6 Flare.
+*   **🔑 BYOK (Bring Your Own Key):** Multi-model keys for Google Gemini and OpenAI. A single OpenAI key drives GPT Image 2.6, GPT Image 2.6 Flare, GPT Image 2.5, GPT Image 2.5 Flare, GPT Image Mini, and GPT Image 1.5, with a per-model **Quality** control (Auto / Low / Medium / High). XHigh and Max apply only to GPT Image 2.6 and GPT Image 2.6 Flare.
 *   **💳 Optional PixTaffy credits:** Verified accounts receive 10 starter credits for 30 days. Credit packs and Taffy Studio fund curated OpenRouter image models without exposing shared provider keys to the browser.
 *   **💬 Feedback to GitHub:** Bugs, ideas, questions, and screenshots can be sent from the footer or account menu. A protected Cloud Function saves the private contact record and opens a labeled issue in `planetoftheweb/pixtaffy`.
 *   **🧠 Refinement Workspace:** Per-image refine model + target size controls, built-in **Run analysis** correction-plan generator (server-side Gemini vision + JSON through `paidAiService.ts`, using PixTaffy credits), and style-reference fallback for difficult recompositions.
@@ -57,7 +57,7 @@ An AI-powered brand design studio that helps you generate cohesive visual assets
     *   **Authentication:** Email/Password & Profile Management
     *   **Firestore:** Real-time NoSQL Database (Normalized Structure)
     *   **Storage:** Profile photos & Asset storage
-*   **AI:** Google Gemini (`gemini-3-pro-image`, `gemini-3.1-flash-image`, `gemini-nano-banana-2.1`, `gemini-flash-latest`) and OpenAI (`gpt-image-2.6-sunburst`, `gpt-image-2.6-flare`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1-mini`, `gpt-image-1.5`)
+*   **AI:** Google Gemini (`gemini-3-pro-image`, `gemini-3.1-flash-image`, `gemini-nano-banana-2.1`, `gemini-flash-latest`) and OpenAI (`gpt-image-2.6-sunburst`, `gpt-image-2.6-flare`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-1-mini`, `gpt-image-1.5`)
 *   **Icons:** Lucide React
 *   **Font:** Mona Sans & Inter
 
@@ -169,7 +169,7 @@ See [`CHANGELOG.md`](./CHANGELOG.md) for a full, versioned history of changes.
 
 ### Current image models
 
-GPT Image 2.6, GPT Image 2.6 Flare, GPT Image 2.5, GPT Image 2.5 Flare, GPT Image 2, GPT Image Mini, GPT Image 1.5, Nano Banana 2.1, Nano Banana 2, Nano Banana Pro, and Nano Banana 2 Lite. Gemini SVG remains available for vectors.
+GPT Image 2.6, GPT Image 2.6 Flare, GPT Image 2.5, GPT Image 2.5 Flare, GPT Image Mini, GPT Image 1.5, Nano Banana 2.1, Nano Banana 2, Nano Banana Pro, and Nano Banana 2 Lite. Gemini SVG remains available for vectors.
 
 ### Image model smoke script
 

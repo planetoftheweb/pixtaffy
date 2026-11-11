@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from '../utils/legacyModelNormalizer';
 import { assistRequestKeys } from './assistRequestKey';
 import { AI_ASSIST_TIMEOUT_MS, withAiAssistGuard } from './aiAssistGuard';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -73,7 +74,10 @@ export const SITE_FUNDED_MODEL_MILLICREDITS: Record<string, number> = {
   'openrouter:black-forest-labs/flux.2-pro': 2_000,
   'openrouter:recraft/recraft-v4.1-pro': 3_000,
   'openrouter:google/gemini-3-pro-image': 2_000,
-  'openrouter:openai/gpt-image-2': 2_000,
+  'openrouter:openai/gpt-image-2.6-sunburst': 2_000,
+  'openrouter:openai/gpt-image-2.6-flare': 2_000,
+  'openrouter:openai/gpt-image-2.5-sunburst': 2_000,
+  'openrouter:openai/gpt-image-2.5-flare': 2_000,
   'openrouter:google/gemini-nano-banana-2.1': 2_000,
   'openrouter:google/gemini-3.1-flash-image': 2_000,
   gemini: 2_000,
@@ -138,6 +142,7 @@ export const billingService = {
     idempotencyKey: string;
     batchReservationId?: string | null;
   }): Promise<GeneratedImage & { milliCreditsCharged: number; balanceMilliCredits: number }> => {
+    input = { ...input, modelId: normalizeLegacyModelId(input.modelId) };
     const call = httpsCallable<typeof input, GeneratedImage & { milliCreditsCharged: number; balanceMilliCredits: number }>(
       functions,
       'generateWithCredits',
@@ -159,6 +164,7 @@ export const billingService = {
     }
     const payload = {
       ...input,
+      modelId: normalizeLegacyModelId(input.modelId),
       guestInstallId: persistentGuestId(GUEST_INSTALL_ID_KEY, 'guest-install'),
       idempotencyKey: persistentGuestId(GUEST_REQUEST_ID_KEY, 'guest-image'),
     };

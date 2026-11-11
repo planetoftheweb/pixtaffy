@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from './legacyModelNormalizer';
 import { enforceRateLimit } from './rateLimit';
 import { namedFlagEnabled, serverSideUserKeysEnabled, userKeysMode } from './featureFlags';
 import { generateOpenRouterImageCore } from './openRouterProvider';
@@ -58,6 +59,7 @@ export async function ensureUserApiKeysMigrated(uid: string): Promise<Record<str
   });
 }
 export async function resolveUserApiKey(uid: string, model: string): Promise<string | undefined> {
+  model = normalizeLegacyModelId(model);
   const keys: Record<string, EncryptedKey> = (await getFirestore().doc(`userApiKeys/${uid}`).get()).data()?.keys || {};
   const provider = model.startsWith('openrouter') ? 'openrouter' : model.startsWith('openai') ? 'openai' : 'gemini';
   const slot = [model, provider, ...(provider === 'gemini' ? ['gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-svg'] : [])].find(k => keys[k]);
@@ -128,8 +130,9 @@ export const clearUserApiKeys = onCall(options, async request => {
 
 export const generateWithUserKey = onCall(options, async request => {
   const uid = await enabled(request, 'userkey-generate');
-  const { model = 'gemini', action = 'generate', prompt = '', config = {}, context = {}, image, svg, systemPrompt = '', quality = 'auto', background = 'auto', complexity } = request.data || {};
-  if (typeof model !== 'string' || !(['gemini', 'gemini-svg', 'gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-3.1-flash-lite-image', 'openai', 'openai-2', 'openai-2.6', 'openai-2.6-flare', 'openai-2.5', 'openai-flare', 'openai-mini', 'openrouter'].includes(model) || /^openrouter:[a-z0-9._/-]+$/i.test(model))) {
+  const { model: rawModel = 'gemini', action = 'generate', prompt = '', config = {}, context = {}, image, svg, systemPrompt = '', quality = 'auto', background = 'auto', complexity } = request.data || {};
+  const model = typeof rawModel === 'string' ? normalizeLegacyModelId(rawModel) : rawModel;
+  if (typeof model !== 'string' || !(['gemini', 'gemini-svg', 'gemini-nano-banana-2.1', 'gemini-3.1-flash-image-preview', 'gemini-3.1-flash-lite-image', 'openai', 'openai-2.6', 'openai-2.6-flare', 'openai-2.5', 'openai-flare', 'openai-mini', 'openrouter'].includes(model) || /^openrouter:[a-z0-9._/-]+$/i.test(model))) {
     throw new HttpsError('invalid-argument', 'Unsupported model.');
   }
   if (!['generate', 'refine', 'style', 'models'].includes(action)) throw new HttpsError('invalid-argument', 'Unsupported operation.');
@@ -148,12 +151,12 @@ export const generateWithUserKey = onCall(options, async request => {
       const result = await generateOpenRouterImageCore({ apiKey: key, modelSlug: model.replace(/^openrouter:/, ''), prompt: fullPrompt, aspectRatio: config.aspectRatio, title: 'PixTaffy' });
       base64Data = result.base64Data; mimeType = result.mimeType;
     } else if (model.startsWith('openai')) {
-      const apiModel = ({ 'openai-2.6': 'gpt-image-2.6-sunburst', 'openai-2.6-flare': 'gpt-image-2.6-flare', 'openai-2.5': 'gpt-image-2.5-sunburst', 'openai-flare': 'gpt-image-2.5-flare', 'openai-2': 'gpt-image-2', 'openai-mini': 'gpt-image-1-mini' } as Record<string, string>)[model] || 'gpt-image-1.5';
+      const apiModel = ({ 'openai-2.6': 'gpt-image-2.6-sunburst', 'openai-2.6-flare': 'gpt-image-2.6-flare', 'openai-2.5': 'gpt-image-2.5-sunburst', 'openai-flare': 'gpt-image-2.5-flare', 'openai-mini': 'gpt-image-1-mini' } as Record<string, string>)[model] || 'gpt-image-1.5';
       const ratio = String(config.aspectRatio || '1:1').split(':').map(Number);
       const wideSizes: Record<string, string> = { '1:1': '2048x2048', '16:9': '2048x1152', '9:16': '1152x2048', '3:1': '2304x768', '1:3': '768x2304' };
       const safeQuality = !apiModel.startsWith('gpt-image-2.6-') && ['xhigh', 'max'].includes(quality) ? 'high' : quality;
       const validComplexity = apiModel.startsWith('gpt-image-2.6-') && ['low', 'medium', 'high'].includes(complexity);
-      const size = (apiModel.startsWith('gpt-image-2') && wideSizes[config.aspectRatio]) || (ratio[0] > ratio[1] ? '1536x1024' : ratio[0] < ratio[1] ? '1024x1536' : '1024x1024');
+      const size = (apiModel.startsWith('gpt-image-2.') && wideSizes[config.aspectRatio]) || (ratio[0] > ratio[1] ? '1536x1024' : ratio[0] < ratio[1] ? '1024x1536' : '1024x1024');
       let body: BodyInit, headers: Record<string, string> = { Authorization: `Bearer ${key}` };
       if (image) {
         const form = new FormData();

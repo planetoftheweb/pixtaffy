@@ -128,7 +128,7 @@ export interface Generation {
 
   /**
    * Shared tag linking tiles produced by a single multi-model Generate click
-   * (e.g. "Nano Banana Pro vs GPT Image 2 from the same prompt"). Absent on
+   * (e.g. "Nano Banana Pro vs GPT Image 2.6 from the same prompt"). Absent on
    * normal single-model generations. Used only for grouping/badging in the UI;
    * comparisons themselves are not persisted.
    */
@@ -439,7 +439,7 @@ export interface ToolbarPreset {
   openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
   /**
    * OpenAI GPT Image background: 'auto' | 'opaque' | 'transparent'.
-   * Consumed by openai-2 / openai-2.5 / openai-flare (gpt-image-2 and 2.5 family).
+   * Consumed by openai-2.6 / openai-2.5 / openai-flare (gpt-image-2.6 and 2.5 family).
    */
   openaiImageBackground?: 'auto' | 'opaque' | 'transparent';
   /** Free-text art direction this preset carries - applied to the toolbar's
@@ -458,13 +458,13 @@ export interface UserSettings {
   confirmDeleteCurrent?: boolean;
   /**
    * OpenAI GPT Image quality setting: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto'.
-   * Extra high and max quality apply only to GPT Image 2.6. Consumed by GPT Image 2 / 2.5 / 2.6 and gpt-image-1-mini; gpt-image-1.5 ignores it.
+   * Extra high and max quality apply only to GPT Image 2.6. Consumed by GPT Image 2.5 / 2.6 and gpt-image-1-mini; gpt-image-1.5 ignores it.
    */
   openaiImageQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
   /**
    * OpenAI GPT Image background: 'auto' | 'opaque' | 'transparent'.
    * Maps to images.generate `background`. Transparent requires PNG/WebP output.
-   * Supported on openai-2 / openai-2.5 / openai-flare.
+   * Supported on openai-2.6 / openai-2.5 / openai-flare.
    */
   openaiImageBackground?: 'auto' | 'opaque' | 'transparent';
 }

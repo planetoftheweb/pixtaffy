@@ -1,27 +1,25 @@
+import { normalizeLegacyModelId, normalizeLegacyOpenRouterSlug } from './legacyModelNormalizer';
 /**
  * OpenAI Images API `background` for GPT Image models that support alpha.
- * Docs: gpt-image-2 and gpt-image-2.5-* accept auto | opaque | transparent.
+ * Docs: gpt-image-2.6-* and gpt-image-2.5-* accept auto | opaque | transparent.
  */
 
 export type OpenAIImageBackground = "auto" | "opaque" | "transparent";
 
 /** UI / requested model ids that may send `background`. */
-export const supportsOpenAIBackground = (modelId: string): boolean =>
-  modelId === "openai-2" ||
-  modelId === "openai-2.6" || modelId === "openai-2.6-flare" || modelId === "openai-2.5" ||
-  modelId === "openai-flare" ||
-  modelId === "openrouter:openai/gpt-image-2" ||
-  /(?:^|\/)gpt-image-2(?:\.[56])?(?:$|[.-])/.test(modelId);
+export const supportsOpenAIBackground = (modelId: string): boolean => {
+  modelId = normalizeLegacyModelId(modelId);
+  return ['openai-2.6', 'openai-2.6-flare', 'openai-2.5', 'openai-flare'].includes(modelId) ||
+    ['gpt-image-2.5-', 'gpt-image-2.6-'].some(prefix => modelId.includes(prefix));
+};
 
 /** Native OpenAI API model ids that accept `background`. */
 export const supportsOpenAIBackgroundApiModel = (apiModel: string): boolean =>
-  apiModel === "gpt-image-2" || (apiModel.startsWith("gpt-image-2.5-") || apiModel.startsWith("gpt-image-2.6-"));
+  (apiModel.startsWith("gpt-image-2.5-") || apiModel.startsWith("gpt-image-2.6-"));
 
 /** OpenRouter model slugs that accept `background`. */
 export const supportsOpenAIBackgroundOpenRouterSlug = (modelSlug: string): boolean =>
-  modelSlug === "openai/gpt-image-2" ||
-  modelSlug.endsWith("/gpt-image-2") ||
-  /gpt-image-2\.[56]/.test(modelSlug);
+  ['openai/gpt-image-2.5-', 'openai/gpt-image-2.6-'].some(prefix => normalizeLegacyOpenRouterSlug(modelSlug).startsWith(prefix));
 
 export const normalizeOpenAIImageBackground = (
   value: string | null | undefined,

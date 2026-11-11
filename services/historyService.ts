@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId } from '../utils/legacyModelNormalizer';
 import { db } from "./firebase";
 import { 
   collection, 
@@ -96,7 +97,7 @@ const normalizeVersion = (
     svgCode: version.svgCode,
     refinementPrompt: version.refinementPrompt,
     parentVersionId: version.parentVersionId,
-    modelId: version.modelId,
+    modelId: version.modelId ? normalizeLegacyModelId(version.modelId) : undefined,
   };
 };
 
@@ -145,7 +146,7 @@ const normalizeGeneration = (input: Partial<Generation>): Generation => {
     id,
     createdAt,
     config,
-    modelId: input.modelId || 'gemini',
+    modelId: normalizeLegacyModelId(input.modelId || 'gemini'),
     versions: safeVersions,
     currentVersionIndex,
     comparisonBatchId: input.comparisonBatchId,

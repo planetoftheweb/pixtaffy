@@ -23,10 +23,10 @@ describe("supportsOpenAIBackground", () => {
 });
 
 describe("supportsOpenAIBackgroundApiModel", () => {
-  it("accepts gpt-image-2 and 2.5 API ids", () => {
+  it("accepts 2.5 and 2.6 API ids and rejects retired API ids", () => {
     assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2.6-sunburst"), true);
     assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2.6-flare"), true);
-    assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2"), true);
+    assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2"), false);
     assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2.5-sunburst"), true);
     assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-2.5-flare"), true);
     assert.equal(supportsOpenAIBackgroundApiModel("gpt-image-1-mini"), false);
@@ -35,8 +35,11 @@ describe("supportsOpenAIBackgroundApiModel", () => {
 });
 
 describe("openRouter + normalize", () => {
-  it("recognizes OpenRouter gpt-image-2 slug", () => {
+  it("normalizes retired OpenRouter slugs before checking support", () => {
     assert.equal(supportsOpenAIBackgroundOpenRouterSlug("openai/gpt-image-2"), true);
+    assert.equal(supportsOpenAIBackground("openrouter:openai/gpt-image-2"), true);
+    assert.equal(supportsOpenAIBackgroundOpenRouterSlug("openai/gpt-image-2.6-sunburst"), true);
+    assert.equal(supportsOpenAIBackgroundOpenRouterSlug("openai/gpt-image-2.6-flare"), true);
   });
 
   it("normalizes background values", () => {

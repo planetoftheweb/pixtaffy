@@ -1,3 +1,4 @@
+import { normalizeLegacyModelId, normalizeLegacyOpenRouterModels } from './utils/legacyModelNormalizer';
 import { STARTUP_GATE_TIMEOUT_MS, hasSavedMemberHint, shouldResolveMemberSession, shouldShowStartupGate } from './utils/startupGate';
 import { FOCUS_RING } from './utils/focusRing';
 import { isKnownPath, navigate, usePathname } from './utils/routes';
@@ -279,8 +280,8 @@ const normalizeToolbarSelection = (value: unknown): ToolbarSelectionCache | null
   if (typeof source.visualStyleId === 'string') normalized.visualStyleId = source.visualStyleId;
   if (typeof source.graphicTypeId === 'string') normalized.graphicTypeId = source.graphicTypeId;
   if (typeof source.aspectRatio === 'string') normalized.aspectRatio = source.aspectRatio;
-  if (typeof source.selectedModel === 'string' && isKnownModelId(source.selectedModel)) {
-    normalized.selectedModel = source.selectedModel;
+  if (typeof source.selectedModel === 'string' && isKnownModelId(normalizeLegacyModelId(source.selectedModel))) {
+    normalized.selectedModel = normalizeLegacyModelId(source.selectedModel);
   }
   if (
     typeof source.openaiImageQuality === 'string' &&
@@ -943,7 +944,7 @@ const App: React.FC = () => {
         // letting it OVERRIDE the preference (as it used to) meant any stale
         // cache from an older tab or session silently resurrected an old
         // model on reload, and the next preference write persisted it: the
-        // "I picked Seedream but it generated/remembered GPT Image 2" drift.
+        // "I picked Seedream but it generated/remembered GPT Image 2.6" drift.
         const cachedModel = readToolbarSelection(restoredUser.id)?.selectedModel;
         const hydratedUser =
           !restoredUser.preferences.selectedModel && cachedModel
@@ -1141,7 +1142,7 @@ const App: React.FC = () => {
   // Grouped context for easier passing
   const context = { brandColors, visualStyles, graphicTypes, aspectRatios };
   const selectedModel = user
-    ? (user.preferences.selectedModel || guestSelectedModel)
+    ? normalizeLegacyModelId(user.preferences.selectedModel || guestSelectedModel)
     : guestSelectedModel;
 
   // Newest generation whose settings match the preset's PINNED fields -
@@ -1162,7 +1163,7 @@ const App: React.FC = () => {
           preset.aspectRatio &&
           normalizeAspectRatio(c.aspectRatio) !== normalizeAspectRatio(preset.aspectRatio)
         ) return false;
-        if (preset.selectedModel && g.modelId !== preset.selectedModel) return false;
+        if (preset.selectedModel && g.modelId !== normalizeLegacyModelId(preset.selectedModel)) return false;
         return true;
       });
       if (!gen) return undefined;
@@ -1196,7 +1197,7 @@ const App: React.FC = () => {
         svgMode:
           preset.svgMode && preset.svgMode !== 'static' ? preset.svgMode : undefined,
         model: preset.selectedModel
-          ? MODEL_NAME_BY_ID[preset.selectedModel] || preset.selectedModel
+          ? MODEL_NAME_BY_ID[normalizeLegacyModelId(preset.selectedModel)] || preset.selectedModel
           : undefined,
         quality: preset.openaiImageQuality,
         background:
@@ -1535,7 +1536,7 @@ const App: React.FC = () => {
     const hasGeminiKey = !!getApiKeyForModelFromUser(user, 'gemini');
     const hasOpenAIKey = !!getApiKeyForModelFromUser(user, 'openai');
     const enabledSlugs =
-      user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug);
+      normalizeLegacyOpenRouterModels(user.preferences.openRouterModels ?? OPENROUTER_CURATED_MODELS.map((m) => m.slug));
     const curatedBySlug = new Map(OPENROUTER_CURATED_MODELS.map((m) => [m.slug, m]));
     return enabledSlugs
       .filter((slug) =>
@@ -2138,10 +2139,11 @@ const App: React.FC = () => {
       };
 
       const runBatchForModel = async (modelId: string) => {
+        modelId = normalizeLegacyModelId(modelId);
         const modelKey = apiKeysByModel[modelId];
         const usePixTaffyCredits = !modelKey && Boolean(SITE_FUNDED_MODEL_MILLICREDITS[modelId]);
         if (!modelKey && !usePixTaffyCredits) throw new Error(`Missing API key for ${modelId}.`);
-        // Per-model aspect-ratio coercion: GPT Image 2 supports wider ratios
+        // Per-model aspect-ratio coercion: GPT Image 2.5 and 2.6 support wider ratios
         // than GPT Image 1.5, Gemini models support different ones, etc.
         const safeAspectRatioForModel = getSafeAspectRatioForModel(modelId, safeConfig.aspectRatio, runContext.aspectRatios);
         const modelSafeConfig = safeAspectRatioForModel === safeConfig.aspectRatio
@@ -2181,7 +2183,7 @@ const App: React.FC = () => {
               modelSlug: modelId.slice(OPENROUTER_MODEL_PREFIX.length),
               systemPrompt: runSystemPrompt
             });
-          } else if (modelId === 'openai' || modelId === 'openai-2' || modelId === 'openai-2.6' || modelId === 'openai-2.6-flare' || modelId === 'openai-2.5' || modelId === 'openai-flare' || modelId === 'openai-mini') {
+          } else if (modelId === 'openai' || modelId === 'openai-2.6' || modelId === 'openai-2.6-flare' || modelId === 'openai-2.5' || modelId === 'openai-flare' || modelId === 'openai-mini') {
             result = await generateOpenAIImage(structuredPrompt, requestConfig, modelKey, {
               modelId,
               quality: runOpenAIQuality,
@@ -2491,7 +2493,6 @@ const App: React.FC = () => {
         result = await refineSvg(svgCode, refinementText, safeConfig, context, customKey, refineSystemPrompt);
       } else if (
         selectedModel === 'openai' ||
-        selectedModel === 'openai-2' ||
         selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' ||
         selectedModel === 'openai-flare' ||
         selectedModel === 'openai-mini'
@@ -2676,7 +2677,6 @@ const App: React.FC = () => {
           });
         } else if (
           selectedModel === 'openai' ||
-          selectedModel === 'openai-2' ||
           selectedModel === 'openai-2.6' || selectedModel === 'openai-2.6-flare' || selectedModel === 'openai-2.5' ||
           selectedModel === 'openai-flare' ||
           selectedModel === 'openai-mini'
@@ -3034,7 +3034,7 @@ const App: React.FC = () => {
   };
 
   const handleRestoreFromHistory = async (gen: Generation) => {
-    let restoredGeneration = gen;
+    let restoredGeneration = { ...gen, modelId: normalizeLegacyModelId(gen.modelId) };
     try {
       const hydrated = await historyService.getGeneration(user, gen.id, gen);
       if (hydrated) {
@@ -3369,6 +3369,7 @@ const App: React.FC = () => {
   };
 
   const handleModelChange = (modelId: string) => {
+    modelId = normalizeLegacyModelId(modelId);
     if (!user) {
       setGuestSelectedModel(modelId);
       return;
@@ -3468,7 +3469,7 @@ const App: React.FC = () => {
       handleModelChange(preset.selectedModel);
       // Multi-model compare picks should follow the active selection so the
       // next Generate click runs against the preset's chosen model only.
-      setSelectedModelIds([preset.selectedModel]);
+      setSelectedModelIds([normalizeLegacyModelId(preset.selectedModel)]);
     }
 
     if (preset.openaiImageQuality && user) {
