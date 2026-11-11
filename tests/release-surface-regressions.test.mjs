@@ -36,6 +36,15 @@ const whatsNewScriptPath = fileURLToPath(new URL('../scripts/whats-new.mjs', imp
 
 const extractPaths = (source, pattern) => [...source.matchAll(pattern)].map((match) => match[1]);
 
+test('pricing Pro image band names current GPT Image models at two credits', () => {
+  const proBand = pricingSource.split('>Pro image</p>')[1]?.split('</span>')[0];
+  assert.ok(proBand, 'Pro image band exists');
+  assert.match(proBand, /GPT Image 2\.6/);
+  assert.match(proBand, /GPT Image 2\.5/);
+  assert.doesNotMatch(proBand, /GPT Image 2(?!\.)/);
+  assert.match(proBand, />2 credits$/);
+});
+
 test('production builds reject missing Firebase configuration before bundling', () => {
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'pixtaffy-build-config-'));
   const required = ['API_KEY', 'AUTH_DOMAIN', 'PROJECT_ID', 'STORAGE_BUCKET', 'MESSAGING_SENDER_ID', 'APP_ID'];
