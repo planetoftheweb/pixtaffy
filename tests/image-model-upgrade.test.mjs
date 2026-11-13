@@ -227,3 +227,60 @@ test('helper model candidates use current stable IDs and supported generation se
   assert.match(read('services/svgService.ts'), /thinkingConfig: \{ thinkingLevel: 'high' as ThinkingLevel \}/);
   assert.doesNotMatch(read('functions/src/paidAi.ts'), /gemini-flash-latest/);
 });
+
+function loadHelperServices(generateContent) {
+  const text = {};
+  const quietConsole = { warn() {}, error() {} };
+  vm.runInNewContext(ts.transpileModule(read('services/geminiTextModelService.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+    exports: text, Error, console: quietConsole, require: () => ({}),
+  });
+  const svg = {};
+  vm.runInNewContext(ts.transpileModule(read('services/svgService.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+    exports: svg, Error, console: quietConsole, btoa, unescape, encodeURIComponent,
+    require: name => name === '@google/genai'
+      ? { GoogleGenAI: class { models = { generateContent }; } }
+      : text,
+  });
+  return { text, svg };
+}
+
+for (const quota of [
+  { status: 429 }, { code: '429' }, { error: { status: 'RESOURCE_EXHAUSTED' } },
+  new Error('Quota exceeded for this model, limit: 0'),
+  new Error('{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}'),
+  Object.assign(new Error('No capacity'), { status: 429 }),
+]) {
+  test(`BYOK text and SVG advance past model quota failures: ${JSON.stringify(quota)}`, async () => {
+    const calls = [];
+    const generateContent = async request => {
+      calls.push(request);
+      if (request.model !== 'gemini-flash-latest') throw quota;
+      return { text: '<svg viewBox="0 0 100 100"><rect width="100" height="100"/></svg>' };
+    };
+    const { text, svg } = loadHelperServices(generateContent);
+    await text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test');
+    assert.deepEqual(calls.splice(0).map(call => call.model), ['gemini-4-hydrogen', 'gemini-flash-latest']);
+    const result = await svg.generateSvg({ prompt: 'test', aspectRatio: '1:1' }, {
+      brandColors: [], visualStyles: [], graphicTypes: [],
+    }, `AIza${'x'.repeat(35)}`);
+    assert.ok(result.svgCode.startsWith('<svg'));
+    assert.deepEqual(calls.map(call => call.model), ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-flash-latest']);
+    for (const call of calls) assert.equal(call.config.thinkingConfig.thinkingLevel, 'high');
+  });
+}
+
+test('BYOK helpers stop on unrelated errors and exhaust quota fallbacks once each', async () => {
+  for (const failure of [new Error('network disconnected'), { status: 429 }]) {
+    const calls = [];
+    const generateContent = async request => { calls.push(request.model); throw failure; };
+    const { text, svg } = loadHelperServices(generateContent);
+    await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'));
+    assert.deepEqual(calls.splice(0), failure.status === 429
+      ? ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite'] : ['gemini-4-hydrogen']);
+    await assert.rejects(svg.generateSvg({ prompt: 'test' }, {
+      brandColors: [], visualStyles: [], graphicTypes: [],
+    }, `AIza${'x'.repeat(35)}`));
+    assert.deepEqual(calls, failure.status === 429
+      ? ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite'] : ['gemini-4-hydrogen']);
+  }
+});

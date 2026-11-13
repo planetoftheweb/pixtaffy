@@ -845,6 +845,17 @@ export function resolveAiAssistFallbackModel(env: Record<string, string | undefi
   return model && /^[a-z0-9][a-z0-9._-]{2,63}$/.test(model) && model !== primary ? model : undefined;
 }
 
+function assistThinkingConfig(model: string, action: string) {
+  // Rollback models before Gemini 3 do not accept thinking levels.
+  if (!/^gemini-(?:[34](?:\.\d+)?-|(?:pro|flash|flash-lite)-latest$)/.test(model)) return {};
+  // Only known medium-capable models use medium. Pro and other rollback
+  // models use the common low/high levels, including the latest aliases.
+  const supportsMedium = /^gemini-(?:4-hydrogen(?:-\d{3})?|3\.[568]-flash(?:-\d{3})?|flash-latest)$/.test(model);
+  const thinkingLevel = action === "expand_prompt" ? (supportsMedium ? "medium" : "high") : "low";
+  // The installed SDK enum predates medium.
+  return { thinkingConfig: { thinkingLevel: thinkingLevel as ThinkingLevel } };
+}
+
 function safeUpstreamMessage(error: unknown, sensitiveValues: string[]): string | undefined {
   if (error instanceof HttpsError || error instanceof SyntaxError) return undefined;
   const status = upstreamStatusOf(error);
@@ -1004,11 +1015,7 @@ export const runAiAssist = onCall(
           config: {
             abortSignal,
             httpOptions: { timeout: timeoutMs },
-            // Older rollback models do not accept thinking levels.
-            // The installed SDK enum predates medium; the API accepts these levels.
-            ...(/^gemini-(?:[34](?:\.\d+)?-|flash-latest$)/.test(attemptModel)
-              ? { thinkingConfig: { thinkingLevel: (action === "expand_prompt" ? "medium" : "low") as ThinkingLevel } }
-              : {}),
+            ...assistThinkingConfig(attemptModel, action),
             ...(action === "expand_prompt" || action === "image_description"
               ? {}
               : { responseMimeType: "application/json" }),

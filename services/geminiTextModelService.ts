@@ -33,10 +33,14 @@ export const formatUserFacingGeminiError = (raw: string): string => {
 };
 
 /** True when retrying with another text model id might succeed. */
-export const shouldRetryGeminiTextModelAfterError = (err: unknown): boolean =>
-  /API_KEY_INVALID|INVALID_ARGUMENT|not found|not supported|is not available|Model .*not/i.test(
+export const shouldRetryGeminiTextModelAfterError = (err: unknown): boolean => {
+  const details = err as { status?: unknown; code?: unknown; error?: { status?: unknown; code?: unknown } } | null;
+  const quotaStatus = [details?.status, details?.code, details?.error?.status, details?.error?.code]
+    .some(status => status === 429 || status === '429' || status === 'RESOURCE_EXHAUSTED');
+  return quotaStatus || /\b429\b|RESOURCE_EXHAUSTED|quota exceeded|API_KEY_INVALID|INVALID_ARGUMENT|not found|not supported|is not available|Model .*not/i.test(
     stringifyGeminiCallError(err)
   );
+};
 
 export const generateContentWithGeminiTextFallback = async (
   ai: GoogleGenAI,

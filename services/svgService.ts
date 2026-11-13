@@ -3,6 +3,7 @@ import { GenerationConfig, GeneratedImage, BrandColorDefinition, VisualStyleDefi
 import {
   formatUserFacingGeminiError,
   stringifyGeminiCallError,
+  shouldRetryGeminiTextModelAfterError,
 } from "./geminiTextModelService";
 
 interface SvgGenerationContext {
@@ -149,6 +150,7 @@ const SVG_MODEL_CANDIDATES: ReadonlyArray<string> = [
 ];
 
 const isModelAvailabilityError = (err: unknown): boolean =>
+  shouldRetryGeminiTextModelAfterError(err) ||
   /API_KEY_INVALID|API key not valid|INVALID_ARGUMENT|not found|not supported|is not available|Model .*not|PERMISSION_DENIED|FAILED_PRECONDITION|NOT_FOUND/i.test(
     stringifyGeminiCallError(err)
   );
@@ -203,7 +205,7 @@ const callSvgModel = async (
         console.warn(`${label}: model ${model} unavailable for this key, trying next`, errMsg);
         continue;
       }
-      // Non-availability error (rate limit, network, etc.) — bubble up immediately.
+      // Other errors, such as network failures, bubble up immediately.
       throw error;
     }
   }

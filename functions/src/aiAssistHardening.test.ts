@@ -1545,17 +1545,21 @@ for (const action of Object.keys(require("./pricing").AI_ASSIST_MILLICREDITS)) {
 }
 
 const thinkingModelCases = [
-  ["gemini-4-hydrogen", true],
-  ["gemini-4-hydrogen-001", true],
-  ["gemini-3.8-flash", true],
-  ["gemini-3.5-flash-lite", true],
-  ["gemini-flash-latest", true],
-  ["gemini-2.5-flash-lite", false],
-  ["gemini-2.0-flash", false],
-  ["operator-custom-model", false],
+  ["gemini-4-hydrogen", "medium"],
+  ["gemini-4-hydrogen-001", "medium"],
+  ["gemini-3.8-flash", "medium"],
+  ["gemini-3.5-flash-lite", "high"],
+  ["gemini-flash-latest", "medium"],
+  ["gemini-3-pro-preview", "high"],
+  ["gemini-3.1-pro-preview", "high"],
+  ["gemini-pro-latest", "high"],
+  ["gemini-flash-lite-latest", "high"],
+  ["gemini-2.5-flash-lite", undefined],
+  ["gemini-2.0-flash", undefined],
+  ["operator-custom-model", undefined],
 ] as const;
 
-for (const [configuredModel, supportsThinkingLevel] of thinkingModelCases) {
+for (const [configuredModel, expandThinkingLevel] of thinkingModelCases) {
   for (const status of [503, 429]) {
     test(`runAiAssist selects thinking settings per fallback attempt for ${configuredModel} after ${status}`, async (t) => {
       configureFallback(t, configuredModel === "gemini-4-hydrogen" ? "gemini-4-hydrogen-001" : configuredModel);
@@ -1569,8 +1573,8 @@ for (const [configuredModel, supportsThinkingLevel] of thinkingModelCases) {
           throw { status };
         }
         assert.equal(input.model, target);
-        assert.deepEqual(input.config.thinkingConfig, supportsThinkingLevel ? { thinkingLevel: "medium" } : undefined);
-        if (!supportsThinkingLevel) assert.equal("thinkingConfig" in input.config, false);
+        assert.deepEqual(input.config.thinkingConfig, expandThinkingLevel ? { thinkingLevel: expandThinkingLevel } : undefined);
+        if (!expandThinkingLevel) assert.equal("thinkingConfig" in input.config, false);
         return { ...providerResponse, modelVersion: target };
       });
       t.mock.method(require("firebase-functions/logger"), "warn", () => {});
@@ -1594,8 +1598,8 @@ for (const [configuredModel, supportsThinkingLevel] of thinkingModelCases) {
     const vertexAssist = require("./paidAi").runAiAssist;
     const mocks = mockAssist(t, async input => {
       assert.equal(input.model, configuredModel);
-      assert.deepEqual(input.config.thinkingConfig, supportsThinkingLevel ? { thinkingLevel: "low" } : undefined);
-      if (!supportsThinkingLevel) assert.equal("thinkingConfig" in input.config, false);
+      assert.deepEqual(input.config.thinkingConfig, expandThinkingLevel ? { thinkingLevel: "low" } : undefined);
+      if (!expandThinkingLevel) assert.equal("thinkingConfig" in input.config, false);
       return { ...providerResponse, text: "{}", modelVersion: configuredModel };
     });
     t.mock.method(require("firebase-functions/logger"), "warn", () => {});
