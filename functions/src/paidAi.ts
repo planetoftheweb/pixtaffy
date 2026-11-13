@@ -1004,8 +1004,11 @@ export const runAiAssist = onCall(
           config: {
             abortSignal,
             httpOptions: { timeout: timeoutMs },
+            // Older rollback models do not accept thinking levels.
             // The installed SDK enum predates medium; the API accepts these levels.
-            thinkingConfig: { thinkingLevel: (action === "expand_prompt" ? "medium" : "low") as ThinkingLevel },
+            ...(/^gemini-(?:[34](?:\.\d+)?-|flash-latest$)/.test(attemptModel)
+              ? { thinkingConfig: { thinkingLevel: (action === "expand_prompt" ? "medium" : "low") as ThinkingLevel } }
+              : {}),
             ...(action === "expand_prompt" || action === "image_description"
               ? {}
               : { responseMimeType: "application/json" }),
