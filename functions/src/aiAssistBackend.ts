@@ -28,7 +28,7 @@ export function resolveAiAssistVertexConfig(env: Record<string, string | undefin
   return {
     project: env.GCLOUD_PROJECT || env.GOOGLE_CLOUD_PROJECT || undefined,
     location: env.AI_ASSIST_VERTEX_LOCATION?.trim() || "global",
-    model: env.AI_ASSIST_VERTEX_MODEL?.trim() || "gemini-3.8-flash",
+    model: env.AI_ASSIST_VERTEX_MODEL?.trim() || "gemini-4-hydrogen",
   };
 }
 

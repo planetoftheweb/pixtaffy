@@ -106,11 +106,51 @@ test("assist cost includes thinking tokens and prefers known response model vers
     assert.equal(geminiAssistCost({ ...rateInput, model }).inputRate, 0.75);
   }
 });
+test("helper spend hold covers a 30k input and 2k output hydrogen call", () => {
+  const { actualCostUsd } = geminiAssistCost({
+    backend: "apikey", model: "gemini-4-hydrogen", requestedAt: Date.parse("2026-11-13T00:00:00Z"),
+    usage: { promptTokenCount: 30_000, candidatesTokenCount: 2_000 },
+  });
+  assert.ok(Math.abs(actualCostUsd - 0.06) < 1e-10);
+  const source = readFileSync(resolve(__dirname, "../src/paidAi.ts"), "utf8");
+  const hold = Number(source.match(/const helperSpendReserveUsd = ([0-9.]+);/)?.[1]);
+  assert.equal(hold, 0.10);
+  assert.ok(actualCostUsd <= hold);
+});
+
 test("unknown models use the highest table rates regardless of date", () => {
   const cost = geminiAssistCost({ ...rateInput, model: "unknown" });
   assert.equal(cost.unknownModel, true);
   assert.equal(cost.inputRate, 1.65);
   assert.equal(cost.outputRate, 8.25);
+});
+
+test("hydrogen rates are flat across dates, backends, locations and version suffixes", () => {
+  for (const model of ["gemini-4-hydrogen", "gemini-4-hydrogen-001"]) {
+    for (const backend of ["vertex", "apikey"] as const) {
+      for (const location of ["global", "us-central1"]) {
+        for (const date of ["2026-11-13", "2027-01-01"]) {
+          const cost = geminiAssistCost({ ...rateInput, model, backend, location, requestedAt: Date.parse(date),
+            usage: { promptTokenCount: 1000, cachedContentTokenCount: 400, candidatesTokenCount: 100, thoughtsTokenCount: 200 } });
+          assert.equal(cost.unknownModel, false);
+          assert.equal(cost.inputRate, 1.5);
+          assert.equal(cost.outputRate, 7.5);
+          assert.equal(cost.actualCostUsd, (600 * 1.5 + 400 * 0.075 + 300 * 7.5) / 1_000_000);
+        }
+      }
+    }
+  }
+  const versioned = geminiAssistCost({ ...rateInput, model: "unknown", modelVersion: "gemini-4-hydrogen-001" });
+  assert.equal(versioned.unknownModel, false);
+  assert.equal(versioned.inputRate, 1.5);
+});
+
+test("hydrogen cached tokens default to zero and cannot exceed prompt tokens", () => {
+  for (const [cached, expected] of [[undefined, 1500], [-1, 1500], [1000, 75], [2000, 75]] as const) {
+    const cost = geminiAssistCost({ ...rateInput, model: "gemini-4-hydrogen",
+      usage: { promptTokenCount: 1000, cachedContentTokenCount: cached } });
+    assert.equal(cost.actualCostUsd, expected / 1_000_000);
+  }
 });
 
 test("assist error mapper classifies provider errors without exposing internals", () => {
@@ -251,12 +291,12 @@ const assistRequest = (action = "expand_prompt") => ({
   data: { action, idempotencyKey: "request-123", payload: { prompt: "example" } },
 } as any);
 const providerResponse = {
-  text: "provider result", modelVersion: "gemini-3.8-flash",
+  text: "provider result", modelVersion: "gemini-4-hydrogen",
   usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 100, thoughtsTokenCount: 100 },
 };
 function assertSpend(spend: Record<string, any>) {
   const expected = geminiAssistCost({
-    backend: "apikey", model: "gemini-flash-latest", modelVersion: providerResponse.modelVersion,
+    backend: "apikey", model: "gemini-4-hydrogen", modelVersion: providerResponse.modelVersion,
     requestedAt: Date.now(), usage: providerResponse.usageMetadata,
   }).actualCostUsd;
   assert.equal(spend.geminiUsd, expected);
@@ -311,7 +351,7 @@ test("runAiAssist retries two failed spend writes and settles its hold exactly o
   assert.equal(spendWrites.releases(), 0);
   const holds = [...mocks.store.docs.values()].filter(doc => doc.state === "settled");
   assert.equal(holds.length, 1);
-  assert.equal(holds[0].amount, 0.05);
+  assert.equal(holds[0].amount, 0.10);
   assertSpend(mocks.spend());
   assert.equal(log.mock.callCount(), 0);
   assert.equal(mocks.commit.mock.callCount(), 1);
@@ -350,10 +390,10 @@ for (const outcome of ["success", "safety", "invalid JSON", "empty", "delivery f
     // No capacity-release transaction runs after the reserve and three spend attempts.
     assert.equal((mocks.store.firestore.runTransaction as any).mock.callCount(), 4);
     assert.equal(mocks.spend().geminiUsd, undefined);
-    assert.equal(mocks.spend().geminiReservedUsd, 0.05);
+    assert.equal(mocks.spend().geminiReservedUsd, 0.10);
     const holds = [...mocks.store.docs.values()].filter(doc => doc.state === "held");
     assert.equal(holds.length, 1);
-    assert.equal(holds[0].amount, 0.05);
+    assert.equal(holds[0].amount, 0.10);
     assert.equal(mocks.release.mock.callCount(), ["safety", "invalid JSON", "empty"].includes(outcome) ? 1 : 0);
     const accountingErrors = log.mock.calls.filter((call: { arguments: unknown[] }) => String(call.arguments[0]).startsWith("Provider spend"));
     assert.deepEqual(accountingErrors.map((call: { arguments: unknown[] }) => call.arguments), [
@@ -1182,14 +1222,14 @@ for (const [label, error, upstreamStatus, expectedCalls, code] of [
       assert.equal(log.mock.callCount(), 0);
       warnings.forEach((call: { arguments: unknown[] }, index: number) => {
         assert.deepEqual(call.arguments, ["AI assist upstream unavailable", {
-          action: "expand_prompt", upstreamStatus, upstreamMessage: "[redacted]", attempt: index + 1, model: "gemini-flash-latest",
+          action: "expand_prompt", upstreamStatus, upstreamMessage: "[redacted]", attempt: index + 1, model: "gemini-4-hydrogen",
         }]);
       });
     } else {
       assert.equal(log.mock.callCount(), 1);
       assert.equal(warnings.length, 0);
       assert.deepEqual(log.mock.calls[0].arguments, ["AI assist failed", {
-        action: "expand_prompt", upstreamStatus, attempt: 1, model: "gemini-flash-latest",
+        action: "expand_prompt", upstreamStatus, attempt: 1, model: "gemini-4-hydrogen",
         code: error instanceof SyntaxError ? "Invalid AI response JSON" : code,
       }]);
     }
@@ -1258,11 +1298,11 @@ function configureFallback(t: import("node:test").TestContext, model?: string) {
 }
 
 test("fallback model resolver accepts only distinct valid model ids", () => {
-  assert.equal(resolveAiAssistFallbackModel({}, "gemini-flash-latest"), undefined);
-  assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: fallbackModel }, "gemini-flash-latest"), fallbackModel);
+  assert.equal(resolveAiAssistFallbackModel({}, "gemini-4-hydrogen"), undefined);
+  assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: fallbackModel }, "gemini-4-hydrogen"), fallbackModel);
   assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: "a".repeat(64) }, "primary"), "a".repeat(64));
-  for (const model of ["", "ab", "a".repeat(65), "Gemini-flash", "_gemini", "model/name", "model?key=value", " gemini-flash", "gemini-flash-latest"]) {
-    assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: model }, "gemini-flash-latest"), undefined);
+  for (const model of ["", "ab", "a".repeat(65), "Gemini-flash", "_gemini", "model/name", "model?key=value", " gemini-flash", "gemini-4-hydrogen"]) {
+    assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: model }, "gemini-4-hydrogen"), undefined);
   }
 });
 
@@ -1284,7 +1324,7 @@ for (const status of [503, 429] as const) {
     const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
     const warn = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
     assert.equal((await runAiAssist.run(assistRequest())).result, response.text);
-    assert.deepEqual(models, status === 503 ? ["gemini-flash-latest", "gemini-flash-latest", fallbackModel] : ["gemini-flash-latest", fallbackModel]);
+    assert.deepEqual(models, status === 503 ? ["gemini-4-hydrogen", "gemini-4-hydrogen", fallbackModel] : ["gemini-4-hydrogen", fallbackModel]);
     assert.ok(signals.every(signal => signal === signals[0]));
     assert.equal(delays.length, status === 503 ? 1 : 0);
     if (delays.length) assert.ok(delays[0] >= 500 && delays[0] <= 1000);
@@ -1310,13 +1350,13 @@ for (const status of [503, 429] as const) {
   });
 }
 
-for (const configured of [undefined, "invalid/model", "gemini-flash-latest"]) {
-  test(`runAiAssist disables ${configured === undefined ? "unset" : configured === "gemini-flash-latest" ? "equal" : "invalid"} fallback and releases billing after three primary failures`, async (t) => {
+for (const configured of [undefined, "invalid/model", "gemini-4-hydrogen"]) {
+  test(`runAiAssist disables ${configured === undefined ? "unset" : configured === "gemini-4-hydrogen" ? "equal" : "invalid"} fallback and releases billing after three primary failures`, async (t) => {
     configureFallback(t, configured);
     assistDeadlineClock(t, 75_000);
     const delays = skipRetrySleeps(t);
     const mocks = mockAssist(t, async input => {
-      assert.equal(input.model, "gemini-flash-latest");
+      assert.equal(input.model, "gemini-4-hydrogen");
       throw { status: 503 };
     }, true);
     fund(mocks.store);
@@ -1395,7 +1435,7 @@ test("runAiAssist logs high demand from the inner JSON message with safe attempt
   const warnings = warn.mock.calls.filter((call: AssistLogCall) => call.arguments[0] === "AI assist upstream unavailable");
   assert.equal(warnings.length, 3);
   warnings.forEach((call: AssistLogCall, index: number) => assert.deepEqual(call.arguments, ["AI assist upstream unavailable", {
-    action: "expand_prompt", upstreamStatus: 503, upstreamMessage, attempt: index + 1, model: "gemini-flash-latest",
+    action: "expand_prompt", upstreamStatus: 503, upstreamMessage, attempt: index + 1, model: "gemini-4-hydrogen",
   }]));
   assert.ok(!JSON.stringify(warn.mock.calls.map((call: AssistLogCall) => call.arguments)).includes(promptMarker));
 });
@@ -1473,7 +1513,7 @@ for (const useFallback of [false, true]) {
     const rejected = assert.rejects(runAiAssist.run(assistRequest()), { code: "deadline-exceeded" });
     await stalled;
     assert.equal(clock.set.mock.callCount(), 1);
-    assert.equal(inputs[2].model, useFallback ? fallbackModel : "gemini-flash-latest");
+    assert.equal(inputs[2].model, useFallback ? fallbackModel : "gemini-4-hydrogen");
     assert.deepEqual(inputs.map(input => input.config.httpOptions.timeout), [75_000, 74_000 - delays[0], 73_000 - delays.reduce((sum, ms) => sum + ms, 0)]);
     assert.ok(inputs.every(input => input.config.abortSignal === inputs[0].config.abortSignal));
     now = 75_000;
@@ -1489,5 +1529,95 @@ for (const useFallback of [false, true]) {
     assert.equal(cache.mock.callCount(), 0);
     assert.equal(clock.clear.mock.callCount(), 1);
     assert.equal(clock.timers.size, 0);
+  });
+}
+
+for (const action of Object.keys(require("./pricing").AI_ASSIST_MILLICREDITS)) {
+  test(`runAiAssist sends only supported generation settings for ${action}`, async (t) => {
+    let calls = 0;
+    const mocks = mockAssist(t, async (input) => {
+      calls++;
+      assert.equal(input.model, "gemini-4-hydrogen");
+      assert.equal(input.config.thinkingConfig.thinkingLevel, action === "expand_prompt" ? "medium" : "low");
+      for (const key of ["temperature", "topP", "topK", "thinkingBudget", "thinking_budget"]) {
+        assert.equal(key in input.config, false);
+        assert.equal(key in input.config.thinkingConfig, false);
+      }
+      assert.equal(mocks.spend().geminiReservedUsd, 0.10);
+      return { ...providerResponse, text: action === "expand_prompt" || action === "image_description" ? "result" : "{}" };
+    });
+    const warnings = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+    t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+    await runAiAssist.run(assistRequest(action));
+    assert.equal(calls, 1);
+    assert.equal(mocks.reserve.mock.calls[0].arguments[0].modelId, "gemini-4-hydrogen");
+    assertSpend(mocks.spend());
+    assert.equal(warnings.mock.calls.some((call: AssistLogCall) => String(call.arguments[0]).includes("Unknown AI assist model")), false);
+  });
+}
+
+const thinkingModelCases = [
+  ["gemini-4-hydrogen", "medium"],
+  ["gemini-4-hydrogen-001", "medium"],
+  ["gemini-3.8-flash", "medium"],
+  ["gemini-3.5-flash-lite", "low"],
+  ["gemini-flash-latest", "medium"],
+  ["gemini-3-pro-preview", "low"],
+  ["gemini-3.1-pro-preview", "low"],
+  ["gemini-pro-latest", "low"],
+  ["gemini-flash-lite-latest", "low"],
+  ["gemini-2.5-flash-lite", undefined],
+  ["gemini-2.0-flash", undefined],
+  ["operator-custom-model", undefined],
+] as const;
+
+for (const [configuredModel, expandThinkingLevel] of thinkingModelCases) {
+  for (const status of [503, 429]) {
+    test(`runAiAssist selects thinking settings per fallback attempt for ${configuredModel} after ${status}`, async (t) => {
+      configureFallback(t, configuredModel === "gemini-4-hydrogen" ? "gemini-4-hydrogen-001" : configuredModel);
+      const target = configuredModel === "gemini-4-hydrogen" ? "gemini-4-hydrogen-001" : configuredModel;
+      skipRetrySleeps(t);
+      const inputs: any[] = [];
+      const mocks = mockAssist(t, async input => {
+        inputs.push(input);
+        if (input.model === "gemini-4-hydrogen") {
+          assert.equal(input.config.thinkingConfig.thinkingLevel, "medium");
+          throw { status };
+        }
+        assert.equal(input.model, target);
+        assert.deepEqual(input.config.thinkingConfig, expandThinkingLevel ? { thinkingLevel: expandThinkingLevel } : undefined);
+        if (!expandThinkingLevel) assert.equal("thinkingConfig" in input.config, false);
+        return { ...providerResponse, modelVersion: target };
+      });
+      t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+      t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+      assert.equal((await runAiAssist.run(assistRequest())).result, providerResponse.text);
+      assert.equal(inputs.length, status === 503 ? 3 : 2);
+      assert.equal(mocks.commit.mock.callCount(), 1);
+      assert.equal(mocks.release.mock.callCount(), 0);
+    });
+  }
+
+  test(`runAiAssist respects thinking support for Vertex override ${configuredModel}`, async (t) => {
+    const backend = require("./aiAssistBackend");
+    t.mock.method(backend, "resolveAiAssistBackend", () => "vertex");
+    t.mock.method(backend, "buildRunAiAssistOptions", (base: object) => base);
+    t.mock.method(backend, "resolveAiAssistVertexConfig", () => ({ project: "unit-test", location: "global", model: configuredModel }));
+    const modulePath = require.resolve("./paidAi");
+    const previousModule = require.cache[modulePath];
+    delete require.cache[modulePath];
+    t.after(() => { require.cache[modulePath] = previousModule; });
+    const vertexAssist = require("./paidAi").runAiAssist;
+    const mocks = mockAssist(t, async input => {
+      assert.equal(input.model, configuredModel);
+      assert.deepEqual(input.config.thinkingConfig, expandThinkingLevel ? { thinkingLevel: "low" } : undefined);
+      if (!expandThinkingLevel) assert.equal("thinkingConfig" in input.config, false);
+      return { ...providerResponse, text: "{}", modelVersion: configuredModel };
+    });
+    t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+    t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+    assert.deepEqual((await vertexAssist.run(assistRequest("correction_analysis"))).result, {});
+    assert.equal(mocks.providerCalls(), 1);
+    assert.equal(mocks.commit.mock.callCount(), 1);
   });
 }

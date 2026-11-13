@@ -22,7 +22,7 @@ test("discovery selects vertex with only the staging GCLOUD_PROJECT set", () => 
   assert.deepEqual(resolveAiAssistVertexConfig(env), {
     project: "pixtaffy-staging",
     location: "global",
-    model: "gemini-3.8-flash",
+    model: "gemini-4-hydrogen",
   });
 });
 
@@ -35,7 +35,7 @@ test("discovery selects vertex with only the production GCLOUD_PROJECT set", () 
   assert.deepEqual(resolveAiAssistVertexConfig(env), {
     project: "brandoit",
     location: "global",
-    model: "gemini-3.8-flash",
+    model: "gemini-4-hydrogen",
   });
 });
 
@@ -58,7 +58,7 @@ test("Vertex config defaults for missing, empty and whitespace settings", () => 
     assert.deepEqual(resolveAiAssistVertexConfig({
       AI_ASSIST_VERTEX_LOCATION: value,
       AI_ASSIST_VERTEX_MODEL: value,
-    }), { project: undefined, location: "global", model: "gemini-3.8-flash" });
+    }), { project: undefined, location: "global", model: "gemini-4-hydrogen" });
   }
 });
 

@@ -209,3 +209,213 @@ test('OpenRouter legacy selections use Sunburst for slug extraction and every re
     assert.equal(body.background, 'transparent');
   }
 });
+
+test('helper model candidates use current stable IDs and supported generation settings', () => {
+  const cases = [
+    ['services/geminiTextModelService.ts', 'GEMINI_TEXT_MODEL_FALLBACKS', ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']],
+    ['services/svgService.ts', 'SVG_MODEL_CANDIDATES', ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']],
+  ];
+  for (const [path, constant, expected] of cases) {
+    const source = read(path);
+    const array = source.match(new RegExp(`${constant}[^=]*=\\s*\\[([^\\]]+)\\]`))[1];
+    assert.deepEqual([...array.matchAll(/'([^']+)'/g)].map(match => match[1]), expected);
+    assert.doesNotMatch(array, /gemini-(?:2\.5-(?:flash|pro)|2\.0-flash|1\.5-[^']*|pro-latest|3\.1-pro-preview)/);
+  }
+  for (const path of [...cases.map(([path]) => path), 'functions/src/paidAi.ts']) {
+    assert.doesNotMatch(read(path), /xhigh|temperature|topP|topK|thinkingBudget|thinking_budget/);
+  }
+  assert.match(read('services/svgService.ts'), /thinkingConfig: \{ thinkingLevel: 'high' as ThinkingLevel \}/);
+  assert.doesNotMatch(read('functions/src/paidAi.ts'), /gemini-flash-latest/);
+});
+
+function loadHelperServices(generateContent) {
+  const text = {};
+  const quietConsole = { warn() {}, error() {} };
+  vm.runInNewContext(ts.transpileModule(read('services/geminiTextModelService.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+    exports: text, Error, console: quietConsole, require: () => ({}),
+  });
+  const svg = {};
+  vm.runInNewContext(ts.transpileModule(read('services/svgService.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+    exports: svg, Error, console: quietConsole, btoa, unescape, encodeURIComponent,
+    require: name => name === '@google/genai'
+      ? { GoogleGenAI: class { models = { generateContent }; } }
+      : text,
+  });
+  return { text, svg };
+}
+
+for (const quota of [
+  { status: 429 }, { code: '429' }, { error: { status: 'RESOURCE_EXHAUSTED' } },
+  new Error('Quota exceeded for this model, limit: 0'),
+  new Error('{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}'),
+  Object.assign(new Error('No capacity'), { status: 429 }),
+]) {
+  test(`BYOK text and SVG advance past model quota failures: ${JSON.stringify(quota)}`, async () => {
+    const calls = [];
+    const generateContent = async request => {
+      calls.push(request);
+      if (!['gemini-flash-latest', 'gemini-3.8-flash'].includes(request.model)) throw quota;
+      return { text: '<svg viewBox="0 0 100 100"><rect width="100" height="100"/></svg>' };
+    };
+    const { text, svg } = loadHelperServices(generateContent);
+    await text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test');
+    assert.deepEqual(calls.splice(0).map(call => call.model), ['gemini-4-hydrogen', 'gemini-flash-latest']);
+    const result = await svg.generateSvg({ prompt: 'test', aspectRatio: '1:1' }, {
+      brandColors: [], visualStyles: [], graphicTypes: [],
+    }, `AIza${'x'.repeat(35)}`);
+    assert.ok(result.svgCode.startsWith('<svg'));
+    assert.deepEqual(calls.map(call => call.model), ['gemini-4-hydrogen', 'gemini-3.8-flash']);
+    for (const call of calls) assert.equal(call.config.thinkingConfig.thinkingLevel, 'high');
+  });
+}
+
+test('BYOK text exhaustion preserves quota diagnosis after two quota failures and model not found', async () => {
+  const calls = [];
+  const generateContent = async request => {
+    calls.push(request.model);
+    if (request.model === 'gemini-4-hydrogen') throw { status: 429 };
+    if (request.model === 'gemini-flash-latest') throw { code: 429, error: { status: 'RESOURCE_EXHAUSTED' } };
+    throw new Error('Model not found');
+  };
+  const { text } = loadHelperServices(generateContent);
+  await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'), error => {
+    assert.match(error.message, /quota or rate limit/);
+    assert.doesNotMatch(error.message, /not found/i);
+    return true;
+  });
+  assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
+});
+
+for (const failure of [
+  new Error('API_KEY_INVALID: API key not valid'),
+  new Error('INVALID_ARGUMENT: API key not valid'),
+  new Error('PERMISSION_DENIED: quota project not found'),
+]) {
+  test(`BYOK text exhaustion preserves quota diagnosis after retryable errors: ${failure.message}`, async () => {
+    const calls = [];
+    const generateContent = async request => {
+      calls.push(request.model);
+      if (calls.length === 1) throw { status: 429 };
+      if (calls.length === 2) throw failure;
+      throw new Error('Model not found');
+    };
+    const { text } = loadHelperServices(generateContent);
+    await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'), error => {
+      assert.match(error.message, /quota or rate limit/);
+      return true;
+    });
+    assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
+  });
+}
+
+test('BYOK text exhaustion preserves quota diagnosis after Hydrogen INVALID_ARGUMENT and two quota failures', async () => {
+  const calls = [];
+  const generateContent = async request => {
+    calls.push(request.model);
+    if (calls.length === 1) throw new Error('INVALID_ARGUMENT: unsupported request field');
+    throw { status: 429 };
+  };
+  const { text } = loadHelperServices(generateContent);
+  await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'), /quota or rate limit/);
+  assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
+});
+
+test('BYOK text stops immediately on non-retryable configuration errors after quota', async () => {
+  const calls = [];
+  const failure = { error: { code: 403, status: 'PERMISSION_DENIED' } };
+  const generateContent = async request => {
+    calls.push(request.model);
+    if (calls.length === 1) throw { status: 429 };
+    throw failure;
+  };
+  const { text } = loadHelperServices(generateContent);
+  await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'), error => error === failure);
+  assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-flash-latest']);
+});
+
+test('BYOK helpers stop on unrelated errors and exhaust quota fallbacks once each', async () => {
+  for (const failure of [new Error('network disconnected'), { status: 429 }]) {
+    const calls = [];
+    const generateContent = async request => { calls.push(request.model); throw failure; };
+    const { text, svg } = loadHelperServices(generateContent);
+    await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'));
+    assert.deepEqual(calls.splice(0), failure.status === 429
+      ? ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite'] : ['gemini-4-hydrogen']);
+    await assert.rejects(svg.generateSvg({ prompt: 'test' }, {
+      brandColors: [], visualStyles: [], graphicTypes: [],
+    }, `AIza${'x'.repeat(35)}`));
+    assert.deepEqual(calls, failure.status === 429
+      ? ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'] : ['gemini-4-hydrogen']);
+  }
+});
+
+for (const quota of [{ status: 429 }, { code: '429' }, { error: { status: 'RESOURCE_EXHAUSTED' } }, new Error('quota reached'), new Error('quota exceeded'), new Error('quota exhausted'), Object.assign(new Error('No capacity'), { status: 429 })]) {
+  for (const quotaIndex of [0, 1, 2]) {
+    test(`SVG exhaustion preserves quota diagnosis at attempt ${quotaIndex}: ${JSON.stringify(quota)}`, async () => {
+      const calls = [];
+      const { svg } = loadHelperServices(async request => {
+        calls.push(request.model);
+        throw calls.length - 1 === quotaIndex ? quota : new Error('Model not found');
+      });
+      await assert.rejects(svg.generateSvg({ prompt: 'test' }, {
+        brandColors: [], visualStyles: [], graphicTypes: [],
+      }, `AIza${'x'.repeat(35)}`), error => {
+        assert.match(error.message, /quota or rate limit/);
+        assert.doesNotMatch(error.message, /model-enablement|clear it|model restrictions/);
+        for (const model of ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']) assert.ok(error.message.includes(model));
+        return true;
+      });
+      assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']);
+    });
+  }
+}
+
+test('SVG refinement preserves quota diagnosis after later empty responses', async () => {
+  const calls = [];
+  const { svg } = loadHelperServices(async request => {
+    calls.push(request);
+    if (calls.length === 1) throw { status: 429 };
+    return { text: '' };
+  });
+  await assert.rejects(svg.refineSvg('<svg/>', 'test refinement', { prompt: 'test' }, {
+    brandColors: [], visualStyles: [], graphicTypes: [],
+  }, `AIza${'x'.repeat(35)}`), error => {
+    assert.match(error.message, /SVG refinement.*quota or rate limit/);
+    assert.doesNotMatch(error.message, /model-enablement|clear it|model restrictions/);
+    assert.match(error.message, /gemini-3\.5-flash-lite: empty text response/);
+    return true;
+  });
+  assert.deepEqual(calls.map(call => call.model), ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']);
+  for (const call of calls) assert.equal(call.config.thinkingConfig.thinkingLevel, 'high');
+});
+
+test('SVG availability exhaustion retains model enablement guidance', async () => {
+  const { svg } = loadHelperServices(async () => { throw new Error('Model not found'); });
+  await assert.rejects(svg.generateSvg({ prompt: 'test' }, {
+    brandColors: [], visualStyles: [], graphicTypes: [],
+  }, `AIza${'x'.repeat(35)}`), /model-enablement/);
+});
+
+for (const message of [
+  'PERMISSION_DENIED: quota project not set',
+  'PERMISSION_DENIED: quota-project header is missing',
+]) {
+  test(`SVG does not classify quota project configuration as exhaustion: ${message}`, async () => {
+    const calls = [];
+    const failure = new Error(message);
+    const { svg } = loadHelperServices(async request => {
+      calls.push(request.model);
+      throw failure;
+    });
+    await assert.rejects(svg.generateSvg({ prompt: 'test' }, {
+      brandColors: [], visualStyles: [], graphicTypes: [],
+    }, `AIza${'x'.repeat(35)}`), error => {
+      assert.doesNotMatch(error.message, /quota or rate limit|Wait and try again/);
+      assert.match(error.message, /PERMISSION_DENIED/);
+      assert.match(error.message, /model-enablement/);
+      assert.match(error.message, /clear it/);
+      return true;
+    });
+    assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']);
+  });
+}

@@ -1,8 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, type ThinkingLevel } from "@google/genai";
 import { GenerationConfig, GeneratedImage, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, SvgMode } from "../types";
 import {
   formatUserFacingGeminiError,
   stringifyGeminiCallError,
+  shouldRetryGeminiTextModelAfterError,
 } from "./geminiTextModelService";
 
 interface SvgGenerationContext {
@@ -140,22 +141,16 @@ const svgToGeneratedImage = (svgCode: string): GeneratedImage => {
   };
 };
 
-// Wide candidate list — covers Pro, Flash, and older 1.5/2.0 stable models so
-// we work with whatever the user's project has enabled. The list intentionally
-// does NOT include image-preview ids; those models reject TEXT-only requests
-// (they require IMAGE in responseModalities) and would just add noise.
+// Prefer Hydrogen, then current Flash and Flash Lite models for SVG generation.
+// Skip gemini-flash-latest because it resolves to gemini-3.8-flash.
 const SVG_MODEL_CANDIDATES: ReadonlyArray<string> = [
-  'gemini-3.1-pro-preview',
-  'gemini-2.5-pro',
-  'gemini-pro-latest',
-  'gemini-flash-latest',
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-pro',
-  'gemini-1.5-flash',
+  'gemini-4-hydrogen',
+  'gemini-3.8-flash',
+  'gemini-3.5-flash-lite',
 ];
 
 const isModelAvailabilityError = (err: unknown): boolean =>
+  shouldRetryGeminiTextModelAfterError(err) ||
   /API_KEY_INVALID|API key not valid|INVALID_ARGUMENT|not found|not supported|is not available|Model .*not|PERMISSION_DENIED|FAILED_PRECONDITION|NOT_FOUND/i.test(
     stringifyGeminiCallError(err)
   );
@@ -188,12 +183,14 @@ const callSvgModel = async (
   apiKey: string
 ): Promise<{ text: string; modelUsed: string }> => {
   const attempts: SvgModelAttempt[] = [];
+  let hadQuotaError = false;
   for (let i = 0; i < SVG_MODEL_CANDIDATES.length; i++) {
     const model = SVG_MODEL_CANDIDATES[i];
     try {
       const response = await ai.models.generateContent({
         model,
         contents: { parts: [{ text: prompt }] },
+        config: { thinkingConfig: { thinkingLevel: 'high' as ThinkingLevel } },
       });
       const text = response.text ?? '';
       if (!text) {
@@ -203,23 +200,29 @@ const callSvgModel = async (
       }
       return { text, modelUsed: model };
     } catch (error: unknown) {
+      const details = error as { status?: unknown; code?: unknown; error?: { status?: unknown; code?: unknown } } | null;
+      const isQuotaError = [details?.status, details?.code, details?.error?.status, details?.error?.code]
+        .some(status => status === 429 || status === '429' || status === 'RESOURCE_EXHAUSTED') ||
+        /\b429\b|RESOURCE_EXHAUSTED|quota\s+(?:exceeded|reached|exhausted)\b/i.test(stringifyGeminiCallError(error));
+      hadQuotaError ||= isQuotaError;
       const errMsg = formatUserFacingGeminiError(stringifyGeminiCallError(error));
       attempts.push({ model, error: errMsg });
-      if (isModelAvailabilityError(error)) {
+      if (isQuotaError || isModelAvailabilityError(error)) {
         console.warn(`${label}: model ${model} unavailable for this key, trying next`, errMsg);
         continue;
       }
-      // Non-availability error (rate limit, network, etc.) — bubble up immediately.
+      // Other errors, such as network failures, bubble up immediately.
       throw error;
     }
   }
-  // Every candidate failed. Build a diagnostic error that lists each attempt
-  // and the key fingerprint so the user can verify they're sending what they
-  // think they're sending. We do NOT just say "API key invalid" because the
-  // user has confirmed image generation works with this same key.
+  // Preserve quota failures from any attempt before suggesting key configuration fixes.
   const lines = attempts.map(a => `  • ${a.model}: ${a.error}`).join('\n');
   const fingerprint = fingerprintKey(apiKey);
-  const detail =
+  const detail = hadQuotaError
+    ? `${label} failed after trying every Gemini text model. Google reported a quota or rate limit. ` +
+      `Wait and try again, or check your project's quota and billing in Google AI Studio.\n\n` +
+      `Per-model attempts:\n${lines}`
+    :
     `${label} failed for every Gemini text model. Your API key (${fingerprint}) was sent to each, ` +
     `and Google rejected each one. This is almost always a project-side model-enablement issue ` +
     `(your key works for image preview models but not Pro/Flash text models).\n\n` +

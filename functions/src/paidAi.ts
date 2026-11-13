@@ -4,7 +4,7 @@ import { enforceRateLimit } from './rateLimit';
 import { stagingOrigins } from "./corsOrigins";
 import { createHash, randomUUID } from "node:crypto";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, type ThinkingLevel } from "@google/genai";
 import { buildRunAiAssistOptions, resolveAiAssistBackend, resolveAiAssistVertexConfig } from "./aiAssistBackend";
 import * as logger from "firebase-functions/logger";
 import { defineSecret } from "firebase-functions/params";
@@ -845,6 +845,17 @@ export function resolveAiAssistFallbackModel(env: Record<string, string | undefi
   return model && /^[a-z0-9][a-z0-9._-]{2,63}$/.test(model) && model !== primary ? model : undefined;
 }
 
+function assistThinkingConfig(model: string, action: string) {
+  // Rollback models before Gemini 3 do not accept thinking levels.
+  if (!/^gemini-(?:[34](?:\.\d+)?-|(?:pro|flash|flash-lite)-latest$)/.test(model)) return {};
+  // Only known medium-capable models use medium. Pro and other rollback
+  // models use low, including the latest aliases.
+  const supportsMedium = /^gemini-(?:4-hydrogen(?:-\d{3})?|3\.[568]-flash(?:-\d{3})?|flash-latest)$/.test(model);
+  const thinkingLevel = action === "expand_prompt" && supportsMedium ? "medium" : "low";
+  // The installed SDK enum predates medium.
+  return { thinkingConfig: { thinkingLevel: thinkingLevel as ThinkingLevel } };
+}
+
 function safeUpstreamMessage(error: unknown, sensitiveValues: string[]): string | undefined {
   if (error instanceof HttpsError || error instanceof SyntaxError) return undefined;
   const status = upstreamStatusOf(error);
@@ -869,7 +880,7 @@ export async function generateWithUpstreamRetry<T>(
   timeoutMs: number,
   {
     sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
-    random = Math.random, now = Date.now, primaryModel = "gemini-flash-latest",
+    random = Math.random, now = Date.now, primaryModel = "gemini-4-hydrogen",
     fallbackModel, onFailure,
   }: {
     sleep?: (ms: number) => Promise<void>; random?: () => number; now?: () => number;
@@ -921,7 +932,7 @@ export const runAiAssist = onCall(
       await (async () => {
         const replay = await reserveAssistCredits({
           uid, milliCredits: AI_ASSIST_MILLICREDITS[action], idempotencyKey,
-          action, modelId: "gemini-flash-latest", isAdmin, cachedDelivery: true,
+          action, modelId: "gemini-4-hydrogen", isAdmin, cachedDelivery: true,
         });
         if (replay.alreadyCommitted) return;
         await commitReservation({
@@ -954,7 +965,7 @@ export const runAiAssist = onCall(
       milliCredits: AI_ASSIST_MILLICREDITS[action],
       idempotencyKey,
       action,
-      modelId: "gemini-flash-latest",
+      modelId: "gemini-4-hydrogen",
       isAdmin,
     });
 
@@ -963,11 +974,11 @@ export const runAiAssist = onCall(
     }
     // The day prefix locates this hold even if settlement happens after midnight UTC.
     const holdId = `${dateKey()}-${randomUUID()}`;
-    const helperSpendReserveUsd = 0.05;
+    const helperSpendReserveUsd = 0.10;
     let cacheWriteAttempted = false;
     let spendSettlementFailed = false;
     let attempt = 0;
-    let model = "gemini-flash-latest";
+    let model = "gemini-4-hydrogen";
     let loggedUnavailable: unknown;
     // Collect request strings only for redaction, never for structured log data.
     const requestStrings = (value: unknown): string[] => typeof value === "string" ? [value]
@@ -990,7 +1001,7 @@ export const runAiAssist = onCall(
       if (imageBase64) {
         parts.unshift({ inlineData: { data: imageBase64, mimeType: payload.mimeType || "image/png" } });
       }
-      const primaryModel = vertexConfig?.model ?? "gemini-flash-latest";
+      const primaryModel = vertexConfig?.model ?? "gemini-4-hydrogen";
       const fallbackModel = resolveAiAssistFallbackModel(process.env, primaryModel);
       if (process.env.AI_ASSIST_FALLBACK_MODEL !== undefined && !fallbackModel) {
         logger.warn("AI assist fallback model disabled", { action });
@@ -1004,7 +1015,7 @@ export const runAiAssist = onCall(
           config: {
             abortSignal,
             httpOptions: { timeout: timeoutMs },
-            temperature: action === "expand_prompt" ? 0.7 : 0.2,
+            ...assistThinkingConfig(attemptModel, action),
             ...(action === "expand_prompt" || action === "image_description"
               ? {}
               : { responseMimeType: "application/json" }),
