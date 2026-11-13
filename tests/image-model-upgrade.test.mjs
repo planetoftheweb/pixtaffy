@@ -286,7 +286,7 @@ test('BYOK helpers stop on unrelated errors and exhaust quota fallbacks once eac
 });
 
 for (const quota of [{ status: 429 }, { code: '429' }, { error: { status: 'RESOURCE_EXHAUSTED' } }, new Error('quota reached'), Object.assign(new Error('No capacity'), { status: 429 })]) {
-  for (const quotaIndex of [0, 2]) {
+  for (const quotaIndex of [0, 1, 2]) {
     test(`SVG exhaustion preserves quota diagnosis at attempt ${quotaIndex}: ${JSON.stringify(quota)}`, async () => {
       const calls = [];
       const { svg } = loadHelperServices(async request => {
@@ -305,6 +305,25 @@ for (const quota of [{ status: 429 }, { code: '429' }, { error: { status: 'RESOU
     });
   }
 }
+
+test('SVG refinement preserves quota diagnosis after later empty responses', async () => {
+  const calls = [];
+  const { svg } = loadHelperServices(async request => {
+    calls.push(request);
+    if (calls.length === 1) throw { status: 429 };
+    return { text: '' };
+  });
+  await assert.rejects(svg.refineSvg('<svg/>', 'test refinement', { prompt: 'test' }, {
+    brandColors: [], visualStyles: [], graphicTypes: [],
+  }, `AIza${'x'.repeat(35)}`), error => {
+    assert.match(error.message, /SVG refinement.*quota or rate limit/);
+    assert.doesNotMatch(error.message, /model-enablement|clear it|model restrictions/);
+    assert.match(error.message, /gemini-3\.5-flash-lite: empty text response/);
+    return true;
+  });
+  assert.deepEqual(calls.map(call => call.model), ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']);
+  for (const call of calls) assert.equal(call.config.thinkingConfig.thinkingLevel, 'high');
+});
 
 test('SVG availability exhaustion retains model enablement guidance', async () => {
   const { svg } = loadHelperServices(async () => { throw new Error('Model not found'); });

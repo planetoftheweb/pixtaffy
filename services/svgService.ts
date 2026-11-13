@@ -142,6 +142,7 @@ const svgToGeneratedImage = (svgCode: string): GeneratedImage => {
 };
 
 // Prefer Hydrogen, then current Flash and Flash Lite models for SVG generation.
+// Skip gemini-flash-latest because it resolves to gemini-3.8-flash.
 const SVG_MODEL_CANDIDATES: ReadonlyArray<string> = [
   'gemini-4-hydrogen',
   'gemini-3.8-flash',
@@ -214,10 +215,7 @@ const callSvgModel = async (
       throw error;
     }
   }
-  // Every candidate failed. Build a diagnostic error that lists each attempt
-  // and the key fingerprint so the user can verify they're sending what they
-  // think they're sending. We do NOT just say "API key invalid" because the
-  // user has confirmed image generation works with this same key.
+  // Preserve quota failures from any attempt before suggesting key configuration fixes.
   const lines = attempts.map(a => `  • ${a.model}: ${a.error}`).join('\n');
   const fingerprint = fingerprintKey(apiKey);
   const detail = hadQuotaError
