@@ -213,7 +213,7 @@ test('OpenRouter legacy selections use Sunburst for slug extraction and every re
 test('helper model candidates use current stable IDs and supported generation settings', () => {
   const cases = [
     ['services/geminiTextModelService.ts', 'GEMINI_TEXT_MODEL_FALLBACKS', ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']],
-    ['services/svgService.ts', 'SVG_MODEL_CANDIDATES', ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite']],
+    ['services/svgService.ts', 'SVG_MODEL_CANDIDATES', ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']],
   ];
   for (const [path, constant, expected] of cases) {
     const source = read(path);
@@ -254,7 +254,7 @@ for (const quota of [
     const calls = [];
     const generateContent = async request => {
       calls.push(request);
-      if (request.model !== 'gemini-flash-latest') throw quota;
+      if (!['gemini-flash-latest', 'gemini-3.8-flash'].includes(request.model)) throw quota;
       return { text: '<svg viewBox="0 0 100 100"><rect width="100" height="100"/></svg>' };
     };
     const { text, svg } = loadHelperServices(generateContent);
@@ -264,7 +264,7 @@ for (const quota of [
       brandColors: [], visualStyles: [], graphicTypes: [],
     }, `AIza${'x'.repeat(35)}`);
     assert.ok(result.svgCode.startsWith('<svg'));
-    assert.deepEqual(calls.map(call => call.model), ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-flash-latest']);
+    assert.deepEqual(calls.map(call => call.model), ['gemini-4-hydrogen', 'gemini-3.8-flash']);
     for (const call of calls) assert.equal(call.config.thinkingConfig.thinkingLevel, 'high');
   });
 }
@@ -281,6 +281,34 @@ test('BYOK helpers stop on unrelated errors and exhaust quota fallbacks once eac
       brandColors: [], visualStyles: [], graphicTypes: [],
     }, `AIza${'x'.repeat(35)}`));
     assert.deepEqual(calls, failure.status === 429
-      ? ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite'] : ['gemini-4-hydrogen']);
+      ? ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'] : ['gemini-4-hydrogen']);
   }
+});
+
+for (const quota of [{ status: 429 }, { code: '429' }, { error: { status: 'RESOURCE_EXHAUSTED' } }, new Error('quota reached'), Object.assign(new Error('No capacity'), { status: 429 })]) {
+  for (const quotaIndex of [0, 2]) {
+    test(`SVG exhaustion preserves quota diagnosis at attempt ${quotaIndex}: ${JSON.stringify(quota)}`, async () => {
+      const calls = [];
+      const { svg } = loadHelperServices(async request => {
+        calls.push(request.model);
+        throw calls.length - 1 === quotaIndex ? quota : new Error('Model not found');
+      });
+      await assert.rejects(svg.generateSvg({ prompt: 'test' }, {
+        brandColors: [], visualStyles: [], graphicTypes: [],
+      }, `AIza${'x'.repeat(35)}`), error => {
+        assert.match(error.message, /quota or rate limit/);
+        assert.doesNotMatch(error.message, /model-enablement|clear it|model restrictions/);
+        for (const model of ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']) assert.ok(error.message.includes(model));
+        return true;
+      });
+      assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']);
+    });
+  }
+}
+
+test('SVG availability exhaustion retains model enablement guidance', async () => {
+  const { svg } = loadHelperServices(async () => { throw new Error('Model not found'); });
+  await assert.rejects(svg.generateSvg({ prompt: 'test' }, {
+    brandColors: [], visualStyles: [], graphicTypes: [],
+  }, `AIza${'x'.repeat(35)}`), /model-enablement/);
 });

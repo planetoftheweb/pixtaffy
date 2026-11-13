@@ -145,7 +145,6 @@ const svgToGeneratedImage = (svgCode: string): GeneratedImage => {
 const SVG_MODEL_CANDIDATES: ReadonlyArray<string> = [
   'gemini-4-hydrogen',
   'gemini-3.8-flash',
-  'gemini-flash-latest',
   'gemini-3.5-flash-lite',
 ];
 
@@ -183,6 +182,7 @@ const callSvgModel = async (
   apiKey: string
 ): Promise<{ text: string; modelUsed: string }> => {
   const attempts: SvgModelAttempt[] = [];
+  let hadQuotaError = false;
   for (let i = 0; i < SVG_MODEL_CANDIDATES.length; i++) {
     const model = SVG_MODEL_CANDIDATES[i];
     try {
@@ -199,9 +199,14 @@ const callSvgModel = async (
       }
       return { text, modelUsed: model };
     } catch (error: unknown) {
+      const details = error as { status?: unknown; code?: unknown; error?: { status?: unknown; code?: unknown } } | null;
+      const isQuotaError = [details?.status, details?.code, details?.error?.status, details?.error?.code]
+        .some(status => status === 429 || status === '429' || status === 'RESOURCE_EXHAUSTED') ||
+        /\b429\b|RESOURCE_EXHAUSTED|quota/i.test(stringifyGeminiCallError(error));
+      hadQuotaError ||= isQuotaError;
       const errMsg = formatUserFacingGeminiError(stringifyGeminiCallError(error));
       attempts.push({ model, error: errMsg });
-      if (isModelAvailabilityError(error)) {
+      if (isQuotaError || isModelAvailabilityError(error)) {
         console.warn(`${label}: model ${model} unavailable for this key, trying next`, errMsg);
         continue;
       }
@@ -215,7 +220,11 @@ const callSvgModel = async (
   // user has confirmed image generation works with this same key.
   const lines = attempts.map(a => `  • ${a.model}: ${a.error}`).join('\n');
   const fingerprint = fingerprintKey(apiKey);
-  const detail =
+  const detail = hadQuotaError
+    ? `${label} failed after trying every Gemini text model. Google reported a quota or rate limit. ` +
+      `Wait and try again, or check your project's quota and billing in Google AI Studio.\n\n` +
+      `Per-model attempts:\n${lines}`
+    :
     `${label} failed for every Gemini text model. Your API key (${fingerprint}) was sent to each, ` +
     `and Google rejected each one. This is almost always a project-side model-enablement issue ` +
     `(your key works for image preview models but not Pro/Flash text models).\n\n` +
