@@ -209,3 +209,21 @@ test('OpenRouter legacy selections use Sunburst for slug extraction and every re
     assert.equal(body.background, 'transparent');
   }
 });
+
+test('helper model candidates use current stable IDs and supported generation settings', () => {
+  const cases = [
+    ['services/geminiTextModelService.ts', 'GEMINI_TEXT_MODEL_FALLBACKS', ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']],
+    ['services/svgService.ts', 'SVG_MODEL_CANDIDATES', ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite']],
+  ];
+  for (const [path, constant, expected] of cases) {
+    const source = read(path);
+    const array = source.match(new RegExp(`${constant}[^=]*=\\s*\\[([^\\]]+)\\]`))[1];
+    assert.deepEqual([...array.matchAll(/'([^']+)'/g)].map(match => match[1]), expected);
+    assert.doesNotMatch(array, /gemini-(?:2\.5-(?:flash|pro)|2\.0-flash|1\.5-[^']*|pro-latest|3\.1-pro-preview)/);
+  }
+  for (const path of [...cases.map(([path]) => path), 'functions/src/paidAi.ts']) {
+    assert.doesNotMatch(read(path), /xhigh|temperature|topP|topK|thinkingBudget|thinking_budget/);
+  }
+  assert.match(read('services/svgService.ts'), /thinkingConfig: \{ thinkingLevel: 'high' as ThinkingLevel \}/);
+  assert.doesNotMatch(read('functions/src/paidAi.ts'), /gemini-flash-latest/);
+});

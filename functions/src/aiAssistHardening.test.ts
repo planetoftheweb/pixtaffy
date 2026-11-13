@@ -113,6 +113,34 @@ test("unknown models use the highest table rates regardless of date", () => {
   assert.equal(cost.outputRate, 8.25);
 });
 
+test("hydrogen rates are flat across dates, backends, locations and version suffixes", () => {
+  for (const model of ["gemini-4-hydrogen", "gemini-4-hydrogen-001"]) {
+    for (const backend of ["vertex", "apikey"] as const) {
+      for (const location of ["global", "us-central1"]) {
+        for (const date of ["2026-11-13", "2027-01-01"]) {
+          const cost = geminiAssistCost({ ...rateInput, model, backend, location, requestedAt: Date.parse(date),
+            usage: { promptTokenCount: 1000, cachedContentTokenCount: 400, candidatesTokenCount: 100, thoughtsTokenCount: 200 } });
+          assert.equal(cost.unknownModel, false);
+          assert.equal(cost.inputRate, 1.5);
+          assert.equal(cost.outputRate, 7.5);
+          assert.equal(cost.actualCostUsd, (600 * 1.5 + 400 * 0.075 + 300 * 7.5) / 1_000_000);
+        }
+      }
+    }
+  }
+  const versioned = geminiAssistCost({ ...rateInput, model: "unknown", modelVersion: "gemini-4-hydrogen-001" });
+  assert.equal(versioned.unknownModel, false);
+  assert.equal(versioned.inputRate, 1.5);
+});
+
+test("hydrogen cached tokens default to zero and cannot exceed prompt tokens", () => {
+  for (const [cached, expected] of [[undefined, 1500], [-1, 1500], [1000, 75], [2000, 75]] as const) {
+    const cost = geminiAssistCost({ ...rateInput, model: "gemini-4-hydrogen",
+      usage: { promptTokenCount: 1000, cachedContentTokenCount: cached } });
+    assert.equal(cost.actualCostUsd, expected / 1_000_000);
+  }
+});
+
 test("assist error mapper classifies provider errors without exposing internals", () => {
   const cases: Array<[unknown, string]> = [
     [{ status: 429, message: '{"error":{"status":"RESOURCE_EXHAUSTED","message":"private quota"}}' }, "unavailable"],
@@ -251,12 +279,12 @@ const assistRequest = (action = "expand_prompt") => ({
   data: { action, idempotencyKey: "request-123", payload: { prompt: "example" } },
 } as any);
 const providerResponse = {
-  text: "provider result", modelVersion: "gemini-3.8-flash",
+  text: "provider result", modelVersion: "gemini-4-hydrogen",
   usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 100, thoughtsTokenCount: 100 },
 };
 function assertSpend(spend: Record<string, any>) {
   const expected = geminiAssistCost({
-    backend: "apikey", model: "gemini-flash-latest", modelVersion: providerResponse.modelVersion,
+    backend: "apikey", model: "gemini-4-hydrogen", modelVersion: providerResponse.modelVersion,
     requestedAt: Date.now(), usage: providerResponse.usageMetadata,
   }).actualCostUsd;
   assert.equal(spend.geminiUsd, expected);
@@ -1182,14 +1210,14 @@ for (const [label, error, upstreamStatus, expectedCalls, code] of [
       assert.equal(log.mock.callCount(), 0);
       warnings.forEach((call: { arguments: unknown[] }, index: number) => {
         assert.deepEqual(call.arguments, ["AI assist upstream unavailable", {
-          action: "expand_prompt", upstreamStatus, upstreamMessage: "[redacted]", attempt: index + 1, model: "gemini-flash-latest",
+          action: "expand_prompt", upstreamStatus, upstreamMessage: "[redacted]", attempt: index + 1, model: "gemini-4-hydrogen",
         }]);
       });
     } else {
       assert.equal(log.mock.callCount(), 1);
       assert.equal(warnings.length, 0);
       assert.deepEqual(log.mock.calls[0].arguments, ["AI assist failed", {
-        action: "expand_prompt", upstreamStatus, attempt: 1, model: "gemini-flash-latest",
+        action: "expand_prompt", upstreamStatus, attempt: 1, model: "gemini-4-hydrogen",
         code: error instanceof SyntaxError ? "Invalid AI response JSON" : code,
       }]);
     }
@@ -1258,11 +1286,11 @@ function configureFallback(t: import("node:test").TestContext, model?: string) {
 }
 
 test("fallback model resolver accepts only distinct valid model ids", () => {
-  assert.equal(resolveAiAssistFallbackModel({}, "gemini-flash-latest"), undefined);
-  assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: fallbackModel }, "gemini-flash-latest"), fallbackModel);
+  assert.equal(resolveAiAssistFallbackModel({}, "gemini-4-hydrogen"), undefined);
+  assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: fallbackModel }, "gemini-4-hydrogen"), fallbackModel);
   assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: "a".repeat(64) }, "primary"), "a".repeat(64));
-  for (const model of ["", "ab", "a".repeat(65), "Gemini-flash", "_gemini", "model/name", "model?key=value", " gemini-flash", "gemini-flash-latest"]) {
-    assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: model }, "gemini-flash-latest"), undefined);
+  for (const model of ["", "ab", "a".repeat(65), "Gemini-flash", "_gemini", "model/name", "model?key=value", " gemini-flash", "gemini-4-hydrogen"]) {
+    assert.equal(resolveAiAssistFallbackModel({ AI_ASSIST_FALLBACK_MODEL: model }, "gemini-4-hydrogen"), undefined);
   }
 });
 
@@ -1284,7 +1312,7 @@ for (const status of [503, 429] as const) {
     const cache = t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
     const warn = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
     assert.equal((await runAiAssist.run(assistRequest())).result, response.text);
-    assert.deepEqual(models, status === 503 ? ["gemini-flash-latest", "gemini-flash-latest", fallbackModel] : ["gemini-flash-latest", fallbackModel]);
+    assert.deepEqual(models, status === 503 ? ["gemini-4-hydrogen", "gemini-4-hydrogen", fallbackModel] : ["gemini-4-hydrogen", fallbackModel]);
     assert.ok(signals.every(signal => signal === signals[0]));
     assert.equal(delays.length, status === 503 ? 1 : 0);
     if (delays.length) assert.ok(delays[0] >= 500 && delays[0] <= 1000);
@@ -1310,13 +1338,13 @@ for (const status of [503, 429] as const) {
   });
 }
 
-for (const configured of [undefined, "invalid/model", "gemini-flash-latest"]) {
-  test(`runAiAssist disables ${configured === undefined ? "unset" : configured === "gemini-flash-latest" ? "equal" : "invalid"} fallback and releases billing after three primary failures`, async (t) => {
+for (const configured of [undefined, "invalid/model", "gemini-4-hydrogen"]) {
+  test(`runAiAssist disables ${configured === undefined ? "unset" : configured === "gemini-4-hydrogen" ? "equal" : "invalid"} fallback and releases billing after three primary failures`, async (t) => {
     configureFallback(t, configured);
     assistDeadlineClock(t, 75_000);
     const delays = skipRetrySleeps(t);
     const mocks = mockAssist(t, async input => {
-      assert.equal(input.model, "gemini-flash-latest");
+      assert.equal(input.model, "gemini-4-hydrogen");
       throw { status: 503 };
     }, true);
     fund(mocks.store);
@@ -1395,7 +1423,7 @@ test("runAiAssist logs high demand from the inner JSON message with safe attempt
   const warnings = warn.mock.calls.filter((call: AssistLogCall) => call.arguments[0] === "AI assist upstream unavailable");
   assert.equal(warnings.length, 3);
   warnings.forEach((call: AssistLogCall, index: number) => assert.deepEqual(call.arguments, ["AI assist upstream unavailable", {
-    action: "expand_prompt", upstreamStatus: 503, upstreamMessage, attempt: index + 1, model: "gemini-flash-latest",
+    action: "expand_prompt", upstreamStatus: 503, upstreamMessage, attempt: index + 1, model: "gemini-4-hydrogen",
   }]));
   assert.ok(!JSON.stringify(warn.mock.calls.map((call: AssistLogCall) => call.arguments)).includes(promptMarker));
 });
@@ -1473,7 +1501,7 @@ for (const useFallback of [false, true]) {
     const rejected = assert.rejects(runAiAssist.run(assistRequest()), { code: "deadline-exceeded" });
     await stalled;
     assert.equal(clock.set.mock.callCount(), 1);
-    assert.equal(inputs[2].model, useFallback ? fallbackModel : "gemini-flash-latest");
+    assert.equal(inputs[2].model, useFallback ? fallbackModel : "gemini-4-hydrogen");
     assert.deepEqual(inputs.map(input => input.config.httpOptions.timeout), [75_000, 74_000 - delays[0], 73_000 - delays.reduce((sum, ms) => sum + ms, 0)]);
     assert.ok(inputs.every(input => input.config.abortSignal === inputs[0].config.abortSignal));
     now = 75_000;
@@ -1489,5 +1517,29 @@ for (const useFallback of [false, true]) {
     assert.equal(cache.mock.callCount(), 0);
     assert.equal(clock.clear.mock.callCount(), 1);
     assert.equal(clock.timers.size, 0);
+  });
+}
+
+for (const action of Object.keys(require("./pricing").AI_ASSIST_MILLICREDITS)) {
+  test(`runAiAssist sends only supported generation settings for ${action}`, async (t) => {
+    let calls = 0;
+    const mocks = mockAssist(t, async (input) => {
+      calls++;
+      assert.equal(input.model, "gemini-4-hydrogen");
+      assert.equal(input.config.thinkingConfig.thinkingLevel, action === "expand_prompt" ? "medium" : "low");
+      for (const key of ["temperature", "topP", "topK", "thinkingBudget", "thinking_budget"]) {
+        assert.equal(key in input.config, false);
+        assert.equal(key in input.config.thinkingConfig, false);
+      }
+      assert.equal(mocks.spend().geminiReservedUsd, 0.05);
+      return { ...providerResponse, text: action === "expand_prompt" || action === "image_description" ? "result" : "{}" };
+    });
+    const warnings = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
+    t.mock.method(mocks.deliveries, "writePaidAssistDeliveryWithRetry", async (value: CachedPaidAssistDelivery) => value);
+    await runAiAssist.run(assistRequest(action));
+    assert.equal(calls, 1);
+    assert.equal(mocks.reserve.mock.calls[0].arguments[0].modelId, "gemini-4-hydrogen");
+    assertSpend(mocks.spend());
+    assert.equal(warnings.mock.calls.some((call: AssistLogCall) => String(call.arguments[0]).includes("Unknown AI assist model")), false);
   });
 }

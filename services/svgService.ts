@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, type ThinkingLevel } from "@google/genai";
 import { GenerationConfig, GeneratedImage, BrandColorDefinition, VisualStyleDefinition, GraphicTypeDefinition, SvgMode } from "../types";
 import {
   formatUserFacingGeminiError,
@@ -140,19 +140,12 @@ const svgToGeneratedImage = (svgCode: string): GeneratedImage => {
   };
 };
 
-// Wide candidate list — covers Pro, Flash, and older 1.5/2.0 stable models so
-// we work with whatever the user's project has enabled. The list intentionally
-// does NOT include image-preview ids; those models reject TEXT-only requests
-// (they require IMAGE in responseModalities) and would just add noise.
+// Prefer Hydrogen, then current Flash and Flash Lite models for SVG generation.
 const SVG_MODEL_CANDIDATES: ReadonlyArray<string> = [
-  'gemini-3.1-pro-preview',
-  'gemini-2.5-pro',
-  'gemini-pro-latest',
+  'gemini-4-hydrogen',
+  'gemini-3.8-flash',
   'gemini-flash-latest',
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-pro',
-  'gemini-1.5-flash',
+  'gemini-3.5-flash-lite',
 ];
 
 const isModelAvailabilityError = (err: unknown): boolean =>
@@ -194,6 +187,7 @@ const callSvgModel = async (
       const response = await ai.models.generateContent({
         model,
         contents: { parts: [{ text: prompt }] },
+        config: { thinkingConfig: { thinkingLevel: 'high' as ThinkingLevel } },
       });
       const text = response.text ?? '';
       if (!text) {

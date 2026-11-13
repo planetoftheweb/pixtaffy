@@ -1,12 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Text/vision helper calls should use Google's always-current Flash alias first.
-// Some projects return API_KEY_INVALID when a pinned model id is unavailable,
-// even when the key itself works for other Gemini models.
+// Text/vision helpers prefer Hydrogen, then the current Flash alias and Flash Lite.
 export const GEMINI_TEXT_MODEL_FALLBACKS = [
+  'gemini-4-hydrogen',
   'gemini-flash-latest',
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
+  'gemini-3.5-flash-lite',
 ] as const;
 
 type GenerateContentRequest = Parameters<GoogleGenAI['models']['generateContent']>[0];
