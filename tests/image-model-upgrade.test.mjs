@@ -286,6 +286,32 @@ test('BYOK text exhaustion preserves quota diagnosis after two quota failures an
   assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
 });
 
+for (const failure of [
+  new Error('API_KEY_INVALID: API key not valid'),
+  new Error('INVALID_ARGUMENT: API key not valid'),
+  new Error('PERMISSION_DENIED: quota project not found'),
+  { error: { code: 403, status: 'PERMISSION_DENIED' } },
+]) {
+  test(`BYOK text preserves key configuration errors after quota: ${failure.message ?? JSON.stringify(failure)}`, async () => {
+    const calls = [];
+    const generateContent = async request => {
+      calls.push(request.model);
+      if (calls.length === 1) throw { status: 429 };
+      if (calls.length === 2) throw failure;
+      throw new Error('Model not found');
+    };
+    const { text } = loadHelperServices(generateContent);
+    await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'), error => {
+      assert.equal(error, failure);
+      assert.doesNotMatch(error.message ?? JSON.stringify(error), /quota or rate limit|Wait and try again/);
+      return true;
+    });
+    assert.deepEqual(calls, failure.error
+      ? ['gemini-4-hydrogen', 'gemini-flash-latest']
+      : ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
+  });
+}
+
 test('BYOK helpers stop on unrelated errors and exhaust quota fallbacks once each', async () => {
   for (const failure of [new Error('network disconnected'), { status: 429 }]) {
     const calls = [];
