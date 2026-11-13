@@ -290,9 +290,8 @@ for (const failure of [
   new Error('API_KEY_INVALID: API key not valid'),
   new Error('INVALID_ARGUMENT: API key not valid'),
   new Error('PERMISSION_DENIED: quota project not found'),
-  { error: { code: 403, status: 'PERMISSION_DENIED' } },
 ]) {
-  test(`BYOK text preserves key configuration errors after quota: ${failure.message ?? JSON.stringify(failure)}`, async () => {
+  test(`BYOK text exhaustion preserves quota diagnosis after retryable errors: ${failure.message}`, async () => {
     const calls = [];
     const generateContent = async request => {
       calls.push(request.model);
@@ -302,15 +301,37 @@ for (const failure of [
     };
     const { text } = loadHelperServices(generateContent);
     await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'), error => {
-      assert.equal(error, failure);
-      assert.doesNotMatch(error.message ?? JSON.stringify(error), /quota or rate limit|Wait and try again/);
+      assert.match(error.message, /quota or rate limit/);
       return true;
     });
-    assert.deepEqual(calls, failure.error
-      ? ['gemini-4-hydrogen', 'gemini-flash-latest']
-      : ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
+    assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
   });
 }
+
+test('BYOK text exhaustion preserves quota diagnosis after Hydrogen INVALID_ARGUMENT and two quota failures', async () => {
+  const calls = [];
+  const generateContent = async request => {
+    calls.push(request.model);
+    if (calls.length === 1) throw new Error('INVALID_ARGUMENT: unsupported request field');
+    throw { status: 429 };
+  };
+  const { text } = loadHelperServices(generateContent);
+  await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'), /quota or rate limit/);
+  assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
+});
+
+test('BYOK text stops immediately on non-retryable configuration errors after quota', async () => {
+  const calls = [];
+  const failure = { error: { code: 403, status: 'PERMISSION_DENIED' } };
+  const generateContent = async request => {
+    calls.push(request.model);
+    if (calls.length === 1) throw { status: 429 };
+    throw failure;
+  };
+  const { text } = loadHelperServices(generateContent);
+  await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'), error => error === failure);
+  assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-flash-latest']);
+});
 
 test('BYOK helpers stop on unrelated errors and exhaust quota fallbacks once each', async () => {
   for (const failure of [new Error('network disconnected'), { status: 429 }]) {

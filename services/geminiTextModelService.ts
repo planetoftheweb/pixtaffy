@@ -48,7 +48,6 @@ export const generateContentWithGeminiTextFallback = async (
   label: string
 ): Promise<GenerateContentResponse> => {
   let lastError: unknown;
-  let lastConfigurationError: unknown;
   let hadQuotaError = false;
 
   for (let mi = 0; mi < GEMINI_TEXT_MODEL_FALLBACKS.length; mi++) {
@@ -66,9 +65,6 @@ export const generateContentWithGeminiTextFallback = async (
         /\b429\b|RESOURCE_EXHAUSTED|quota\s+(?:exceeded|reached|exhausted)\b/i.test(stringifyGeminiCallError(error));
       hadQuotaError ||= isQuotaError;
       if (!isQuotaError && !shouldRetryGeminiTextModelAfterError(error)) throw error;
-      if (!isQuotaError && /API_KEY_INVALID|INVALID_ARGUMENT|PERMISSION_DENIED|UNAUTHENTICATED/i.test(stringifyGeminiCallError(error))) {
-        lastConfigurationError = error;
-      }
       const moreModels = mi < GEMINI_TEXT_MODEL_FALLBACKS.length - 1;
       if (moreModels) {
         console.warn(`${label}: model ${model} failed, retrying with next Flash id`, error);
@@ -79,7 +75,6 @@ export const generateContentWithGeminiTextFallback = async (
     }
   }
 
-  if (hadQuotaError && lastConfigurationError) throw lastConfigurationError;
   if (hadQuotaError) {
     throw new Error(`${label} failed after trying every Gemini text model. Google reported a quota or rate limit. ` +
       `Wait and try again, or check your project's quota and billing in Google AI Studio.`);
