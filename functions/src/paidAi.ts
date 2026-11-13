@@ -849,9 +849,9 @@ function assistThinkingConfig(model: string, action: string) {
   // Rollback models before Gemini 3 do not accept thinking levels.
   if (!/^gemini-(?:[34](?:\.\d+)?-|(?:pro|flash|flash-lite)-latest$)/.test(model)) return {};
   // Only known medium-capable models use medium. Pro and other rollback
-  // models use the common low/high levels, including the latest aliases.
+  // models use low, including the latest aliases.
   const supportsMedium = /^gemini-(?:4-hydrogen(?:-\d{3})?|3\.[568]-flash(?:-\d{3})?|flash-latest)$/.test(model);
-  const thinkingLevel = action === "expand_prompt" ? (supportsMedium ? "medium" : "high") : "low";
+  const thinkingLevel = action === "expand_prompt" && supportsMedium ? "medium" : "low";
   // The installed SDK enum predates medium.
   return { thinkingConfig: { thinkingLevel: thinkingLevel as ThinkingLevel } };
 }
