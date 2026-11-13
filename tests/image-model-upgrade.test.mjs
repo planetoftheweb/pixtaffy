@@ -269,6 +269,23 @@ for (const quota of [
   });
 }
 
+test('BYOK text exhaustion preserves quota diagnosis after two quota failures and model not found', async () => {
+  const calls = [];
+  const generateContent = async request => {
+    calls.push(request.model);
+    if (request.model === 'gemini-4-hydrogen') throw { status: 429 };
+    if (request.model === 'gemini-flash-latest') throw { code: 429, error: { status: 'RESOURCE_EXHAUSTED' } };
+    throw new Error('Model not found');
+  };
+  const { text } = loadHelperServices(generateContent);
+  await assert.rejects(text.generateContentWithGeminiTextFallback({ models: { generateContent } }, { contents: 'test' }, 'test'), error => {
+    assert.match(error.message, /quota or rate limit/);
+    assert.doesNotMatch(error.message, /not found/i);
+    return true;
+  });
+  assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
+});
+
 test('BYOK helpers stop on unrelated errors and exhaust quota fallbacks once each', async () => {
   for (const failure of [new Error('network disconnected'), { status: 429 }]) {
     const calls = [];

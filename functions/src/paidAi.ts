@@ -974,7 +974,7 @@ export const runAiAssist = onCall(
     }
     // The day prefix locates this hold even if settlement happens after midnight UTC.
     const holdId = `${dateKey()}-${randomUUID()}`;
-    const helperSpendReserveUsd = 0.05;
+    const helperSpendReserveUsd = 0.10;
     let cacheWriteAttempted = false;
     let spendSettlementFailed = false;
     let attempt = 0;

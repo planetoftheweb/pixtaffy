@@ -106,6 +106,18 @@ test("assist cost includes thinking tokens and prefers known response model vers
     assert.equal(geminiAssistCost({ ...rateInput, model }).inputRate, 0.75);
   }
 });
+test("helper spend hold covers a 30k input and 2k output hydrogen call", () => {
+  const { actualCostUsd } = geminiAssistCost({
+    backend: "apikey", model: "gemini-4-hydrogen", requestedAt: Date.parse("2026-11-13T00:00:00Z"),
+    usage: { promptTokenCount: 30_000, candidatesTokenCount: 2_000 },
+  });
+  assert.ok(Math.abs(actualCostUsd - 0.06) < 1e-10);
+  const source = readFileSync(resolve(__dirname, "../src/paidAi.ts"), "utf8");
+  const hold = Number(source.match(/const helperSpendReserveUsd = ([0-9.]+);/)?.[1]);
+  assert.equal(hold, 0.10);
+  assert.ok(actualCostUsd <= hold);
+});
+
 test("unknown models use the highest table rates regardless of date", () => {
   const cost = geminiAssistCost({ ...rateInput, model: "unknown" });
   assert.equal(cost.unknownModel, true);
@@ -339,7 +351,7 @@ test("runAiAssist retries two failed spend writes and settles its hold exactly o
   assert.equal(spendWrites.releases(), 0);
   const holds = [...mocks.store.docs.values()].filter(doc => doc.state === "settled");
   assert.equal(holds.length, 1);
-  assert.equal(holds[0].amount, 0.05);
+  assert.equal(holds[0].amount, 0.10);
   assertSpend(mocks.spend());
   assert.equal(log.mock.callCount(), 0);
   assert.equal(mocks.commit.mock.callCount(), 1);
@@ -378,10 +390,10 @@ for (const outcome of ["success", "safety", "invalid JSON", "empty", "delivery f
     // No capacity-release transaction runs after the reserve and three spend attempts.
     assert.equal((mocks.store.firestore.runTransaction as any).mock.callCount(), 4);
     assert.equal(mocks.spend().geminiUsd, undefined);
-    assert.equal(mocks.spend().geminiReservedUsd, 0.05);
+    assert.equal(mocks.spend().geminiReservedUsd, 0.10);
     const holds = [...mocks.store.docs.values()].filter(doc => doc.state === "held");
     assert.equal(holds.length, 1);
-    assert.equal(holds[0].amount, 0.05);
+    assert.equal(holds[0].amount, 0.10);
     assert.equal(mocks.release.mock.callCount(), ["safety", "invalid JSON", "empty"].includes(outcome) ? 1 : 0);
     const accountingErrors = log.mock.calls.filter((call: { arguments: unknown[] }) => String(call.arguments[0]).startsWith("Provider spend"));
     assert.deepEqual(accountingErrors.map((call: { arguments: unknown[] }) => call.arguments), [
@@ -1531,7 +1543,7 @@ for (const action of Object.keys(require("./pricing").AI_ASSIST_MILLICREDITS)) {
         assert.equal(key in input.config, false);
         assert.equal(key in input.config.thinkingConfig, false);
       }
-      assert.equal(mocks.spend().geminiReservedUsd, 0.05);
+      assert.equal(mocks.spend().geminiReservedUsd, 0.10);
       return { ...providerResponse, text: action === "expand_prompt" || action === "image_description" ? "result" : "{}" };
     });
     const warnings = t.mock.method(require("firebase-functions/logger"), "warn", () => {});
