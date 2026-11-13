@@ -203,7 +203,7 @@ const callSvgModel = async (
       const details = error as { status?: unknown; code?: unknown; error?: { status?: unknown; code?: unknown } } | null;
       const isQuotaError = [details?.status, details?.code, details?.error?.status, details?.error?.code]
         .some(status => status === 429 || status === '429' || status === 'RESOURCE_EXHAUSTED') ||
-        /\b429\b|RESOURCE_EXHAUSTED|quota/i.test(stringifyGeminiCallError(error));
+        /\b429\b|RESOURCE_EXHAUSTED|quota\s+(?:exceeded|reached|exhausted)\b/i.test(stringifyGeminiCallError(error));
       hadQuotaError ||= isQuotaError;
       const errMsg = formatUserFacingGeminiError(stringifyGeminiCallError(error));
       attempts.push({ model, error: errMsg });

@@ -285,7 +285,7 @@ test('BYOK helpers stop on unrelated errors and exhaust quota fallbacks once eac
   }
 });
 
-for (const quota of [{ status: 429 }, { code: '429' }, { error: { status: 'RESOURCE_EXHAUSTED' } }, new Error('quota reached'), Object.assign(new Error('No capacity'), { status: 429 })]) {
+for (const quota of [{ status: 429 }, { code: '429' }, { error: { status: 'RESOURCE_EXHAUSTED' } }, new Error('quota reached'), new Error('quota exceeded'), new Error('quota exhausted'), Object.assign(new Error('No capacity'), { status: 429 })]) {
   for (const quotaIndex of [0, 1, 2]) {
     test(`SVG exhaustion preserves quota diagnosis at attempt ${quotaIndex}: ${JSON.stringify(quota)}`, async () => {
       const calls = [];
@@ -331,3 +331,27 @@ test('SVG availability exhaustion retains model enablement guidance', async () =
     brandColors: [], visualStyles: [], graphicTypes: [],
   }, `AIza${'x'.repeat(35)}`), /model-enablement/);
 });
+
+for (const message of [
+  'PERMISSION_DENIED: quota project not set',
+  'PERMISSION_DENIED: quota-project header is missing',
+]) {
+  test(`SVG does not classify quota project configuration as exhaustion: ${message}`, async () => {
+    const calls = [];
+    const failure = new Error(message);
+    const { svg } = loadHelperServices(async request => {
+      calls.push(request.model);
+      throw failure;
+    });
+    await assert.rejects(svg.generateSvg({ prompt: 'test' }, {
+      brandColors: [], visualStyles: [], graphicTypes: [],
+    }, `AIza${'x'.repeat(35)}`), error => {
+      assert.doesNotMatch(error.message, /quota or rate limit|Wait and try again/);
+      assert.match(error.message, /PERMISSION_DENIED/);
+      assert.match(error.message, /model-enablement/);
+      assert.match(error.message, /clear it/);
+      return true;
+    });
+    assert.deepEqual(calls, ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']);
+  });
+}
